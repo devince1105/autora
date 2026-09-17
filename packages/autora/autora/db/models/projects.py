@@ -38,8 +38,10 @@ class Project(IdMixin, TimestampMixin, Base):
     description: Mapped[str | None]
     state: Mapped[str] = mapped_column(server_default=ProjectState.PROPOSED.value)
     kill_criteria: Mapped[dict[str, Any] | None]
-    created_by_run_id: Mapped[uuid.UUID | None]
-    """agent_runs.id of the proposing run; FK added with agent_runs (T-201)."""
+    created_by_run_id: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey("agent_runs.id", use_alter=True)
+    )
+    """agent_runs.id of the run that proposed this project (None when created by a human)."""
     approved_by: Mapped[dict[str, Any] | None]
     """Actor JSON of the approver."""
     override_reason: Mapped[str | None]

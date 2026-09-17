@@ -313,6 +313,7 @@ export const BudgetExhaustedV1Payload = z.object({
   task_id: z.uuid().nullable().default(null),
   limit: z.string().regex(new RegExp("^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$")),
   spent: z.string().regex(new RegExp("^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$")),
+  requested: z.string().regex(new RegExp("^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$")).default("0"),
   currency: z.string().default("USD"),
 });
 export type BudgetExhaustedV1Payload = z.infer<typeof BudgetExhaustedV1Payload>;

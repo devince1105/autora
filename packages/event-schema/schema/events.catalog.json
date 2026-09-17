@@ -1045,6 +1045,7 @@
         "persistence": "persisted",
         "payload": {
           "additionalProperties": false,
+          "description": "Raised by the runtime cost guard when a model call would exceed a hard budget.",
           "properties": {
             "scope": {
               "enum": [
@@ -1090,6 +1091,12 @@
             "spent": {
               "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
               "title": "Spent",
+              "type": "string"
+            },
+            "requested": {
+              "default": "0",
+              "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+              "title": "Requested",
               "type": "string"
             },
             "currency": {

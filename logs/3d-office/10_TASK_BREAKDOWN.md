@@ -221,3 +221,14 @@ T-309,T-601 → T-608 ; T-211 → T-609 ; all → T-610
 | T-110 | `apps/api/autora_api/{app,deps,problems}.py`、`routers/{companies,events}.py`；錯誤一律 problem+json；`GET /api/events` 回傳 `{items, next_after, has_more}` |
 | 驗收 | `make phase1-acceptance`：Python 在 Postgres 走完 8 個 activity 狀態並輸出真實事件 → TS 以產生的 zod 全數解析 |
 | CI | Python job 內建 pgvector Postgres；`AUTORA_REQUIRE_DB=1` 讓 DB 不可用時測試失敗而非 skip |
+
+## Phase 2 實作註記（進行中，2026-09-17）
+
+| Task | 實際位置 / 差異 |
+|---|---|
+| T-201 | `db/models/tasks.py`、`runtime/lifecycles.py`（`TASK_FSM`、`AGENT_RUN_FSM`、`WORKFLOW_RUN_FSM`）；DB 強制「RUNNING ⇔ 持有租約」、「終止 ⇔ finished_at」、每個（task, attempt）一個 run、`agent_steps` append-only |
+| T-204 | `runtime/tools/registry.py`；TOOL_CALLED 單獨提交，工具領域寫入與 TOOL_COMPLETED 同交易，失敗另行提交 TOOL_FAILED（避免長時間持有公司事件鎖） |
+| T-207 | `runtime/models/{types,router,gateway}.py`、`providers/fake.py`；`model_calls` 為模型成本唯一來源（append-only）；結構化輸出不合格以 `output_issues` 回傳而非拋錯 |
+| T-209 | `runtime/cost/guard.py`、`cost_reservations`；`BUDGET_EXHAUSTED` 移至執行環境事件目錄；cycle 預算暫以日計 |
+| T-210 | `infra/blobstore.py`（僅 LocalFS，S3 延後，共用契約測試）、`runtime/trace/`、`apps/api/autora_api/routers/runs.py` |
+| T-212 | `runtime/scheduler.py`；**不使用 APScheduler**，改為輪詢 `schedules` 表 + `croniter`；錯過的執行合併為一次 |

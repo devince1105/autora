@@ -156,16 +156,6 @@ class BudgetAllocated(EventPayload):
     currency: str = "USD"
 
 
-@event("BUDGET_EXHAUSTED")
-class BudgetExhausted(EventPayload):
-    scope: Literal["company", "project", "task", "run"]
-    project_id: uuid.UUID | None = None
-    task_id: uuid.UUID | None = None
-    limit: Decimal = Field(ge=0)
-    spent: Decimal = Field(ge=0)
-    currency: str = "USD"
-
-
 class _LedgerEvent(EventPayload):
     transaction_id: uuid.UUID
     project_id: uuid.UUID | None = None

@@ -1,6 +1,6 @@
-"""Runtime tables: FSM audit trail (T-104) and the event log / outbox (T-106).
+"""Runtime tables: FSM audit trail (T-104), event log / outbox (T-106), schedules (T-212).
 
-Further runtime tables (tasks, agent_runs, ...) land here in T-201.
+Work execution tables (tasks, agent_runs, ...) live in ``tasks.py``.
 """
 
 from __future__ import annotations
@@ -9,10 +9,19 @@ import uuid
 from datetime import datetime
 from typing import Any
 
-from sqlalchemy import BigInteger, ForeignKey, Identity, Index, func, text
+from sqlalchemy import (
+    BigInteger,
+    CheckConstraint,
+    ForeignKey,
+    Identity,
+    Index,
+    UniqueConstraint,
+    func,
+    text,
+)
 from sqlalchemy.orm import Mapped, mapped_column
 
-from autora.db.base import Base, IdMixin
+from autora.db.base import Base, IdMixin, TimestampMixin, check_regex
 
 
 class StateTransition(IdMixin, Base):
@@ -68,3 +77,36 @@ class EventRecord(Base):
     payload: Mapped[dict[str, Any]]
     recorded_at: Mapped[datetime] = mapped_column(server_default=func.now())
     processed_at: Mapped[datetime | None]
+
+
+class Schedule(IdMixin, TimestampMixin, Base):
+    """A time trigger. The table is the source of truth: workers poll due rows with
+    ``FOR UPDATE SKIP LOCKED`` and a lease, so any number of workers fire each run once."""
+
+    __tablename__ = "schedules"
+    __table_args__ = (
+        UniqueConstraint("company_id", "name"),
+        check_regex("name", "^[a-z][a-z0-9_]*(\\.[a-z][a-z0-9_]*)*$"),
+        check_regex("handler", "^[a-z][a-z0-9_]*(\\.[a-z][a-z0-9_]*)*$"),
+        CheckConstraint(
+            "(lease_owner IS NULL) = (lease_until IS NULL)", name="lease_fields_together"
+        ),
+        Index("ix_schedules_due", "next_run_at", postgresql_where=text("enabled")),
+    )
+
+    company_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("companies.id"))
+    name: Mapped[str]
+    """e.g. "cycle.daily_start"."""
+    cron: Mapped[str]
+    """Standard 5-field cron, evaluated in ``timezone``."""
+    timezone: Mapped[str] = mapped_column(server_default="UTC")
+    handler: Mapped[str]
+    """Registered handler key, e.g. "cycle.start"."""
+    payload: Mapped[dict[str, Any]] = mapped_column(server_default=text("'{}'::jsonb"))
+    enabled: Mapped[bool] = mapped_column(server_default="true")
+    next_run_at: Mapped[datetime]
+    last_run_at: Mapped[datetime | None]
+    last_error: Mapped[str | None]
+    consecutive_failures: Mapped[int] = mapped_column(server_default="0")
+    lease_owner: Mapped[str | None]
+    lease_until: Mapped[datetime | None]

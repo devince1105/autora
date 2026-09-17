@@ -18,13 +18,29 @@ from autora.db.models.finance import (
     TransactionKind,
     TransactionSource,
 )
+from autora.db.models.model_calls import CostReservation, ModelCall, ModelCallStatus
 from autora.db.models.projects import Project, ProjectState
-from autora.db.models.runtime import EventRecord, StateTransition
+from autora.db.models.runtime import EventRecord, Schedule, StateTransition
+from autora.db.models.tasks import (
+    AGENT_RUN_TERMINAL,
+    AgentRun,
+    AgentRunState,
+    AgentStep,
+    StepKind,
+    Task,
+    TaskState,
+    WorkflowRun,
+    WorkflowRunState,
+)
 
 __all__ = [
+    "AGENT_RUN_TERMINAL",
     "ActivityState",
     "Agent",
     "AgentActivity",
+    "AgentRun",
+    "AgentRunState",
+    "AgentStep",
     "AgentStatus",
     "Budget",
     "BudgetPeriod",
@@ -33,13 +49,22 @@ __all__ = [
     "CompanyPolicy",
     "CompanyStatus",
     "CompanyType",
+    "CostReservation",
     "EventRecord",
     "GoalLevel",
     "GoalStatus",
+    "ModelCall",
+    "ModelCallStatus",
     "Project",
     "ProjectState",
+    "Schedule",
     "StateTransition",
+    "StepKind",
+    "Task",
+    "TaskState",
     "Transaction",
     "TransactionKind",
     "TransactionSource",
+    "WorkflowRun",
+    "WorkflowRunState",
 ]

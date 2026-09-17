@@ -61,6 +61,10 @@ class Settings(BaseSettings):
     tools_profile: Literal["fixture", "live"] = "fixture"
     tavily_api_key: SecretStr | None = None
 
+    # --- Blob storage (T-210) ---
+    blob_store_dir: Path = Path(__file__).resolve().parents[4] / "data" / "blobs"
+    """LocalFS blob root. Relative paths resolve against the current directory."""
+
     # --- API ---
     api_bearer_token: SecretStr = SecretStr("change-me")
 

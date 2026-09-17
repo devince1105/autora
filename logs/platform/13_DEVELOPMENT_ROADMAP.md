@@ -54,7 +54,7 @@
 | Docker compose | 需要 | 需要 | — | — |
 | Sentry | 需要 | 需要 | — | 結構化 log |
 | OpenTelemetry | 不需要（domain trace 表已有） | 需要 | 多 process latency 分析 | 內建 trace |
-| APScheduler | 需要 | 需要 | — | 自寫 loop |
+| APScheduler | **不採用**（T-212 決定） | 不需要 | — | `schedules` 資料表 + `FOR UPDATE SKIP LOCKED` 輪詢 + `croniter`；資料表已是下次執行時間與租約的唯一來源，記憶體排程只會形成第二份狀態 |
 | SQLAlchemy 2 + Alembic、pydantic v2 | 需要 | 需要 | — | — |
 | React Three Fiber + drei | 需要（Phase 4） | 需要 | — | 2D board |
 | Zustand + TanStack Query | 需要 | 需要 | — | — |

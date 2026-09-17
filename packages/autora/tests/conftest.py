@@ -114,3 +114,50 @@ async def db_session(db_engine: AsyncEngine) -> AsyncIterator[AsyncSession]:
         finally:
             await session.close()
             await trans.rollback()
+
+
+@pytest.fixture
+def committed(db_engine: AsyncEngine) -> async_sessionmaker[AsyncSession]:
+    """A session factory whose commits are real (for NOTIFY, locks and multi-session races).
+
+    Data persists in the test database for the rest of the session, so tests using this must
+    create uniquely named rows (see ``unique_company``).
+    """
+    return async_sessionmaker(db_engine, expire_on_commit=False)
+
+
+async def unique_company(session: AsyncSession, prefix: str = "co"):
+    import uuid
+
+    from autora.db.models import Company
+
+    company = Company(slug=f"{prefix}-{uuid.uuid4().hex[:12]}", name=prefix, type="newsroom")
+    session.add(company)
+    await session.flush()
+    return company
+
+
+async def running_agent_run(session: AsyncSession, prefix: str = "run"):
+    """A company + project + agent + task + agent run in state RUNNING (flushed, not committed)."""
+    from autora.db.models import Agent, AgentRun, Project, Task
+
+    company = await unique_company(session, prefix)
+    project = Project(company_id=company.id, name="p")
+    agent = Agent(company_id=company.id, role="researcher", display_name="Researcher")
+    session.add_all([project, agent])
+    await session.flush()
+    task = Task(
+        company_id=company.id,
+        project_id=project.id,
+        name="research",
+        display_name="Find stories",
+        required_role="researcher",
+    )
+    session.add(task)
+    await session.flush()
+    run = AgentRun(
+        company_id=company.id, task_id=task.id, agent_id=agent.id, attempt=1, state="RUNNING"
+    )
+    session.add(run)
+    await session.flush()
+    return run
