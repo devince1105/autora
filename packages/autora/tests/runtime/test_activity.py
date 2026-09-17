@@ -145,6 +145,7 @@ async def test_completed_gets_display_until_and_projects_to_idle_later(db_sessio
         ([], ev.AgentResumed(), "cannot resume"),
         ([], ev.AgentIdle(reason="failure_acknowledged"), "not valid from IDLE"),
         ([], ev.AgentIdle(reason="initialized"), "not valid"),
+        ([ev.AgentPaused()], ev.AgentIdle(reason="run_ended"), "PAUSED"),
         ([ev.AgentPaused()], ev.AgentThinking(phase="plan", step_seq=0), "PAUSED"),
         ([ev.AgentPaused()], ev.AgentPaused(), "already PAUSED"),
     ],

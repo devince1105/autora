@@ -198,3 +198,27 @@ async def test_audit_rows_are_append_only(db_session):
             {"id": record.id},
         )
     await db_session.rollback()
+
+
+# --- shortest_path / transition_via ------------------------------------------------------
+
+
+def test_shortest_path():
+    assert LIGHT.shortest_path(Light.GREEN, Light.RED) == [Light.YELLOW, Light.RED]
+    assert LIGHT.shortest_path(Light.GREEN, Light.GREEN) == []
+    assert LIGHT.shortest_path("RED", "OFF") == [Light.OFF]
+    with pytest.raises(IllegalTransition):
+        LIGHT.shortest_path(Light.OFF, Light.GREEN)
+
+
+async def test_transition_via_audits_every_hop(db_session):
+    project = await _project(db_session, kill_criteria={"x": 1})
+    records = await PROJECT_TEST_FSM.transition_via(
+        db_session, project, ProjectState.ACTIVE, actor=Actor.human("op"), reason="fast-track"
+    )
+    assert project.state == "ACTIVE"
+    assert [(r.from_state, r.to_state) for r in records] == [
+        ("PROPOSED", "APPROVED"),
+        ("APPROVED", "ACTIVE"),
+    ]
+    assert all(r.reason == "fast-track" for r in records)

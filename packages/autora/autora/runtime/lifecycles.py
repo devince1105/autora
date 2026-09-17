@@ -6,7 +6,8 @@ move entities only through these machines, so every transition is validated and 
 
 Task notes:
 - A retryable failure goes RUNNING -> READY (attempt is incremented by TaskManager); FAILED is
-  only the final failure. An expired lease also returns RUNNING -> READY.
+  only the final failure. An expired lease also returns RUNNING -> READY. A budget-blocked task
+  with no attempts left goes BLOCKED_BUDGET -> FAILED when the block is released.
 - Approval releases the worker: RUNNING -> WAITING_APPROVAL -> READY (re-claimed, the run
   resumes). Human/service nodes use READY -> WAITING_APPROVAL -> SUCCEEDED directly.
 
@@ -38,7 +39,7 @@ TASK_FSM = StateMachine(
                 T.CANCELLED,
             ],
             T.WAITING_APPROVAL: [T.READY, T.SUCCEEDED, T.CANCELLED],
-            T.BLOCKED_BUDGET: [T.READY, T.CANCELLED],
+            T.BLOCKED_BUDGET: [T.READY, T.FAILED, T.CANCELLED],
         }
     ),
 )

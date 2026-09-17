@@ -70,6 +70,7 @@ def test_terminal_states():
         # dependencies must be satisfied before running
         (TaskState.PENDING, TaskState.RUNNING, False),
         (TaskState.BLOCKED_BUDGET, TaskState.READY, True),
+        (TaskState.BLOCKED_BUDGET, TaskState.FAILED, True),
     ],
 )
 def test_task_transitions(source, target, allowed):

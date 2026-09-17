@@ -110,16 +110,17 @@ async def test_task_checks(db_session, world, overrides, constraint):
     [
         ("RUNNING", True, True),
         ("RUNNING", False, False),  # a running task must be leased
+        ("RUNNING", "no-token", False),  # a lease without its claim token is incomplete
         ("READY", True, False),  # a lease outside RUNNING is a leaked claim
         ("WAITING_APPROVAL", False, True),  # approval releases the worker
     ],
 )
 async def test_lease_exactly_when_running(db_session, world, state, leased, ok):
-    lease = (
-        {"lease_owner": "worker-1", "lease_until": datetime.now(UTC) + timedelta(minutes=5)}
-        if leased
-        else {}
-    )
+    lease = {}
+    if leased:
+        lease = {"lease_owner": "worker-1", "lease_until": datetime.now(UTC) + timedelta(minutes=5)}
+        if leased != "no-token":
+            lease["lease_token"] = uuid.uuid4()
     db_session.add(_task(world, state=state, **lease))
     if ok:
         await db_session.flush()

@@ -69,13 +69,19 @@ class AgentResumed(EventPayload):
 
 @event("AGENT_IDLE")
 class AgentIdle(EventPayload):
-    """Explicit return to IDLE (failure acknowledged, wait cleared without a new run).
+    """Explicit return to IDLE.
+
+    - ``initialized``: activity row created for a new agent
+    - ``failure_acknowledged``: a human acknowledged a FAILED run
+    - ``waiting_cleared``: the wait ended without a new run (task cancelled)
+    - ``run_ended``: the run ended without a final failure (retry scheduled, lease reclaimed
+      after a worker crash, task cancelled); the agent is free again
 
     Not emitted when a COMPLETED display period simply expires; that is a projection rule
     (logs/3d-office/02_AGENT_STATE_MODEL.md §5).
     """
 
-    reason: Literal["failure_acknowledged", "waiting_cleared", "initialized"]
+    reason: Literal["failure_acknowledged", "waiting_cleared", "initialized", "run_ended"]
 
 
 @event("AGENT_RUN_STARTED")

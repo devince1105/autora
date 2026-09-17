@@ -227,6 +227,7 @@ T-309,T-601 → T-608 ; T-211 → T-609 ; all → T-610
 | Task | 實際位置 / 差異 |
 |---|---|
 | T-201 | `db/models/tasks.py`、`runtime/lifecycles.py`（`TASK_FSM`、`AGENT_RUN_FSM`、`WORKFLOW_RUN_FSM`）；DB 強制「RUNNING ⇔ 持有租約」、「終止 ⇔ finished_at」、每個（task, attempt）一個 run、`agent_steps` append-only |
+| T-202 | `runtime/task_manager.py`（遷移 0008：`tasks.available_at`、`tasks.lease_token`、每個 agent 至多一個未完成 run 的唯一索引）；claim token 防止被回收的 worker 完成任務；每次 claim 消耗一次 attempt（含預算受阻）；重試指數退避；依賴傳播留給 T-203 的 `on_task_finished` / `on_task_failed` 掛鉤；FSM 新增 `shortest_path` / `transition_via` |
 | T-204 | `runtime/tools/registry.py`；TOOL_CALLED 單獨提交，工具領域寫入與 TOOL_COMPLETED 同交易，失敗另行提交 TOOL_FAILED（避免長時間持有公司事件鎖） |
 | T-207 | `runtime/models/{types,router,gateway}.py`、`providers/fake.py`；`model_calls` 為模型成本唯一來源（append-only）；結構化輸出不合格以 `output_issues` 回傳而非拋錯 |
 | T-209 | `runtime/cost/guard.py`、`cost_reservations`；`BUDGET_EXHAUSTED` 移至執行環境事件目錄；cycle 預算暫以日計 |

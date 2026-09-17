@@ -102,7 +102,8 @@ class Task(IdMixin, TimestampMixin, Base):
         CheckConstraint("attempt >= 0 AND attempt <= max_attempts", name="attempt_within_max"),
         CheckConstraint("budget_usd IS NULL OR budget_usd >= 0", name="budget_non_negative"),
         CheckConstraint(
-            "(state = 'RUNNING') = (lease_owner IS NOT NULL AND lease_until IS NOT NULL)",
+            "(state = 'RUNNING') = "
+            "(lease_owner IS NOT NULL AND lease_until IS NOT NULL AND lease_token IS NOT NULL)",
             name="lease_iff_running",
         ),
         # Worker queue: claim the best READY task.
@@ -144,8 +145,12 @@ class Task(IdMixin, TimestampMixin, Base):
     """{label, current, target}; None means no quantifiable progress (show elapsed time)."""
     priority: Mapped[int] = mapped_column(server_default="100")
     """Lower runs first."""
+    available_at: Mapped[datetime | None]
+    """Earliest claim time (retry backoff). NULL means immediately."""
     lease_owner: Mapped[str | None]
     lease_until: Mapped[datetime | None]
+    lease_token: Mapped[uuid.UUID | None]
+    """Identifies one claim. A worker whose lease was reclaimed cannot finish the task."""
 
 
 class AgentRun(IdMixin, TimestampMixin, Base):
@@ -163,6 +168,13 @@ class AgentRun(IdMixin, TimestampMixin, Base):
             name="finished_iff_terminal",
         ),
         Index("ix_agent_runs_agent_created", "agent_id", "created_at"),
+        # An agent is one person with one current activity: at most one unfinished run.
+        Index(
+            "uq_agent_runs_open_per_agent",
+            "agent_id",
+            unique=True,
+            postgresql_where=text(f"state NOT IN ({_in_list(AGENT_RUN_TERMINAL)})"),
+        ),
     )
 
     company_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("companies.id"))

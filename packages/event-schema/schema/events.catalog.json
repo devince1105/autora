@@ -251,13 +251,14 @@
         "persistence": "persisted",
         "payload": {
           "additionalProperties": false,
-          "description": "Explicit return to IDLE (failure acknowledged, wait cleared without a new run).\n\nNot emitted when a COMPLETED display period simply expires; that is a projection rule\n(logs/3d-office/02_AGENT_STATE_MODEL.md §5).",
+          "description": "Explicit return to IDLE.\n\n- ``initialized``: activity row created for a new agent\n- ``failure_acknowledged``: a human acknowledged a FAILED run\n- ``waiting_cleared``: the wait ended without a new run (task cancelled)\n- ``run_ended``: the run ended without a final failure (retry scheduled, lease reclaimed\n  after a worker crash, task cancelled); the agent is free again\n\nNot emitted when a COMPLETED display period simply expires; that is a projection rule\n(logs/3d-office/02_AGENT_STATE_MODEL.md §5).",
           "properties": {
             "reason": {
               "enum": [
                 "failure_acknowledged",
                 "waiting_cleared",
-                "initialized"
+                "initialized",
+                "run_ended"
               ],
               "title": "Reason",
               "type": "string"

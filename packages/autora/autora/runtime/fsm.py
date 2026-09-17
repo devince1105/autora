@@ -94,6 +94,32 @@ class StateMachine[S: StrEnum]:
     def terminal_states(self) -> frozenset[S]:
         return frozenset(s for s in self.states if self.is_terminal(s))
 
+    def shortest_path(self, from_state: S | str, to_state: S | str) -> list[S]:
+        """States to pass through (excluding ``from_state``) to reach ``to_state``.
+
+        Empty when already there; raises ``IllegalTransition`` when unreachable.
+        """
+        start, goal = self.states(from_state), self.states(to_state)
+        if start == goal:
+            return []
+        previous: dict[S, S] = {}
+        frontier = [start]
+        while frontier:
+            current = frontier.pop(0)
+            for nxt in sorted(self.allowed_from(current), key=str):
+                if nxt in previous or nxt == start:
+                    continue
+                previous[nxt] = current
+                if nxt == goal:
+                    path = [goal]
+                    while path[-1] != start:
+                        path.append(previous[path[-1]])
+                    return list(reversed(path))[1:]
+                frontier.append(nxt)
+        raise IllegalTransition(
+            self.entity_type, start, goal, (s.value for s in self.allowed_from(start))
+        )
+
     # --- validation ------------------------------------------------------------------------
 
     def check(self, entity: Any, to_state: S | str) -> tuple[S, S]:
@@ -137,6 +163,25 @@ class StateMachine[S: StrEnum]:
         session.add(record)
         await session.flush()
         return record
+
+    async def transition_via(
+        self,
+        session: AsyncSession,
+        entity: StatefulEntity,
+        to_state: S | str,
+        *,
+        actor: Actor,
+        reason: str | None = None,
+    ) -> list[StateTransition]:
+        """Reach ``to_state`` along the shortest legal path, auditing every hop.
+
+        For callers that own the outcome but not every intermediate step (the task manager
+        completing a run the runner left in RUNNING). Guards apply on each hop.
+        """
+        records = []
+        for hop in self.shortest_path(getattr(entity, self.state_attr), to_state):
+            records.append(await self.transition(session, entity, hop, actor=actor, reason=reason))
+        return records
 
 
 def transitions[S: StrEnum](spec: Mapping[S, Iterable[S]]) -> dict[S, frozenset[S]]:

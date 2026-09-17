@@ -82,7 +82,7 @@ export const AgentHeartbeatV1Event = z.object({
 });
 
 export const AgentIdleV1Payload = z.object({
-  reason: z.enum(["failure_acknowledged", "waiting_cleared", "initialized"]),
+  reason: z.enum(["failure_acknowledged", "waiting_cleared", "initialized", "run_ended"]),
 });
 export type AgentIdleV1Payload = z.infer<typeof AgentIdleV1Payload>;
 export const AgentIdleV1Event = z.object({

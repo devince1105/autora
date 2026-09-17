@@ -216,3 +216,4 @@ TASK_READY{task_id: B}  (payload 含 required_role)   → 事件 2（同 TX，se
 - Actor 已在 envelope 上，project 類 payload 不再重複 `by`。
 - 角色名稱統一為人稱名詞：`ceo, researcher, analyst, writer, editor, marketing`（另有 `human`、`system` 用於 task.required_role）。
 - **`BUDGET_EXHAUSTED` 屬於執行環境層**（T-209）：由執行環境的成本守門員觸發；執行環境不可匯入公司層。payload 另含 `requested`（被拒呼叫的估計成本）。
+- **`AGENT_IDLE` 新增 reason `run_ended`**（T-202）：run 以非最終失敗、租約回收或任務取消結束，agent 重新可用；非最終的 `AGENT_RUN_FAILED` / `AGENT_RUN_ABORTED` 仍持久化供 trace 使用但不改變 activity。
