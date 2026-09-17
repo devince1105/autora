@@ -1,0 +1,170 @@
+"""T-110: minimal REST API (companies, agents, events)."""
+
+import uuid
+
+import pytest
+
+from autora.db.models import Agent
+from autora.runtime.activity import initialize_activity, set_activity
+from autora.runtime.actor import Actor
+from autora.runtime.events import catalog as ev
+
+NEWSROOM = {"slug": "ai-bilingual-newsroom", "name": "AI Bilingual Newsroom", "type": "newsroom"}
+
+
+async def _create(api, **overrides):
+    return await api.post("/api/companies", json={**NEWSROOM, **overrides})
+
+
+# --- auth & errors -----------------------------------------------------------------------
+
+
+async def test_health_is_public(api):
+    response = await api.get("/health", headers={"Authorization": ""})
+    assert response.status_code == 200 and response.json()["status"] == "ok"
+
+
+@pytest.mark.parametrize("header", [None, "Bearer wrong-token", "Basic abc"])
+async def test_admin_endpoints_require_bearer_token(api, header):
+    headers = {"Authorization": header} if header else {"Authorization": ""}
+    response = await api.get("/api/companies", headers=headers)
+    assert response.status_code == 401
+    assert response.headers["content-type"].startswith("application/problem+json")
+    assert response.headers["www-authenticate"] == "Bearer"
+
+
+async def test_validation_errors_are_problem_json(api):
+    response = await _create(api, type="bank", slug="Bad Slug")
+    assert response.status_code == 422
+    body = response.json()
+    assert body["title"] == "Unprocessable Entity"
+    assert {tuple(e["loc"]) for e in body["errors"]} >= {("body", "type"), ("body", "slug")}
+
+
+# --- companies ---------------------------------------------------------------------------
+
+
+async def test_create_get_and_list_company(api):
+    created = await _create(api, mission="Explain AI news in zh-TW and English")
+    assert created.status_code == 201
+    company = created.json()
+    assert company["slug"] == "ai-bilingual-newsroom" and company["status"] == "active"
+    assert uuid.UUID(company["id"]).version == 7
+
+    fetched = await api.get(f"/api/companies/{company['id']}")
+    assert fetched.json() == company
+    listed = await api.get("/api/companies")
+    assert company in listed.json()
+
+
+async def test_create_company_emits_company_created(api):
+    company = (await _create(api)).json()
+    page = (await api.get("/api/events", params={"company_id": company["id"]})).json()
+    assert [e["event_type"] for e in page["items"]] == ["COMPANY_CREATED"]
+    event = page["items"][0]
+    assert event["payload"] == {
+        "slug": NEWSROOM["slug"],
+        "name": NEWSROOM["name"],
+        "type": "newsroom",
+    }
+    assert event["actor"] == {"kind": "human", "id": "operator"}
+    assert event["seq"] >= 1
+
+
+async def test_duplicate_slug_is_conflict(api):
+    assert (await _create(api)).status_code == 201
+    response = await _create(api, name="Another")
+    assert response.status_code == 409
+    assert "already exists" in response.json()["detail"]
+
+
+async def test_unknown_company_is_404(api):
+    missing = uuid.uuid4()
+    assert (await api.get(f"/api/companies/{missing}")).status_code == 404
+    assert (await api.get(f"/api/companies/{missing}/agents")).status_code == 404
+    assert (await api.get("/api/events", params={"company_id": str(missing)})).status_code == 404
+
+
+# --- agents ------------------------------------------------------------------------------
+
+
+async def test_agents_include_current_activity(api, db_session):
+    company_id = uuid.UUID((await _create(api)).json()["id"])
+    researcher = Agent(company_id=company_id, role="researcher", display_name="Researcher")
+    writer = Agent(company_id=company_id, role="writer", display_name="Writer")
+    db_session.add_all([researcher, writer])
+    await db_session.flush()
+    await initialize_activity(db_session, researcher, actor=Actor.system("setup"))
+    await set_activity(
+        db_session,
+        researcher,
+        ev.AgentWorking(tool="web_search", tool_call_id="c1", step_seq=1),
+        actor=Actor.agent(researcher.id),
+        run_id=uuid.uuid4(),
+        task_name="Find today's AI stories",
+    )
+
+    agents = {a["role"]: a for a in (await api.get(f"/api/companies/{company_id}/agents")).json()}
+    assert agents["researcher"]["activity"]["state"] == "WORKING"
+    assert agents["researcher"]["activity"]["detail"]["tool"] == "web_search"
+    assert agents["researcher"]["activity"]["detail"]["task_name"] == "Find today's AI stories"
+    assert agents["writer"]["activity"] is None
+
+
+# --- events ------------------------------------------------------------------------------
+
+
+async def test_events_pagination_filters_and_scope(api, db_session):
+    company_id = uuid.UUID((await _create(api)).json()["id"])
+    other_id = uuid.UUID((await _create(api, slug="other-company")).json()["id"])
+    agent = Agent(company_id=company_id, role="writer", display_name="Writer")
+    db_session.add(agent)
+    await db_session.flush()
+    await initialize_activity(db_session, agent, actor=Actor.system("setup"))
+    for step in range(3):
+        await set_activity(
+            db_session,
+            agent,
+            ev.AgentThinking(phase="reason", step_seq=step),
+            actor=Actor.agent(agent.id),
+            run_id=uuid.uuid4(),
+        )
+
+    params = {"company_id": str(company_id), "limit": 2}
+    first = (await api.get("/api/events", params=params)).json()
+    assert [e["event_type"] for e in first["items"]] == ["COMPANY_CREATED", "AGENT_IDLE"]
+    assert first["has_more"] is True
+
+    second = (await api.get("/api/events", params={**params, "after": first["next_after"]})).json()
+    assert [e["payload"].get("step_seq") for e in second["items"]] == [0, 1]
+    seqs = [e["seq"] for e in first["items"] + second["items"]]
+    assert seqs == sorted(seqs)
+
+    thinking = (
+        await api.get(
+            "/api/events",
+            params={"company_id": str(company_id), "type": ["AGENT_THINKING", "AGENT_IDLE"]},
+        )
+    ).json()
+    assert [e["event_type"] for e in thinking["items"]] == ["AGENT_IDLE"] + ["AGENT_THINKING"] * 3
+
+    until = (
+        await api.get(
+            "/api/events", params={"company_id": str(company_id), "until": first["next_after"]}
+        )
+    ).json()
+    assert len(until["items"]) == 2 and until["has_more"] is False
+
+    other = (await api.get("/api/events", params={"company_id": str(other_id)})).json()
+    assert [e["company_id"] for e in other["items"]] == [str(other_id)]
+
+    empty = (
+        await api.get("/api/events", params={"company_id": str(company_id), "after": 10**12})
+    ).json()
+    assert empty == {"items": [], "next_after": 10**12, "has_more": False}
+
+
+async def test_events_limit_is_bounded(api):
+    company_id = (await _create(api)).json()["id"]
+    response = await api.get("/api/events", params={"company_id": company_id, "limit": 501})
+    assert response.status_code == 422

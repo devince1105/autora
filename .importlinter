@@ -1,0 +1,30 @@
+# Python layer boundaries (logs/3d-office/08_REPOSITORY_STRUCTURE.md §3). Run: make lint-imports
+#
+# Higher layers may import lower ones, never the reverse. `a | b` = same layer, independent.
+
+[importlinter]
+root_package = autora
+include_external_packages = True
+
+[importlinter:contract:layers]
+name = Autora layers: app > domains|realtime > company > runtime > db > infra
+type = layers
+layers =
+    autora.app
+    autora.domains | autora.realtime
+    autora.company
+    autora.runtime
+    autora.db
+    autora.infra
+
+[importlinter:contract:runtime-no-http]
+name = Runtime and company never depend on the web framework
+type = forbidden
+source_modules =
+    autora.runtime
+    autora.company
+    autora.db
+forbidden_modules =
+    fastapi
+    starlette
+# Domain independence (domains never import each other) is added with the second domain.

@@ -1,0 +1,53 @@
+name: ci
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  python:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: pgvector/pgvector:pg16
+        env:
+          POSTGRES_USER: autora
+          POSTGRES_PASSWORD: autora
+          POSTGRES_DB: autora
+        ports: ["5434:5432"]
+        options: >-
+          --health-cmd "pg_isready -U autora -d autora"
+          --health-interval 2s --health-timeout 3s --health-retries 30
+    env:
+      DATABASE_URL: postgresql+asyncpg://autora:autora@localhost:5434/autora
+      AUTORA_REQUIRE_DB: "1"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: python -m venv .venv && .venv/bin/pip install -e "packages/autora[dev]"
+      - name: Lint (ruff + import boundaries)
+        run: make lint-py
+      - name: Migrations apply and match models
+        run: make migrate && make db-check
+      - name: Generated event schema is up to date
+        run: make gen-schema-check
+      - name: Tests (DB tests run against a real Postgres; none may be skipped)
+        run: .venv/bin/pytest packages/autora -q -rs
+
+  web:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9.15.9
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm lint
+      - run: pnpm typecheck
+      - run: pnpm test

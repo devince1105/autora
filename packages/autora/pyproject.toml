@@ -1,0 +1,44 @@
+[build-system]
+requires = ["setuptools>=69", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "autora"
+version = "0.0.1"
+description = "Autora — AI Autonomous Company runtime (modular monolith)"
+requires-python = ">=3.12"
+dependencies = [
+  "fastapi>=0.115,<1",
+  "uvicorn[standard]>=0.30,<1",
+  "sqlalchemy[asyncio]>=2.0,<3",
+  "asyncpg>=0.29,<1",
+  "alembic>=1.13,<2",
+  "pydantic>=2.7,<3",
+  "pydantic-settings>=2.3,<3",
+]
+
+[project.optional-dependencies]
+dev = [
+  "pytest>=8,<9",
+  "pytest-asyncio>=0.23,<1",
+  "httpx>=0.27,<1",
+  "ruff>=0.5,<1",
+  "import-linter>=2,<3",
+]
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["autora*"]
+
+[tool.setuptools.package-data]
+"autora.db.migrations" = ["script.py.mako"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "session"
+asyncio_default_test_loop_scope = "session"
+markers = [
+  "integration: hits external services (network, real providers); skipped by default",
+]
+addopts = "-m 'not integration'"

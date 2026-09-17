@@ -1,0 +1,11 @@
+FROM python:3.12-slim
+
+ENV PYTHONDONTWRITEBYTECODE=1 PYTHONUNBUFFERED=1
+WORKDIR /app
+
+COPY packages/autora /app/packages/autora
+RUN pip install --no-cache-dir -e /app/packages/autora
+
+COPY apps/worker /app/apps/worker
+
+CMD ["python", "apps/worker/main.py"]
