@@ -40,7 +40,14 @@ export function findAvatar(root: Object3D, agentId: string): Object3D | null {
 
 const FOCUS_HEIGHT = 0.8;
 
-export function CameraRig() {
+/** Below this canvas width the panel covers everything anyway: no offset. */
+const INSET_MIN_WIDTH = 900;
+
+/**
+ * `insetRight`: pixels on the right that something covers while an agent is selected (the detail
+ * panel); the focused agent is kept centred in the rest.
+ */
+export function CameraRig({ insetRight = 0 }: { insetRight?: number }) {
   const camera = useThree((s) => s.camera) as OrthographicCamera;
   const size = useThree((s) => s.size);
   const scene = useThree((s) => s.scene);
@@ -50,6 +57,15 @@ export function CameraRig() {
   const followed = useRef<{ agentId: string; object: Object3D | null } | null>(null);
   const scratch = useMemo(() => ({ goal: new Vector3(), delta: new Vector3() }), []);
 
+  /** The point to aim at so `at` sits centred left of the inset, at `zoom`. */
+  const aimFor = (at: Vector3, zoom: number): Vector3 => {
+    const aim = at.clone();
+    if (insetRight > 0 && size.width >= INSET_MIN_WIDTH) {
+      const right = new Vector3(1, 0, 0).applyQuaternion(camera.quaternion);
+      aim.addScaledVector(right, insetRight / 2 / zoom);
+    }
+    return aim;
+  };
   const current = (): Framing => {
     const target = controls.current?.target.clone() ?? ROOM_CENTRE.clone();
     return { target, zoom: camera.zoom, direction: camera.position.clone().sub(target).normalize() };
@@ -89,9 +105,10 @@ export function CameraRig() {
           if (id) {
             followed.current = { agentId: id, object: findAvatar(scene, id) };
             const object = followed.current.object;
-            const target = object ? object.getWorldPosition(new Vector3()).setY(FOCUS_HEIGHT) : ROOM_CENTRE.clone();
+            const zoom = overview.current * FOCUS_FACTOR;
+            const target = object ? aimFor(object.getWorldPosition(new Vector3()).setY(FOCUS_HEIGHT), zoom) : ROOM_CENTRE.clone();
             // keep the viewing angle the user chose; only the target and zoom move
-            tween.start(current(), { target, zoom: overview.current * FOCUS_FACTOR }, performance.now());
+            tween.start(current(), { target, zoom }, performance.now());
             if (state.cameraMode !== "follow") uiStore.getState().setCameraMode("follow");
           } else {
             followed.current = null;
@@ -127,6 +144,7 @@ export function CameraRig() {
       f.object ??= findAvatar(scene, f.agentId);
       if (f.object) {
         f.object.getWorldPosition(scratch.goal).setY(FOCUS_HEIGHT);
+        scratch.goal.copy(aimFor(scratch.goal, tween.active ? overview.current * FOCUS_FACTOR : camera.zoom));
         if (tween.active) tween.retarget(scratch.goal);
         else moveTarget(c, camera, scratch.delta.copy(c.target).lerp(scratch.goal, 1 - Math.exp(-dt * 5)));
       }

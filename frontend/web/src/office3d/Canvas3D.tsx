@@ -15,11 +15,13 @@ const CAMERA_POSITION: [number, number, number] = [40, 46, 40];
 
 export interface Canvas3DProps {
   frameloop: "always" | "never";
+  /** Pixels covered on the right while an agent is selected (the detail panel). */
+  insetRight?: number;
   onContextLost: () => void;
   onContextRestored: () => void;
 }
 
-export default function Canvas3D({ frameloop, onContextLost, onContextRestored }: Canvas3DProps) {
+export default function Canvas3D({ frameloop, insetRight, onContextLost, onContextRestored }: Canvas3DProps) {
   return (
     <Canvas
       dpr={CANVAS_DPR}
@@ -41,7 +43,7 @@ export default function Canvas3D({ frameloop, onContextLost, onContextRestored }
         canvas.addEventListener("webglcontextrestored", onContextRestored);
       }}
     >
-      <OfficeScene />
+      <OfficeScene insetRight={insetRight} />
     </Canvas>
   );
 }

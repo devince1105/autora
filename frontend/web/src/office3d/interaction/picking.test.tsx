@@ -166,4 +166,35 @@ describe("CameraRig", () => {
     expect(cam.position.clone().sub(controls.target).normalize().angleTo(VIEW_DIRECTION)).toBeLessThan(0.02);
     await renderer.unmount();
   });
+
+  it("with the detail panel on the right, the focused agent stays centred in the rest of the canvas", async () => {
+    realtimeStore.getState().hydrate(fixture.snapshot_before);
+    const agentId = fixture.snapshot_before.agents[0].id;
+    const seat = assignSeats(fixture.snapshot_before.agents).seats.get(agentId)!;
+    const avatar = new Group();
+    avatar.userData = { agentId };
+    avatar.position.set(seat.chair[0], 0.4, seat.chair[1]);
+    const renderer = await ReactThreeTestRenderer.create(
+      <>
+        <primitive object={avatar} />
+        <CameraRig insetRight={448} />
+      </>,
+      { orthographic: true, camera: { position: [40, 46, 40], zoom: 30 }, size: { width: 1400, height: 800, top: 0, left: 0 } },
+    );
+    const frame = async (ms: number) => {
+      clock += ms;
+      await ReactThreeTestRenderer.act(async () => renderer.advanceFrames(1, ms / 1000));
+    };
+    await frame(16);
+    const root = (renderer.scene.instance as unknown as { __r3f: { root: { getState: () => { camera: OrthographicCamera; controls: unknown } } } }).__r3f.root.getState();
+    const controls = root.controls as { target: Vector3 };
+    await ReactThreeTestRenderer.act(async () => uiStore.getState().selectAgent(agentId));
+    for (let i = 0; i < 40; i++) await frame(20);
+    // the agent, projected: 224 px (half the panel) left of the canvas centre
+    const cam = root.camera;
+    const agentView = new Vector3(seat.chair[0], 0.8, seat.chair[1]).sub(controls.target).applyQuaternion(cam.quaternion.clone().invert());
+    expect(agentView.x * cam.zoom).toBeCloseTo(-224, 0);
+    expect(agentView.y * cam.zoom).toBeCloseTo(0, 0);
+    await renderer.unmount();
+  });
 });

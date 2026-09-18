@@ -1,10 +1,13 @@
-// T-401: the office canvas in a real browser. 3D on a desktop with WebGL 2; the 2D board when
-// asked for, on a narrow screen, or without WebGL 2; a lost WebGL context shows an overlay and
-// is rebuilt on request.
+// The office in a real browser. T-401: 3D on a desktop with WebGL 2; the 2D board when asked for,
+// on a narrow screen, or without WebGL 2; a lost WebGL context shows an overlay and is rebuilt on
+// request. T-411 (Phase 4 acceptance, 09): click an avatar and its panel shows the live state
+// within 300 ms; during a run the head badges move in order and hand-offs are walked; the 2D
+// board opens the same panel.
 import { expect, test, type Page } from "@playwright/test";
 
 import type {} from "../src/office3d/perf/StatsProbe"; // window.__autoraOffice
-import { Stack, TOKEN } from "./stack";
+import type {} from "../src/office3d/visual/CueRunner"; // window.__autoraOfficeCues
+import { API_URL, Stack, TOKEN } from "./stack";
 
 test.describe.configure({ mode: "serial" });
 
@@ -99,4 +102,87 @@ test("?view=2d, a narrow screen, or no WebGL 2: the 2D board with the company's 
   await expect(office(plain)).toHaveAttribute("data-office-mode", "2d");
   await expect(plain.getByText(/不支援 WebGL 2/)).toBeVisible();
   await noGl.close();
+});
+
+const panel = (page: Page) => page.locator('[role="dialog"][aria-label$="的詳細資訊"]');
+
+async function openOffice(page: Page, query = ""): Promise<void> {
+  await open(page, query);
+  await page.waitForFunction(() => (window.__autoraOffice?.frames ?? 0) > 60, null, { timeout: 30_000 });
+}
+
+test("click an avatar: its panel shows the live state within 300 ms (Phase 4 AC)", async ({ page }, info) => {
+  await openOffice(page);
+  // measured in the page: from the pointer going down to the panel being in the DOM
+  await page.evaluate(() => {
+    const timing = { down: 0, shown: 0 };
+    (window as unknown as { __panelTiming: typeof timing }).__panelTiming = timing;
+    window.addEventListener("pointerdown", () => void (timing.down = performance.now()), { capture: true });
+    new MutationObserver(() => {
+      if (!timing.shown && document.querySelector('[role="dialog"][aria-label$="的詳細資訊"]')) timing.shown = performance.now();
+    }).observe(document.body, { childList: true, subtree: true });
+  });
+  // a seated, idle agent (a recent run leaves "done" agents standing behind their chairs for 20 s)
+  const tag = page.getByTestId(/^head-tag-/).first();
+  await expect(tag).toContainText("閒置", { timeout: 40_000 });
+  const name = (await tag.locator("span").first().textContent())!.replace(/閒置$/, "");
+  const box = (await tag.boundingBox())!;
+  await page.mouse.click(box.x + box.width / 2, box.y + box.height + 30);
+  await expect(panel(page)).toBeVisible();
+  const { down, shown } = await page.evaluate(() => (window as unknown as { __panelTiming: { down: number; shown: number } }).__panelTiming);
+  info.annotations.push({ type: "panel ms", description: String(Math.round(shown - down)) });
+  expect(shown - down).toBeLessThan(300);
+  await page.screenshot({ path: info.outputPath("office-panel.png") });
+  await expect(panel(page)).toHaveAttribute("aria-label", `${name} 的詳細資訊`);
+  // the live tab: the state from the store (the same label as the head badge)
+  await expect(panel(page).getByText("目前任務")).toBeVisible();
+  await expect(panel(page).getByText("閒置")).toBeVisible();
+  await page.keyboard.press("Escape");
+  await expect(panel(page)).toHaveCount(0);
+});
+
+test("a run in the office: badges move in order, hand-offs are walked, the strip counts", async ({ page, request }) => {
+  await openOffice(page);
+  await expect(page.getByTestId("mini-agents")).toContainText("0 / 3");
+  // log every head-tag change and every walk, in the page
+  await page.evaluate(() => {
+    const log: { text: string; t: number }[] = [];
+    (window as unknown as { __tagLog: typeof log }).__tagLog = log;
+    const record = () => {
+      for (const el of document.querySelectorAll('[data-testid^="head-tag-"] > span:first-child')) {
+        const text = el.textContent ?? "";
+        if (log.findLast((e) => e.text.startsWith(text.slice(0, 3)))?.text !== text) log.push({ text, t: performance.now() });
+      }
+    };
+    new MutationObserver(record).observe(document.body, { childList: true, subtree: true, characterData: true, attributes: true });
+  });
+  const res = await request.post(`${API_URL}/api/companies/${stack.companyId}/workflows`, {
+    headers: { Authorization: `Bearer ${TOKEN}` },
+    data: { template: "echo.chain_v1", project_id: stack.projectId, params: { topic: "office e2e" } },
+  });
+  expect(res.status()).toBe(201);
+
+  // everyone done: the writer's badge says so
+  await expect(page.getByTestId(/^head-tag-/).filter({ hasText: "Wren" })).toContainText("已完成", { timeout: 60_000 });
+  const log = await page.evaluate(() => (window as unknown as { __tagLog: { text: string; t: number }[] }).__tagLog);
+  const first = (name: string, states: string[]) => log.find((e) => e.text.startsWith(name) && states.some((s) => e.text.endsWith(s)))?.t ?? Infinity;
+  const busy = ["思考中", "工作中", "檢查中"];
+  for (const name of ["Rae", "Ana", "Wren"]) expect(first(name, busy), `${name} worked`).toBeLessThan(first(name, ["已完成"]));
+  expect(first("Rae", ["已完成"])).toBeLessThan(first("Ana", ["已完成"]));
+  expect(first("Ana", ["已完成"])).toBeLessThan(first("Wren", ["已完成"]));
+  // two hand-offs (researcher -> analyst, analyst -> writer), each walked
+  await expect.poll(() => page.evaluate(() => window.__autoraOfficeCues?.walks ?? 0), { timeout: 15_000 }).toBeGreaterThanOrEqual(2);
+  // the strip follows the store and the API
+  await expect(page.getByTestId("mini-agents")).toContainText("/ 3");
+  await expect(page.getByTestId("mini-tasks")).toContainText(/\d/);
+});
+
+test("the 2D board opens the same panel", async ({ page }) => {
+  await open(page, "&view=2d");
+  const card = page.locator('[data-testid^="board-agent-"]').first();
+  const name = await card.locator("span.font-semibold").first().textContent();
+  await card.click();
+  await expect(panel(page)).toHaveAttribute("aria-label", `${name} 的詳細資訊`);
+  await page.getByRole("button", { name: "關閉" }).click();
+  await expect(panel(page)).toHaveCount(0);
 });

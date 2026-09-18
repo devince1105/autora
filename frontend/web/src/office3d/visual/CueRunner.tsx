@@ -94,11 +94,28 @@ export function routeFor(cue: WalkCue, roster: Pick<Roster, "members" | "seats">
 
 const CueContext = createContext<CueDirector | null>(null);
 
+declare global {
+  interface Window {
+    /** Who is walking right now (agent ids), for browser tests; not an API. */
+    __autoraOfficeCues?: { walking: string[]; walks: number };
+  }
+}
+
 function Runner({ director }: { director: CueDirector }) {
   const roster = useRoster();
   const latest = useRef(roster);
   latest.current = roster;
-  useFrame(() => director.queue.step(performance.now(), (cue) => routeFor(cue, latest.current)?.durationMs ?? null), -1);
+  const probe = useRef("");
+  useFrame(() => {
+    director.queue.step(performance.now(), (cue) => routeFor(cue, latest.current)?.durationMs ?? null);
+    const walking = latest.current.members.filter((m) => director.queue.walk(m.id)).map((m) => m.id);
+    const key = walking.join(",");
+    if (key !== probe.current && typeof window !== "undefined") {
+      const walks = (window.__autoraOfficeCues?.walks ?? 0) + walking.filter((id) => !probe.current.includes(id)).length;
+      window.__autoraOfficeCues = { walking, walks };
+      probe.current = key;
+    }
+  }, -1);
   return null;
 }
 

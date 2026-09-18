@@ -18,7 +18,7 @@ import { buildGeometry } from "./kit";
 
 const SHADOW_EXTENT = 17;
 
-export function OfficeScene() {
+export function OfficeScene({ insetRight = 0 }: { insetRight?: number }) {
   const office = useMemo(() => buildGeometry(officeParts()), []);
   const glass = useMemo(() => buildGeometry(partitionGlassParts()), []);
   const windows = useMemo(() => buildGeometry(windowGlassParts()), []);
@@ -76,7 +76,7 @@ export function OfficeScene() {
           <SelectionMarker />
         </CueProvider>
       </VisualTrackerProvider>
-      <CameraRig />
+      <CameraRig insetRight={insetRight} />
       <StatsProbe />
     </>
   );

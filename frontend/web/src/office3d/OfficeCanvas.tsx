@@ -30,12 +30,20 @@ const REASON: Record<ModeReason, string | null> = {
 export interface OfficeCanvasProps {
   view?: OfficeView;
   onViewChange?: (view: OfficeView) => void;
+  /** Pixels on the right the page covers while an agent is selected (its detail panel). */
+  selectionInsetRight?: number;
   /** Test seams: capability probe and the WebGL scene. */
   detect?: () => Capabilities;
   Scene?: ComponentType<Canvas3DProps>;
 }
 
-export function OfficeCanvas({ view = "auto", onViewChange, detect = detectCapabilities, Scene = LazyCanvas3D }: OfficeCanvasProps) {
+export function OfficeCanvas({
+  view = "auto",
+  onViewChange,
+  selectionInsetRight = 0,
+  detect = detectCapabilities,
+  Scene = LazyCanvas3D,
+}: OfficeCanvasProps) {
   const [caps, setCaps] = useState<Capabilities | null>(null);
   const [lost, setLost] = useState(false);
   const [generation, setGeneration] = useState(0);
@@ -73,6 +81,7 @@ export function OfficeCanvas({ view = "auto", onViewChange, detect = detectCapab
       <Scene
         key={generation}
         frameloop={visible && !lost ? "always" : "never"}
+        insetRight={selectionInsetRight}
         onContextLost={() => setLost(true)}
         onContextRestored={() => setLost(false)}
       />
