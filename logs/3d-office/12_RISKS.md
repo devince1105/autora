@@ -20,7 +20,7 @@
 | # | 風險 | 嚴重度 | 緩解 |
 |---|---|---|---|
 | R9 | **幻覺與斷章取義** | P0 | Evidence-first；確定性 fact-check；MVP 人審核發布；trust_level 低的來源不可單獨支持 claim |
-| R10 | **版權**：快照、引文、3D 資產 | P0 | 快照僅內部；引文長度上限 validator；3D 資產授權記錄（T-404 LICENSES.md）；不用未授權模型 |
+| R10 | **版權**：快照、引文、3D 資產 | P0 | 快照僅內部；引文長度上限 validator；3D 資產授權記錄（T-404 LICENSES.md）；不用未授權模型。**已落實（2026-09-19）**：人物用 Kenney Mini Characters（CC0），`pnpm -F web check-assets` 在 CI 檢查每個素材檔都列在 LICENSES.md；房間與家具全為程式產生（D-010） |
 | R11 | **成本失控** | P0 | CostGuard 三層；每日 cap；Dashboard Expenses 即時；simulation 零成本 demo |
 | R12 | **3D 讓人誤以為「即時」= 「正確」** | P2 | 面板永遠顯示 trace 入口；連線狀態與「資料時間」可見 |
 
@@ -41,7 +41,7 @@
 | Q1 | Approval 在 MVP 是否一定要人？ | ✅ 已決（D-001） | **人核准**；demo 可用 policy flag 切 auto（本身是 HUMAN action） |
 | Q2 | 雙語的主語言與「只發一種語言」是否允許？ | ✅ 主語言已決（D-002） | **主語言 zh-TW**；單語發布未決，暫用兩語皆需 |
 | Q3 | Web search / embedding 供應商 | search ✅（D-003）／embedding 未決 | **search: Tavily**（結果只是候選，evidence 仍由 fetch_url 快照）；embedding: 抽象 `embed` alias，MVP 用 OpenAI-compatible adapter |
-| Q4 | 3D 資產來源：自製、CC0、或購買？ | P0（Phase 4 gate） | ✅ 已決定（D-008）：CC0 低多邊形人物，風格參考《動物森友會》（只參考風格，不用任天堂素材） |
+| Q4 | 3D 資產來源：自製、CC0、或購買？ | P0（Phase 4 gate） | ✅ 已決定（D-008）：CC0 低多邊形人物，風格參考《動物森友會》（只參考風格，不用任天堂素材）。T-404 選定 Kenney Mini Characters 1.0（CC0）；場景見 D-010 |
 | Q5 | 每日預算數量級 | P1（Phase 6 gate） | $10/day，max_workflows_per_cycle=5 |
 | Q6 | 是否需要多人同時操作（審批權限）？ | P2 | 單一 operator |
 | Q7 | 公開站是否與 admin 同一部署？ | P2 | 同一 Next.js app 兩個 route group |

@@ -430,6 +430,15 @@ nvm use 22
 pnpm test
 ```
 
+### 3D 素材檢查（T-404）
+
+```bash
+pnpm -F web check-assets
+```
+
+- 檢查 `frontend/web/public/models/` 裡每個 glTF 通過 Khronos 驗證器、人物不超過 3,000 個三角形，並且**每個檔案都列在 `frontend/web/src/office3d/assets/LICENSES.md`**（來源、授權、取得日期）。
+- 要新增素材：先確認授權可商用（CC0 最好），把檔案放進 `public/models/`，在 `LICENSES.md` 加一節記錄來源與授權，再跑這個指令。CI 也會跑。
+
 ### 瀏覽器端到端測試（Playwright，T-315）
 
 階段 3 的驗收：兩個分頁同步、API 停 20 秒再啟動後自動恢復。需要資料庫在跑（`make dev`）與 Python 虛擬環境；測試會自己啟動另一組 API（埠 8100）、工作程序與前端（埠 3100，正式建置，放在 `.next-e2e`），用獨立的資料庫 `<開發資料庫>_e2e`（每次重建），模型固定用模擬的，**不讀 `.env`**，所以不會用到真的金鑰，也不會動到開發資料。開著的開發伺服器（8000、3000）不受影響，但 8100 與 3100 要空著。

@@ -195,4 +195,5 @@ WS event ──▶ realtimeStore.applyEvent(event)      // domain 投影更新�
 - 一個人形 GLB（可先用 Mixamo 風格低模 + 自製 6 clips，或 Kenney/Quaternius 類 CC0 低模）。**版權必須確認**，見 12_RISKS。
 - **（D-008）風格參考《動物森友會》，辦公室場景另參考《Good Job!》（明亮色彩、Q 版上班族、俏皮的辦公室佈局）**：Q 版比例、圓潤造型、柔和粉彩、溫馨辦公室。只參考風格，不使用任天堂的任何素材或可辨識的仿製；只用 CC0 素材（候選 Quaternius、Kenney、KayKit），來源與授權記入 `LICENSES.md`。
 - 家具 3 個 GLB。所有資產進 `public/models/`，透過 `useGLTF`。
+- **實作（T-404，2026-09-19）**：人物用 **Kenney Mini Characters 1.0（CC0）**——12 個方塊感 Q 版人物，每個 690～876 三角形，同一副骨架、同樣 32 個動作（含 `sit`、`walk`、`idle`、`interact-right`、`emote-yes/no`、`pick-up`），共用一張 512² 貼圖。動作對應在 `office3d/assets/characters.ts`（`POSE_CLIP`）：素材只有一種坐姿，思考 / 打字 / 閱讀在 T-405 以上半身動作疊加區分。**家具不用 GLB**：依 D-010 全部程式產生。授權與檔案清單在 `office3d/assets/LICENSES.md`，`pnpm -F web check-assets`（Khronos glTF 驗證器 + 三角形數 + 授權清單）在 CI 執行。
 - 不做角色客製化系統。

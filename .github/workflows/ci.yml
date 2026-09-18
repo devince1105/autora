@@ -55,6 +55,8 @@ jobs:
       - run: pnpm test
       - name: API types match the committed OpenAPI document
         run: pnpm -F web gen-api:check
+      - name: 3D assets are valid glTF, within budget, and licensed (LICENSES.md)
+        run: pnpm -F web check-assets
 
   e2e:
     # Phase 3 acceptance (T-315): real API, worker and web app in a browser.

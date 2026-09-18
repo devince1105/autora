@@ -16,7 +16,7 @@
 | T-401 | OfficeCanvas：WebGL 偵測、動態載入、DPR、頁面隱藏時停止繪製、WebGL context 遺失的處理、切換 2D | T-307 | ✅ |
 | T-402 | `layout.ts` 與房間 / 工作區（role → 座位、`seatsForRole`、桌椅用 Instances） | T-401 | ✅ |
 | T-403 | `visual/mapping.ts`：活動狀態 + 角色 → 視覺狀態（02 §7 對照表） | T-108 | ✅ |
-| T-404 | 人物與家具素材（CC0 低多邊形 GLB、6 個動作、授權紀錄 `LICENSES.md`、三角形數檢查） | — | ⏳ |
+| T-404 | 人物與家具素材（CC0 低多邊形 GLB、6 個動作、授權紀錄 `LICENSES.md`、三角形數檢查） | — | ✅ |
 | T-405 | AgentAvatar（GLB 複製、動畫混合、transient subscribe：store 變化不觸發 React 重繪） | T-402、T-403、T-404 | ⏳ |
 | T-406 | 螢幕與狀態指示（螢幕亮度、桌燈顏色 / 閃爍、頭頂標籤） | T-402、T-403 | ⏳ |
 | T-407 | Animation Director 與 CueRunner（事件 → 動畫提示，合併 / 逾時 / 中止規則） | T-305、T-403 | ⏳ |
@@ -35,6 +35,30 @@
   - 即時 store、UI store（含 `cameraMode`、`selectedAgentId`）、代理面板都已存在，`/office` 直接重用；
   - 瀏覽器端到端測試的環境（`frontend/web/e2e/stack.ts`）可重用來看 3D 畫面：這個環境用測試專用權杖，**我可以在 Playwright 裡實際看到登入後的畫面並截圖**（開發伺服器那邊的權杖畫面我不輸入）；
   - 素材的授權要逐一記錄（D-008、`12_RISKS` Q4）。
+
+---
+
+## T-404 · 人物素材
+
+### 選擇
+研究了三個 CC0 候選（來源都是作者官方頁）並請使用者選擇：
+- **Kenney Mini Characters 1.0**（選定）：12 個方塊感 Q 版人物、32 個動作、glTF、2.4 MB——最接近 D-008 的 Q 版風格。
+- KayKit Adventurers + Character Animations：Q 版、133 個動作，但服裝是騎士 / 法師等奇幻風。
+- Quaternius Ultimate Modular Men：有上班族服裝，但比例寫實、不是 Q 版。
+
+使用者於對話中核准下載 `kenney_mini-characters.zip`（kenney.nl 官方，2,403,059 bytes）。先下載到暫存資料夾檢查內容與包內授權檔（CC0），再只把需要的檔案放進專案。
+
+### 做了什麼
+- `public/models/characters/`：12 個人物 GLB（每個 690～876 三角形、約 250 KB）與共用貼圖 `Textures/colormap.png`（512²），共 2.9 MB；沒有取輪椅與輔具模型（之後需要再加）。
+- `office3d/assets/characters.ts`：人物清單、`characterFor(agentId, avatarKey)`（`avatar_key` 指定人物時用它，否則依代理 id 穩定挑選）、**姿勢 → 動作對應** `POSE_CLIP`：素材只有一種坐姿 `sit`，所以思考 / 打字 / 閱讀共用坐姿，差別在 T-405 以上半身動作疊加（打字用 `interact-right`）；完成用 `idle` + 一次 `emote-yes`；失敗用坐姿 + 一次 `emote-no`；走路 `walk`；交接拿東西 `pick-up`。
+- `office3d/assets/LICENSES.md`：作者、授權（CC0 1.0）、來源頁與下載網址、壓縮檔 SHA-256、取得日期、使用的每個檔案；另註明房間家具為自製、風格參考不含任何素材。
+- `scripts/check-assets.mjs`（`pnpm -F web check-assets`，已加入 CI）：Khronos 官方 `gltf-validator` 驗證每個 glTF（0 錯誤）、人物三角形上限 3,000、**public/models 裡每個檔案都必須列在 LICENSES.md**。
+- 規格中的「家具 3 個 GLB」不做：依 D-010 家具全部由程式產生。
+
+### 驗證
+- `check-assets`：12 個 GLB 全部 0 錯誤（每個 2 個警告：蒙皮網格不在根節點，three.js 不受影響，T-405 用 `SkeletonUtils.clone`；另有未用到的切線等資訊）、最大 876 三角形；**反向測試**：放一個沒列在授權清單的檔案，檢查就失敗。
+- `assets.test.ts`：3 個通過——每個人物是有骨架的 GLB、含所有會用到的動作、貼圖存在；每個姿勢都有動作；人物挑選穩定且分散、`avatar_key` 可指定。
+- web 共 154 個測試、event-schema 8 個通過；`typecheck`、`lint`、`next build` 以結束碼確認通過。人物實際在場景中的樣子在 T-405 驗證。
 
 ---
 
