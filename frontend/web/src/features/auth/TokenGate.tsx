@@ -5,8 +5,6 @@ import { useState, useSyncExternalStore, type FormEvent, type ReactNode } from "
 
 import { getToken, setToken } from "@/api/auth";
 
-import styles from "./auth.module.css";
-
 // localStorage is not observable; this tiny subscription lets the gate re-render when the token
 // changes in this tab (sign in / out).
 const listeners = new Set<() => void>();
@@ -40,23 +38,29 @@ export function TokenGate({ children }: { children: ReactNode }) {
   };
 
   return (
-    <main className={styles.page}>
-      <form className={styles.card} onSubmit={submit}>
-        <h1 className={styles.title}>Autora</h1>
-        <p className={styles.hint}>
-          請輸入操作者權杖（API 的 <code>API_BEARER_TOKEN</code>）。權杖只存在這個瀏覽器。
+    <main className="grid min-h-screen place-items-center p-4">
+      <form onSubmit={submit} className="grid w-full max-w-md gap-4 rounded-2xl border border-line bg-surface p-8">
+        <h1 className="text-2xl font-semibold">Autora</h1>
+        <p className="text-sm leading-relaxed text-muted">
+          這是 Autora 自己的 API 密碼：填入後端 <code>.env</code> 的 <code>API_BEARER_TOKEN</code>
+          （開發環境預設為 <code>change-me</code>）。它不是 NVIDIA 或 Anthropic 的金鑰——那些只留在後端，
+          瀏覽器永遠看不到。權杖只存在這個瀏覽器。
         </p>
-        <label className={styles.label}>
+        <label className="grid gap-1.5 text-sm">
           操作者權杖
           <input
-            className={styles.input}
+            className="rounded-lg border border-line bg-canvas px-3 py-2 text-ink outline-none focus:border-accent"
             type="password"
             autoComplete="off"
             value={draft}
             onChange={(e) => setDraft(e.target.value)}
           />
         </label>
-        <button className={styles.button} type="submit" disabled={!draft.trim()}>
+        <button
+          type="submit"
+          disabled={!draft.trim()}
+          className="rounded-lg bg-accent px-4 py-2.5 font-semibold text-accent-ink disabled:cursor-default disabled:opacity-50"
+        >
           進入
         </button>
       </form>

@@ -10,6 +10,7 @@
 | D-004 | 2026-09-18 | **儲存庫以 `frontend/` 與 `backend/` 分層整理** | `3d-office/08` 儲存庫結構；Makefile、CI、Dockerfile、pnpm workspace、ruff 設定 | `backend/`：單一 Python 專案（`autora/` 套件、`tests/`、`api/`、`worker/`、`scripts/`、`pyproject.toml`、`alembic.ini`）；`frontend/`：`web/`（Next.js）、`event-schema/`（產生的 TS 事件契約，由前端使用）；`infra/`、`logs/` 維持在根目錄。取代 `08` 原本的 `apps/` + `packages/` 配置 |
 | D-005 | 2026-09-18 | **模型供應者：主要使用 NVIDIA Build 的 `z-ai/glm-5.3`，保留 Anthropic 可隨時切換** | `platform/09` Model Gateway（新增 OpenAI 相容供應者）；T-207 / T-208；`.env` 設定；`09_DEVELOPMENT_ROADMAP` 階段 3 進入條件由「真實 Anthropic 呼叫」改為「真實模型呼叫」 | `MODEL_PROVIDER=nvidia`、`FRONTIER_MODEL_ID=z-ai/glm-5.3`、`FAST_MODEL_ID=z-ai/glm-5.3-flash`、價格 0（免費端點）。切換 = 改 `MODEL_PROVIDER` 與兩個模型 ID；兩把金鑰可同時留在 `.env`。注意：免費端點有速率限制（多數模型每分鐘約 40 次）、試用條款允許 NVIDIA 記錄輸入與輸出、價格為 0 時專案預算無法擋下呼叫；中國團隊模型可能輸出簡體中文，須在提示與驗證器中要求 zh-TW（D-002） |
 | D-006 | 2026-09-18 | **主要模型改為 `z-ai/glm-5.3-flash`，暫不設備援**（取代 D-005 的模型選擇；NVIDIA 為供應者、保留 Anthropic 切換不變） | `.env`；`RUNBOOK.md` 第六節；`.env.example` | 實測 NVIDIA 免費端點：`z-ai/glm-5.3` 回答一個字 224 秒（另一次 120 秒無回應），無法供代理使用；`z-ai/glm-5.3-flash` 4 ~ 30 秒，結構化輸出、工具迴圈、EchoWorkflow 全流程皆通過。`FRONTIER_MODEL_ID=z-ai/glm-5.3-flash`、`FAST_MODEL_ID` 留空。glm-5.3 可日後再測或改用付費端點 |
+| D-007 | 2026-09-18 | **前端樣式改用 Tailwind CSS v4**（取代 T-309 暫用的 CSS Modules） | `frontend/web`：`postcss.config.mjs`、`src/app/globals.css`；之後所有畫面（T-310 起、階段 4 的 2D 疊層） | 顏色以語意 token 定義在 `@theme`（`bg-surface`、`text-muted`、`border-line`、`bg-accent`…），淺色 / 深色切換只改一組 CSS 變數，不在每個元素寫 `dark:`。不另加元件庫 |
 
 ## 尚未決定的 P0
 

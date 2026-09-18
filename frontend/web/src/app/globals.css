@@ -1,55 +1,45 @@
-:root {
-  color-scheme: light dark;
-  --bg: #f6f7f9;
-  --surface: #ffffff;
-  --border: #e3e6eb;
-  --text: #15181d;
-  --text-muted: #5b6472;
-  --accent: #2f5bea;
-  --accent-contrast: #ffffff;
-  --ok: #1f9d55;
-  --warn: #d99a05;
-  --danger: #d64545;
-  --danger-bg: #fdf0f0;
-  --danger-border: #f3c6c6;
-  --neutral: #9aa3af;
+/* Tailwind CSS v4 (D-007). Colours are semantic tokens (bg-surface, text-muted, border-line...)
+   so light and dark mode are one set of variables, not dark: variants on every element. */
+@import "tailwindcss";
+
+@theme {
+  --color-canvas: #f6f7f9;
+  --color-surface: #ffffff;
+  --color-line: #e3e6eb;
+  --color-ink: #15181d;
+  --color-muted: #5b6472;
+  --color-accent: #2f5bea;
+  --color-accent-ink: #ffffff;
+  --color-ok: #1f9d55;
+  --color-warn: #d99a05;
+  --color-danger: #d64545;
+  --color-danger-soft: #fdf0f0;
+  --color-danger-line: #f3c6c6;
+  --color-neutral: #9aa3af;
+
+  --font-sans: system-ui, -apple-system, "PingFang TC", "Noto Sans TC", "Microsoft JhengHei",
+    sans-serif;
 }
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --bg: #0f1216;
-    --surface: #171b21;
-    --border: #262c35;
-    --text: #e8ebf0;
-    --text-muted: #98a2b1;
-    --accent: #6d8dff;
-    --accent-contrast: #0f1216;
-    --danger-bg: #2a1618;
-    --danger-border: #5a2a2d;
-    --neutral: #5f6875;
+    --color-canvas: #0f1216;
+    --color-surface: #171b21;
+    --color-line: #262c35;
+    --color-ink: #e8ebf0;
+    --color-muted: #98a2b1;
+    --color-accent: #6d8dff;
+    --color-accent-ink: #0f1216;
+    --color-danger-soft: #2a1618;
+    --color-danger-line: #5a2a2d;
+    --color-neutral: #5f6875;
   }
 }
 
-* {
-  box-sizing: border-box;
+:root {
+  color-scheme: light dark;
 }
 
-html,
 body {
-  margin: 0;
-  background: var(--bg);
-  color: var(--text);
-  font-family:
-    system-ui,
-    -apple-system,
-    "PingFang TC",
-    "Noto Sans TC",
-    "Microsoft JhengHei",
-    sans-serif;
-  line-height: 1.5;
-}
-
-code {
-  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
-  font-size: 0.9em;
+  @apply bg-canvas text-ink font-sans antialiased;
 }

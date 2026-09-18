@@ -75,6 +75,14 @@
 
 ---
 
+## 前端改用 Tailwind CSS（D-007，2026-09-18）
+
+- 依使用者要求，前端樣式由 CSS Modules 改為 **Tailwind CSS v4**（`@tailwindcss/postcss`）。`globals.css` 以 `@theme` 定義語意顏色（`canvas`、`surface`、`line`、`ink`、`muted`、`accent`、`ok`、`warn`、`danger`…），深色模式只覆寫同一組變數。Dashboard 與權杖畫面改寫為 Tailwind class，刪除兩個 `.module.css`。
+- 權杖畫面的說明改寫：使用者問「首頁的 API_BEARER_TOKEN 要輸入什麼、NVIDIA 金鑰不是已經在 .env 了嗎」，代表原本的說明不夠清楚。現在寫明這是 **Autora 自己 API 的密碼**（`.env` 的 `API_BEARER_TOKEN`，開發預設 `change-me`），**不是 NVIDIA 或 Anthropic 的金鑰**——模型金鑰只在後端，瀏覽器永遠看不到。
+- 驗證：web 62 個測試、`typecheck`、`lint`、`next build` 以結束碼確認通過；產出的 CSS 含 Tailwind 的 utility（含自訂 grid）；在瀏覽器窗格重新啟動開發伺服器後，權杖畫面以深色模式正確顯示。
+
+---
+
 ## T-314 · 簡易 KPI 報表（與 T-309 一起完成）
 
 計畫的順序原本把 T-314 排在 T-303 之後，我漏掉了；做 T-309 時才發現 Dashboard 的金額與今日目標沒有資料來源，「數字來自真實資料、不寫死」的驗收條件無法達成，所以先補上。

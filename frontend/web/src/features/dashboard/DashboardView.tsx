@@ -1,6 +1,5 @@
 import type { ReactNode } from "react";
 
-import styles from "./dashboard.module.css";
 import { formatMoney, type DashboardModel } from "./model";
 
 const CONNECTION_LABEL: Record<DashboardModel["connection"]["status"], string> = {
@@ -13,11 +12,25 @@ const CONNECTION_LABEL: Record<DashboardModel["connection"]["status"], string> =
   not_found: "找不到公司",
 };
 
+const DOT: Record<DashboardModel["connection"]["status"], string> = {
+  idle: "bg-neutral",
+  connecting: "bg-warn",
+  live: "bg-ok",
+  reconnecting: "bg-warn",
+  offline: "bg-danger",
+  unauthorized: "bg-danger",
+  not_found: "bg-danger",
+};
+
 export function ConnectionBadge({ connection }: { connection: DashboardModel["connection"] }) {
   const stale = connection.staleSeconds;
   return (
-    <span className={styles.connection} data-status={connection.status} role="status">
-      <span className={styles.dot} aria-hidden />
+    <span
+      role="status"
+      data-status={connection.status}
+      className="inline-flex items-center gap-2 rounded-full border border-line bg-surface px-3 py-1 text-sm text-muted"
+    >
+      <span aria-hidden className={`size-2 rounded-full ${DOT[connection.status]}`} />
       {CONNECTION_LABEL[connection.status]}
       {stale !== null && connection.status !== "live" ? `・資料可能已過期 ${stale} 秒` : null}
     </span>
@@ -36,35 +49,42 @@ function Tile({
   testId: string;
 }) {
   return (
-    <section className={styles.tile} data-testid={testId} aria-label={label}>
-      <h2 className={styles.label}>{label}</h2>
-      <p className={styles.value}>{value}</p>
-      {detail ? <p className={styles.detail}>{detail}</p> : null}
+    <section
+      data-testid={testId}
+      aria-label={label}
+      className="min-h-30 rounded-xl border border-line bg-surface px-5 py-4"
+    >
+      <h2 className="text-sm font-medium text-muted">{label}</h2>
+      <p className="mt-2 text-3xl leading-tight font-semibold tabular-nums break-words">{value}</p>
+      {detail ? <p className="mt-2 text-xs text-muted">{detail}</p> : null}
     </section>
   );
 }
 
-const PENDING = <span className={styles.muted}>—</span>;
+const PENDING = <span className="font-normal text-muted">—</span>;
 
 export function DashboardView({ companyName, model }: { companyName: string; model: DashboardModel }) {
   const { money, agents, tasks, goal } = model;
   return (
-    <main className={styles.page}>
-      <header className={styles.header}>
+    <main className="mx-auto max-w-6xl px-4 pt-8 pb-12">
+      <header className="mb-6 flex flex-wrap items-end justify-between gap-4">
         <div>
-          <p className={styles.eyebrow}>Dashboard</p>
-          <h1 className={styles.title}>{companyName}</h1>
+          <p className="text-xs tracking-widest text-muted uppercase">Dashboard</p>
+          <h1 className="mt-1 text-2xl font-semibold">{companyName}</h1>
         </div>
         <ConnectionBadge connection={model.connection} />
       </header>
 
       {model.connection.status === "offline" ? (
-        <p className={styles.banner} role="alert">
+        <p
+          role="alert"
+          className="mb-5 rounded-lg border border-danger-line bg-danger-soft px-4 py-3"
+        >
           與伺服器的連線中斷，正在重試。畫面保留最後的狀態。
         </p>
       ) : null}
 
-      <div className={styles.grid}>
+      <div className="grid grid-cols-[repeat(auto-fill,minmax(14rem,1fr))] gap-4">
         <Tile
           testId="cash"
           label="現金"
@@ -87,16 +107,18 @@ export function DashboardView({ companyName, model }: { companyName: string; mod
           value={
             <>
               {agents.busy}
-              <span className={styles.of}> / {agents.total}</span>
+              <span className="text-lg font-medium text-muted"> / {agents.total}</span>
             </>
           }
-          detail={[
-            agents.waiting ? `等待 ${agents.waiting}` : null,
-            agents.paused ? `暫停 ${agents.paused}` : null,
-            agents.failed ? `失敗 ${agents.failed}` : null,
-          ]
-            .filter(Boolean)
-            .join("・") || "其餘閒置"}
+          detail={
+            [
+              agents.waiting ? `等待 ${agents.waiting}` : null,
+              agents.paused ? `暫停 ${agents.paused}` : null,
+              agents.failed ? `失敗 ${agents.failed}` : null,
+            ]
+              .filter(Boolean)
+              .join("・") || "其餘閒置"
+          }
         />
         <Tile
           testId="tasks"
@@ -120,7 +142,7 @@ export function DashboardView({ companyName, model }: { companyName: string; mod
         <Tile
           testId="goal"
           label="今日目標"
-          value={goal ? goal.title : <span className={styles.muted}>尚未設定</span>}
+          value={goal ? goal.title : <span className="font-normal text-muted">尚未設定</span>}
           detail={
             goal
               ? `進度 ${goal.current ?? 0} / ${goal.target}${
