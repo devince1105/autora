@@ -30,6 +30,7 @@ def providers_from_settings(
                 name="nvidia",
                 base_url=settings.nvidia_base_url,
                 api_key=settings.nvidia_api_key.get_secret_value(),
+                timeout_s=settings.nvidia_timeout_seconds,
             )
         }
 

@@ -233,6 +233,23 @@ async def test_error_mapping(status, error_class, fallback_allowed, calls):
     assert "boom" in exc.value.message and len(server.requests) == calls
 
 
+async def test_timeouts_go_to_the_fallback_without_retrying():
+    calls = []
+
+    def slow(request):
+        calls.append(request)
+        raise httpx.ReadTimeout("no reply")
+
+    provider = OpenAICompatibleProvider(
+        name="nvidia", base_url="https://x/v1", api_key="k", timeout_s=5,
+        client=httpx.AsyncClient(transport=httpx.MockTransport(slow)),
+    )  # fmt: skip
+    with pytest.raises(ProviderError) as exc:
+        await provider.complete(_request(), BINDING)
+    assert (exc.value.error_class, exc.value.fallback_allowed) == ("Timeout", True)
+    assert len(calls) == 1, "a timed-out request is not sent again"
+
+
 async def test_connection_errors_allow_fallback():
     def down(request):
         raise httpx.ConnectError("refused")
@@ -270,6 +287,7 @@ def test_nvidia_provider_and_router():
     [provider] = providers_from_settings(settings).values()
     assert isinstance(provider, OpenAICompatibleProvider) and provider.name == "nvidia"
     assert provider.base_url == "https://integrate.api.nvidia.com/v1"
+    assert provider.timeout_s == 180
     router = router_from_settings(settings)
     assert router.aliases["frontier"].provider == "nvidia"
     assert router.aliases["frontier"].model_id == "vendor/big"

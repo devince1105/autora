@@ -60,6 +60,8 @@ class Settings(BaseSettings):
     anthropic_api_key: SecretStr | None = None
     nvidia_api_key: SecretStr | None = None
     nvidia_base_url: str = "https://integrate.api.nvidia.com/v1"
+    nvidia_timeout_seconds: float = Field(default=180.0, gt=0)
+    """Per request. On timeout the router's fallback model is tried at once (no retry)."""
     frontier_model_id: str | None = None
     fast_model_id: str | None = None
     model_prices: dict[str, dict[str, float]] = {}

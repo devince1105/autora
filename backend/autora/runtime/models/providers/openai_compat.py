@@ -16,8 +16,11 @@ Translation choices:
 - **Reasoning** text (``reasoning_content`` / ``reasoning``) is kept as an ``OpaqueBlock`` for the
   trace and not sent back: these APIs do not expect it in later turns.
 - **Usage**: cached prompt tokens are reported as ``cache_read_tokens`` and not also as input.
-- **Errors**: timeouts, connection errors, 429 and 5xx allow the router's fallback alias (after a
-  short retry that honours ``Retry-After``: free tiers rate-limit per minute); other 4xx do not.
+- **Errors**: timeouts, connection errors, 429 and 5xx allow the router's fallback alias; other
+  4xx do not. 429, 5xx and connection errors are retried briefly first (honouring
+  ``Retry-After``: free tiers rate-limit per minute). A **timeout is not retried**: a model that
+  did not answer within ``timeout_s`` is overloaded, and waiting that long again only delays the
+  fallback (measured on NVIDIA's free glm-5.3 endpoint: 224 s for a one-word reply).
 """
 
 from __future__ import annotations
@@ -72,6 +75,7 @@ class OpenAICompatibleProvider:
         self.base_url = base_url.rstrip("/")
         self.max_retries = max_retries
         self.max_retry_wait_s = max_retry_wait_s
+        self.timeout_s = timeout_s
         self._headers = {"Authorization": f"Bearer {api_key}", "Accept": "application/json"}
         self.client = client or httpx.AsyncClient(timeout=timeout_s)
 
@@ -153,7 +157,10 @@ class OpenAICompatibleProvider:
             try:
                 response = await self.client.post(url, json=body, headers=self._headers)
             except httpx.TimeoutException as exc:
-                error = ProviderError("Timeout", str(exc) or "timed out", fallback_allowed=True)
+                raise ProviderError(
+                    "Timeout", str(exc) or f"no reply within {self.timeout_s}s",
+                    fallback_allowed=True,
+                ) from exc  # fmt: skip
             except httpx.TransportError as exc:
                 error = ProviderError(type(exc).__name__, str(exc), fallback_allowed=True)
             else:
