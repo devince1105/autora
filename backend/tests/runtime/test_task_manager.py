@@ -337,6 +337,48 @@ async def test_reaper_fails_task_when_attempts_exhausted(db_session, world):
     assert (await _activity(db_session, researcher)).state == ActivityState.FAILED
 
 
+async def test_paused_agent_does_not_block_its_run_from_ending(db_session, world):
+    """An operator pauses an agent mid-run. Reaping, failing, finishing and cancelling its
+    tasks still work; the agent stays PAUSED (regression: the reaper raised ActivityError, which
+    would have stopped lease reaping for every task in the batch)."""
+    tm, researcher = world["tm"], world["agents"]["researcher"]
+    tasks = [await _add(world, db_session, name=f"t{i}", max_attempts=3) for i in range(5)]
+
+    async def claim_then_pause():
+        from autora.runtime.activity import set_activity
+
+        claim = await tm.claim_next(db_session, researcher, "w1")
+        await set_activity(db_session, researcher, ev.AgentPaused(reason="ops"), actor=SETUP)
+        return claim
+
+    claim = await claim_then_pause()
+    world["clock"].now = T0 + timedelta(hours=1)
+    assert await tm.reap_expired_leases(db_session) == [claim.task.id]
+    reaped = await db_session.get(Task, claim.task.id, populate_existing=True)
+    assert reaped.state == "READY"
+    aborted = [p for t, p in await _events(db_session, claim.task.id, "AGENT_RUN_ABORTED")]
+    assert aborted[-1]["final"] is False, "trace data only: the agent's activity did not change"
+
+    for finish in (
+        lambda c: tm.fail(db_session, c, error_class="x", message="", retryable=False),
+        lambda c: tm.succeed(db_session, c, {}),
+        lambda c: tm.abort(db_session, c, reason="budget"),
+        lambda c: tm.cancel(db_session, c.task, reason="stop"),
+    ):
+        await set_activity_for_resume(db_session, researcher)
+        await finish(await claim_then_pause())
+        assert (await _activity(db_session, researcher)).state == ActivityState.PAUSED
+    states = [(await db_session.get(Task, t.id, populate_existing=True)).state for t in tasks]
+    assert sorted(states) == sorted(["READY", "FAILED", "SUCCEEDED", "BLOCKED_BUDGET", "CANCELLED"])
+
+
+async def set_activity_for_resume(session, agent):
+    from autora.runtime.activity import get_activity, set_activity
+
+    if (await get_activity(session, agent.id)).state == "PAUSED":
+        await set_activity(session, agent, ev.AgentResumed(), actor=SETUP)
+
+
 async def test_cancel_running_and_pending_tasks(db_session, world):
     tm = world["tm"]
     research = await _add(world, db_session)

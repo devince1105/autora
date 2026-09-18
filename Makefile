@@ -10,7 +10,7 @@ COMPOSE := docker compose -f infra/docker-compose.yml
 
 ALEMBIC := cd backend && ../$(VENV)/bin/alembic
 
-.PHONY: help setup dev down up logs migrate migration db-check gen-schema gen-schema-check phase1-acceptance test test-py test-web lint lint-py lint-web clean
+.PHONY: help setup dev down up logs migrate migration db-check gen-schema gen-schema-check phase1-acceptance realtime-fixture test test-py test-web lint lint-py lint-web clean
 
 help: ## Show targets
 	@grep -E '^[a-zA-Z_-]+:.*?## ' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-12s\033[0m %s\n", $$1, $$2}'
@@ -60,6 +60,10 @@ phase1-acceptance: ## Phase 1 AC: agent walks 8 states in Postgres; TS parses th
 	AUTORA_EVENT_FIXTURE_OUT=$(CURDIR)/frontend/event-schema/test/fixtures/phase1-events.json \
 		$(PYTEST) backend/tests/acceptance/test_phase1.py -q
 	pnpm -F @autora/event-schema test
+
+realtime-fixture: ## Regenerate the T-302 contract fixture the TS reducer (T-305) must reproduce
+	AUTORA_REALTIME_FIXTURE_OUT=$(CURDIR)/frontend/web/src/realtime/__fixtures__/contract.json \
+		$(PYTEST) backend/tests/realtime/test_contract.py -q -k "every_snapshot and 0"
 
 test: test-py test-web ## Run all tests
 

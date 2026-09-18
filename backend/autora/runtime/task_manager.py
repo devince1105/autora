@@ -16,6 +16,9 @@ Rules that keep the queue honest:
 - **Retries back off**: ``available_at`` = now + base * 2^(attempt-1), capped.
 - **FAILED is final.** A retryable failure returns the task to READY.
 - **The queue is company-scoped.** Every claim query filters on the agent's company.
+- **A paused agent stays paused.** Run and task transitions still happen, but they do not
+  overwrite PAUSED activity (``set_activity_unless_paused``); otherwise one paused agent would
+  make lease reaping fail for every task in the batch.
 
 Dependency propagation (which downstream tasks become READY, what gets cancelled when a task
 fails for good) belongs to the workflow engine (``autora.runtime.dag``, T-203). It plugs in
@@ -45,7 +48,7 @@ from autora.db.models import (
     TaskState,
 )
 from autora.infra.ids import uuid7
-from autora.runtime.activity import effective_state, set_activity
+from autora.runtime.activity import effective_state, set_activity_unless_paused
 from autora.runtime.actor import Actor
 from autora.runtime.events import catalog as ev
 from autora.runtime.events.outbox import emit
@@ -278,7 +281,7 @@ class TaskManager:
         run.output = output
         run.handoff = [{"to_role": u.required_role, "task_id": str(u.task_id)} for u in unlocked]
         await self._finish_run(session, run, AgentRunState.COMPLETED, now)
-        await set_activity(
+        await set_activity_unless_paused(
             session,
             claim.agent,
             ev.AgentRunCompleted(
@@ -356,9 +359,12 @@ class TaskManager:
             await self._emit(session, task, ev.TaskBlocked(reason="budget"), run=run)
             # Trace data for the run; the agent's activity is WAITING{budget}, not FAILED.
             await self._emit(
-                session, task, ev.AgentRunAborted(reason="budget", message=message), run=run
+                session,
+                task,
+                ev.AgentRunAborted(reason="budget", message=message, final=False),
+                run=run,
             )
-            await set_activity(
+            await set_activity_unless_paused(
                 session,
                 claim.agent,
                 ev.AgentWaiting(reason="budget", blocked_task_id=task.id),
@@ -413,7 +419,7 @@ class TaskManager:
             agent = await session.get(Agent, run.agent_id)
             await self._activity(session, agent, ev.AgentIdle(reason="run_ended"), task, run)
         for agent in waiting_agents:
-            await set_activity(
+            await set_activity_unless_paused(
                 session, agent, ev.AgentIdle(reason="waiting_cleared"), actor=self.actor
             )
         if self.on_task_failed:
@@ -434,7 +440,7 @@ class TaskManager:
         await self._emit(
             session, task, ev.TaskWaiting(reason="approval", approval_id=approval_id), run=run
         )
-        await set_activity(
+        await set_activity_unless_paused(
             session,
             claim.agent,
             ev.AgentWaiting(reason="approval", approval_id=approval_id, blocked_task_id=task.id),
@@ -519,13 +525,16 @@ class TaskManager:
                 )
             )
             agent = await session.get(Agent, run.agent_id) if run else None
+            retry = task.attempt < task.max_attempts
             expired = ev.AgentRunAborted(
-                reason="timeout", message=f"lease expired at {task.lease_until.isoformat()}"
+                reason="timeout",
+                message=f"lease expired at {task.lease_until.isoformat()}",
+                final=not retry,
             )
             if run is not None:
                 await self._abort_run(session, run, "timeout", expired.message)
             self._release(task)
-            if task.attempt < task.max_attempts:
+            if retry:
                 await self._requeue(session, task, run, expired)
             else:
                 await TASK_FSM.transition(session, task, TaskState.FAILED, actor=self.actor)
@@ -589,7 +598,7 @@ class TaskManager:
         task: Task,
         run: AgentRun | None,
     ) -> None:
-        await set_activity(
+        await set_activity_unless_paused(
             session,
             agent,
             payload,
@@ -636,7 +645,7 @@ class TaskManager:
         for agent, activity in rows:
             if effective_state(activity, self.clock()) is not ActivityState.IDLE:
                 continue
-            await set_activity(
+            await set_activity_unless_paused(
                 session,
                 agent,
                 ev.AgentWaiting(

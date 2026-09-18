@@ -215,6 +215,11 @@
               },
               "title": "Capabilities",
               "type": "array"
+            },
+            "avatar_key": {
+              "default": "default",
+              "title": "Avatar Key",
+              "type": "string"
             }
           },
           "required": [
@@ -382,6 +387,11 @@
               ],
               "default": null,
               "title": "Message"
+            },
+            "final": {
+              "default": true,
+              "title": "Final",
+              "type": "boolean"
             }
           },
           "required": [

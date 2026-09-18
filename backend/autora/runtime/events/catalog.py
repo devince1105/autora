@@ -55,6 +55,8 @@ class AgentCreated(EventPayload):
     role: str
     display_name: str
     capabilities: list[str] = []
+    avatar_key: str = "default"
+    """Which figure the office draws; lets a reducer add the agent from this event alone."""
 
 
 @event("AGENT_PAUSED")
@@ -143,6 +145,9 @@ class AgentRunFailed(EventPayload):
 class AgentRunAborted(EventPayload):
     reason: Literal["budget", "policy", "timeout", "human"]
     message: str | None = None
+    final: bool = True
+    """False: trace data only (lease reaped with attempts left, budget abort); the agent's
+    activity comes from the event that follows, not from this one. Like AGENT_RUN_FAILED."""
 
 
 @event("AGENT_STEP_PROGRESS", persistence=Persistence.EPHEMERAL)

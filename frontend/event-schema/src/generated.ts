@@ -61,6 +61,7 @@ export const AgentCreatedV1Payload = z.object({
   role: z.string(),
   display_name: z.string(),
   capabilities: z.array(z.string()).default(() => ([])),
+  avatar_key: z.string().default("default"),
 });
 export type AgentCreatedV1Payload = z.infer<typeof AgentCreatedV1Payload>;
 export const AgentCreatedV1Event = z.object({
@@ -130,6 +131,7 @@ export const AgentReviewingV1Event = z.object({
 export const AgentRunAbortedV1Payload = z.object({
   reason: z.enum(["budget", "policy", "timeout", "human"]),
   message: z.string().nullable().default(null),
+  final: z.boolean().default(true),
 });
 export type AgentRunAbortedV1Payload = z.infer<typeof AgentRunAbortedV1Payload>;
 export const AgentRunAbortedV1Event = z.object({

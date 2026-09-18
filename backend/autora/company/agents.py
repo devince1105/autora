@@ -32,6 +32,7 @@ async def hire_agent(
     capabilities: Sequence[str] = (),
     tools: Sequence[str] = (),
     budget: dict[str, Any] | None = None,
+    avatar_key: str = "default",
 ) -> Agent:
     agent = await agent_repo.add_agent(
         session,
@@ -39,6 +40,7 @@ async def hire_agent(
             company_id=company_id,
             role=role,
             display_name=display_name,
+            avatar_key=avatar_key,
             description=description,
             capabilities=list(capabilities),
             tools=list(tools),
@@ -48,7 +50,12 @@ async def hire_agent(
     await emit(
         session,
         new_event(
-            ev.AgentCreated(role=role, display_name=display_name, capabilities=list(capabilities)),
+            ev.AgentCreated(
+                role=role,
+                display_name=display_name,
+                capabilities=list(capabilities),
+                avatar_key=avatar_key,
+            ),
             company_id=company_id,
             actor=actor,
             aggregate_type="agent",

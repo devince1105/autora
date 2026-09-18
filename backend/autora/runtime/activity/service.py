@@ -118,12 +118,29 @@ async def set_activity(
     )
 
 
+async def set_activity_unless_paused(
+    session: AsyncSession, agent: Agent, payload: EventPayload, **kwargs: Any
+) -> tuple[AgentActivity, EventEnvelope] | None:
+    """Like ``set_activity``, but a PAUSED agent stays PAUSED: nothing is written, no event.
+
+    For the task manager, which must be able to finish, fail, cancel or reclaim a run whose
+    agent an operator paused meanwhile. The task and run still move on; the agent shows PAUSED
+    until resumed (and the worker does not give it new work).
+    """
+    current = await session.scalar(
+        select(AgentActivity.state).where(AgentActivity.agent_id == agent.id).with_for_update()
+    )
+    if current == ActivityState.PAUSED.value:
+        return None
+    return await set_activity(session, agent, payload, **kwargs)
+
+
 def _check(current: ActivityState, payload: EventPayload) -> None:
     kind = type(payload)
     if kind not in _STATE_BY_PAYLOAD:
         raise ActivityError(f"{kind.__name__} does not change agent activity")
-    if isinstance(payload, ev.AgentRunFailed) and not payload.final:
-        raise ActivityError("a non-final run failure is retried; it does not change activity")
+    if isinstance(payload, ev.AgentRunFailed | ev.AgentRunAborted) and not payload.final:
+        raise ActivityError("a non-final run end is trace data; it does not change activity")
     if isinstance(payload, ev.AgentPaused) and current is ActivityState.PAUSED:
         raise ActivityError("agent is already PAUSED")
     if current is ActivityState.PAUSED and not isinstance(payload, ev.AgentResumed):

@@ -247,3 +247,4 @@ T-309,T-601 → T-608 ; T-211 → T-609 ; all → T-610
 | Task | 實際位置 / 差異 |
 |---|---|
 | T-301 | `realtime/projection.py`（`load_snapshot`、`begin_consistent_read`：REPEATABLE READ 一致讀取）、`api/.../routers/realtime.py`；任務的 `since` / `last_event_seq` 取自最後一個 TASK_* 事件（reducer 可重建）；`kpis` / `cycle` 暫為 null（T-314 / Phase 6）；不含 `tasks.progress`、`agents.status`；本機中位數約 21 ms（20k 事件） |
+| T-302 | `realtime/reducer.py`（`RealtimeState.from_snapshot / apply / view`、`canonical`）、`tests/realtime/test_contract.py`（真實程式產生的隨機歷史，8 種子）、`make realtime-fixture` → `frontend/web/src/realtime/__fixtures__/contract.json`；`AGENT_CREATED.avatar_key`、`AGENT_RUN_ABORTED.final`；修正暫停代理阻擋任務管理員（`set_activity_unless_paused`）；**事件 seq 為全域，`05` §4 的 `last_seq + 1` 缺口判斷不可用**，留給 T-303 / T-306 |

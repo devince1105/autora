@@ -5,6 +5,7 @@ from autora.runtime.activity.service import (
     get_activity,
     initialize_activity,
     set_activity,
+    set_activity_unless_paused,
 )
 
 __all__ = [
@@ -14,4 +15,5 @@ __all__ = [
     "get_activity",
     "initialize_activity",
     "set_activity",
+    "set_activity_unless_paused",
 ]
