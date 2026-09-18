@@ -694,6 +694,64 @@ export interface components {
                 [key: string]: unknown;
             }[] | null;
         };
+        /** TaskDetailOut */
+        TaskDetailOut: {
+            /** Attempt */
+            attempt: number;
+            /** Budget Usd */
+            budget_usd: string | null;
+            /**
+             * Company Id
+             * Format: uuid
+             */
+            company_id: string;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /** Depends On */
+            depends_on: string[];
+            /** Display Name */
+            display_name: string;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Input */
+            input: {
+                [key: string]: unknown;
+            };
+            /** Max Attempts */
+            max_attempts: number;
+            /** Name */
+            name: string;
+            /** Output */
+            output: {
+                [key: string]: unknown;
+            } | null;
+            /** Priority */
+            priority: number;
+            /**
+             * Project Id
+             * Format: uuid
+             */
+            project_id: string;
+            /** Required Role */
+            required_role: string;
+            /** Runs */
+            runs: components["schemas"]["TaskRunOut"][];
+            /** State */
+            state: string;
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
+            /** Workflow Run Id */
+            workflow_run_id: string | null;
+        };
         /** TaskRunOut */
         TaskRunOut: {
             /**
@@ -846,7 +904,7 @@ export interface components {
             /** State */
             state: string;
             /** Tasks */
-            tasks: components["schemas"]["autora_api__routers__workflows__TaskOut"][];
+            tasks: components["schemas"]["WorkflowTaskOut"][];
             /** Template Name */
             template_name: string;
         };
@@ -867,66 +925,8 @@ export interface components {
             /** Template */
             template: string;
         };
-        /** TaskOut */
-        autora_api__routers__tasks__TaskOut: {
-            /** Attempt */
-            attempt: number;
-            /** Budget Usd */
-            budget_usd: string | null;
-            /**
-             * Company Id
-             * Format: uuid
-             */
-            company_id: string;
-            /**
-             * Created At
-             * Format: date-time
-             */
-            created_at: string;
-            /** Depends On */
-            depends_on: string[];
-            /** Display Name */
-            display_name: string;
-            /**
-             * Id
-             * Format: uuid
-             */
-            id: string;
-            /** Input */
-            input: {
-                [key: string]: unknown;
-            };
-            /** Max Attempts */
-            max_attempts: number;
-            /** Name */
-            name: string;
-            /** Output */
-            output: {
-                [key: string]: unknown;
-            } | null;
-            /** Priority */
-            priority: number;
-            /**
-             * Project Id
-             * Format: uuid
-             */
-            project_id: string;
-            /** Required Role */
-            required_role: string;
-            /** Runs */
-            runs: components["schemas"]["TaskRunOut"][];
-            /** State */
-            state: string;
-            /**
-             * Updated At
-             * Format: date-time
-             */
-            updated_at: string;
-            /** Workflow Run Id */
-            workflow_run_id: string | null;
-        };
-        /** TaskOut */
-        autora_api__routers__workflows__TaskOut: {
+        /** WorkflowTaskOut */
+        WorkflowTaskOut: {
             /** Depends On */
             depends_on: string[];
             /** Display Name */
@@ -1382,7 +1382,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["autora_api__routers__tasks__TaskOut"];
+                    "application/json": components["schemas"]["TaskDetailOut"];
                 };
             };
             /** @description Validation Error */

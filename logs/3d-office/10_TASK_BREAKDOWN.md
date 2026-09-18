@@ -257,3 +257,4 @@ T-309,T-601 → T-608 ; T-211 → T-609 ; all → T-610
 | T-314 | `company/reporting_min.py`、`GET /api/companies/{id}/kpis`；模型費用只由 `model_calls` 計一次；**KPI 為伺服器狀態（Query），不在即時 store**（模型費用不是事件；snapshot.kpis 維持 null） |
 | T-309 | `/dashboard`（`features/dashboard/{model,DashboardView,DashboardPage}`、`features/auth/TokenGate`、`features/company/useCompanyStream`）；Tailwind（D-007）；權杖存 localStorage |
 | T-310 | `features/agent-panel/{model,AgentCards,AgentPanelView,AgentPanel,StateBadge}`；產出計數來自 `TOOL_COMPLETED.produced`、下一步來自交接或下游任務、進度只在回報時顯示；Output 分頁暫為 JSON（依格式顯示留到階段 5） |
+| T-311 | `features/trace-viewer/{model,TraceView,TracePage}`、`/trace/[runId]`、`/tasks/[taskId]`（每次嘗試連到軌跡）；未知類型以原始資料顯示並列於頁首；未被事件指向的步驟依時間插入、共用步驟只顯示一次；完整提示按需從 blob API 載入；**文章入口待 T-517**；OpenAPI 的兩個 `TaskOut` 改名為 `WorkflowTaskOut` / `TaskDetailOut` |

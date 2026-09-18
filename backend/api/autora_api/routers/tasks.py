@@ -27,7 +27,7 @@ class TaskRunOut(BaseModel):
     finished_at: datetime | None
 
 
-class TaskOut(BaseModel):
+class TaskDetailOut(BaseModel):
     id: uuid.UUID
     company_id: uuid.UUID
     project_id: uuid.UUID
@@ -50,7 +50,7 @@ class TaskOut(BaseModel):
 
 
 @router.get("/{task_id}")
-async def get_task(task_id: uuid.UUID, session: Session, _: Operator) -> TaskOut:
+async def get_task(task_id: uuid.UUID, session: Session, _: Operator) -> TaskDetailOut:
     task = await session.get(Task, task_id)
     if task is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, f"task {task_id} not found")
@@ -59,9 +59,9 @@ async def get_task(task_id: uuid.UUID, session: Session, _: Operator) -> TaskOut
             select(AgentRun).where(AgentRun.task_id == task_id).order_by(AgentRun.attempt)
         )
     ).all()
-    return TaskOut.model_validate(
+    return TaskDetailOut.model_validate(
         {
-            **{name: getattr(task, name) for name in TaskOut.model_fields if name != "runs"},
+            **{name: getattr(task, name) for name in TaskDetailOut.model_fields if name != "runs"},
             "runs": [TaskRunOut.model_validate(run, from_attributes=True) for run in runs],
         }
     )

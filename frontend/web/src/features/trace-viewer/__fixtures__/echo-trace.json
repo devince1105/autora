@@ -1,0 +1,294 @@
+{
+ "run_id": "01a0b3a5-b85f-77a9-90f1-39c7e54822c4",
+ "company_id": "01a0b290-f791-748d-a913-33b80c9a521b",
+ "task_id": "01a0b3a5-b10f-7762-932a-cf1855519e04",
+ "agent_id": "01a0b290-f7c0-71a5-a194-fcb4e1ea5ace",
+ "attempt": 1,
+ "state": "COMPLETED",
+ "cost_usd": "0.000000",
+ "entries": [
+  {
+   "seq": 341,
+   "event_type": "TASK_STARTED",
+   "occurred_at": "2026-09-18T08:32:57.442219Z",
+   "actor": {
+    "id": "task_manager",
+    "kind": "system"
+   },
+   "payload": {
+    "run_id": "01a0b3a5-b85f-77a9-90f1-39c7e54822c4",
+    "attempt": 1,
+    "agent_id": "01a0b290-f7c0-71a5-a194-fcb4e1ea5ace"
+   },
+   "step": null
+  },
+  {
+   "seq": 342,
+   "event_type": "AGENT_RUN_STARTED",
+   "occurred_at": "2026-09-18T08:32:57.453905Z",
+   "actor": {
+    "id": "agent_runner",
+    "kind": "system"
+   },
+   "payload": {
+    "attempt": 1,
+    "task_name": "echo_analyze",
+    "input_summary": "{\"params\": {\"topic\": \"during outage\"}}",
+    "required_role": "analyst"
+   },
+   "step": null
+  },
+  {
+   "seq": 343,
+   "event_type": "AGENT_THINKING",
+   "occurred_at": "2026-09-18T08:32:57.459199Z",
+   "actor": {
+    "id": "agent_runner",
+    "kind": "system"
+   },
+   "payload": {
+    "phase": "plan",
+    "step_seq": 0
+   },
+   "step": {
+    "seq": 0,
+    "kind": "think",
+    "summary": "I'll write my note.",
+    "tool_calls": [
+     {
+      "id": "fake_01a0b3a5-b85f-77a9-90f1-39c7e54822c4_0_0",
+      "name": "echo_note",
+      "input": {
+       "text": "analyst on during outage"
+      }
+     }
+    ],
+    "cost_usd": "0.000000",
+    "has_blob": true,
+    "created_at": "2026-09-18T08:32:57.471777Z"
+   }
+  },
+  {
+   "seq": 344,
+   "event_type": "AGENT_WORKING",
+   "occurred_at": "2026-09-18T08:32:57.494195Z",
+   "actor": {
+    "id": "agent_runner",
+    "kind": "system"
+   },
+   "payload": {
+    "tool": "echo_note",
+    "progress": null,
+    "step_seq": 1,
+    "tool_call_id": "fake_01a0b3a5-b85f-77a9-90f1-39c7e54822c4_0_0"
+   },
+   "step": {
+    "seq": 1,
+    "kind": "act",
+    "summary": "echo_note: ok",
+    "tool_calls": [
+     {
+      "id": "fake_01a0b3a5-b85f-77a9-90f1-39c7e54822c4_0_0",
+      "ok": true,
+      "name": "echo_note",
+      "duration_ms": 3,
+      "error_class": null
+     }
+    ],
+    "cost_usd": "0.000000",
+    "has_blob": true,
+    "created_at": "2026-09-18T08:32:57.506998Z"
+   }
+  },
+  {
+   "seq": 345,
+   "event_type": "TOOL_CALLED",
+   "occurred_at": "2026-09-18T08:32:57.498598Z",
+   "actor": {
+    "id": "01a0b290-f7c0-71a5-a194-fcb4e1ea5ace",
+    "kind": "agent"
+   },
+   "payload": {
+    "tool": "echo_note",
+    "step_seq": 1,
+    "side_effect": "write",
+    "args_summary": "{\"text\": \"analyst on during outage\"}",
+    "tool_call_id": "fake_01a0b3a5-b85f-77a9-90f1-39c7e54822c4_0_0"
+   },
+   "step": {
+    "seq": 1,
+    "kind": "act",
+    "summary": "echo_note: ok",
+    "tool_calls": [
+     {
+      "id": "fake_01a0b3a5-b85f-77a9-90f1-39c7e54822c4_0_0",
+      "ok": true,
+      "name": "echo_note",
+      "duration_ms": 3,
+      "error_class": null
+     }
+    ],
+    "cost_usd": "0.000000",
+    "has_blob": true,
+    "created_at": "2026-09-18T08:32:57.506998Z"
+   }
+  },
+  {
+   "seq": 346,
+   "event_type": "TOOL_COMPLETED",
+   "occurred_at": "2026-09-18T08:32:57.505560Z",
+   "actor": {
+    "id": "01a0b290-f7c0-71a5-a194-fcb4e1ea5ace",
+    "kind": "agent"
+   },
+   "payload": {
+    "tool": "echo_note",
+    "cost_usd": null,
+    "produced": [
+     {
+      "id": "a09eef8a-4c99-4478-8ef9-7c4a276288df",
+      "type": "echo_note"
+     }
+    ],
+    "duration_ms": 3,
+    "tool_call_id": "fake_01a0b3a5-b85f-77a9-90f1-39c7e54822c4_0_0",
+    "result_summary": "wrote note a09eef8a-4c99-4478-8ef9-7c4a276288df"
+   },
+   "step": null
+  },
+  {
+   "seq": 347,
+   "event_type": "AGENT_THINKING",
+   "occurred_at": "2026-09-18T08:32:57.523402Z",
+   "actor": {
+    "id": "agent_runner",
+    "kind": "system"
+   },
+   "payload": {
+    "phase": "reason",
+    "step_seq": 2
+   },
+   "step": {
+    "seq": 2,
+    "kind": "think",
+    "summary": "{\"note_id\": \"a09eef8a-4c99-4478-8ef9-7c4a276288df\", \"message\": \"analyst on during outage\"}",
+    "tool_calls": null,
+    "cost_usd": "0.000000",
+    "has_blob": true,
+    "created_at": "2026-09-18T08:32:57.536777Z"
+   }
+  },
+  {
+   "seq": 348,
+   "event_type": "AGENT_REVIEWING",
+   "occurred_at": "2026-09-18T08:32:57.551274Z",
+   "actor": {
+    "id": "agent_runner",
+    "kind": "system"
+   },
+   "payload": {
+    "phase": "evaluate",
+    "attempt": 1,
+    "issues_count": 0
+   },
+   "step": null
+  },
+  {
+   "seq": 350,
+   "event_type": "TASK_SUCCEEDED",
+   "occurred_at": "2026-09-18T08:32:57.567434Z",
+   "actor": {
+    "id": "task_manager",
+    "kind": "system"
+   },
+   "payload": {
+    "run_id": "01a0b3a5-b85f-77a9-90f1-39c7e54822c4",
+    "unlocks": [
+     {
+      "task_id": "01a0b3a5-b10f-7763-a699-fbec62433e54",
+      "required_role": "writer"
+     }
+    ],
+    "output_ref": "analyst on during outage"
+   },
+   "step": null
+  },
+  {
+   "seq": 351,
+   "event_type": "AGENT_RUN_COMPLETED",
+   "occurred_at": "2026-09-18T08:32:57.570994Z",
+   "actor": {
+    "id": "task_manager",
+    "kind": "system"
+   },
+   "payload": {
+    "steps": 4,
+    "handoff": [
+     {
+      "task_id": "01a0b3a5-b10f-7763-a699-fbec62433e54",
+      "to_role": "writer"
+     }
+    ],
+    "cost_usd": "0",
+    "duration_ms": 108,
+    "display_until": "2026-09-18T08:33:17.570994Z",
+    "output_summary": "analyst on during outage"
+   },
+   "step": null
+  }
+ ],
+ "steps": [
+  {
+   "seq": 0,
+   "kind": "think",
+   "summary": "I'll write my note.",
+   "tool_calls": [
+    {
+     "id": "fake_01a0b3a5-b85f-77a9-90f1-39c7e54822c4_0_0",
+     "name": "echo_note",
+     "input": {
+      "text": "analyst on during outage"
+     }
+    }
+   ],
+   "cost_usd": "0.000000",
+   "has_blob": true,
+   "created_at": "2026-09-18T08:32:57.471777Z"
+  },
+  {
+   "seq": 1,
+   "kind": "act",
+   "summary": "echo_note: ok",
+   "tool_calls": [
+    {
+     "id": "fake_01a0b3a5-b85f-77a9-90f1-39c7e54822c4_0_0",
+     "ok": true,
+     "name": "echo_note",
+     "duration_ms": 3,
+     "error_class": null
+    }
+   ],
+   "cost_usd": "0.000000",
+   "has_blob": true,
+   "created_at": "2026-09-18T08:32:57.506998Z"
+  },
+  {
+   "seq": 2,
+   "kind": "think",
+   "summary": "{\"note_id\": \"a09eef8a-4c99-4478-8ef9-7c4a276288df\", \"message\": \"analyst on during outage\"}",
+   "tool_calls": null,
+   "cost_usd": "0.000000",
+   "has_blob": true,
+   "created_at": "2026-09-18T08:32:57.536777Z"
+  },
+  {
+   "seq": 3,
+   "kind": "evaluate",
+   "summary": "passed",
+   "tool_calls": null,
+   "cost_usd": "0.000000",
+   "has_blob": true,
+   "created_at": "2026-09-18T08:32:57.546014Z"
+  }
+ ]
+}

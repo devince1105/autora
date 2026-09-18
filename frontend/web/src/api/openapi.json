@@ -1140,6 +1140,141 @@
     "title": "StepView",
     "type": "object"
    },
+   "TaskDetailOut": {
+    "properties": {
+     "attempt": {
+      "title": "Attempt",
+      "type": "integer"
+     },
+     "budget_usd": {
+      "anyOf": [
+       {
+        "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Budget Usd"
+     },
+     "company_id": {
+      "format": "uuid",
+      "title": "Company Id",
+      "type": "string"
+     },
+     "created_at": {
+      "format": "date-time",
+      "title": "Created At",
+      "type": "string"
+     },
+     "depends_on": {
+      "items": {
+       "format": "uuid",
+       "type": "string"
+      },
+      "title": "Depends On",
+      "type": "array"
+     },
+     "display_name": {
+      "title": "Display Name",
+      "type": "string"
+     },
+     "id": {
+      "format": "uuid",
+      "title": "Id",
+      "type": "string"
+     },
+     "input": {
+      "additionalProperties": true,
+      "title": "Input",
+      "type": "object"
+     },
+     "max_attempts": {
+      "title": "Max Attempts",
+      "type": "integer"
+     },
+     "name": {
+      "title": "Name",
+      "type": "string"
+     },
+     "output": {
+      "anyOf": [
+       {
+        "additionalProperties": true,
+        "type": "object"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Output"
+     },
+     "priority": {
+      "title": "Priority",
+      "type": "integer"
+     },
+     "project_id": {
+      "format": "uuid",
+      "title": "Project Id",
+      "type": "string"
+     },
+     "required_role": {
+      "title": "Required Role",
+      "type": "string"
+     },
+     "runs": {
+      "items": {
+       "$ref": "#/components/schemas/TaskRunOut"
+      },
+      "title": "Runs",
+      "type": "array"
+     },
+     "state": {
+      "title": "State",
+      "type": "string"
+     },
+     "updated_at": {
+      "format": "date-time",
+      "title": "Updated At",
+      "type": "string"
+     },
+     "workflow_run_id": {
+      "anyOf": [
+       {
+        "format": "uuid",
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Workflow Run Id"
+     }
+    },
+    "required": [
+     "id",
+     "company_id",
+     "project_id",
+     "workflow_run_id",
+     "name",
+     "display_name",
+     "required_role",
+     "state",
+     "depends_on",
+     "input",
+     "output",
+     "attempt",
+     "max_attempts",
+     "budget_usd",
+     "priority",
+     "created_at",
+     "updated_at",
+     "runs"
+    ],
+    "title": "TaskDetailOut",
+    "type": "object"
+   },
    "TaskRunOut": {
     "properties": {
      "agent_id": {
@@ -1484,7 +1619,7 @@
      },
      "tasks": {
       "items": {
-       "$ref": "#/components/schemas/autora_api__routers__workflows__TaskOut"
+       "$ref": "#/components/schemas/WorkflowTaskOut"
       },
       "title": "Tasks",
       "type": "array"
@@ -1533,142 +1668,7 @@
     "title": "WorkflowStart",
     "type": "object"
    },
-   "autora_api__routers__tasks__TaskOut": {
-    "properties": {
-     "attempt": {
-      "title": "Attempt",
-      "type": "integer"
-     },
-     "budget_usd": {
-      "anyOf": [
-       {
-        "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
-        "type": "string"
-       },
-       {
-        "type": "null"
-       }
-      ],
-      "title": "Budget Usd"
-     },
-     "company_id": {
-      "format": "uuid",
-      "title": "Company Id",
-      "type": "string"
-     },
-     "created_at": {
-      "format": "date-time",
-      "title": "Created At",
-      "type": "string"
-     },
-     "depends_on": {
-      "items": {
-       "format": "uuid",
-       "type": "string"
-      },
-      "title": "Depends On",
-      "type": "array"
-     },
-     "display_name": {
-      "title": "Display Name",
-      "type": "string"
-     },
-     "id": {
-      "format": "uuid",
-      "title": "Id",
-      "type": "string"
-     },
-     "input": {
-      "additionalProperties": true,
-      "title": "Input",
-      "type": "object"
-     },
-     "max_attempts": {
-      "title": "Max Attempts",
-      "type": "integer"
-     },
-     "name": {
-      "title": "Name",
-      "type": "string"
-     },
-     "output": {
-      "anyOf": [
-       {
-        "additionalProperties": true,
-        "type": "object"
-       },
-       {
-        "type": "null"
-       }
-      ],
-      "title": "Output"
-     },
-     "priority": {
-      "title": "Priority",
-      "type": "integer"
-     },
-     "project_id": {
-      "format": "uuid",
-      "title": "Project Id",
-      "type": "string"
-     },
-     "required_role": {
-      "title": "Required Role",
-      "type": "string"
-     },
-     "runs": {
-      "items": {
-       "$ref": "#/components/schemas/TaskRunOut"
-      },
-      "title": "Runs",
-      "type": "array"
-     },
-     "state": {
-      "title": "State",
-      "type": "string"
-     },
-     "updated_at": {
-      "format": "date-time",
-      "title": "Updated At",
-      "type": "string"
-     },
-     "workflow_run_id": {
-      "anyOf": [
-       {
-        "format": "uuid",
-        "type": "string"
-       },
-       {
-        "type": "null"
-       }
-      ],
-      "title": "Workflow Run Id"
-     }
-    },
-    "required": [
-     "id",
-     "company_id",
-     "project_id",
-     "workflow_run_id",
-     "name",
-     "display_name",
-     "required_role",
-     "state",
-     "depends_on",
-     "input",
-     "output",
-     "attempt",
-     "max_attempts",
-     "budget_usd",
-     "priority",
-     "created_at",
-     "updated_at",
-     "runs"
-    ],
-    "title": "TaskOut",
-    "type": "object"
-   },
-   "autora_api__routers__workflows__TaskOut": {
+   "WorkflowTaskOut": {
     "properties": {
      "depends_on": {
       "items": {
@@ -1708,7 +1708,7 @@
      "state",
      "depends_on"
     ],
-    "title": "TaskOut",
+    "title": "WorkflowTaskOut",
     "type": "object"
    }
   },
@@ -2504,7 +2504,7 @@
       "content": {
        "application/json": {
         "schema": {
-         "$ref": "#/components/schemas/autora_api__routers__tasks__TaskOut"
+         "$ref": "#/components/schemas/TaskDetailOut"
         }
        }
       },

@@ -22,7 +22,7 @@ class WorkflowStart(BaseModel):
     params: dict[str, Any] = {}
 
 
-class TaskOut(BaseModel):
+class WorkflowTaskOut(BaseModel):
     id: uuid.UUID
     name: str
     display_name: str
@@ -39,7 +39,7 @@ class WorkflowRunOut(BaseModel):
     params: dict[str, Any]
     state: str
     created_at: datetime
-    tasks: list[TaskOut]
+    tasks: list[WorkflowTaskOut]
 
 
 @router.post("", status_code=status.HTTP_201_CREATED)
@@ -78,5 +78,5 @@ async def post_workflow(
         params=run.params,
         state=run.state,
         created_at=run.created_at,
-        tasks=[TaskOut.model_validate(t, from_attributes=True) for t in tasks.values()],
+        tasks=[WorkflowTaskOut.model_validate(t, from_attributes=True) for t in tasks.values()],
     )
