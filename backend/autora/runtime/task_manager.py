@@ -18,7 +18,8 @@ Rules that keep the queue honest:
 - **The queue is company-scoped.** Every claim query filters on the agent's company.
 
 Dependency propagation (which downstream tasks become READY, what gets cancelled when a task
-fails for good) belongs to the DAG (T-203). It plugs in through ``on_task_finished``.
+fails for good) belongs to the workflow engine (``autora.runtime.dag``, T-203). It plugs in
+through ``on_task_finished`` / ``on_task_failed``.
 """
 
 from __future__ import annotations
@@ -111,11 +112,12 @@ class TaskManager:
         max_attempts: int = 3,
         priority: int = 100,
         ready: bool | None = None,
+        task_id: uuid.UUID | None = None,
     ) -> Task:
         """Create a task. It is READY when it has no dependencies (or ``ready=True``), else
         PENDING; a PENDING task tells idle agents of its role that they are waiting upstream."""
         task = Task(
-            id=uuid7(),
+            id=task_id or uuid7(),
             company_id=company_id,
             project_id=project_id,
             workflow_run_id=workflow_run_id,
@@ -163,9 +165,27 @@ class TaskManager:
 
         Raises ``AgentBusy`` if the agent already has an unfinished run.
         """
-        if await self._open_run(session, agent.id) is not None:
-            raise AgentBusy(f"agent {agent.id} already has an unfinished run")
         now = self.clock()
+        open_run = await self._open_run(session, agent.id)
+        if open_run is not None:
+            # The only unfinished run an agent may pick up again is its own run that was
+            # suspended for approval and whose task has been released back to READY.
+            if open_run.state != AgentRunState.WAITING_APPROVAL:
+                raise AgentBusy(f"agent {agent.id} already has an unfinished run")
+            task = await session.scalar(
+                select(Task)
+                .where(Task.id == open_run.task_id, Task.state == TaskState.READY)
+                .with_for_update(skip_locked=True)
+            )
+            if task is None:
+                raise AgentBusy(f"agent {agent.id} is waiting for an approval")
+            return await self._take(session, task, agent, worker_id, now, resume=open_run)
+
+        suspended_elsewhere = (
+            select(AgentRun.id)
+            .where(AgentRun.task_id == Task.id, AgentRun.state == AgentRunState.WAITING_APPROVAL)
+            .exists()
+        )
         task = await session.scalar(
             select(Task)
             .where(
@@ -174,6 +194,7 @@ class TaskManager:
                 Task.state == TaskState.READY,
                 Task.attempt < Task.max_attempts,
                 or_(Task.available_at.is_(None), Task.available_at <= now),
+                ~suspended_elsewhere,
             )
             .order_by(Task.priority, Task.created_at)
             .limit(1)
@@ -181,15 +202,20 @@ class TaskManager:
         )
         if task is None:
             return None
+        return await self._take(session, task, agent, worker_id, now, resume=None)
 
-        # A run suspended for approval is resumed on the same attempt; otherwise a new attempt.
-        run = await session.scalar(
-            select(AgentRun).where(
-                AgentRun.task_id == task.id,
-                AgentRun.attempt == task.attempt,
-                AgentRun.state.notin_(AGENT_RUN_TERMINAL),
-            )
-        )
+    async def _take(
+        self,
+        session: AsyncSession,
+        task: Task,
+        agent: Agent,
+        worker_id: str,
+        now: datetime,
+        *,
+        resume: AgentRun | None,
+    ) -> Claim:
+        """Lease ``task`` to ``worker_id``: resume ``resume`` or start a new attempt."""
+        run = resume
         resumed = run is not None
         if run is None:
             task.attempt += 1
@@ -203,8 +229,6 @@ class TaskManager:
                 input=task.input,
             )
             session.add(run)
-        elif run.agent_id != agent.id:
-            raise TaskManagerError(f"task {task.id} is being resumed by another agent")
 
         token = uuid7()
         task.lease_owner = worker_id
@@ -363,16 +387,21 @@ class TaskManager:
         task = await session.scalar(select(Task).where(Task.id == task.id).with_for_update())
         if TASK_FSM.is_terminal(task.state):
             return
-        run = None
-        if task.state == TaskState.RUNNING:
-            run = await session.scalar(
-                select(AgentRun).where(
-                    AgentRun.task_id == task.id, AgentRun.state.notin_(AGENT_RUN_TERMINAL)
-                )
+        # RUNNING, or suspended for approval (WAITING_APPROVAL / released READY): end the run.
+        run = await session.scalar(
+            select(AgentRun).where(
+                AgentRun.task_id == task.id, AgentRun.state.notin_(AGENT_RUN_TERMINAL)
             )
-            if run is not None:
-                await self._abort_run(session, run, "human", reason)
-        waiting_agents = await self._agents_waiting_on(session, task)
+        )
+        if run is not None:
+            await self._abort_run(session, run, "human", reason)
+        # Agents waiting on this task (upstream, or a suspended run's own agent). The run's agent
+        # is freed through the run below, so it is not "cleared" a second time.
+        waiting_agents = [
+            agent
+            for agent in await self._agents_waiting_on(session, task)
+            if run is None or agent.id != run.agent_id
+        ]
         self._release(task)
         await TASK_FSM.transition(session, task, TaskState.CANCELLED, actor=self.actor)
         await self._emit(session, task, ev.TaskCancelled(reason=reason), run=run)
@@ -385,6 +414,63 @@ class TaskManager:
             )
         if self.on_task_failed:
             await self.on_task_failed(session, task)
+
+    # --- approvals (used by autora.runtime.approvals) --------------------------------------
+
+    async def suspend_for_approval(
+        self, session: AsyncSession, claim: Claim, approval_id: uuid.UUID
+    ) -> None:
+        """A running agent needs a human decision: release the worker, keep the run open."""
+        task = await self._locked_task(session, claim)
+        run = await self._run_of(session, claim)
+        for hop in AGENT_RUN_FSM.shortest_path(run.state, AgentRunState.WAITING_APPROVAL):
+            await AGENT_RUN_FSM.transition(session, run, hop, actor=self.actor)
+        self._release(task)
+        await TASK_FSM.transition(session, task, TaskState.WAITING_APPROVAL, actor=self.actor)
+        await self._emit(
+            session, task, ev.TaskWaiting(reason="approval", approval_id=approval_id), run=run
+        )
+        await set_activity(
+            session,
+            claim.agent,
+            ev.AgentWaiting(reason="approval", approval_id=approval_id, blocked_task_id=task.id),
+            actor=self.actor,
+            run_id=run.id,
+            task_id=task.id,
+            workflow_run_id=task.workflow_run_id,
+            task_name=task.display_name,
+        )
+
+    async def await_approval(
+        self, session: AsyncSession, task: Task, approval_id: uuid.UUID
+    ) -> None:
+        """A human task node (no agent run) starts waiting for its decision."""
+        await TASK_FSM.transition(session, task, TaskState.WAITING_APPROVAL, actor=self.actor)
+        await self._emit(session, task, ev.TaskWaiting(reason="approval", approval_id=approval_id))
+
+    async def release_after_approval(self, session: AsyncSession, task: Task) -> None:
+        """Approved: the task is claimable again; its suspended run resumes on the same attempt."""
+        await TASK_FSM.transition(session, task, TaskState.READY, actor=self.actor)
+        await self._emit(session, task, ev.TaskReady(required_role=task.required_role))
+
+    async def complete_without_run(
+        self,
+        session: AsyncSession,
+        task: Task,
+        output: dict[str, Any] | None,
+        *,
+        output_summary: str | None = None,
+    ) -> list[ev.UnlockedTask]:
+        """Finish a human/service node that has no agent run (e.g. an approved approval node)."""
+        task.output = output
+        await TASK_FSM.transition(session, task, TaskState.SUCCEEDED, actor=self.actor)
+        unlocked = list(await self.on_task_finished(session, task)) if self.on_task_finished else []
+        await self._emit(
+            session,
+            task,
+            ev.TaskSucceeded(run_id=None, output_ref=output_summary, unlocks=unlocked),
+        )
+        return unlocked
 
     # --- maintenance -----------------------------------------------------------------------
 

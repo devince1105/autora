@@ -2,12 +2,14 @@ from __future__ import annotations
 
 import secrets
 from collections.abc import AsyncIterator
+from functools import lru_cache
 from typing import Annotated
 
 from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from autora.app import Runtime, build_runtime
 from autora.db.session import get_sessionmaker
 from autora.infra.settings import Settings, get_settings
 from autora.runtime.actor import Actor
@@ -17,6 +19,12 @@ _bearer = HTTPBearer(auto_error=False)
 
 def settings_dep() -> Settings:
     return get_settings()
+
+
+@lru_cache(maxsize=1)
+def runtime_dep() -> Runtime:
+    """One wired runtime per process (task manager, workflow engine, approvals, policy)."""
+    return build_runtime()
 
 
 async def get_session() -> AsyncIterator[AsyncSession]:
@@ -42,3 +50,4 @@ def require_operator(
 
 Session = Annotated[AsyncSession, Depends(get_session)]
 Operator = Annotated[Actor, Depends(require_operator)]
+RuntimeDep = Annotated[Runtime, Depends(runtime_dep)]

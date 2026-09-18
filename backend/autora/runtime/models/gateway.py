@@ -109,7 +109,7 @@ class ModelGateway:
                 raise ModelCallFailed(failures) from err
 
             latency = _ms(started)
-            cost = binding.price.cost(raw.usage)
+            cost = self.router.price_for(raw.model_id, binding.price).cost(raw.usage)
             async with self.session_factory() as session:
                 call_id = await self._record(
                     session, request, candidate, binding, raw.usage, cost, latency,

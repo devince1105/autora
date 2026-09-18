@@ -790,6 +790,18 @@ export const ToolFailedV1Event = z.object({
   payload: ToolFailedV1Payload,
 });
 
+export const WorkflowRunCancelledV1Payload = z.object({
+  duration_ms: z.number().int().min(0),
+  reason: z.string(),
+});
+export type WorkflowRunCancelledV1Payload = z.infer<typeof WorkflowRunCancelledV1Payload>;
+export const WorkflowRunCancelledV1Event = z.object({
+  ...envelopeFields,
+  event_type: z.literal("WORKFLOW_RUN_CANCELLED"),
+  schema_version: z.literal(1),
+  payload: WorkflowRunCancelledV1Payload,
+});
+
 export const WorkflowRunCompletedV1Payload = z.object({
   duration_ms: z.number().int().min(0),
 });
@@ -885,6 +897,7 @@ export const EventEnvelope = z.discriminatedUnion("event_type", [
   ToolCompletedV1Event,
   ToolDeniedV1Event,
   ToolFailedV1Event,
+  WorkflowRunCancelledV1Event,
   WorkflowRunCompletedV1Event,
   WorkflowRunCreatedV1Event,
   WorkflowRunFailedV1Event,
@@ -950,6 +963,7 @@ export const EVENT_TYPES = [
   "TOOL_COMPLETED",
   "TOOL_DENIED",
   "TOOL_FAILED",
+  "WORKFLOW_RUN_CANCELLED",
   "WORKFLOW_RUN_COMPLETED",
   "WORKFLOW_RUN_CREATED",
   "WORKFLOW_RUN_FAILED",

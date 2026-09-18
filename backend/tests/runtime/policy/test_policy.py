@@ -1,0 +1,257 @@
+"""T-205: policy engine and the permission matrix (logs/platform/07_PERMISSION_MODEL.md §3)."""
+
+import uuid
+
+import pytest
+from sqlalchemy import select, text
+from sqlalchemy.exc import DBAPIError
+
+from autora.app import build_policy_engine
+from autora.db.models import EventRecord, PolicyDecision
+from autora.runtime.actor import Actor
+from autora.runtime.policy import OVERRIDES_KEY, PolicyEngine, PolicyError, Rule, allow
+from tests.conftest import unique_company
+
+A, H, D = "allow", "needs_approval", "deny"
+ROLES = ("researcher", "analyst", "writer", "editor", "marketing", "ceo", "finance")
+
+# One row per action, one column per role, transcribed from platform/07 §3 (P5 finance incl.).
+# Limits are evaluated with facts/args that satisfy them; limit behaviour is tested separately.
+MATRIX = {
+    "web_search":           (A, D, D, D, A, D, D),
+    "fetch_url":            (A, D, D, D, A, D, D),
+    "read_evidence":        (A, A, A, A, A, A, D),
+    "search_evidence":      (A, A, A, A, A, A, D),
+    "create_claim":         (D, A, D, D, D, D, D),
+    "link_evidence":        (D, A, D, D, D, D, D),
+    "write_draft":          (D, D, A, D, D, D, D),
+    "read_draft":           (D, D, A, A, A, A, D),
+    "run_fact_check":       (D, D, D, A, D, D, D),
+    "request_revision":     (D, D, D, A, D, D, D),
+    "accept_draft":         (D, D, D, A, D, D, D),
+    "approve_article":      (D, D, D, D, D, D, D),
+    "publish_article":      (D, D, D, D, D, D, D),
+    "create_distribution":  (D, D, D, D, A, D, D),
+    "spend_ad_budget":      (D, D, D, D, A, D, D),
+    "create_cycle_goal":    (D, D, D, D, D, A, D),
+    "instantiate_workflow": (D, D, D, D, D, A, D),
+    "create_project":       (D, D, D, D, D, H, D),
+    "allocate_budget":      (D, D, D, D, D, A, H),
+    "pause_project":        (D, D, D, D, D, A, D),
+    "kill_project":         (D, D, D, D, D, H, D),
+    "update_strategy":      (D, D, D, D, D, H, D),
+    "record_transaction":   (D, D, D, D, D, D, D),
+    "payment":              (D, D, D, D, D, H, H),
+    "delete":               (D, D, D, D, D, D, D),
+    "pause_agent":          (D, D, D, D, D, D, D),
+    "resume_agent":         (D, D, D, D, D, D, D),
+}  # fmt: skip
+
+WITHIN_LIMITS = {
+    "args": {"amount": "1"},
+    "facts": {
+        "workflows_in_cycle": 0,
+        "article_state": "PUBLISHED",
+        "campaign_spent": 0,
+        "campaign_cap": 100,
+        "fact_check_passed": True,
+    },
+}
+
+
+@pytest.fixture(scope="module")
+def engine() -> PolicyEngine:
+    return build_policy_engine()
+
+
+def _agent():
+    return Actor.agent(uuid.uuid4())
+
+
+def test_matrix_covers_every_declared_action(engine):
+    assert set(MATRIX) == set(engine.actions())
+
+
+@pytest.mark.parametrize(
+    ("action", "role", "expected"),
+    [(action, role, row[i]) for action, row in MATRIX.items() for i, role in enumerate(ROLES)],
+)
+def test_permission_matrix(engine, action, role, expected):
+    decision = engine.decide(_agent(), action, role=role, **WITHIN_LIMITS)
+    assert decision.outcome == expected, decision.reason
+
+
+@pytest.mark.parametrize("action", sorted(MATRIX))
+def test_humans_may_do_anything(engine, action):
+    decision = engine.decide(Actor.human("operator"), action)
+    assert (decision.outcome, decision.rule_id) == ("allow", "human_operator")
+
+
+def test_unknown_action_and_unknown_role_are_denied(engine):
+    assert engine.decide(_agent(), "teleport", role="ceo").rule_id == "unknown_action"
+    decision = engine.decide(_agent(), "web_search", role="intern")
+    assert (decision.outcome, decision.rule_id) == ("deny", "default_deny")
+
+
+def test_agent_needs_a_role(engine):
+    with pytest.raises(PolicyError, match="role"):
+        engine.decide(_agent(), "web_search")
+
+
+# --- system actor & D-001 ------------------------------------------------------------------
+
+
+def test_system_publishes_but_does_not_approve_by_default(engine):
+    system = Actor.system("publisher")
+    assert engine.decide(system, "publish_article").outcome == "allow"
+    decision = engine.decide(system, "approve_article", facts={"fact_check_passed": True})
+    assert decision.outcome == "needs_approval"
+    assert "D-001" in decision.reason
+
+
+def test_auto_approval_needs_policy_and_passed_fact_check(engine):
+    system = Actor.system("editor_pipeline")
+    policies = {"newsroom.auto_approve_if_fact_check_passed": True}
+    passed = engine.decide(
+        system, "approve_article", facts={"fact_check_passed": True}, company_policies=policies
+    )
+    assert passed.outcome == "allow"
+    failed = engine.decide(
+        system, "approve_article", facts={"fact_check_passed": False}, company_policies=policies
+    )
+    assert failed.outcome == "needs_approval"
+
+
+def test_system_is_not_an_agent_wildcard(engine):
+    wide = PolicyEngine()
+    wide.declare("summarize", "read")
+    wide.add(allow("summarize", "*"))
+    assert wide.decide(_agent(), "summarize", role="writer").outcome == "allow"
+    assert wide.decide(Actor.system("x"), "summarize").outcome == "deny"
+
+
+# --- limits ---------------------------------------------------------------------------------
+
+
+@pytest.mark.parametrize(
+    ("action", "role", "args", "facts", "policies", "expected"),
+    [
+        ("instantiate_workflow", "ceo", {}, {"workflows_in_cycle": 5}, {}, "deny"),
+        ("instantiate_workflow", "ceo", {}, {"workflows_in_cycle": 5},
+         {"company.max_workflows_per_cycle": 8}, "allow"),
+        ("allocate_budget", "ceo", {"amount": "5"}, {}, {}, "allow"),
+        ("allocate_budget", "ceo", {"amount": "5.01"}, {}, {}, "needs_approval"),
+        ("allocate_budget", "ceo", {"amount": "50"}, {},
+         {"governance.ceo_budget_allocation_limit_usd": 100}, "allow"),
+        ("allocate_budget", "ceo", {}, {}, {}, "needs_approval"),
+        ("create_distribution", "marketing", {}, {"article_state": "APPROVED"}, {}, "deny"),
+        ("spend_ad_budget", "marketing", {"amount": 60},
+         {"campaign_spent": 50, "campaign_cap": 100}, {}, "needs_approval"),
+    ],
+)  # fmt: skip
+def test_limits(engine, action, role, args, facts, policies, expected):
+    decision = engine.decide(
+        _agent(), action, role=role, args=args, facts=facts, company_policies=policies
+    )
+    assert decision.outcome == expected, decision.reason
+
+
+# --- tightening only ---------------------------------------------------------------------
+
+
+def test_company_policy_can_tighten(engine):
+    policies = {OVERRIDES_KEY: {"web_search": {"researcher": "needs_approval"}}}
+    decision = engine.decide(_agent(), "web_search", role="researcher", company_policies=policies)
+    assert decision.outcome == "needs_approval" and "tightened" in decision.reason
+
+
+def test_company_policy_cannot_loosen(engine):
+    policies = {
+        OVERRIDES_KEY: {
+            "create_project": {"ceo": "allow"},
+            "write_draft": {"researcher": "allow"},
+            "payment": {"ceo": "allow"},
+        }
+    }
+    for action, role, expected in [
+        ("create_project", "ceo", "needs_approval"),
+        ("write_draft", "researcher", "deny"),
+        ("payment", "ceo", "needs_approval"),
+    ]:
+        decision = engine.decide(_agent(), action, role=role, company_policies=policies)
+        assert decision.outcome == expected
+    loosen = engine.decide(_agent(), "create_project", role="ceo", company_policies=policies)
+    assert "can only tighten" in loosen.reason
+
+
+def test_irreversible_actions_always_need_a_human():
+    engine = PolicyEngine()
+    engine.declare("wire_money", "irreversible")
+    engine.add([Rule("wire_money", "finance", "allow"), Rule("wire_money", "system", "allow")])
+    assert engine.decide(_agent(), "wire_money", role="finance").outcome == "needs_approval"
+    assert engine.decide(Actor.system("x"), "wire_money").outcome == "needs_approval"
+    assert engine.decide(Actor.human("op"), "wire_money").outcome == "allow"
+
+
+# --- registration ------------------------------------------------------------------------
+
+
+def test_registration_errors():
+    engine = PolicyEngine()
+    engine.declare("act", "read")
+    with pytest.raises(PolicyError, match="already declared"):
+        engine.declare("act", "write")
+    with pytest.raises(PolicyError, match="undeclared"):
+        engine.add(allow("other", "ceo"))
+    engine.add(allow("act", "ceo"))
+    with pytest.raises(PolicyError, match="duplicate"):
+        engine.add(allow("act", "ceo"))
+    with pytest.raises(PolicyError, match="humans"):
+        engine.add(allow("act", "human"))
+    with pytest.raises(PolicyError, match="lower_snake_case"):
+        engine.declare("Bad Action", "read")
+
+
+# --- audit -------------------------------------------------------------------------------
+
+
+async def test_decisions_are_recorded_and_denials_emit_event(db_session, engine):
+    company = await unique_company(db_session, "policy")
+    agent = _agent()
+
+    allowed = await engine.decide_and_record(
+        db_session, agent, "web_search", company_id=company.id, role="researcher",
+        args={"query": "EU AI Act"},
+    )  # fmt: skip
+    denied = await engine.decide_and_record(
+        db_session, agent, "publish_article", company_id=company.id, role="writer"
+    )
+    assert (allowed.outcome, denied.outcome) == ("allow", "deny")
+
+    rows = (
+        await db_session.scalars(
+            select(PolicyDecision).where(PolicyDecision.company_id == company.id)
+        )
+    ).all()
+    assert [(r.action, r.outcome, r.role) for r in rows] == [
+        ("web_search", "allow", "researcher"),
+        ("publish_article", "deny", "writer"),
+    ]
+    assert rows[0].actor == agent.as_json() and len(rows[0].args_hash) == 64
+
+    events = (
+        await db_session.scalars(
+            select(EventRecord.payload).where(
+                EventRecord.company_id == company.id, EventRecord.event_type == "POLICY_DENIED"
+            )
+        )
+    ).all()
+    assert [e["action"] for e in events] == ["publish_article"]
+    assert events[0]["rule_id"] == "default_deny"
+
+    with pytest.raises(DBAPIError, match="append-only"):
+        await db_session.execute(
+            text("UPDATE policy_decisions SET outcome = 'allow' WHERE id = :id"),
+            {"id": rows[1].id},
+        )
+    await db_session.rollback()

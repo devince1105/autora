@@ -7,10 +7,11 @@ import pytest
 API_DIR = Path(__file__).resolve().parents[2] / "api"
 sys.path.insert(0, str(API_DIR))
 
+from autora.app import build_runtime  # noqa: E402
 from autora.infra.blobstore import LocalFSBlobStore  # noqa: E402
 from autora.infra.settings import load_settings  # noqa: E402
 from autora_api.app import create_app  # noqa: E402
-from autora_api.deps import get_session, settings_dep  # noqa: E402
+from autora_api.deps import get_session, runtime_dep, settings_dep  # noqa: E402
 from autora_api.routers.runs import blob_store_dep  # noqa: E402
 
 TOKEN = "test-operator-token"
@@ -22,7 +23,13 @@ def blobs(tmp_path):
 
 
 @pytest.fixture
-async def api(db_session, db_settings, blobs):
+def runtime():
+    """A fresh wired runtime per test (task manager, workflow engine, approvals, policy)."""
+    return build_runtime()
+
+
+@pytest.fixture
+async def api(db_session, db_settings, blobs, runtime):
     """HTTP client against the real app, sharing the test's rolled-back DB session."""
     app = create_app()
 
@@ -31,6 +38,7 @@ async def api(db_session, db_settings, blobs):
 
     app.dependency_overrides[get_session] = _session
     app.dependency_overrides[blob_store_dep] = lambda: blobs
+    app.dependency_overrides[runtime_dep] = lambda: runtime
     app.dependency_overrides[settings_dep] = lambda: load_settings(
         database_url=db_settings.database_url, api_bearer_token=TOKEN
     )

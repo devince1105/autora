@@ -18,7 +18,7 @@ AgentRun notes:
 
 from __future__ import annotations
 
-from autora.db.models import AgentRunState, TaskState, WorkflowRunState
+from autora.db.models import AgentRunState, ApprovalState, TaskState, WorkflowRunState
 from autora.runtime.fsm import StateMachine, transitions
 
 T = TaskState
@@ -66,4 +66,12 @@ WORKFLOW_RUN_FSM = StateMachine(
     states=WorkflowRunState,
     initial=W.RUNNING,
     transitions=transitions({W.RUNNING: [W.SUCCEEDED, W.FAILED, W.CANCELLED]}),
+)
+
+P = ApprovalState
+APPROVAL_FSM = StateMachine(
+    entity_type="approval",
+    states=ApprovalState,
+    initial=P.PENDING,
+    transitions=transitions({P.PENDING: [P.APPROVED, P.REJECTED, P.EXPIRED]}),
 )

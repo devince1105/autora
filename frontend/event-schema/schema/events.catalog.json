@@ -2521,6 +2521,31 @@
         }
       }
     },
+    "WORKFLOW_RUN_CANCELLED": {
+      "1": {
+        "persistence": "persisted",
+        "payload": {
+          "additionalProperties": false,
+          "properties": {
+            "duration_ms": {
+              "minimum": 0,
+              "title": "Duration Ms",
+              "type": "integer"
+            },
+            "reason": {
+              "title": "Reason",
+              "type": "string"
+            }
+          },
+          "required": [
+            "duration_ms",
+            "reason"
+          ],
+          "title": "WorkflowRunCancelled",
+          "type": "object"
+        }
+      }
+    },
     "WORKFLOW_RUN_COMPLETED": {
       "1": {
         "persistence": "persisted",

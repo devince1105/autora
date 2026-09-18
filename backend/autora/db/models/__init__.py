@@ -20,7 +20,15 @@ from autora.db.models.finance import (
 )
 from autora.db.models.model_calls import CostReservation, ModelCall, ModelCallStatus
 from autora.db.models.projects import Project, ProjectState
-from autora.db.models.runtime import EventRecord, Schedule, StateTransition
+from autora.db.models.runtime import (
+    Approval,
+    ApprovalKind,
+    ApprovalState,
+    EventRecord,
+    PolicyDecision,
+    Schedule,
+    StateTransition,
+)
 from autora.db.models.tasks import (
     AGENT_RUN_TERMINAL,
     AgentRun,
@@ -42,6 +50,9 @@ __all__ = [
     "AgentRunState",
     "AgentStep",
     "AgentStatus",
+    "Approval",
+    "ApprovalKind",
+    "ApprovalState",
     "Budget",
     "BudgetPeriod",
     "Company",
@@ -55,6 +66,7 @@ __all__ = [
     "GoalStatus",
     "ModelCall",
     "ModelCallStatus",
+    "PolicyDecision",
     "Project",
     "ProjectState",
     "Schedule",

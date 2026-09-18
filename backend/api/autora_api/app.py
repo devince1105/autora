@@ -10,7 +10,7 @@ from autora.app import load_event_catalogs
 from autora.db.session import dispose_engine, get_engine
 from autora.infra.settings import get_settings
 from autora_api import problems
-from autora_api.routers import companies, events, runs
+from autora_api.routers import approvals, companies, events, runs
 
 
 @asynccontextmanager
@@ -35,4 +35,5 @@ def create_app() -> FastAPI:
     app.include_router(companies.router)
     app.include_router(events.router)
     app.include_router(runs.router)
+    app.include_router(approvals.router)
     return app

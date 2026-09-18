@@ -222,6 +222,12 @@ class WorkflowRunFailed(EventPayload):
     reason: str | None = None
 
 
+@event("WORKFLOW_RUN_CANCELLED")
+class WorkflowRunCancelled(EventPayload):
+    duration_ms: int = Field(ge=0)
+    reason: str
+
+
 @event("TASK_CREATED")
 class TaskCreated(EventPayload):
     name: str

@@ -56,6 +56,11 @@ class Settings(BaseSettings):
     anthropic_api_key: SecretStr | None = None
     frontier_model_id: str | None = None
     fast_model_id: str | None = None
+    model_prices: dict[str, dict[str, float]] = {}
+    """USD per million tokens by model id, from MODEL_PRICES as JSON, e.g.
+    {"<model id>": {"input": 5, "output": 25, "cache_read": 0.5, "cache_write": 6.25}}."""
+    anthropic_server_fallbacks: bool = True
+    """Server-side refusal fallbacks (``fallbacks: "default"``); see T-208."""
 
     # --- Tools (T-500, D-003) ---
     tools_profile: Literal["fixture", "live"] = "fixture"
@@ -78,6 +83,9 @@ class Settings(BaseSettings):
                 problems.append("ANTHROPIC_API_KEY is required when MODEL_PROVIDER=anthropic")
             if not self.frontier_model_id:
                 problems.append("FRONTIER_MODEL_ID is required when MODEL_PROVIDER=anthropic")
+            for model_id in {self.frontier_model_id, self.fast_model_id} - {None, ""}:
+                if model_id not in self.model_prices:
+                    problems.append(f"MODEL_PRICES has no entry for {model_id}")
         if self.tools_profile == "live" and self.tavily_api_key is None:
             problems.append("TAVILY_API_KEY is required when TOOLS_PROFILE=live")
         if self.autora_env == "prod" and self.api_bearer_token.get_secret_value() in (

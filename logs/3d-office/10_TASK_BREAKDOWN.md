@@ -222,7 +222,7 @@ T-309,T-601 → T-608 ; T-211 → T-609 ; all → T-610
 | 驗收 | `make phase1-acceptance`：Python 在 Postgres 走完 8 個 activity 狀態並輸出真實事件 → TS 以產生的 zod 全數解析 |
 | CI | Python job 內建 pgvector Postgres；`AUTORA_REQUIRE_DB=1` 讓 DB 不可用時測試失敗而非 skip |
 
-## Phase 2 實作註記（進行中，2026-09-17）
+## Phase 2 實作註記（進行中，2026-09-17 起）
 
 | Task | 實際位置 / 差異 |
 |---|---|
@@ -233,3 +233,7 @@ T-309,T-601 → T-608 ; T-211 → T-609 ; all → T-610
 | T-209 | `runtime/cost/guard.py`、`cost_reservations`；`BUDGET_EXHAUSTED` 移至執行環境事件目錄；cycle 預算暫以日計 |
 | T-210 | `infra/blobstore.py`（僅 LocalFS，S3 延後，共用契約測試）、`runtime/trace/`、`apps/api/autora_api/routers/runs.py` |
 | T-212 | `runtime/scheduler.py`；**不使用 APScheduler**，改為輪詢 `schedules` 表 + `croniter`；錯過的執行合併為一次 |
+| T-203 | `runtime/dag.py`（`WorkflowTemplate`、`TemplateRegistry`、`WorkflowEngine`）；接 T-202 掛鉤，在同一交易內解鎖下游（`TASK_SUCCEEDED.unlocks`）與傳遞取消；新增 `WORKFLOW_RUN_CANCELLED` |
+| T-205 | `runtime/policy/engine.py`；規則由擁有者註冊：`company/policy.py`、`domains/newsroom/policy.py`；公司覆寫只能收緊、不可逆一定經人；`policy_decisions` 稽核表（遷移 0009）；D-001 以 `newsroom.auto_approve_if_fact_check_passed` 實作 |
+| T-206 | `runtime/approvals/service.py`、`approvals` 表（遷移 0010）、`APPROVAL_FSM`、`api/.../routers/approvals.py`；三種掛法（代理執行中 / 人工任務節點 / 獨立）；到期只標記 EXPIRED，任務繼續等待 |
+| T-208 | `runtime/models/providers/anthropic.py`、`runtime/models/factory.py`；通用 `OpaqueBlock` 逐字往返 thinking 等區塊；伺服器端 fallbacks 預設開啟；以實際服務模型計價（`ModelRouter.price_for`）；結構化輸出用 `output_config.format`（不用 `parse`，它在非 JSON 回覆時拋錯）；`count_tokens` 已實作但成本守門員仍用本地估算；`MODEL_PRICES` 必填；測試用 `httpx2.MockTransport` |

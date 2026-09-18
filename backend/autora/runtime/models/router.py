@@ -60,8 +60,11 @@ class ModelRouter:
         aliases: Mapping[str, ModelBinding],
         routes: Mapping[str, str],
         fallbacks: Mapping[str, list[str]] | None = None,
+        prices: Mapping[str, Price] | None = None,
     ):
         self.aliases = dict(aliases)
+        self.prices = dict(prices or {})
+        """Price by model id, for replies served by a different model than requested."""
         self.routes = dict(routes)
         self.fallbacks = {k: list(v) for k, v in (fallbacks or {}).items()}
         self._validate()
@@ -96,6 +99,13 @@ class ModelRouter:
     def chain(self, alias: str) -> list[str]:
         return [alias, *self.fallbacks.get(alias, [])]
 
+    def price_for(self, model_id: str, default: Price) -> Price:
+        """Price of the model that actually served a reply (server-side fallbacks can differ)."""
+        for binding in self.aliases.values():
+            if binding.model_id == model_id:
+                return binding.price
+        return self.prices.get(model_id, default)
+
 
 def router_from_settings(settings: Settings) -> ModelRouter:
     """Build the router from configuration. Model ids only ever come from settings."""
@@ -107,6 +117,19 @@ def router_from_settings(settings: Settings) -> ModelRouter:
             },
             routes={"*.*": "frontier"},
         )
-    raise ModelConfigError(
-        f"MODEL_PROVIDER={settings.model_provider!r} is configured by the provider adapter (T-208)"
-    )
+    if settings.model_provider == "anthropic":
+        prices = {model_id: Price(**entry) for model_id, entry in settings.model_prices.items()}
+        frontier = settings.frontier_model_id
+        assert frontier is not None  # Settings validates this
+        fast = settings.fast_model_id or frontier
+        aliases = {
+            "frontier": ModelBinding(
+                provider="anthropic", model_id=frontier, price=prices[frontier]
+            ),
+            "fast": ModelBinding(provider="anthropic", model_id=fast, price=prices[fast]),
+        }
+        fallbacks = {"frontier": ["fast"]} if fast != frontier else {}
+        return ModelRouter(
+            aliases=aliases, routes={"*.*": "frontier"}, fallbacks=fallbacks, prices=prices
+        )
+    raise ModelConfigError(f"unsupported MODEL_PROVIDER={settings.model_provider!r}")

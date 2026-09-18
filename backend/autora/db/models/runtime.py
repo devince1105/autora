@@ -1,4 +1,5 @@
-"""Runtime tables: FSM audit trail (T-104), event log / outbox (T-106), schedules (T-212).
+"""Runtime tables: FSM audit trail (T-104), event log / outbox (T-106), schedules (T-212),
+policy decisions (T-205), approvals (T-206).
 
 Work execution tables (tasks, agent_runs, ...) live in ``tasks.py``.
 """
@@ -7,6 +8,7 @@ from __future__ import annotations
 
 import uuid
 from datetime import datetime
+from enum import StrEnum
 from typing import Any
 
 from sqlalchemy import (
@@ -21,7 +23,7 @@ from sqlalchemy import (
 )
 from sqlalchemy.orm import Mapped, mapped_column
 
-from autora.db.base import Base, IdMixin, TimestampMixin, check_regex
+from autora.db.base import Base, IdMixin, TimestampMixin, check_in, check_regex
 
 
 class StateTransition(IdMixin, Base):
@@ -110,3 +112,90 @@ class Schedule(IdMixin, TimestampMixin, Base):
     consecutive_failures: Mapped[int] = mapped_column(server_default="0")
     lease_owner: Mapped[str | None]
     lease_until: Mapped[datetime | None]
+
+
+class PolicyDecision(IdMixin, Base):
+    """Audit row for every policy decision (append-only, trigger in migration 0009)."""
+
+    __tablename__ = "policy_decisions"
+    __table_args__ = (
+        CheckConstraint("outcome IN ('allow', 'needs_approval', 'deny')", name="outcome_valid"),
+        Index("ix_policy_decisions_company_created", "company_id", "created_at"),
+        Index("ix_policy_decisions_run", "run_id"),
+    )
+
+    company_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("companies.id"))
+    actor: Mapped[dict[str, Any]]
+    role: Mapped[str | None]
+    action: Mapped[str]
+    args_hash: Mapped[str]
+    outcome: Mapped[str]
+    rule_id: Mapped[str]
+    reason: Mapped[str]
+    agent_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("agents.id"))
+    run_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("agent_runs.id"))
+    task_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("tasks.id"))
+    created_at: Mapped[datetime] = mapped_column(server_default=func.now())
+
+
+class ApprovalState(StrEnum):
+    PENDING = "PENDING"
+    APPROVED = "APPROVED"
+    REJECTED = "REJECTED"
+    EXPIRED = "EXPIRED"
+
+
+class ApprovalKind(StrEnum):
+    TOOL_CALL = "tool_call"
+    COMMAND = "command"
+    PROJECT = "project"
+    KILL = "kill"
+    STRATEGY = "strategy"
+    ARTICLE = "article"
+
+
+class Approval(IdMixin, TimestampMixin, Base):
+    """A request for a human decision (logs/platform/07 §4).
+
+    Linked to what it blocks: a suspended agent run (``run_id`` + ``task_id``), a human task node
+    (``task_id`` only), or nothing (a command whose caller acts on the APPROVAL_* event).
+    """
+
+    __tablename__ = "approvals"
+    __table_args__ = (
+        check_in("state", ApprovalState),
+        check_in("kind", ApprovalKind),
+        CheckConstraint(
+            "(state IN ('APPROVED', 'REJECTED')) = "
+            "(decided_at IS NOT NULL AND decided_by IS NOT NULL)",
+            name="decided_iff_approved_or_rejected",
+        ),
+        CheckConstraint("run_id IS NULL OR task_id IS NOT NULL", name="run_implies_task"),
+        # One open request per thing being decided.
+        Index(
+            "uq_approvals_pending_ref",
+            "ref_type",
+            "ref_id",
+            unique=True,
+            postgresql_where=text("state = 'PENDING'"),
+        ),
+        Index("ix_approvals_company_state", "company_id", "state", "created_at"),
+    )
+
+    company_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("companies.id"))
+    kind: Mapped[str]
+    ref_type: Mapped[str]
+    ref_id: Mapped[uuid.UUID]
+    task_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("tasks.id"))
+    run_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("agent_runs.id"))
+    action: Mapped[str | None]
+    """The policy action that needs approval, e.g. "publish_article"."""
+    payload: Mapped[dict[str, Any]] = mapped_column(server_default=text("'{}'::jsonb"))
+    """What exactly is being approved (tool args, command body). Shown to the operator."""
+    summary: Mapped[str]
+    requested_by: Mapped[dict[str, Any]]
+    state: Mapped[str] = mapped_column(server_default=ApprovalState.PENDING.value)
+    expires_at: Mapped[datetime | None]
+    decided_by: Mapped[dict[str, Any] | None]
+    decided_at: Mapped[datetime | None]
+    reason: Mapped[str | None]

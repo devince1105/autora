@@ -33,7 +33,22 @@ class ToolResultBlock(BaseModel):
     is_error: bool = False
 
 
-ContentBlock = Annotated[TextBlock | ToolUseBlock | ToolResultBlock, Field(discriminator="type")]
+class OpaqueBlock(BaseModel):
+    """A provider-specific block kept verbatim (e.g. Anthropic ``thinking``, ``fallback``).
+
+    Agents never read it. It stays in the conversation history so the provider that produced it
+    gets it back unchanged on the next turn (required for thinking blocks in tool loops); other
+    providers skip it.
+    """
+
+    type: Literal["opaque"] = "opaque"
+    provider: str
+    data: dict[str, Any]
+
+
+ContentBlock = Annotated[
+    TextBlock | ToolUseBlock | ToolResultBlock | OpaqueBlock, Field(discriminator="type")
+]
 
 
 class Message(BaseModel):
