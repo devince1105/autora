@@ -14,6 +14,10 @@ Autora 是一個 AI Autonomous Company 平台。第一個 Business Domain 是 **
 
 `devlog/` — 每個階段一份實際執行紀錄（做了什麼、為什麼、遇到的問題、驗證結果），以繁體中文撰寫。從 `devlog/README.md` 開始。
 
+## 本機運作手冊
+
+`RUNBOOK.md` — 如何在 localhost 安裝、執行測試、實際運作 API 與工作程序、以 Docker 跑完整系統，以及常見問題。
+
 ## 決策紀錄
 
 `DECISIONS.md` — 已拍板的 P0 決定（審批先用人、主語言 zh-TW、search 用 Tavily）與未決項的暫用預設。文件內以 `D-00x` 引用。
