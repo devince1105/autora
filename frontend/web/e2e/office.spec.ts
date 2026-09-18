@@ -3,6 +3,7 @@
 // is rebuilt on request.
 import { expect, test, type Page } from "@playwright/test";
 
+import type {} from "../src/office3d/perf/StatsProbe"; // window.__autoraOffice
 import { Stack, TOKEN } from "./stack";
 
 test.describe.configure({ mode: "serial" });
@@ -37,10 +38,19 @@ test("desktop: a WebGL 2 canvas that draws", async ({ page }, info) => {
   await expect(canvas).toHaveCount(1, { timeout: 30_000 });
   const state = await canvas.evaluate((el: HTMLCanvasElement) => {
     const gl = el.getContext("webgl2");
-    return { webgl2: gl !== null, lost: gl?.isContextLost() ?? true, width: el.width, height: el.height };
+    return { webgl2: gl !== null, lost: gl?.isContextLost() ?? true };
   });
   expect(state).toMatchObject({ webgl2: true, lost: false });
-  expect(state.width).toBeGreaterThan(300);
+  // sized to its container once measured (300 x 150 is a canvas's default size)
+  await expect.poll(() => canvas.evaluate((el: HTMLCanvasElement) => el.width)).toBeGreaterThan(300);
+
+  // The in-canvas probe: frames are drawn, instancing keeps draw calls low, the scene is low-poly.
+  const stats = await page.waitForFunction(() => window.__autoraOffice ?? null, null, { timeout: 15_000 });
+  const { fps, drawCalls, triangles } = (await stats.jsonValue())!;
+  info.annotations.push({ type: "office stats", description: JSON.stringify({ fps, drawCalls, triangles }) });
+  expect(fps).toBeGreaterThan(0);
+  expect(drawCalls).toBeLessThan(60); // 18 desks x 8 parts would be 144 without instancing
+  expect(triangles).toBeLessThan(50_000);
   await page.screenshot({ path: info.outputPath("office-3d.png") });
 });
 
@@ -48,6 +58,8 @@ test("a lost WebGL context: overlay, then rebuilt on request", async ({ page }) 
   await open(page);
   const canvas = page.locator('[data-office-mode="3d"] canvas');
   await expect(canvas).toHaveCount(1, { timeout: 30_000 });
+  // once the scene draws (the canvas and its listeners are set up), lose the context
+  await page.waitForFunction(() => window.__autoraOffice ?? null, null, { timeout: 15_000 });
   await canvas.evaluate((el: HTMLCanvasElement) => el.getContext("webgl2")!.getExtension("WEBGL_lose_context")!.loseContext());
   await expect(paused(page)).toBeVisible();
   await expect(office(page)).toHaveAttribute("data-context-lost", "true");
