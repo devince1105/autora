@@ -49,8 +49,10 @@ test("desktop: a WebGL 2 canvas that draws", async ({ page }, info) => {
   const { fps, drawCalls, triangles } = (await stats.jsonValue())!;
   info.annotations.push({ type: "office stats", description: JSON.stringify({ fps, drawCalls, triangles }) });
   expect(fps).toBeGreaterThan(0);
-  expect(drawCalls).toBeLessThan(60); // 18 desks x 8 parts would be 144 without instancing
-  expect(triangles).toBeLessThan(50_000);
+  // the static office is one merged mesh: a few dozen calls at most, shadow pass included
+  expect(drawCalls).toBeLessThan(60);
+  // renderer counts include the shadow pass; the scene's own budget (< 40k) is in kit.test.ts
+  expect(triangles).toBeLessThan(100_000);
   await page.screenshot({ path: info.outputPath("office-3d.png") });
 });
 

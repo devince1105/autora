@@ -58,7 +58,11 @@ export function OfficeCanvas({ view = "auto", onViewChange, detect = detectCapab
   }
 
   return (
-    <div data-office-mode="3d" data-context-lost={lost} className="relative h-full">
+    <div
+      data-office-mode="3d"
+      data-context-lost={lost}
+      className="relative h-full bg-[linear-gradient(180deg,#cdd3dc_0%,#97a2b2_100%)]"
+    >
       <Scene
         key={generation}
         frameloop={visible && !lost ? "always" : "never"}

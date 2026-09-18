@@ -144,6 +144,12 @@ WS event ──▶ realtimeStore.applyEvent(event)      // domain 投影更新�
 - 燈光：`HemisphereLight` + 一盞 `DirectionalLight`（MVP 無陰影；Phase 4 後段可加 contact shadow）。每桌一盞小 `PointLight` 作狀態燈（6 盞，便宜）。
 - 無 post-processing（MVP）。
 
+**修訂（D-010，T-402 重做，2026-09-19）**：
+- 預設視角改為**正交等角**（`orthographic`，方向約 (1, 1.15, 1)），由 drei `<Bounds>` 把整個房間放進畫面、視窗大小改變時重新對齊；T-409 的 CameraRig 在此基礎上加操作與 focusOn。
+- **加上陰影**：一盞從左上方來的 `DirectionalLight`（2048² 陰影貼圖）——光從鏡頭同側來時影子全落在物體背面看不到，所以主光放在左側。環境光用 drei `Environment` + `Lightformer`（程式產生，不下載 HDR），補亮後牆與左牆的內側；另加弱的 `HemisphereLight`。
+- 色調映射用 `NeutralToneMapping`（ACES 會把配色壓灰）。
+- 試過 `ContactShadows`：只烘一次時沒有出現，每幀更新又太耗，已移除；主光陰影已足夠。
+
 ---
 
 ## 7. 效能計畫（MVP 優先可維護性）
@@ -152,8 +158,8 @@ WS event ──▶ realtimeStore.applyEvent(event)      // domain 投影更新�
 |---|---|
 | 目標 FPS | 桌機 60、筆電 ≥30。`<Canvas dpr={[1, 1.5]}>`。 |
 | frameloop | `always`（有 idle 動畫）。頁面不可見時瀏覽器自動節流；額外：`document.hidden` 時 `mixer.timeScale=0`，並停止 cue 執行（cue 不丟，恢復時快進）。 |
-| 幾何 | 全部低模，總三角形 < 50k。桌椅螢幕用 `<Instances>`（drei）合併 draw call。 |
-| 貼圖 | MVP 零貼圖（純色材質）。若加，≤1024²、KTX2 壓縮。 |
+| 幾何 | 全部低模，總三角形 < 50k。**（D-010 修訂）靜態家具與建築以程式產生的基本形狀組成，合併成一個頂點色網格（一次繪製）**；會隨狀態變化的螢幕用 `<Instances>`。目前靜態場景約 2.1 萬三角形、每幀 16 次繪製（含陰影）。 |
+| 貼圖 | 不使用圖片素材。**（D-010）木地板與磁磚是執行時以 canvas 畫出的 256² 材質**（`scene/textures.ts`）。若日後加圖片，≤1024²、KTX2 壓縮。 |
 | 動畫 | 一個 mixer / avatar；crossFade；不用 morph targets。 |
 | Culling | Three.js 預設 frustum culling；房間小，效益有限但不關。 |
 | 載入 | `/office` route 用 `next/dynamic({ ssr:false })` 載入整個 `office3d`；GLB 用 `useGLTF.preload`；顯示 2D 骨架直到 ready。 |

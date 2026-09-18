@@ -1,77 +1,96 @@
-// The office floor plan (T-402, 3d-office/04 §2): the only source of coordinates. Desks, avatars,
-// courier walks (T-408) and camera focus (T-409) all read it. Keyed by role, not agent: agents
-// are company data, the floor plan is a visual setting.
+// The office floor plan (T-402, 3d-office/04 §2, D-010): the only source of coordinates. Desks,
+// avatars, decoration, courier walks (T-408) and camera focus (T-409) all read it. Seats are
+// keyed by role, not agent: agents are company data, the floor plan is a visual setting.
 //
-// Units are metres; x runs left to right, z from the back wall (-z) to the front (+z); the camera
-// looks from the front-right corner, so only the back and left walls are built.
+// Units are metres; x runs left to right, z from the back wall (-z) to the front (+z). The camera
+// looks from the front right, so the back and left walls are full height and the front and right
+// edges are a low rim (a cut-away diorama).
 //
-//   z=-7 ┌──────────────────────────── back wall ─────────────────────────────┐
-//        │  CEO office (glass, door)          meeting table (decoration)      │
-//   z=-2.5├────────door──┐                                                    │
-//        │ ── back lane ─┴───────────────── z=-1.7 ────────────────────────── │
-//   z=0  │ [res][res]  [ana][ana]   spine x=0   [wri][wri]  [edi][edi]       │  work row
-//        │ ── front lane ───────────────── z=2.4 ───────────────────────────── │
-//   z=4.5│ [mkt][mkt][mkt]  [spare][spare][spare]      [approval desk]        │  front row
-//   z=7  └────────────────────────────────────────────────────────────────────┘
-//      x=-10                                                               x=10
+//   z=-8 ┌── CEO office ──┬──── meeting room ────┬──── pantry ─────┐
+//        │ (glass front)  │ (glass front)        │ (open)          │
+//   z=-3.2├──door─────────┴──────door────────────┘                 │
+//        │ ═══════════════ back corridor (lane z=-2.25) ══════════ │
+//   z=0  │ [res][res][ana][ana]  spine x=0  [wri][wri][edi][edi]   │  bench desks
+//        │ ═══════════════ front corridor (lane z=2.4) ═══════════ │
+//   z=4.6│ [mkt][mkt][mkt]  [spare][spare][spare]  [approval] lounge│  single desks
+//   z=8  └──────────────────────────────────────────────────────────┘
+//      x=-12                                                     x=12
 
 export type Vec2 = readonly [x: number, z: number];
 export type Vec3 = readonly [x: number, y: number, z: number];
 export type ZoneId = "ceo" | "research" | "editorial" | "growth" | "spare";
 export type Lane = "front" | "back";
 
-export const ROOM = { minX: -10, maxX: 10, minZ: -7, maxZ: 7, wallHeight: 3 } as const;
+export const ROOM = { minX: -12, maxX: 12, minZ: -8, maxZ: 8, wallHeight: 3 } as const;
 
 export const DESK = { width: 1.5, depth: 0.8, height: 0.75 } as const;
 export const CHAIR = { size: 0.6 } as const;
-/** How far behind the desk the chair stands; the seated agent faces -z (the monitor). */
+/** How far behind the desk the chair stands; the seated agent faces -z (its monitors). */
 const CHAIR_OFFSET = 0.95;
 /** Where a visitor stands: beside the seated agent, to its right (left against the right wall). */
 const APPROACH_OFFSET: Vec2 = [1.1, 0];
 
-export const LANES: Record<Lane, number> = { back: -1.7, front: 2.4 };
-/** The one aisle between the lanes: nothing stands on it between the work-row desks. */
+export const LANES: Record<Lane, number> = { back: -2.25, front: 2.4 };
+/** The aisle between the two benches that joins the lanes. */
 export const SPINE_X = 0;
 
-export const CEO_OFFICE = { minX: -10, maxX: -3, minZ: -7, maxZ: -2.5, doorX: -5.6, doorWidth: 1.2 } as const;
-export const MEETING_TABLE = { center: [5.5, -4.8] as Vec2, width: 4, depth: 1.6 } as const;
-export const APPROVAL_DESK = { center: [5.5, 4.5] as Vec2, width: 2.2, depth: 0.9, approach: [5.5, 3.5] as Vec2 } as const;
+/** Rooms along the back wall; their fronts are at z = BACK_ROOMS_Z. */
+export const BACK_ROOMS_Z = -3.2;
+export const CEO_OFFICE = { minX: -12, maxX: -5, minZ: -8, maxZ: BACK_ROOMS_Z, doorX: -7.4, doorWidth: 1.2 } as const;
+export const MEETING_ROOM = { minX: -5, maxX: 4, minZ: -8, maxZ: BACK_ROOMS_Z, doorX: 2.6, doorWidth: 1.2 } as const;
+export const PANTRY = { minX: 4, maxX: 12, minZ: -8, maxZ: BACK_ROOMS_Z } as const;
+/** The floor strips the camera reads as corridors (yellow). */
+export const CORRIDORS = {
+  back: { minZ: BACK_ROOMS_Z, maxZ: -1.3 },
+  front: { minZ: 1.6, maxZ: 3.2 },
+} as const;
+
+export const APPROVAL_DESK = { center: [6.4, 4.9] as Vec2, width: 2.6, depth: 0.9, approach: [6.4, 3.8] as Vec2 } as const;
 
 interface RoleSlots {
   zone: ZoneId;
   lane: Lane;
+  /** Desks joined into one bench table (drawn and walked around as one). */
+  bench: boolean;
   /** Desk centres; the first is the seat a single agent of this role gets. */
   desks: Vec2[];
 }
 
 const WORK_Z = 0;
-const FRONT_Z = 4.5;
+const FRONT_Z = 4.6;
 
 /** Desks per role, in the order they are filled. Capacity = number of desks. */
 export const SLOTS: Record<string, RoleSlots> = {
-  researcher: { zone: "research", lane: "front", desks: [[-6.6, WORK_Z], [-8.8, WORK_Z]] },
-  analyst: { zone: "research", lane: "front", desks: [[-3.3, WORK_Z], [-1.1, WORK_Z]] },
-  writer: { zone: "editorial", lane: "front", desks: [[3.3, WORK_Z], [1.1, WORK_Z]] },
-  editor: { zone: "editorial", lane: "front", desks: [[6.6, WORK_Z], [8.8, WORK_Z]] },
-  marketing: { zone: "growth", lane: "front", desks: [[-6.6, FRONT_Z], [-8.8, FRONT_Z], [-4.4, FRONT_Z]] },
-  ceo: { zone: "ceo", lane: "back", desks: [[-6.5, -5]] },
+  researcher: { zone: "research", lane: "front", bench: true, desks: [[-6.8, WORK_Z], [-9.0, WORK_Z]] },
+  analyst: { zone: "research", lane: "front", bench: true, desks: [[-2.4, WORK_Z], [-4.6, WORK_Z]] },
+  writer: { zone: "editorial", lane: "front", bench: true, desks: [[2.4, WORK_Z], [4.6, WORK_Z]] },
+  editor: { zone: "editorial", lane: "front", bench: true, desks: [[6.8, WORK_Z], [9.0, WORK_Z]] },
+  marketing: { zone: "growth", lane: "front", bench: false, desks: [[-6.8, FRONT_Z], [-9.0, FRONT_Z], [-4.6, FRONT_Z]] },
+  ceo: { zone: "ceo", lane: "back", bench: false, desks: [[-8.5, -6]] },
 };
 
-/** Desks for roles the floor plan does not know (a new domain's roles), shared first come first served. */
-export const SPARE: RoleSlots = { zone: "spare", lane: "front", desks: [[-2.0, FRONT_Z], [0.2, FRONT_Z], [2.4, FRONT_Z]] };
+/** Desks for roles the floor plan does not know (a new domain's roles), first come first served. */
+export const SPARE: RoleSlots = { zone: "spare", lane: "front", bench: false, desks: [[-1.6, FRONT_Z], [0.6, FRONT_Z], [2.8, FRONT_Z]] };
 
 export const ROLES = Object.keys(SLOTS);
+
+/** The two bench tables of the work row (left: research, right: editorial). */
+export const BENCHES = [
+  { name: "research bench", minX: -9.75, maxX: -1.65, z: WORK_Z },
+  { name: "editorial bench", minX: 1.65, maxX: 9.75, z: WORK_Z },
+] as const;
 
 export interface Seat {
   key: string;
   role: string;
   zone: ZoneId;
   lane: Lane;
+  bench: boolean;
   desk: Vec2;
   chair: Vec2;
-  /** Rotation about y for the seated avatar: it faces the monitor (-z). */
+  /** Rotation about y for the seated avatar: it faces its monitors (-z). */
   facing: number;
-  /** Centre of the monitor's screen. */
+  /** Centre between the seat's two monitors. */
   screen: Vec3;
   /** Where a visitor stops next to this seat. */
   approach: Vec2;
@@ -86,10 +105,11 @@ function seatAt(role: string, slots: RoleSlots, index: number): Seat {
     role,
     zone: slots.zone,
     lane: slots.lane,
+    bench: slots.bench,
     desk: [x, z],
     chair,
     facing: Math.PI,
-    screen: [x, DESK.height + 0.35, z - 0.15],
+    screen: [x, DESK.height + 0.3, z - 0.18],
     approach: [chair[0] + side * APPROACH_OFFSET[0], chair[1] + APPROACH_OFFSET[1]],
   };
 }
@@ -135,6 +155,71 @@ export function allSeats(): Seat[] {
   ];
 }
 
+// --- decoration -------------------------------------------------------------------------------
+
+export type DecorKind =
+  | "low_shelf"
+  | "palm"
+  | "plant"
+  | "lounge"
+  | "meeting_set"
+  | "whiteboard"
+  | "pantry_counter"
+  | "fridge"
+  | "vending"
+  | "water_cooler"
+  | "cafe_table"
+  | "ceo_shelf"
+  | "ceo_sofa";
+
+export interface Decor {
+  kind: DecorKind;
+  at: Vec2;
+  /** Rotation about y (radians). */
+  rotY: number;
+  /** Footprint on the floor (x/z after rotation), for walking around it. */
+  size: Vec2;
+}
+
+const d = (kind: DecorKind, at: Vec2, size: Vec2, rotY = 0): Decor => ({ kind, at, size, rotY });
+const QUARTER = Math.PI / 2;
+
+/** Fixed pieces that carry no state. Anything a walker could bump into is listed here. */
+export const DECOR: Decor[] = [
+  // work area: low shelves with plants along the left wall, palms and plants at the ends
+  d("low_shelf", [-11.6, -0.2], [0.45, 2.2], QUARTER),
+  d("palm", [-11.2, 2.4], [0.8, 0.8]),
+  d("palm", [11.2, 2.4], [0.8, 0.8]),
+  d("plant", [11.4, -0.4], [0.6, 0.6]),
+  // front area
+  d("low_shelf", [-11.6, 6.9], [0.45, 1.8], QUARTER),
+  d("plant", [-11.4, 3.7], [0.6, 0.6]),
+  d("lounge", [10.3, 5.8], [3.2, 3.6]),
+  // CEO office
+  d("ceo_shelf", [-10.6, -7.6], [2.2, 0.5]),
+  d("ceo_sofa", [-5.7, -5.8], [0.9, 2.0], -QUARTER),
+  d("plant", [-11.4, -3.8], [0.6, 0.6]),
+  // meeting room
+  d("meeting_set", [-0.8, -5.6], [5.4, 2.6]),
+  d("whiteboard", [-4.3, -4.4], [0.6, 1.6], QUARTER),
+  d("plant", [3.5, -7.5], [0.6, 0.6]),
+  // pantry
+  d("pantry_counter", [6.4, -7.65], [4.2, 0.7]),
+  d("fridge", [9.0, -7.55], [0.9, 0.8]),
+  d("vending", [4.55, -4.4], [0.9, 1.0], QUARTER),
+  d("water_cooler", [4.45, -5.6], [0.45, 0.45], QUARTER),
+  d("cafe_table", [8.6, -5.4], [2.4, 2.4]),
+  d("plant", [11.5, -3.7], [0.6, 0.6]),
+];
+
+/** The doors in the glass fronts (open, the leaf swung into the room on the hinge side). */
+export const DOORS = [
+  { name: "ceo door", x: CEO_OFFICE.doorX, width: CEO_OFFICE.doorWidth },
+  { name: "meeting door", x: MEETING_ROOM.doorX, width: MEETING_ROOM.doorWidth },
+] as const;
+
+// --- walking ----------------------------------------------------------------------------------
+
 export type WalkTarget = Seat | "approval";
 
 function approachOf(target: WalkTarget): { point: Vec2; lane: Lane } {
@@ -167,19 +252,55 @@ export function rectAround([x, z]: Vec2, width: number, depth: number, name: str
   return { name, minX: x - width / 2, maxX: x + width / 2, minZ: z - depth / 2, maxZ: z + depth / 2 };
 }
 
+/** Half the thickness of interior walls and glass fronts. */
+export const WALL_HALF = 0.1;
+
+/** Interior walls and glass fronts, with their door openings left out. */
+export function partitions(): Rect[] {
+  const z = BACK_ROOMS_Z;
+  const t = WALL_HALF;
+  const glass = (from: number, to: number, name: string): Rect => ({ name, minX: from, maxX: to, minZ: z - t, maxZ: z + t });
+  const opening = (door: { doorX: number; doorWidth: number }) => [door.doorX - door.doorWidth / 2, door.doorX + door.doorWidth / 2];
+  const [ceoL, ceoR] = opening(CEO_OFFICE);
+  const [meetL, meetR] = opening(MEETING_ROOM);
+  const wall = (x: number, name: string): Rect => ({ name, minX: x - t, maxX: x + t, minZ: ROOM.minZ, maxZ: z - t });
+  return [
+    glass(CEO_OFFICE.minX, ceoL, "ceo glass (left of door)"),
+    glass(ceoR, CEO_OFFICE.maxX - t, "ceo glass (right of door)"),
+    glass(CEO_OFFICE.maxX + t, meetL, "meeting glass (left of door)"),
+    glass(meetR, MEETING_ROOM.maxX - t, "meeting glass (right of door)"),
+    wall(CEO_OFFICE.maxX, "wall ceo | meeting"),
+    wall(MEETING_ROOM.maxX, "wall meeting | pantry"),
+  ];
+}
+
+/** Open door leaves: inside the room, along the hinge side of the opening. */
+export function doorLeaves(): Rect[] {
+  return DOORS.map((door) => {
+    const hinge = door.x - door.width / 2 - 0.05;
+    return {
+      name: `${door.name} leaf`,
+      minX: hinge - 0.03,
+      maxX: hinge + 0.03,
+      minZ: BACK_ROOMS_Z - WALL_HALF - door.width,
+      maxZ: BACK_ROOMS_Z - WALL_HALF - 0.01,
+    };
+  });
+}
+
 export function obstacles(): Rect[] {
   const furniture = allSeats().flatMap((seat) => [
-    rectAround(seat.desk, DESK.width, DESK.depth, `desk ${seat.key}`),
+    ...(seat.bench ? [] : [rectAround(seat.desk, DESK.width, DESK.depth, `desk ${seat.key}`)]),
     rectAround(seat.chair, CHAIR.size, CHAIR.size, `chair ${seat.key}`),
   ]);
-  const { minX, maxX, maxZ, doorX, doorWidth } = CEO_OFFICE;
-  const t = 0.05; // glass thickness
+  const benches = BENCHES.map((b) => ({ name: b.name, minX: b.minX, maxX: b.maxX, minZ: b.z - DESK.depth / 2, maxZ: b.z + DESK.depth / 2 }));
+  const decor = DECOR.map((item, i) => rectAround(item.at, item.size[0], item.size[1], `${item.kind} #${i}`));
   return [
     ...furniture,
-    rectAround(MEETING_TABLE.center, MEETING_TABLE.width, MEETING_TABLE.depth, "meeting table"),
+    ...benches,
+    ...decor,
     rectAround(APPROVAL_DESK.center, APPROVAL_DESK.width, APPROVAL_DESK.depth, "approval desk"),
-    { name: "ceo glass (left of door)", minX, maxX: doorX - doorWidth / 2, minZ: maxZ - t, maxZ: maxZ + t },
-    { name: "ceo glass (right of door)", minX: doorX + doorWidth / 2, maxX: maxX - t, minZ: maxZ - t, maxZ: maxZ + t },
-    { name: "ceo glass (side)", minX: maxX - t, maxX: maxX + t, minZ: CEO_OFFICE.minZ, maxZ },
+    ...partitions(),
+    ...doorLeaves(),
   ];
 }
