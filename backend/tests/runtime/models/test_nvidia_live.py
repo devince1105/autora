@@ -1,7 +1,7 @@
 """D-005: real calls to NVIDIA Build through the OpenAI-compatible provider.
 
 Run with ``pytest backend -m integration``. Needs NVIDIA_API_KEY (``.env`` or environment);
-the model is FRONTIER_MODEL_ID when MODEL_PROVIDER=nvidia, otherwise ``z-ai/glm-5.3``.
+the model is FRONTIER_MODEL_ID when MODEL_PROVIDER=nvidia, otherwise ``z-ai/glm-5.3-flash`` (D-006).
 Free tier: rate-limited, inputs and outputs are recorded by NVIDIA (trial terms).
 """
 
@@ -24,7 +24,7 @@ from autora.runtime.models.types import (
     ToolUseBlock,
 )
 
-DEFAULT_MODEL = "z-ai/glm-5.3"
+DEFAULT_MODEL = "z-ai/glm-5.3-flash"
 
 
 def _config():

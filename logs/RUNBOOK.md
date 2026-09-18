@@ -211,7 +211,7 @@ pnpm -F web dev
 | `MODEL_PROVIDER` | 行為 | 何時用 |
 |---|---|---|
 | `fake`（預設） | 不呼叫任何真實模型、不產生費用。由各領域的模擬模型回答（目前只有 echo 領域有模擬） | 開發、示範、自動化測試 |
-| `nvidia` | 呼叫 NVIDIA Build（OpenAI 相容 API）。**主要使用的供應者**，模型 `z-ai/glm-5.3`（決策 D-005） | 真實運作 |
+| `nvidia` | 呼叫 NVIDIA Build（OpenAI 相容 API）。**主要使用的供應者**，模型 `z-ai/glm-5.3-flash`（決策 D-005、D-006） | 真實運作 |
 | `anthropic` | 呼叫 Claude API，保留作為隨時切換的選項 | 真實運作 |
 
 自動化測試永遠使用 fake，不受 `.env` 影響（真實呼叫測試除外，見第 4 點）。
@@ -224,9 +224,9 @@ pnpm -F web dev
 ```
 MODEL_PROVIDER=nvidia
 NVIDIA_API_KEY=<你的 NVIDIA 金鑰>
-FRONTIER_MODEL_ID=z-ai/glm-5.3
-FAST_MODEL_ID=z-ai/glm-5.3-flash
-MODEL_PRICES={"z-ai/glm-5.3":{"input":0,"output":0},"z-ai/glm-5.3-flash":{"input":0,"output":0}}
+FRONTIER_MODEL_ID=z-ai/glm-5.3-flash
+FAST_MODEL_ID=
+MODEL_PRICES={"z-ai/glm-5.3-flash":{"input":0,"output":0}}
 ```
 
 | 變數 | 說明 |
@@ -234,8 +234,8 @@ MODEL_PRICES={"z-ai/glm-5.3":{"input":0,"output":0},"z-ai/glm-5.3-flash":{"input
 | `NVIDIA_API_KEY` | NVIDIA 金鑰，只放在 `.env` |
 | `NVIDIA_BASE_URL` | 預設 `https://integrate.api.nvidia.com/v1`。改用自架的 NIM 或其他 OpenAI 相容服務時才需要改 |
 | `NVIDIA_TIMEOUT_SECONDS` | 預設 180。單次請求等這麼久沒有回應，就立刻改用 `FAST_MODEL_ID`（不重試） |
-| `FRONTIER_MODEL_ID` | 必填。**API 用的模型 ID 和網站卡片上的名稱不同**：卡片寫 `glm-5-3`，API 要填 `z-ai/glm-5.3`。每個模型頁面的程式範例中 `model=` 後面就是正確的 ID |
-| `FAST_MODEL_ID` | 選填。主要模型過載、限流或服務中斷時改用它 |
+| `FRONTIER_MODEL_ID` | 必填，目前用 `z-ai/glm-5.3-flash`（D-006）。**API 用的模型 ID 和網站卡片上的名稱不同**：卡片寫 `glm-5-3-flash`，API 要填 `z-ai/glm-5.3-flash`。每個模型頁面的程式範例中 `model=` 後面就是正確的 ID |
+| `FAST_MODEL_ID` | 選填，目前留空。主要模型過載、限流、逾時或服務中斷時改用它；比主要模型還慢的模型不適合當備援 |
 | `MODEL_PRICES` | 免費端點填 0。改用付費的合作夥伴端點時，填該端點的每百萬權杖價格 |
 
 注意事項：
@@ -278,8 +278,8 @@ ANTHROPIC_SERVER_FALLBACKS=true
 | 要改的設定 | NVIDIA | Anthropic |
 |---|---|---|
 | `MODEL_PROVIDER` | `nvidia` | `anthropic` |
-| `FRONTIER_MODEL_ID` | `z-ai/glm-5.3` | 例如 `claude-opus-5` |
-| `FAST_MODEL_ID` | `z-ai/glm-5.3-flash` | 例如 `claude-sonnet-5` |
+| `FRONTIER_MODEL_ID` | `z-ai/glm-5.3-flash` | 例如 `claude-opus-5` |
+| `FAST_MODEL_ID` | 留空 | 例如 `claude-sonnet-5` |
 
 `MODEL_PRICES` 可以一次列出兩邊所有會用到的模型，切換時就不用改。每次呼叫實際用了哪個供應者與模型，都記錄在 `model_calls` 資料表。程式碼中不寫任何模型 ID（有測試強制）。
 
@@ -293,7 +293,7 @@ ANTHROPIC_SERVER_FALLBACKS=true
 
 | 測試 | 需要 | 驗證什麼 |
 |---|---|---|
-| `test_nvidia_live.py`（2 個） | `NVIDIA_API_KEY` | glm-5.3 的結構化輸出（中英標題）；工具呼叫 → 工具結果 → 最終 JSON 的兩輪迴圈 |
+| `test_nvidia_live.py`（2 個） | `NVIDIA_API_KEY` | 目前主要模型的結構化輸出（中英標題）；工具呼叫 → 工具結果 → 最終 JSON 的兩輪迴圈 |
 | `test_anthropic_live.py`（2 個） | `ANTHROPIC_API_KEY` | Claude 的結構化輸出；思考內容在工具迴圈中正確往返（會計費，共三次小型呼叫） |
 | `tests/e2e/test_echo_live.py`（1 個） | `MODEL_PROVIDER` 設為 `nvidia` 或 `anthropic` 與其金鑰 | 用目前選的真實模型完整跑一次 EchoWorkflow：三位代理各寫一則筆記並回報合法 JSON |
 

@@ -9,6 +9,7 @@
 | D-003 | 2026-09-16 | **web_search 使用 Tavily** | `platform/05` §5 tools；`platform/09`（非模型，屬 tool cost）；T-500 新增 adapter task；T-506 Researcher | tool `web_search` 的 provider = `tavily`；每次呼叫記 `tool_usage`/expense category `tool_cost`；API key 只在 env；fixture 模式下不打外部 API。Tavily 回傳的 `content` 只作候選，**Evidence 仍必須由 `fetch_url` 抓原始頁快照**——search 結果不是 evidence |
 | D-004 | 2026-09-18 | **儲存庫以 `frontend/` 與 `backend/` 分層整理** | `3d-office/08` 儲存庫結構；Makefile、CI、Dockerfile、pnpm workspace、ruff 設定 | `backend/`：單一 Python 專案（`autora/` 套件、`tests/`、`api/`、`worker/`、`scripts/`、`pyproject.toml`、`alembic.ini`）；`frontend/`：`web/`（Next.js）、`event-schema/`（產生的 TS 事件契約，由前端使用）；`infra/`、`logs/` 維持在根目錄。取代 `08` 原本的 `apps/` + `packages/` 配置 |
 | D-005 | 2026-09-18 | **模型供應者：主要使用 NVIDIA Build 的 `z-ai/glm-5.3`，保留 Anthropic 可隨時切換** | `platform/09` Model Gateway（新增 OpenAI 相容供應者）；T-207 / T-208；`.env` 設定；`09_DEVELOPMENT_ROADMAP` 階段 3 進入條件由「真實 Anthropic 呼叫」改為「真實模型呼叫」 | `MODEL_PROVIDER=nvidia`、`FRONTIER_MODEL_ID=z-ai/glm-5.3`、`FAST_MODEL_ID=z-ai/glm-5.3-flash`、價格 0（免費端點）。切換 = 改 `MODEL_PROVIDER` 與兩個模型 ID；兩把金鑰可同時留在 `.env`。注意：免費端點有速率限制（多數模型每分鐘約 40 次）、試用條款允許 NVIDIA 記錄輸入與輸出、價格為 0 時專案預算無法擋下呼叫；中國團隊模型可能輸出簡體中文，須在提示與驗證器中要求 zh-TW（D-002） |
+| D-006 | 2026-09-18 | **主要模型改為 `z-ai/glm-5.3-flash`，暫不設備援**（取代 D-005 的模型選擇；NVIDIA 為供應者、保留 Anthropic 切換不變） | `.env`；`RUNBOOK.md` 第六節；`.env.example` | 實測 NVIDIA 免費端點：`z-ai/glm-5.3` 回答一個字 224 秒（另一次 120 秒無回應），無法供代理使用；`z-ai/glm-5.3-flash` 4 ~ 30 秒，結構化輸出、工具迴圈、EchoWorkflow 全流程皆通過。`FRONTIER_MODEL_ID=z-ai/glm-5.3-flash`、`FAST_MODEL_ID` 留空。glm-5.3 可日後再測或改用付費端點 |
 
 ## 尚未決定的 P0
 
