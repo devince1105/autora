@@ -354,6 +354,10 @@ class TaskManager:
         if reason == "budget":
             await TASK_FSM.transition(session, task, TaskState.BLOCKED_BUDGET, actor=self.actor)
             await self._emit(session, task, ev.TaskBlocked(reason="budget"), run=run)
+            # Trace data for the run; the agent's activity is WAITING{budget}, not FAILED.
+            await self._emit(
+                session, task, ev.AgentRunAborted(reason="budget", message=message), run=run
+            )
             await set_activity(
                 session,
                 claim.agent,
