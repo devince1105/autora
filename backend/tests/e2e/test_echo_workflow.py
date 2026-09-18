@@ -26,7 +26,7 @@ from autora.db.models import (
 from autora.domains.echo.models import EchoNote
 from autora.infra.blobstore import LocalFSBlobStore
 from autora.runtime.trace.query import get_run_trace
-from tests.e2e.conftest import start_echo
+from tests.echo_fixtures import start_echo
 
 ORDER = ("echo_research", "echo_analyze", "echo_write")
 
@@ -177,7 +177,7 @@ async def test_policy_override_makes_the_writer_wait_for_a_human(
     from autora.app import build_runtime
     from autora.db.models import Approval
     from autora.db.repositories.companies import upsert_policy
-    from tests.e2e.conftest import OPERATOR
+    from tests.echo_fixtures import OPERATOR
 
     company_id = echo_company.company.id
     async with committed() as session:

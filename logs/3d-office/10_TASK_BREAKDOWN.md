@@ -241,3 +241,9 @@ T-309,T-601 → T-608 ; T-211 → T-609 ; all → T-610
 | T-213 | `runtime/worker.py`（維護 + 派工迴圈、SIGTERM 寬限）、`backend/worker/main.py`、`app.build_worker`；`domains/echo/`（`echo.chain_v1`：researcher → analyst → writer、`echo_note` 工具與 `echo_notes` 表（遷移 0011）、模擬模型）；`company/agents.hire_agent`；**事件分派器延後**（尚無處理器）；領域資料表在領域內，Alembic env 經 `app.load_models()` 取得（`.importlinter` 唯一例外）；驗證改為 `tests/e2e/test_echo_workflow.py` |
 | T-214 | `company/workflows.start_workflow`（專案須 ACTIVE；決策寫入 `policy_decisions`）、`api/.../routers/workflows.py`；404 / 422 / 403 / 401 |
 | T-215 | `tests/e2e/test_recovery.py`：真實程序、SIGKILL、租約 2 秒；重跑經冪等鍵拿回同一筆產物 |
+
+## Phase 3 實作註記（進行中，2026-09-18 起）
+
+| Task | 實際位置 / 差異 |
+|---|---|
+| T-301 | `realtime/projection.py`（`load_snapshot`、`begin_consistent_read`：REPEATABLE READ 一致讀取）、`api/.../routers/realtime.py`；任務的 `since` / `last_event_seq` 取自最後一個 TASK_* 事件（reducer 可重建）；`kpis` / `cycle` 暫為 null（T-314 / Phase 6）；不含 `tasks.progress`、`agents.status`；本機中位數約 21 ms（20k 事件） |

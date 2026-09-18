@@ -24,7 +24,7 @@ from sqlalchemy import func, select
 
 from autora.db.models import ActivityState, AgentActivity, AgentRun, EventRecord, Task, WorkflowRun
 from autora.domains.echo.models import EchoNote
-from tests.e2e.conftest import start_echo
+from tests.echo_fixtures import start_echo
 
 WORKER = Path(__file__).resolve().parents[2] / "worker" / "main.py"
 ORDER = ("echo_research", "echo_analyze", "echo_write")
