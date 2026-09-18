@@ -55,3 +55,42 @@ jobs:
       - run: pnpm test
       - name: API types match the committed OpenAPI document
         run: pnpm -F web gen-api:check
+
+  e2e:
+    # Phase 3 acceptance (T-315): real API, worker and web app in a browser.
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: pgvector/pgvector:pg16
+        env:
+          POSTGRES_USER: autora
+          POSTGRES_PASSWORD: autora
+          POSTGRES_DB: autora
+        ports: ["5434:5432"]
+        options: >-
+          --health-cmd "pg_isready -U autora -d autora"
+          --health-interval 2s --health-timeout 3s --health-retries 30
+    env:
+      DATABASE_URL: postgresql+asyncpg://autora:autora@localhost:5434/autora
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: python -m venv .venv && .venv/bin/pip install -e "backend[dev]"
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9.15.9
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm -F web exec playwright install --with-deps chromium
+      - name: Browser end-to-end tests (two tabs, API restart)
+        run: pnpm -F web e2e
+      - if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-traces
+          path: frontend/web/test-results/

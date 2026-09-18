@@ -10,7 +10,7 @@ COMPOSE := docker compose -f infra/docker-compose.yml
 
 ALEMBIC := cd backend && ../$(VENV)/bin/alembic
 
-.PHONY: help setup dev down up logs migrate migration db-check gen-schema gen-schema-check gen-api gen-api-check phase1-acceptance realtime-fixture test test-py test-web lint lint-py lint-web clean
+.PHONY: help setup dev down up logs migrate migration db-check gen-schema gen-schema-check gen-api gen-api-check phase1-acceptance realtime-fixture test test-py test-web e2e lint lint-py lint-web clean
 
 help: ## Show targets
 	@grep -E '^[a-zA-Z_-]+:.*?## ' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-12s\033[0m %s\n", $$1, $$2}'
@@ -80,6 +80,9 @@ test-py: ## Run Python tests
 test-web: ## Run JS tests
 	pnpm test
 
+e2e: ## Browser end-to-end tests (Playwright; needs Postgres, starts its own API/worker/web)
+	pnpm -F web e2e
+
 lint: lint-py lint-web ## Run all linters
 
 lint-py:
@@ -91,5 +94,5 @@ lint-web:
 	pnpm lint
 
 clean: ## Remove venv, node_modules, caches
-	rm -rf $(VENV) node_modules frontend/*/node_modules frontend/web/.next .pytest_cache .ruff_cache
+	rm -rf $(VENV) node_modules frontend/*/node_modules frontend/web/.next frontend/web/.next-e2e .pytest_cache .ruff_cache
 	find . -name __pycache__ -type d -prune -exec rm -rf {} +

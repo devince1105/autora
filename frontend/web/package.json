@@ -10,7 +10,8 @@
     "typecheck": "tsc --noEmit",
     "lint": "eslint .",
     "gen-api": "openapi-typescript src/api/openapi.json -o src/api/schema.gen.ts",
-    "gen-api:check": "openapi-typescript src/api/openapi.json -o src/api/schema.gen.ts --check"
+    "gen-api:check": "openapi-typescript src/api/openapi.json -o src/api/schema.gen.ts --check",
+    "e2e": "playwright test"
   },
   "dependencies": {
     "@autora/event-schema": "workspace:^",
@@ -23,6 +24,7 @@
     "zustand": "^5"
   },
   "devDependencies": {
+    "@playwright/test": "^1.63.0",
     "@tailwindcss/postcss": "^4.3.3",
     "@testing-library/dom": "^10.4.2",
     "@testing-library/react": "^16.3.3",

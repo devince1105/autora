@@ -69,7 +69,7 @@ export const boundaries = [
 ];
 
 export default tseslint.config(
-  { ignores: [".next/**", "node_modules/**", "next-env.d.ts"] },
+  { ignores: [".next/**", ".next-e2e/**", "node_modules/**", "next-env.d.ts", "test-results/**", "playwright-report/**"] },
   ...tseslint.configs.recommended,
   ...boundaries,
 );
