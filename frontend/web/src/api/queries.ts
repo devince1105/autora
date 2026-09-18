@@ -13,6 +13,7 @@ export const queryKeys = {
   trace: (runId: string) => ["trace", runId] as const,
   task: (taskId: string) => ["task", taskId] as const,
   approvals: (companyId: string, state = "PENDING") => ["approvals", companyId, state] as const,
+  kpis: (companyId: string) => ["kpis", companyId] as const,
 };
 
 export function companiesQuery(api: ApiClient = defaultApi) {
@@ -67,6 +68,23 @@ export function approvalsQuery(
     queryKey: queryKeys.approvals(companyId, state),
     queryFn: async () =>
       unwrap(await api.GET("/api/approvals", { params: { query: { company_id: companyId, state } } })),
+  });
+}
+
+/**
+ * KPIs are aggregates the event stream cannot rebuild (model costs are not events), so they are
+ * server state: refetched when an event says they changed, and every minute while shown.
+ */
+export function kpisQuery(companyId: string, api: ApiClient = defaultApi) {
+  return queryOptions({
+    queryKey: queryKeys.kpis(companyId),
+    queryFn: async () =>
+      unwrap(
+        await api.GET("/api/companies/{company_id}/kpis", {
+          params: { path: { company_id: companyId } },
+        }),
+      ),
+    refetchInterval: 60_000,
   });
 }
 

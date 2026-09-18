@@ -22,6 +22,17 @@ const RUN_CHANGES = new Set([
   "TASK_BLOCKED",
 ]);
 const AGENT_LIST_CHANGES = new Set(["AGENT_CREATED", "AGENT_PAUSED", "AGENT_RESUMED"]);
+/** A run's model spend is final when it ends; ledger and goal events change the rest. */
+const KPI_CHANGES = new Set([
+  "AGENT_RUN_COMPLETED",
+  "AGENT_RUN_FAILED",
+  "AGENT_RUN_ABORTED",
+  "EXPENSE_RECORDED",
+  "REVENUE_RECORDED",
+  "GOAL_CREATED",
+  "GOAL_UPDATED",
+  "KPI_SNAPSHOT_CREATED",
+]);
 
 /** Query keys an event makes stale. Keys are prefixes: ["approvals", c] covers every state. */
 export function eventToQueryKeys(event: EventEnvelope): QueryKey[] {
@@ -38,6 +49,9 @@ export function eventToQueryKeys(event: EventEnvelope): QueryKey[] {
   }
   if (AGENT_LIST_CHANGES.has(event.event_type)) {
     keys.push(queryKeys.agents(event.company_id));
+  }
+  if (KPI_CHANGES.has(event.event_type)) {
+    keys.push(queryKeys.kpis(event.company_id));
   }
   return keys;
 }

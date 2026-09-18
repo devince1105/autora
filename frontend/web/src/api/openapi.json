@@ -714,6 +714,62 @@
     "title": "EventsPage",
     "type": "object"
    },
+   "GoalView": {
+    "properties": {
+     "current": {
+      "anyOf": [
+       {
+        "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Current"
+     },
+     "deadline": {
+      "anyOf": [
+       {
+        "format": "date-time",
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Deadline"
+     },
+     "id": {
+      "format": "uuid",
+      "title": "Id",
+      "type": "string"
+     },
+     "metric": {
+      "title": "Metric",
+      "type": "string"
+     },
+     "target": {
+      "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+      "title": "Target",
+      "type": "string"
+     },
+     "title": {
+      "title": "Title",
+      "type": "string"
+     }
+    },
+    "required": [
+     "id",
+     "title",
+     "metric",
+     "target",
+     "current",
+     "deadline"
+    ],
+    "title": "GoalView",
+    "type": "object"
+   },
    "HTTPValidationError": {
     "properties": {
      "detail": {
@@ -725,6 +781,70 @@
      }
     },
     "title": "HTTPValidationError",
+    "type": "object"
+   },
+   "Kpis": {
+    "properties": {
+     "as_of": {
+      "format": "date-time",
+      "title": "As Of",
+      "type": "string"
+     },
+     "cash": {
+      "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+      "title": "Cash",
+      "type": "string"
+     },
+     "currency": {
+      "default": "USD",
+      "title": "Currency",
+      "type": "string"
+     },
+     "expenses_today": {
+      "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+      "title": "Expenses Today",
+      "type": "string"
+     },
+     "goal": {
+      "anyOf": [
+       {
+        "$ref": "#/components/schemas/GoalView"
+       },
+       {
+        "type": "null"
+       }
+      ]
+     },
+     "model_cost_today": {
+      "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+      "title": "Model Cost Today",
+      "type": "string"
+     },
+     "published_today": {
+      "anyOf": [
+       {
+        "type": "integer"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Published Today"
+     },
+     "revenue_today": {
+      "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+      "title": "Revenue Today",
+      "type": "string"
+     }
+    },
+    "required": [
+     "as_of",
+     "cash",
+     "revenue_today",
+     "expenses_today",
+     "model_cost_today"
+    ],
+    "title": "Kpis",
     "type": "object"
    },
    "RealtimeSnapshot": {
@@ -1904,6 +2024,55 @@
     "summary": "List Company Agents",
     "tags": [
      "companies"
+    ]
+   }
+  },
+  "/api/companies/{company_id}/kpis": {
+   "get": {
+    "description": "Cash, today's revenue and expenses (model calls included), today's goal.",
+    "operationId": "get_kpis_api_companies__company_id__kpis_get",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "company_id",
+      "required": true,
+      "schema": {
+       "format": "uuid",
+       "title": "Company Id",
+       "type": "string"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/Kpis"
+        }
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "security": [
+     {
+      "HTTPBearer": []
+     }
+    ],
+    "summary": "Get Kpis",
+    "tags": [
+     "reporting"
     ]
    }
   },

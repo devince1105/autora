@@ -148,6 +148,7 @@ SELECT role, alias, model_id, tokens_in, tokens_out, cost_usd FROM model_calls O
 | `GET /api/runs/{run_id}/steps/{seq}/blob` | 某一步的完整提示與回應 |
 | `GET /api/approvals?company_id=...` | 待審批項目 |
 | `POST /api/approvals/{id}/decide` | 核准或駁回 |
+| `GET /api/companies/{id}/kpis` | Dashboard 的 KPI：現金、今日營收與支出（含模型費用）、今日目標 |
 | `GET /api/companies/{id}/realtime/snapshot` | 即時畫面的起始狀態：代理、進行中任務、最近 100 個事件與 `last_seq` |
 | `WS /ws/companies/{id}?token=<權杖>&since=<last_seq>` | 即時事件串流（WebSocket）：先補 `since` 之後的事件，再即時推送；另有代理的即時進度（不落表） |
 
@@ -201,9 +202,12 @@ nvm use 22
 pnpm -F web dev
 ```
 
-打開 http://localhost:3000 。
+打開 http://localhost:3000 （會轉到 `/dashboard`）。
 
-- **階段 2 的前端只有骨架頁面，還沒有連接 API。** Dashboard、代理面板、軌跡檢視器與即時更新在階段 3 實作，3D 辦公室在階段 4。
+- **第一次進入要輸入操作者權杖**：填入 `.env` 的 `API_BEARER_TOKEN`。權杖只存在這個瀏覽器（localStorage），不會編進前端程式；API 回 401 時會自動回到輸入畫面。
+- **Dashboard**（階段 3，T-309）：現金、今日營收、今日支出（含模型費用）、工作中代理、進行中任務、今日發布（階段 5 前顯示「—」）、今日目標，以及右上角的連線狀態。代理與任務的數字即時更新；金額在執行結束或帳務事件時更新，另每分鐘重新取一次。網址加 `?company=<公司 ID>` 可指定公司，否則顯示第一間。
+- 要看到數字變化：API、工作程序與前端都要開著，再用第四節的 curl 啟動一次 EchoWorkflow。
+- 代理面板、軌跡檢視器、事件時間軸、審批收件匣在接下來的任務（T-310 ~ T-313）加入；3D 辦公室在階段 4。
 - 前端的 API 位址：`NEXT_PUBLIC_API_URL`（預設 `http://localhost:8000`，建置時寫入；Docker 設定已提供）。API 端需要在 `CORS_ORIGINS` 允許前端的網址（預設已允許 `http://localhost:3000`）。
 - 前端使用的事件型別由後端自動產生（`frontend/event-schema`）。後端事件有變動時執行 `make gen-schema`，不要手改產生的檔案。
 - 前端呼叫 REST API 的型別也由後端產生：API 的回應或參數有變動時執行 `make gen-api`（先輸出 OpenAPI 文件，再產生 TypeScript 型別）。CI 會檢查兩者是否最新。

@@ -17,6 +17,7 @@ from autora_api.routers import (
     companies,
     events,
     realtime,
+    reporting,
     runs,
     tasks,
     workflows,
@@ -61,5 +62,6 @@ def create_app() -> FastAPI:
     app.include_router(approvals.router)
     app.include_router(workflows.router)
     app.include_router(realtime.router)
+    app.include_router(reporting.router)
     app.include_router(ws.router)
     return app

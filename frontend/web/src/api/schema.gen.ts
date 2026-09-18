@@ -93,6 +93,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/companies/{company_id}/kpis": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Kpis
+         * @description Cash, today's revenue and expenses (model calls included), today's goal.
+         */
+        get: operations["get_kpis_api_companies__company_id__kpis_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/companies/{company_id}/realtime/snapshot": {
         parameters: {
             query?: never;
@@ -509,10 +529,52 @@ export interface components {
             /** Next After */
             next_after: number;
         };
+        /** GoalView */
+        GoalView: {
+            /** Current */
+            current: string | null;
+            /** Deadline */
+            deadline: string | null;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Metric */
+            metric: string;
+            /** Target */
+            target: string;
+            /** Title */
+            title: string;
+        };
         /** HTTPValidationError */
         HTTPValidationError: {
             /** Detail */
             detail?: components["schemas"]["ValidationError"][];
+        };
+        /** Kpis */
+        Kpis: {
+            /**
+             * As Of
+             * Format: date-time
+             */
+            as_of: string;
+            /** Cash */
+            cash: string;
+            /**
+             * Currency
+             * @default USD
+             */
+            currency: string;
+            /** Expenses Today */
+            expenses_today: string;
+            goal?: components["schemas"]["GoalView"] | null;
+            /** Model Cost Today */
+            model_cost_today: string;
+            /** Published Today */
+            published_today?: number | null;
+            /** Revenue Today */
+            revenue_today: string;
         };
         /** RealtimeSnapshot */
         RealtimeSnapshot: {
@@ -1059,6 +1121,37 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["AgentOut"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_kpis_api_companies__company_id__kpis_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                company_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Kpis"];
                 };
             };
             /** @description Validation Error */
