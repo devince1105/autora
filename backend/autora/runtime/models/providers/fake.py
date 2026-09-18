@@ -43,7 +43,7 @@ class FakeTurn(BaseModel):
     output_tokens: int = Field(default=50, ge=0)
     delay_s: float = Field(default=0, ge=0)
     error: str | None = None
-    """Raise a ProviderError with this error_class instead of replying."""
+    """Raise a ProviderError with this error_class (and ``text`` as message) instead of replying."""
     fallback_allowed: bool = True
 
 
@@ -86,7 +86,7 @@ class FakeModelProvider:
             await asyncio.sleep(turn.delay_s)
         if turn.error:
             raise ProviderError(
-                turn.error, "scripted failure", fallback_allowed=turn.fallback_allowed
+                turn.error, turn.text or "scripted failure", fallback_allowed=turn.fallback_allowed
             )
 
         content: list[ContentBlock] = []

@@ -8,11 +8,13 @@ a missing or inconsistent value fails fast with a readable message.
 from __future__ import annotations
 
 import os
+import socket
+import uuid
 from functools import lru_cache
 from pathlib import Path
 from typing import Literal
 
-from pydantic import SecretStr, ValidationError, model_validator
+from pydantic import Field, SecretStr, ValidationError, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -72,6 +74,18 @@ class Settings(BaseSettings):
 
     # --- API ---
     api_bearer_token: SecretStr = SecretStr("change-me")
+
+    # --- Worker (T-213) ---
+    worker_id: str = Field(default_factory=lambda: f"{socket.gethostname()}-{os.getpid()}")
+    worker_concurrency: int = Field(default=4, ge=1)
+    """Agent runs executed at the same time by one worker process."""
+    worker_poll_seconds: float = Field(default=1.0, gt=0)
+    worker_maintenance_seconds: float = Field(default=15.0, gt=0)
+    """How often the worker reaps expired leases, expires approvals and fires schedules."""
+    worker_company_ids: list[uuid.UUID] = []
+    """WORKER_COMPANY_IDS as a JSON list: only run these companies' agents (empty: all)."""
+    task_lease_seconds: float = Field(default=300.0, gt=0)
+    task_retry_base_seconds: float = Field(default=10.0, gt=0)
 
     @model_validator(mode="after")
     def _check_consistency(self) -> Settings:

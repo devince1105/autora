@@ -24,7 +24,7 @@ def settings_dep() -> Settings:
 @lru_cache(maxsize=1)
 def runtime_dep() -> Runtime:
     """One wired runtime per process (task manager, workflow engine, approvals, policy)."""
-    return build_runtime()
+    return build_runtime(get_settings())
 
 
 async def get_session() -> AsyncIterator[AsyncSession]:

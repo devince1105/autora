@@ -1,9 +1,9 @@
 # 開發紀錄 02 — 階段 2 執行環境、任務與事件
 
-- 期間：2026-09-17 起（進行中）
+- 期間：2026-09-17 ~ 2026-09-18（完成）
 - 目標：真正的執行環境可以跑工作流程圖；每一步都產生真實事件並更新代理活動狀態；包含工具事件、審批、預算閘門與當機恢復。
 - 驗收條件（`logs/3d-office/09_DEVELOPMENT_ROADMAP.md` 階段 2）：啟動 EchoWorkflow（A→B→C，三個不同角色）後，`trace(run)` 依序出現「思考 → 工作（工具呼叫與完成）→ 檢查 → 完成」，`agent_activity` 依序變化，且 B 在 A 完成前處於「等待上游」。
-- 使用模型：T-201、T-203 ~ T-210、T-212 為 Claude Opus 5；T-202、T-211 為 Claude Fable 5.1
+- 使用模型：T-201、T-203 ~ T-210、T-212 ~ T-215 為 Claude Opus 5；T-202、T-211 為 Claude Fable 5.1
 
 ## 進度總覽
 
@@ -21,9 +21,9 @@
 | T-210 | 執行軌跡與物件儲存 | ✅（S3 延後，見下） |
 | T-211 | 代理執行器 | ✅（Fable 5.1） |
 | T-212 | 排程器 | ✅（不使用 APScheduler，見下） |
-| T-213 | 工作程序主程式與 EchoWorkflow | ⏳ |
-| T-214 | 啟動工作流程的 API | ⏳ |
-| T-215 | 當機恢復測試 | ⏳ |
+| T-213 | 工作程序主程式與 EchoWorkflow | ✅（事件分派器延後，見下） |
+| T-214 | 啟動工作流程的 API | ✅ |
+| T-215 | 當機恢復測試 | ✅ |
 
 ---
 
@@ -375,16 +375,87 @@ Python 263 個、TypeScript 17 個測試通過；lint 與匯入邊界、遷移�
 
 ---
 
+## T-213 · 工作程序主程式與 EchoWorkflow（遷移 0011）
+
+### 做了什麼
+- `runtime/worker.py`：`Worker` 迴圈。每一輪：
+  - **維護**（每 `WORKER_MAINTENANCE_SECONDS`）：回收過期租約、讓逾期審批過期、觸發到期排程；每個工作各自提交，一個失敗不影響其他工作與迴圈；
+  - **派工**：對每個「啟用中、角色有行為定義、不是暫停、這個工作程序沒在跑」的代理嘗試領取任務（或延續已核准的執行），以 asyncio 任務執行，最多 `WORKER_CONCURRENCY` 個。
+  - 關閉（SIGTERM / SIGINT）：不再領取，進行中的執行有 30 秒寬限，逾時取消；租約過期後由其他工作程序接手，所以硬殺也安全（T-215 證明）。
+- `worker/main.py`：程序入口，處理訊號並從設定組裝。
+- `app.py`（組裝根）：新增 `build_worker`、`build_behaviors`、`build_tools`、`build_templates`、`load_models`，以及 `simulated_model`（假模型對未寫腳本的請求，依序詢問各領域的模擬）。新增領域只需在這裡註冊。
+- `company/agents.py`：`hire_agent`，建立代理時同一交易寫入 `AGENT_CREATED` 與閒置的活動狀態。
+- `domains/echo/`：最小但真實的工作流程 `echo.chain_v1`，研究員 → 分析師 → 寫手（使用新聞編輯部的真實角色名稱，讓之後的 3D 辦公室顯示熟悉的座位）。
+  - 工具 `echo_note`：寫一筆筆記（新資料表 `echo_notes`），以工具呼叫的冪等鍵唯一，重跑時回傳同一筆；
+  - 行為：系統提示、`EchoReport` 輸出模型、驗證器（筆記必須存在且屬於這個任務）、脈絡掛鉤（把上游任務的輸出放進第一則訊息）；
+  - 政策：三個角色可以寫筆記；
+  - 模擬模型：像真的模型一樣讀提示——先呼叫工具，看到工具結果後回報；`params.pause` 可讓某個任務第一次嘗試的最後回覆變慢（T-215 使用）。
+- 新設定：`WORKER_ID`、`WORKER_CONCURRENCY`、`WORKER_POLL_SECONDS`、`WORKER_MAINTENANCE_SECONDS`、`WORKER_COMPANY_IDS`（只跑指定公司，測試與未來分片用）、`TASK_LEASE_SECONDS`、`TASK_RETRY_BASE_SECONDS`。
+- docker compose：api 與 worker 共用物件儲存磁碟區（API 讀取工作程序寫入的步驟物件）；worker 的停止寬限 40 秒。
+- `scripts/seed_echo.py`：在開發資料庫建立示範公司、進行中的專案與三位代理（可重複執行），供階段 3、4 示範使用。
+
+### 設計決策
+- **領域資料表放在領域內**（`domains/echo/models.py`），與 `3d-office/08` 的規劃一致。Alembic 的環境模組屬於資料庫層，不能匯入上層；改由組裝根的 `load_models()` 提供完整清單，並在 `.importlinter` 宣告唯一一條例外（`autora.db.migrations.env -> autora.app`）。
+- **事件分派器延後**：規格寫「排程器 + 分派器 + 任務迴圈」。目前沒有任何需要非同步處理事件的處理器（工作流程的傳播在任務交易內完成），做一個空的分派器沒有意義；第一個事件處理器出現時再加。
+- **啟動工作流程要求專案為 ACTIVE**（見 T-214）。
+
+### 驗證（階段 2 驗收）
+`tests/e2e/test_echo_workflow.py`：以 `build_worker` 組出與正式環境相同的工作程序，在測試中執行：
+- 工作流程 SUCCEEDED，三個任務各一次執行、各一筆筆記、共 6 次模型呼叫；
+- 每個執行的 `trace(run)` 依序為 TASK_STARTED → AGENT_RUN_STARTED → **THINKING → WORKING → TOOL_CALLED → TOOL_COMPLETED** → THINKING → **REVIEWING** → TASK_SUCCEEDED → **AGENT_RUN_COMPLETED**，步驟為 think / act / think / evaluate；
+- 交接：研究 → 分析師、分析 → 寫手、寫作 → 無；
+- 每位代理的活動依序變化；**分析師在研究完成前是 WAITING{upstream, 等待 researcher}**，且事件序號證明「分析師等待 < 研究完成 < 分析師開始思考」；
+- 分析師的提示包含研究員的回報（脈絡掛鉤）。
+
+另外以開發資料庫做了一次手動煙霧測試：真實的 API 與工作程序兩個程序，以 HTTP 啟動工作流程，約 2 秒內三個任務完成；透過 API 讀到的軌跡與三位代理的狀態都正確；SIGTERM 後工作程序正常結束。
+
+---
+
+## T-214 · 啟動工作流程的 API
+
+### 做了什麼
+- `company/workflows.py`：`start_workflow` 指令。檢查專案（存在、屬於該公司、狀態為 ACTIVE）與範本 → 政策引擎判斷並寫入 `policy_decisions` → 實例化。人類操作者與之後的執行長代理（階段 6）走同一個函式，代理會受自己的政策規則限制。
+- `POST /api/companies/{id}/workflows`：主體 `{template, project_id, params}`，回傳 201 與工作流程及其任務。
+
+| 狀況 | 回應 |
+|---|---|
+| 公司或專案不存在、專案屬於其他公司 | 404 |
+| 未知範本、缺少參數、專案不是 ACTIVE | 422 |
+| 政策不允許（代理） | 403 |
+| 未帶或帶錯權杖 | 401 |
+
+### 驗證
+`tests/api/test_workflows.py`：7 個通過，包括決策紀錄的行為者是人、上游未完成的代理立即進入 WAITING{upstream}、寫手代理啟動工作流程會被拒絕且留下拒絕紀錄。
+
+---
+
+## T-215 · 當機恢復測試
+
+### 做了什麼
+`tests/e2e/test_recovery.py` 以**真實程序**執行（`backend/worker/main.py`、真實租約與時鐘，租約 2 秒）：
+1. 工作程序 1 執行研究任務，筆記已提交，接著模擬模型的回覆變慢（120 秒），此時以 **SIGKILL** 殺掉；確認任務仍是 RUNNING、租約仍屬於工作程序 1。
+2. 啟動工作程序 2：回收過期租約，研究任務以第 2 次嘗試重跑，接著完成整條鏈；以 SIGTERM 停止，結束碼為 0。
+3. **沒有任何東西產生兩次**：三個任務各一筆筆記；第 2 次嘗試的 `echo_note` 透過冪等鍵拿回第 1 次寫的那筆（`TOOL_COMPLETED` 的 `produced` 與摘要「reused note …」可證明）；`TASK_SUCCEEDED` 恰好 3 個；當掉的執行記錄為 ABORTED（`Aborted:timeout`），沒有遺失。
+
+### 需要知道的
+- 冪等鍵由（任務、步驟序號、工具名稱、參數）組成，所以重跑時必須在同一步驟以相同參數呼叫才會命中。模擬模型是確定性的；真實模型的參數可能不同，屆時由各領域工具自行決定去重方式（例如新聞編輯部以網址去重證據）。
+- 當掉那次執行中途的模型呼叫沒有紀錄，它的成本預留會在 15 分鐘後過期（T-209 的設計）。
+- 連續執行 5 次皆通過（每次約 6 ~ 10 秒），目前納入預設測試。
+
+---
+
 ## 目前的整體驗證（2026-09-18）
 
 | 檢查項目 | 結果 |
 |---|---|
-| Python 測試 | **574 個通過**（`AUTORA_REQUIRE_DB=1`，0 略過）；另有 2 個真實呼叫測試預設不執行 |
+| Python 測試 | **592 個通過**（`AUTORA_REQUIRE_DB=1`，0 略過）；另有 2 個真實呼叫測試預設不執行 |
 | TypeScript 測試 | event-schema 8 個、web 9 個 |
-| lint 與匯入邊界 | ruff 通過；2 條邊界規則全數遵守 |
-| 資料庫遷移 | 0001 ~ 0010；`alembic check` 無差異；0010 → 0008 降版再升版成功 |
+| lint 與匯入邊界 | ruff 通過；2 條邊界規則全數遵守（1 條宣告的例外：Alembic 環境 → 組裝根） |
+| 資料庫遷移 | 0001 ~ 0011；`alembic check` 無差異；0011 降版再升版成功 |
 | 事件結構產生物 | 最新 |
 | 階段 1 驗收 | 仍然通過 |
+| **階段 2 驗收** | **通過**（`tests/e2e/test_echo_workflow.py`） |
+| Docker 映像檔 | worker 可建置 |
 
 ## 提交紀錄
 
@@ -397,4 +468,9 @@ Python 263 個、TypeScript 17 個測試通過；lint 與匯入邊界、遷移�
 
 ## 下一步
 
-剩餘任務：以 Opus 5 進行 T-213 工作程序主程式與 EchoWorkflow、T-214 啟動工作流程 API、T-215 當機恢復測試。
+階段 2 的 15 個任務全部完成，驗收條件通過。進入階段 3 之前還有兩件事：
+
+- **真實 Anthropic 呼叫至少通過一次**（`09_DEVELOPMENT_ROADMAP.md` 的階段 3 進入條件）。需要在 `.env` 設定 `ANTHROPIC_API_KEY`、`FRONTIER_MODEL_ID`、`MODEL_PRICES`，再執行 `pytest backend -m integration`。
+- **路線圖列出、但沒有對應任務的兩個 API**：`GET /api/tasks/{id}` 與 `GET /api/runs/{id}`。尚未實作，可在階段 3 的 Dashboard 與 Trace Viewer 需要時補上。
+
+與路線圖寫法不同、已記錄的差異：預算耗盡時代理活動為 WAITING{budget} 而非 FAILED（T-202 / T-211）；排程器不使用 APScheduler（T-212）；S3 物件儲存延後（T-210）；事件分派器延後（T-213）。

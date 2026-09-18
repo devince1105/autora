@@ -1,33 +1,52 @@
-"""Worker entry point. Scheduler + event dispatcher + task loop are wired here (T-213).
+"""Worker entry point (T-213): task loop + agent runner + maintenance + scheduler.
 
-Until the runtime exists this only proves the process boots with valid configuration.
+Run: ``python backend/worker/main.py`` (or the worker container). SIGTERM / SIGINT stop claiming
+and let in-flight runs finish within the grace period; a hard kill is also safe, because
+leases expire and another worker re-runs the task (T-215).
 """
 
+import asyncio
 import logging
+import signal
 import sys
-import time
 
 import autora
+from autora.app import build_worker
+from autora.db.session import dispose_engine
 from autora.infra.settings import SettingsError, get_settings
 
 log = logging.getLogger("autora.worker")
 
 
-def main() -> None:
-    logging.basicConfig(level=logging.INFO, format="%(asctime)s %(name)s %(levelname)s %(message)s")
-    try:
-        settings = get_settings()
-    except SettingsError as exc:
-        log.error("%s", exc)
-        sys.exit(2)
+async def _serve() -> None:
+    settings = get_settings()
+    worker = build_worker(settings)
+    stop = asyncio.Event()
+    loop = asyncio.get_running_loop()
+    for sig in (signal.SIGTERM, signal.SIGINT):
+        loop.add_signal_handler(sig, stop.set)
     log.info(
-        "autora worker %s starting (env=%s, model_provider=%s; no runtime wired yet)",
+        "autora worker %s starting (id=%s, env=%s, model_provider=%s)",
         autora.__version__,
+        settings.worker_id,
         settings.autora_env,
         settings.model_provider,
     )
-    while True:
-        time.sleep(60)
+    try:
+        await worker.run_forever(stop)
+    finally:
+        await dispose_engine()
+    log.info("worker %s stopped", settings.worker_id)
+
+
+def main() -> None:
+    logging.basicConfig(level=logging.INFO, format="%(asctime)s %(name)s %(levelname)s %(message)s")
+    try:
+        get_settings()
+    except SettingsError as exc:
+        log.error("%s", exc)
+        sys.exit(2)
+    asyncio.run(_serve())
 
 
 if __name__ == "__main__":

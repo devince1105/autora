@@ -222,7 +222,7 @@ T-309,T-601 → T-608 ; T-211 → T-609 ; all → T-610
 | 驗收 | `make phase1-acceptance`：Python 在 Postgres 走完 8 個 activity 狀態並輸出真實事件 → TS 以產生的 zod 全數解析 |
 | CI | Python job 內建 pgvector Postgres；`AUTORA_REQUIRE_DB=1` 讓 DB 不可用時測試失敗而非 skip |
 
-## Phase 2 實作註記（進行中，2026-09-17 起）
+## Phase 2 實作註記（完成，2026-09-17 ~ 09-18）
 
 | Task | 實際位置 / 差異 |
 |---|---|
@@ -238,3 +238,6 @@ T-309,T-601 → T-608 ; T-211 → T-609 ; all → T-610
 | T-206 | `runtime/approvals/service.py`、`approvals` 表（遷移 0010）、`APPROVAL_FSM`、`api/.../routers/approvals.py`；三種掛法（代理執行中 / 人工任務節點 / 獨立）；到期只標記 EXPIRED，任務繼續等待 |
 | T-208 | `runtime/models/providers/anthropic.py`、`runtime/models/factory.py`；通用 `OpaqueBlock` 逐字往返 thinking 等區塊；伺服器端 fallbacks 預設開啟；以實際服務模型計價（`ModelRouter.price_for`）；結構化輸出用 `output_config.format`（不用 `parse`，它在非 JSON 回覆時拋錯）；`count_tokens` 已實作但成本守門員仍用本地估算；`MODEL_PRICES` 必填；測試用 `httpx2.MockTransport` |
 | T-211 | `runtime/agent_runner.py`、`runtime/behaviors.py`（`AgentBehavior` / `BehaviorRegistry`：領域提供 prompt、輸出模型、驗證器、工具）；每個寫入交易先心跳（租約遺失後零寫入）；審批後從步驟 blob 的 `messages_after` 延續對話；policy deny → abort(policy)；拒答不可重試；**預算耗盡 = ABORTED + WAITING{budget}**（沿用 T-202，非 AC 寫的 FAILED），另補 `AGENT_RUN_ABORTED{budget}` 軌跡事件 |
+| T-213 | `runtime/worker.py`（維護 + 派工迴圈、SIGTERM 寬限）、`backend/worker/main.py`、`app.build_worker`；`domains/echo/`（`echo.chain_v1`：researcher → analyst → writer、`echo_note` 工具與 `echo_notes` 表（遷移 0011）、模擬模型）；`company/agents.hire_agent`；**事件分派器延後**（尚無處理器）；領域資料表在領域內，Alembic env 經 `app.load_models()` 取得（`.importlinter` 唯一例外）；驗證改為 `tests/e2e/test_echo_workflow.py` |
+| T-214 | `company/workflows.start_workflow`（專案須 ACTIVE；決策寫入 `policy_decisions`）、`api/.../routers/workflows.py`；404 / 422 / 403 / 401 |
+| T-215 | `tests/e2e/test_recovery.py`：真實程序、SIGKILL、租約 2 秒；重跑經冪等鍵拿回同一筆產物 |

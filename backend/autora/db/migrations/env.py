@@ -1,8 +1,9 @@
 """Alembic environment (async).
 
 URL comes from autora.infra.settings (env / .env), never from alembic.ini.
-Models must be imported here so autogenerate sees them; add imports as tables land
-(T-103, T-201, ...).
+Every table must be on Base.metadata for autogenerate / ``alembic check``. Domain tables live
+in their domain (``autora/domains/<name>/models.py``), so the list comes from the composition
+root's ``load_models`` (the one import from db upward that .importlinter allows).
 """
 
 import asyncio
@@ -11,11 +12,11 @@ from logging.config import fileConfig
 from alembic import context
 from sqlalchemy.ext.asyncio import async_engine_from_config
 
-# Registers every table on Base.metadata for autogenerate / `alembic check`.
-from autora.db import models  # noqa: F401,E402
+from autora.app import load_models
 from autora.db.base import Base
 from autora.infra.settings import get_settings
 
+load_models()
 config = context.config
 if config.config_file_name is not None:
     fileConfig(config.config_file_name)

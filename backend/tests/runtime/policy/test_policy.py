@@ -45,6 +45,8 @@ MATRIX = {
     "delete":               (D, D, D, D, D, D, D),
     "pause_agent":          (D, D, D, D, D, D, D),
     "resume_agent":         (D, D, D, D, D, D, D),
+    # Echo domain (T-213), not in platform/07: each echo desk writes its own note.
+    "echo_note":            (A, A, A, D, D, D, D),
 }  # fmt: skip
 
 WITHIN_LIMITS = {

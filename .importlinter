@@ -16,6 +16,9 @@ layers =
     autora.runtime
     autora.db
     autora.infra
+# Alembic's env must see every table, including domain tables; it asks the composition root.
+ignore_imports =
+    autora.db.migrations.env -> autora.app
 
 [importlinter:contract:runtime-no-http]
 name = Runtime and company never depend on the web framework

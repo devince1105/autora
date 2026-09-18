@@ -28,6 +28,8 @@ services:
       - ../.env
     ports:
       - "8000:8000"
+    volumes:
+      - autora-blobs:/app/data/blobs   # step blobs written by the worker, served by the API
     depends_on:
       db:
         condition: service_healthy
@@ -41,6 +43,9 @@ services:
       DATABASE_URL: postgresql+asyncpg://autora:autora@db:5432/autora
     env_file:
       - ../.env
+    volumes:
+      - autora-blobs:/app/data/blobs
+    stop_grace_period: 40s   # SIGTERM lets in-flight runs finish (worker grace: 30s)
     depends_on:
       db:
         condition: service_healthy
@@ -59,3 +64,4 @@ services:
 
 volumes:
   autora-db-data:
+  autora-blobs:
