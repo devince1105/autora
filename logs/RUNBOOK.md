@@ -142,6 +142,8 @@ SELECT role, alias, model_id, tokens_in, tokens_out, cost_usd FROM model_calls O
 | `GET /api/companies/{id}/agents` | 代理與其目前的活動狀態 |
 | `POST /api/companies/{id}/workflows` | 啟動工作流程 |
 | `GET /api/events?company_id=...&after=<seq>` | 公司的事件流 |
+| `GET /api/runs/{run_id}` | 一次執行的明細：輸入、輸出、評估、錯誤、成本、權杖 |
+| `GET /api/tasks/{task_id}` | 任務明細與每一次嘗試的執行 |
 | `GET /api/runs/{run_id}/trace` | 一次執行的完整軌跡（事件與步驟） |
 | `GET /api/runs/{run_id}/steps/{seq}/blob` | 某一步的完整提示與回應 |
 | `GET /api/approvals?company_id=...` | 待審批項目 |
@@ -204,6 +206,8 @@ pnpm -F web dev
 - **階段 2 的前端只有骨架頁面，還沒有連接 API。** Dashboard、代理面板、軌跡檢視器與即時更新在階段 3 實作，3D 辦公室在階段 4。
 - 前端的 API 位址：`NEXT_PUBLIC_API_URL`（預設 `http://localhost:8000`，建置時寫入；Docker 設定已提供）。API 端需要在 `CORS_ORIGINS` 允許前端的網址（預設已允許 `http://localhost:3000`）。
 - 前端使用的事件型別由後端自動產生（`frontend/event-schema`）。後端事件有變動時執行 `make gen-schema`，不要手改產生的檔案。
+- 前端呼叫 REST API 的型別也由後端產生：API 的回應或參數有變動時執行 `make gen-api`（先輸出 OpenAPI 文件，再產生 TypeScript 型別）。CI 會檢查兩者是否最新。
+- 呼叫 API 需要的權杖由操作者在瀏覽器輸入，存在 localStorage，不會編進前端程式（任何 `NEXT_PUBLIC_*` 都會被下載頁面的人看到）。
 
 ---
 

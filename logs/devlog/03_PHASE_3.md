@@ -18,8 +18,8 @@
 | T-304 | 代理執行器的即時進度（AGENT_STEP_PROGRESS，不落表） | 後端 | T-211、T-303 | ✅ |
 | T-305 | 前端即時 store 與 reducer（跨語言契約） | 前端 | T-108 | ✅ |
 | T-306 | RealtimeClient（重連、補洞、心跳逾時、背景分頁） | 前端 | T-305、T-303 | ✅ |
-| T-307 | UI store | 前端 | — | ⏳ |
-| T-308 | 型別化 API client 與 Query hooks | 前端 | T-110、T-210 | ⏳ |
+| T-307 | UI store | 前端 | — | ✅ |
+| T-308 | 型別化 API client 與 Query hooks | 前端 | T-110、T-210 | ✅ |
 | T-309 | Dashboard 頁 | 前端 | T-305、T-308 | ⏳ |
 | T-310 | 代理卡片與代理詳情面板 | 前端 | T-305、T-307、T-308 | ⏳ |
 | T-311 | Trace Viewer | 前端 | T-308 | ⏳ |
@@ -34,7 +34,7 @@
 
 - **進入條件**：路線圖要求真實模型呼叫通過一次才進入階段 3（原為「真實 Anthropic 呼叫」，D-005 改為不限供應者）。✅ 2026-09-18 以 NVIDIA `z-ai/glm-5.3-flash` 跑 `tests/e2e/test_echo_live.py` 通過（見下方 D-005 一節的實測）。
 - 階段 2 留下、會在本階段用到的：
-  - `GET /api/tasks/{id}`、`GET /api/runs/{id}` 尚未實作（T-308、T-310 需要時補上）；
+  - `GET /api/tasks/{id}`、`GET /api/runs/{id}` 尚未實作（✅ T-308 已補上）；
   - API 尚未設定 CORS，前端的 API 位址設定也還沒有（✅ T-306 已處理）；
   - 活動狀態的 `detail` 含有 `task_name` 與 `links`，這兩項不在事件本身，reducer 需要從任務資料補上（T-302 已處理 `task_name`；`links` 尚無領域提供）。
   - **事件序號是全域的，不是每間公司各自連號**（T-302 發現）：`05` §4 以「`seq > last_seq + 1` 即有缺口」判斷的做法不能照用。✅ T-303 以「閘道保證不斷流」解決，`05` §4 已修訂。
@@ -72,6 +72,34 @@
 - **效能**（`3d-office/07` §4 目標：本機 < 50 ms）：12 位代理、300 個任務、20,000 個事件，快照中位數約 **21 ms**。CI 的共用機器較慢，測試在 CI 上以 150 ms 為上限。
 - 以真實伺服器對開發資料庫呼叫：第一次 164 ms（建立連線），之後約 9 ms；示範公司的已完成狀態正確顯示為 IDLE；之後的請求不受隔離等級影響。
 - Python 測試共 600 個通過。
+
+---
+
+## T-307 · UI store
+
+- `frontend/web/src/stores/ui.ts`：操作者正在看什麼——選取的代理、面板分頁（live / steps / tools / output）、鏡頭模式（overview / follow / free）、時間軸暫停與篩選。只在瀏覽器本地，不送到伺服器、不由事件推導，與即時 store 分開，所以大量事件不會因為 UI 狀態而讓面板重繪，反之亦然。
+- 規則：選另一位代理時面板回到 live 分頁（同一位代理則保留分頁）；只有選了代理才能「跟隨」，取消選取時鏡頭回到 overview。
+- 測試 4 個（含「不持有任何領域資料」）。
+
+---
+
+## T-308 · 型別化 API client 與 Query hooks
+
+### 做了什麼
+- **型別來自 API 本身**：`backend/scripts/gen_openapi.py` 輸出 FastAPI 的 OpenAPI 文件到 `frontend/web/src/api/openapi.json`，`pnpm -F web gen-api`（openapi-typescript）產生 `schema.gen.ts`。兩者都提交，回應模型的變動會在審查時以型別變動出現。`make gen-api` 一次做完；CI 的 python 工作檢查 OpenAPI 文件是否最新（`make gen-api-check`），web 工作檢查型別是否與文件一致（`gen-api:check`）；兩個檢查都確認過在過期時會失敗。
+- `src/api/client.ts`：openapi-fetch 的型別化 client（路徑、參數、回應都有型別），自動加上權杖；失敗時丟出帶有 RFC 7807 內容的 `ApiError`。
+- `src/api/auth.ts`：操作者權杖存在瀏覽器 localStorage，**不編進前端程式**（`NEXT_PUBLIC_*` 會被所有下載頁面的人看到）；階段 6 改為 session cookie。
+- `src/api/queries.ts`：TanStack Query 的 query options（公司、代理、執行、軌跡、任務、審批）與兩個指令（決定審批、啟動工作流程）；`createQueryClient()` 的預設為「資料保留到事件使其失效」。
+- `src/api/invalidation.ts`：`eventToQueryKeys(event)`——一張表決定哪個事件讓哪些查詢過期（執行的任何事件 → 該執行的軌跡；執行狀態變化 → 執行明細；TASK_* → 任務；APPROVAL_* → 審批；代理建立 / 暫停 / 恢復 → 代理列表）。`connectQueryInvalidation` 監聽即時 store，**每次 store 更新只讓每個查詢失效一次**（補 200 個事件的 backlog 也只讓一個軌跡重新取一次），hydrate 不算新事件。
+- **後端**：補上 `GET /api/runs/{id}`（執行明細）與 `GET /api/tasks/{id}`（任務與每次嘗試的執行），這是階段 2 路線圖列出、一直沒有對應任務的兩個 API；`GET /api/runs/{id}/trace` 改為回傳型別化的 `Trace`（原本是任意 dict，產生的型別會是 unknown）。
+
+### 型別生成立刻抓到的問題
+- 啟動工作流程的 `params` 在 API 有預設值，但產生的型別把它標為必填（openapi-typescript 把有預設值的欄位視為必定存在）。`startWorkflow` 改為一律送出 `params`（沒有時送空物件），與 API 的行為一致。
+
+### 驗證
+- web 共 54 個測試通過（新增 UI store 4 個、API 13 個）：型別化 client 的網址 / 權杖 / 回應、problem+json 轉成 `ApiError`、指令的查詢與主體參數、沒有權杖時不送標頭；事件對查詢的對應表（以契約檔中的真實事件）；失效串接只處理新事件、每個查詢只失效一次、重播不觸發。
+- 以結束碼確認：`typecheck`、`lint`、`next build`、`gen-api:check` 皆通過（`typecheck` 第一次失敗在測試檔的型別，已修正——這次有檢查結束碼才抓到）。
+- 後端：API 測試 29 個通過（新增執行與任務明細）；Python 測試全部通過。
 
 ---
 

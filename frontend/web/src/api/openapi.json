@@ -1,0 +1,2392 @@
+{
+ "components": {
+  "schemas": {
+   "ActivityOut": {
+    "properties": {
+     "detail": {
+      "additionalProperties": true,
+      "title": "Detail",
+      "type": "object"
+     },
+     "last_event_seq": {
+      "title": "Last Event Seq",
+      "type": "integer"
+     },
+     "run_id": {
+      "anyOf": [
+       {
+        "format": "uuid",
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Run Id"
+     },
+     "since": {
+      "format": "date-time",
+      "title": "Since",
+      "type": "string"
+     },
+     "state": {
+      "title": "State",
+      "type": "string"
+     },
+     "stored_state": {
+      "title": "Stored State",
+      "type": "string"
+     },
+     "task_id": {
+      "anyOf": [
+       {
+        "format": "uuid",
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Task Id"
+     }
+    },
+    "required": [
+     "state",
+     "stored_state",
+     "detail",
+     "run_id",
+     "task_id",
+     "since",
+     "last_event_seq"
+    ],
+    "title": "ActivityOut",
+    "type": "object"
+   },
+   "ActivityState": {
+    "enum": [
+     "IDLE",
+     "THINKING",
+     "WORKING",
+     "WAITING",
+     "REVIEWING",
+     "COMPLETED",
+     "FAILED",
+     "PAUSED"
+    ],
+    "title": "ActivityState",
+    "type": "string"
+   },
+   "ActivityView": {
+    "properties": {
+     "detail": {
+      "additionalProperties": true,
+      "title": "Detail",
+      "type": "object"
+     },
+     "last_event_seq": {
+      "title": "Last Event Seq",
+      "type": "integer"
+     },
+     "run_id": {
+      "anyOf": [
+       {
+        "format": "uuid",
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Run Id"
+     },
+     "since": {
+      "format": "date-time",
+      "title": "Since",
+      "type": "string"
+     },
+     "state": {
+      "$ref": "#/components/schemas/ActivityState"
+     },
+     "stored_state": {
+      "$ref": "#/components/schemas/ActivityState"
+     },
+     "task_id": {
+      "anyOf": [
+       {
+        "format": "uuid",
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Task Id"
+     }
+    },
+    "required": [
+     "state",
+     "stored_state",
+     "detail",
+     "since",
+     "run_id",
+     "task_id",
+     "last_event_seq"
+    ],
+    "title": "ActivityView",
+    "type": "object"
+   },
+   "Actor": {
+    "additionalProperties": false,
+    "properties": {
+     "id": {
+      "minLength": 1,
+      "title": "Id",
+      "type": "string"
+     },
+     "kind": {
+      "enum": [
+       "agent",
+       "system",
+       "human"
+      ],
+      "title": "Kind",
+      "type": "string"
+     }
+    },
+    "required": [
+     "kind",
+     "id"
+    ],
+    "title": "Actor",
+    "type": "object"
+   },
+   "AgentOut": {
+    "properties": {
+     "activity": {
+      "anyOf": [
+       {
+        "$ref": "#/components/schemas/ActivityOut"
+       },
+       {
+        "type": "null"
+       }
+      ]
+     },
+     "avatar_key": {
+      "title": "Avatar Key",
+      "type": "string"
+     },
+     "display_name": {
+      "title": "Display Name",
+      "type": "string"
+     },
+     "id": {
+      "format": "uuid",
+      "title": "Id",
+      "type": "string"
+     },
+     "role": {
+      "title": "Role",
+      "type": "string"
+     },
+     "status": {
+      "title": "Status",
+      "type": "string"
+     }
+    },
+    "required": [
+     "id",
+     "role",
+     "display_name",
+     "avatar_key",
+     "status",
+     "activity"
+    ],
+    "title": "AgentOut",
+    "type": "object"
+   },
+   "AgentView": {
+    "properties": {
+     "activity": {
+      "$ref": "#/components/schemas/ActivityView"
+     },
+     "avatar_key": {
+      "title": "Avatar Key",
+      "type": "string"
+     },
+     "display_name": {
+      "title": "Display Name",
+      "type": "string"
+     },
+     "id": {
+      "format": "uuid",
+      "title": "Id",
+      "type": "string"
+     },
+     "role": {
+      "title": "Role",
+      "type": "string"
+     }
+    },
+    "required": [
+     "id",
+     "role",
+     "display_name",
+     "avatar_key",
+     "activity"
+    ],
+    "title": "AgentView",
+    "type": "object"
+   },
+   "ApprovalOut": {
+    "properties": {
+     "action": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Action"
+     },
+     "company_id": {
+      "format": "uuid",
+      "title": "Company Id",
+      "type": "string"
+     },
+     "created_at": {
+      "format": "date-time",
+      "title": "Created At",
+      "type": "string"
+     },
+     "decided_at": {
+      "anyOf": [
+       {
+        "format": "date-time",
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Decided At"
+     },
+     "decided_by": {
+      "anyOf": [
+       {
+        "additionalProperties": true,
+        "type": "object"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Decided By"
+     },
+     "expires_at": {
+      "anyOf": [
+       {
+        "format": "date-time",
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Expires At"
+     },
+     "id": {
+      "format": "uuid",
+      "title": "Id",
+      "type": "string"
+     },
+     "kind": {
+      "title": "Kind",
+      "type": "string"
+     },
+     "payload": {
+      "additionalProperties": true,
+      "title": "Payload",
+      "type": "object"
+     },
+     "reason": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Reason"
+     },
+     "ref_id": {
+      "format": "uuid",
+      "title": "Ref Id",
+      "type": "string"
+     },
+     "ref_type": {
+      "title": "Ref Type",
+      "type": "string"
+     },
+     "requested_by": {
+      "additionalProperties": true,
+      "title": "Requested By",
+      "type": "object"
+     },
+     "run_id": {
+      "anyOf": [
+       {
+        "format": "uuid",
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Run Id"
+     },
+     "state": {
+      "title": "State",
+      "type": "string"
+     },
+     "summary": {
+      "title": "Summary",
+      "type": "string"
+     },
+     "task_id": {
+      "anyOf": [
+       {
+        "format": "uuid",
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Task Id"
+     }
+    },
+    "required": [
+     "id",
+     "company_id",
+     "kind",
+     "ref_type",
+     "ref_id",
+     "task_id",
+     "run_id",
+     "action",
+     "payload",
+     "summary",
+     "requested_by",
+     "state",
+     "expires_at",
+     "decided_by",
+     "decided_at",
+     "reason",
+     "created_at"
+    ],
+    "title": "ApprovalOut",
+    "type": "object"
+   },
+   "ApprovalState": {
+    "enum": [
+     "PENDING",
+     "APPROVED",
+     "REJECTED",
+     "EXPIRED"
+    ],
+    "title": "ApprovalState",
+    "type": "string"
+   },
+   "CompanyCreate": {
+    "properties": {
+     "mission": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Mission"
+     },
+     "name": {
+      "maxLength": 200,
+      "minLength": 1,
+      "title": "Name",
+      "type": "string"
+     },
+     "slug": {
+      "pattern": "^[a-z0-9][a-z0-9-]{1,62}$",
+      "title": "Slug",
+      "type": "string"
+     },
+     "type": {
+      "$ref": "#/components/schemas/CompanyType"
+     }
+    },
+    "required": [
+     "slug",
+     "name",
+     "type"
+    ],
+    "title": "CompanyCreate",
+    "type": "object"
+   },
+   "CompanyOut": {
+    "properties": {
+     "created_at": {
+      "format": "date-time",
+      "title": "Created At",
+      "type": "string"
+     },
+     "id": {
+      "format": "uuid",
+      "title": "Id",
+      "type": "string"
+     },
+     "mission": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Mission"
+     },
+     "name": {
+      "title": "Name",
+      "type": "string"
+     },
+     "slug": {
+      "title": "Slug",
+      "type": "string"
+     },
+     "status": {
+      "title": "Status",
+      "type": "string"
+     },
+     "type": {
+      "title": "Type",
+      "type": "string"
+     }
+    },
+    "required": [
+     "id",
+     "slug",
+     "name",
+     "type",
+     "mission",
+     "status",
+     "created_at"
+    ],
+    "title": "CompanyOut",
+    "type": "object"
+   },
+   "CompanyType": {
+    "enum": [
+     "newsroom",
+     "saas",
+     "research",
+     "ecommerce",
+     "software_studio"
+    ],
+    "title": "CompanyType",
+    "type": "string"
+   },
+   "DecisionIn": {
+    "properties": {
+     "decision": {
+      "enum": [
+       "approve",
+       "reject"
+      ],
+      "title": "Decision",
+      "type": "string"
+     },
+     "reason": {
+      "anyOf": [
+       {
+        "maxLength": 2000,
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Reason"
+     }
+    },
+    "required": [
+     "decision"
+    ],
+    "title": "DecisionIn",
+    "type": "object"
+   },
+   "EventEnvelope": {
+    "additionalProperties": false,
+    "properties": {
+     "actor": {
+      "$ref": "#/components/schemas/Actor"
+     },
+     "agent_id": {
+      "anyOf": [
+       {
+        "format": "uuid",
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Agent Id"
+     },
+     "aggregate_id": {
+      "format": "uuid",
+      "title": "Aggregate Id",
+      "type": "string"
+     },
+     "aggregate_type": {
+      "title": "Aggregate Type",
+      "type": "string"
+     },
+     "causation_id": {
+      "anyOf": [
+       {
+        "format": "uuid",
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Causation Id"
+     },
+     "company_id": {
+      "format": "uuid",
+      "title": "Company Id",
+      "type": "string"
+     },
+     "correlation_id": {
+      "anyOf": [
+       {
+        "format": "uuid",
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Correlation Id"
+     },
+     "cycle_id": {
+      "anyOf": [
+       {
+        "format": "uuid",
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Cycle Id"
+     },
+     "event_id": {
+      "format": "uuid",
+      "title": "Event Id",
+      "type": "string"
+     },
+     "event_type": {
+      "title": "Event Type",
+      "type": "string"
+     },
+     "occurred_at": {
+      "format": "date-time",
+      "title": "Occurred At",
+      "type": "string"
+     },
+     "payload": {
+      "$ref": "#/components/schemas/EventPayload"
+     },
+     "run_id": {
+      "anyOf": [
+       {
+        "format": "uuid",
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Run Id"
+     },
+     "schema_version": {
+      "default": 1,
+      "title": "Schema Version",
+      "type": "integer"
+     },
+     "seq": {
+      "anyOf": [
+       {
+        "type": "integer"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Seq"
+     },
+     "task_id": {
+      "anyOf": [
+       {
+        "format": "uuid",
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Task Id"
+     },
+     "workflow_run_id": {
+      "anyOf": [
+       {
+        "format": "uuid",
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Workflow Run Id"
+     }
+    },
+    "required": [
+     "event_id",
+     "event_type",
+     "company_id",
+     "occurred_at",
+     "aggregate_type",
+     "aggregate_id",
+     "actor",
+     "payload"
+    ],
+    "title": "EventEnvelope",
+    "type": "object"
+   },
+   "EventPayload": {
+    "additionalProperties": false,
+    "description": "Base class for typed payloads. Subclasses are registered with ``@event``.",
+    "properties": {},
+    "title": "EventPayload",
+    "type": "object"
+   },
+   "EventsPage": {
+    "properties": {
+     "has_more": {
+      "title": "Has More",
+      "type": "boolean"
+     },
+     "items": {
+      "items": {
+       "additionalProperties": true,
+       "type": "object"
+      },
+      "title": "Items",
+      "type": "array"
+     },
+     "next_after": {
+      "title": "Next After",
+      "type": "integer"
+     }
+    },
+    "required": [
+     "items",
+     "next_after",
+     "has_more"
+    ],
+    "title": "EventsPage",
+    "type": "object"
+   },
+   "HTTPValidationError": {
+    "properties": {
+     "detail": {
+      "items": {
+       "$ref": "#/components/schemas/ValidationError"
+      },
+      "title": "Detail",
+      "type": "array"
+     }
+    },
+    "title": "HTTPValidationError",
+    "type": "object"
+   },
+   "RealtimeSnapshot": {
+    "properties": {
+     "agents": {
+      "items": {
+       "$ref": "#/components/schemas/AgentView"
+      },
+      "title": "Agents",
+      "type": "array"
+     },
+     "company_id": {
+      "format": "uuid",
+      "title": "Company Id",
+      "type": "string"
+     },
+     "cycle": {
+      "anyOf": [
+       {
+        "additionalProperties": true,
+        "type": "object"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Cycle"
+     },
+     "kpis": {
+      "anyOf": [
+       {
+        "additionalProperties": true,
+        "type": "object"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Kpis"
+     },
+     "last_seq": {
+      "title": "Last Seq",
+      "type": "integer"
+     },
+     "recent_events": {
+      "items": {
+       "$ref": "#/components/schemas/EventEnvelope"
+      },
+      "title": "Recent Events",
+      "type": "array"
+     },
+     "server_time": {
+      "format": "date-time",
+      "title": "Server Time",
+      "type": "string"
+     },
+     "tasks": {
+      "items": {
+       "$ref": "#/components/schemas/TaskView"
+      },
+      "title": "Tasks",
+      "type": "array"
+     }
+    },
+    "required": [
+     "company_id",
+     "last_seq",
+     "server_time",
+     "agents",
+     "tasks",
+     "recent_events"
+    ],
+    "title": "RealtimeSnapshot",
+    "type": "object"
+   },
+   "RunOut": {
+    "description": "One agent run: what it was asked, what it produced, what it cost.",
+    "properties": {
+     "agent_id": {
+      "format": "uuid",
+      "title": "Agent Id",
+      "type": "string"
+     },
+     "attempt": {
+      "title": "Attempt",
+      "type": "integer"
+     },
+     "company_id": {
+      "format": "uuid",
+      "title": "Company Id",
+      "type": "string"
+     },
+     "cost_usd": {
+      "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+      "title": "Cost Usd",
+      "type": "string"
+     },
+     "created_at": {
+      "format": "date-time",
+      "title": "Created At",
+      "type": "string"
+     },
+     "error": {
+      "anyOf": [
+       {
+        "additionalProperties": true,
+        "type": "object"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Error"
+     },
+     "evaluation": {
+      "anyOf": [
+       {
+        "additionalProperties": true,
+        "type": "object"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Evaluation"
+     },
+     "finished_at": {
+      "anyOf": [
+       {
+        "format": "date-time",
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Finished At"
+     },
+     "handoff": {
+      "anyOf": [
+       {
+        "items": {
+         "additionalProperties": true,
+         "type": "object"
+        },
+        "type": "array"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Handoff"
+     },
+     "id": {
+      "format": "uuid",
+      "title": "Id",
+      "type": "string"
+     },
+     "input": {
+      "additionalProperties": true,
+      "title": "Input",
+      "type": "object"
+     },
+     "output": {
+      "anyOf": [
+       {
+        "additionalProperties": true,
+        "type": "object"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Output"
+     },
+     "started_at": {
+      "anyOf": [
+       {
+        "format": "date-time",
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Started At"
+     },
+     "state": {
+      "title": "State",
+      "type": "string"
+     },
+     "steps_count": {
+      "title": "Steps Count",
+      "type": "integer"
+     },
+     "task_id": {
+      "format": "uuid",
+      "title": "Task Id",
+      "type": "string"
+     },
+     "tokens_in": {
+      "title": "Tokens In",
+      "type": "integer"
+     },
+     "tokens_out": {
+      "title": "Tokens Out",
+      "type": "integer"
+     }
+    },
+    "required": [
+     "id",
+     "company_id",
+     "task_id",
+     "agent_id",
+     "attempt",
+     "state",
+     "input",
+     "output",
+     "evaluation",
+     "handoff",
+     "error",
+     "cost_usd",
+     "tokens_in",
+     "tokens_out",
+     "steps_count",
+     "started_at",
+     "finished_at",
+     "created_at"
+    ],
+    "title": "RunOut",
+    "type": "object"
+   },
+   "StepView": {
+    "properties": {
+     "cost_usd": {
+      "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+      "title": "Cost Usd",
+      "type": "string"
+     },
+     "created_at": {
+      "format": "date-time",
+      "title": "Created At",
+      "type": "string"
+     },
+     "has_blob": {
+      "title": "Has Blob",
+      "type": "boolean"
+     },
+     "kind": {
+      "title": "Kind",
+      "type": "string"
+     },
+     "seq": {
+      "title": "Seq",
+      "type": "integer"
+     },
+     "summary": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Summary"
+     },
+     "tool_calls": {
+      "anyOf": [
+       {
+        "items": {
+         "additionalProperties": true,
+         "type": "object"
+        },
+        "type": "array"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Tool Calls"
+     }
+    },
+    "required": [
+     "seq",
+     "kind",
+     "summary",
+     "tool_calls",
+     "cost_usd",
+     "has_blob",
+     "created_at"
+    ],
+    "title": "StepView",
+    "type": "object"
+   },
+   "TaskRunOut": {
+    "properties": {
+     "agent_id": {
+      "format": "uuid",
+      "title": "Agent Id",
+      "type": "string"
+     },
+     "attempt": {
+      "title": "Attempt",
+      "type": "integer"
+     },
+     "cost_usd": {
+      "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+      "title": "Cost Usd",
+      "type": "string"
+     },
+     "finished_at": {
+      "anyOf": [
+       {
+        "format": "date-time",
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Finished At"
+     },
+     "id": {
+      "format": "uuid",
+      "title": "Id",
+      "type": "string"
+     },
+     "started_at": {
+      "anyOf": [
+       {
+        "format": "date-time",
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Started At"
+     },
+     "state": {
+      "title": "State",
+      "type": "string"
+     }
+    },
+    "required": [
+     "id",
+     "agent_id",
+     "attempt",
+     "state",
+     "cost_usd",
+     "started_at",
+     "finished_at"
+    ],
+    "title": "TaskRunOut",
+    "type": "object"
+   },
+   "TaskView": {
+    "properties": {
+     "agent_id": {
+      "anyOf": [
+       {
+        "format": "uuid",
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Agent Id"
+     },
+     "attempt": {
+      "title": "Attempt",
+      "type": "integer"
+     },
+     "depends_on": {
+      "items": {
+       "format": "uuid",
+       "type": "string"
+      },
+      "title": "Depends On",
+      "type": "array"
+     },
+     "display_name": {
+      "title": "Display Name",
+      "type": "string"
+     },
+     "id": {
+      "format": "uuid",
+      "title": "Id",
+      "type": "string"
+     },
+     "last_event_seq": {
+      "title": "Last Event Seq",
+      "type": "integer"
+     },
+     "name": {
+      "title": "Name",
+      "type": "string"
+     },
+     "required_role": {
+      "title": "Required Role",
+      "type": "string"
+     },
+     "run_id": {
+      "anyOf": [
+       {
+        "format": "uuid",
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Run Id"
+     },
+     "since": {
+      "format": "date-time",
+      "title": "Since",
+      "type": "string"
+     },
+     "state": {
+      "title": "State",
+      "type": "string"
+     },
+     "workflow_run_id": {
+      "anyOf": [
+       {
+        "format": "uuid",
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Workflow Run Id"
+     }
+    },
+    "required": [
+     "id",
+     "name",
+     "display_name",
+     "required_role",
+     "state",
+     "depends_on",
+     "workflow_run_id",
+     "attempt",
+     "run_id",
+     "agent_id",
+     "since",
+     "last_event_seq"
+    ],
+    "title": "TaskView",
+    "type": "object"
+   },
+   "Trace": {
+    "properties": {
+     "agent_id": {
+      "format": "uuid",
+      "title": "Agent Id",
+      "type": "string"
+     },
+     "attempt": {
+      "title": "Attempt",
+      "type": "integer"
+     },
+     "company_id": {
+      "format": "uuid",
+      "title": "Company Id",
+      "type": "string"
+     },
+     "cost_usd": {
+      "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+      "title": "Cost Usd",
+      "type": "string"
+     },
+     "entries": {
+      "items": {
+       "$ref": "#/components/schemas/TraceEntry"
+      },
+      "title": "Entries",
+      "type": "array"
+     },
+     "run_id": {
+      "format": "uuid",
+      "title": "Run Id",
+      "type": "string"
+     },
+     "state": {
+      "title": "State",
+      "type": "string"
+     },
+     "steps": {
+      "items": {
+       "$ref": "#/components/schemas/StepView"
+      },
+      "title": "Steps",
+      "type": "array"
+     },
+     "task_id": {
+      "format": "uuid",
+      "title": "Task Id",
+      "type": "string"
+     }
+    },
+    "required": [
+     "run_id",
+     "company_id",
+     "task_id",
+     "agent_id",
+     "attempt",
+     "state",
+     "cost_usd",
+     "entries",
+     "steps"
+    ],
+    "title": "Trace",
+    "type": "object"
+   },
+   "TraceEntry": {
+    "properties": {
+     "actor": {
+      "additionalProperties": true,
+      "title": "Actor",
+      "type": "object"
+     },
+     "event_type": {
+      "title": "Event Type",
+      "type": "string"
+     },
+     "occurred_at": {
+      "format": "date-time",
+      "title": "Occurred At",
+      "type": "string"
+     },
+     "payload": {
+      "additionalProperties": true,
+      "title": "Payload",
+      "type": "object"
+     },
+     "seq": {
+      "title": "Seq",
+      "type": "integer"
+     },
+     "step": {
+      "anyOf": [
+       {
+        "$ref": "#/components/schemas/StepView"
+       },
+       {
+        "type": "null"
+       }
+      ]
+     }
+    },
+    "required": [
+     "seq",
+     "event_type",
+     "occurred_at",
+     "actor",
+     "payload",
+     "step"
+    ],
+    "title": "TraceEntry",
+    "type": "object"
+   },
+   "ValidationError": {
+    "properties": {
+     "ctx": {
+      "title": "Context",
+      "type": "object"
+     },
+     "input": {
+      "title": "Input"
+     },
+     "loc": {
+      "items": {
+       "anyOf": [
+        {
+         "type": "string"
+        },
+        {
+         "type": "integer"
+        }
+       ]
+      },
+      "title": "Location",
+      "type": "array"
+     },
+     "msg": {
+      "title": "Message",
+      "type": "string"
+     },
+     "type": {
+      "title": "Error Type",
+      "type": "string"
+     }
+    },
+    "required": [
+     "loc",
+     "msg",
+     "type"
+    ],
+    "title": "ValidationError",
+    "type": "object"
+   },
+   "WorkflowRunOut": {
+    "properties": {
+     "company_id": {
+      "format": "uuid",
+      "title": "Company Id",
+      "type": "string"
+     },
+     "created_at": {
+      "format": "date-time",
+      "title": "Created At",
+      "type": "string"
+     },
+     "id": {
+      "format": "uuid",
+      "title": "Id",
+      "type": "string"
+     },
+     "params": {
+      "additionalProperties": true,
+      "title": "Params",
+      "type": "object"
+     },
+     "project_id": {
+      "format": "uuid",
+      "title": "Project Id",
+      "type": "string"
+     },
+     "state": {
+      "title": "State",
+      "type": "string"
+     },
+     "tasks": {
+      "items": {
+       "$ref": "#/components/schemas/autora_api__routers__workflows__TaskOut"
+      },
+      "title": "Tasks",
+      "type": "array"
+     },
+     "template_name": {
+      "title": "Template Name",
+      "type": "string"
+     }
+    },
+    "required": [
+     "id",
+     "company_id",
+     "project_id",
+     "template_name",
+     "params",
+     "state",
+     "created_at",
+     "tasks"
+    ],
+    "title": "WorkflowRunOut",
+    "type": "object"
+   },
+   "WorkflowStart": {
+    "properties": {
+     "params": {
+      "additionalProperties": true,
+      "default": {},
+      "title": "Params",
+      "type": "object"
+     },
+     "project_id": {
+      "format": "uuid",
+      "title": "Project Id",
+      "type": "string"
+     },
+     "template": {
+      "minLength": 1,
+      "title": "Template",
+      "type": "string"
+     }
+    },
+    "required": [
+     "template",
+     "project_id"
+    ],
+    "title": "WorkflowStart",
+    "type": "object"
+   },
+   "autora_api__routers__tasks__TaskOut": {
+    "properties": {
+     "attempt": {
+      "title": "Attempt",
+      "type": "integer"
+     },
+     "budget_usd": {
+      "anyOf": [
+       {
+        "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Budget Usd"
+     },
+     "company_id": {
+      "format": "uuid",
+      "title": "Company Id",
+      "type": "string"
+     },
+     "created_at": {
+      "format": "date-time",
+      "title": "Created At",
+      "type": "string"
+     },
+     "depends_on": {
+      "items": {
+       "format": "uuid",
+       "type": "string"
+      },
+      "title": "Depends On",
+      "type": "array"
+     },
+     "display_name": {
+      "title": "Display Name",
+      "type": "string"
+     },
+     "id": {
+      "format": "uuid",
+      "title": "Id",
+      "type": "string"
+     },
+     "input": {
+      "additionalProperties": true,
+      "title": "Input",
+      "type": "object"
+     },
+     "max_attempts": {
+      "title": "Max Attempts",
+      "type": "integer"
+     },
+     "name": {
+      "title": "Name",
+      "type": "string"
+     },
+     "output": {
+      "anyOf": [
+       {
+        "additionalProperties": true,
+        "type": "object"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Output"
+     },
+     "priority": {
+      "title": "Priority",
+      "type": "integer"
+     },
+     "project_id": {
+      "format": "uuid",
+      "title": "Project Id",
+      "type": "string"
+     },
+     "required_role": {
+      "title": "Required Role",
+      "type": "string"
+     },
+     "runs": {
+      "items": {
+       "$ref": "#/components/schemas/TaskRunOut"
+      },
+      "title": "Runs",
+      "type": "array"
+     },
+     "state": {
+      "title": "State",
+      "type": "string"
+     },
+     "updated_at": {
+      "format": "date-time",
+      "title": "Updated At",
+      "type": "string"
+     },
+     "workflow_run_id": {
+      "anyOf": [
+       {
+        "format": "uuid",
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Workflow Run Id"
+     }
+    },
+    "required": [
+     "id",
+     "company_id",
+     "project_id",
+     "workflow_run_id",
+     "name",
+     "display_name",
+     "required_role",
+     "state",
+     "depends_on",
+     "input",
+     "output",
+     "attempt",
+     "max_attempts",
+     "budget_usd",
+     "priority",
+     "created_at",
+     "updated_at",
+     "runs"
+    ],
+    "title": "TaskOut",
+    "type": "object"
+   },
+   "autora_api__routers__workflows__TaskOut": {
+    "properties": {
+     "depends_on": {
+      "items": {
+       "format": "uuid",
+       "type": "string"
+      },
+      "title": "Depends On",
+      "type": "array"
+     },
+     "display_name": {
+      "title": "Display Name",
+      "type": "string"
+     },
+     "id": {
+      "format": "uuid",
+      "title": "Id",
+      "type": "string"
+     },
+     "name": {
+      "title": "Name",
+      "type": "string"
+     },
+     "required_role": {
+      "title": "Required Role",
+      "type": "string"
+     },
+     "state": {
+      "title": "State",
+      "type": "string"
+     }
+    },
+    "required": [
+     "id",
+     "name",
+     "display_name",
+     "required_role",
+     "state",
+     "depends_on"
+    ],
+    "title": "TaskOut",
+    "type": "object"
+   }
+  },
+  "securitySchemes": {
+   "HTTPBearer": {
+    "scheme": "bearer",
+    "type": "http"
+   }
+  }
+ },
+ "info": {
+  "title": "Autora API",
+  "version": "0.0.1"
+ },
+ "openapi": "3.1.0",
+ "paths": {
+  "/api/approvals": {
+   "get": {
+    "description": "The approval inbox. Oldest first, so the longest-waiting request is on top.",
+    "operationId": "list_approvals_api_approvals_get",
+    "parameters": [
+     {
+      "in": "query",
+      "name": "company_id",
+      "required": true,
+      "schema": {
+       "format": "uuid",
+       "title": "Company Id",
+       "type": "string"
+      }
+     },
+     {
+      "in": "query",
+      "name": "state",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "$ref": "#/components/schemas/ApprovalState"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "default": "PENDING",
+       "title": "State"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "items": {
+          "$ref": "#/components/schemas/ApprovalOut"
+         },
+         "title": "Response List Approvals Api Approvals Get",
+         "type": "array"
+        }
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "security": [
+     {
+      "HTTPBearer": []
+     }
+    ],
+    "summary": "List Approvals",
+    "tags": [
+     "approvals"
+    ]
+   }
+  },
+  "/api/approvals/{approval_id}/decide": {
+   "post": {
+    "operationId": "decide_api_approvals__approval_id__decide_post",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "approval_id",
+      "required": true,
+      "schema": {
+       "format": "uuid",
+       "title": "Approval Id",
+       "type": "string"
+      }
+     }
+    ],
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/DecisionIn"
+       }
+      }
+     },
+     "required": true
+    },
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ApprovalOut"
+        }
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "security": [
+     {
+      "HTTPBearer": []
+     }
+    ],
+    "summary": "Decide",
+    "tags": [
+     "approvals"
+    ]
+   }
+  },
+  "/api/companies": {
+   "get": {
+    "operationId": "list_companies_api_companies_get",
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "items": {
+          "$ref": "#/components/schemas/CompanyOut"
+         },
+         "title": "Response List Companies Api Companies Get",
+         "type": "array"
+        }
+       }
+      },
+      "description": "Successful Response"
+     }
+    },
+    "security": [
+     {
+      "HTTPBearer": []
+     }
+    ],
+    "summary": "List Companies",
+    "tags": [
+     "companies"
+    ]
+   },
+   "post": {
+    "operationId": "post_company_api_companies_post",
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/CompanyCreate"
+       }
+      }
+     },
+     "required": true
+    },
+    "responses": {
+     "201": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/CompanyOut"
+        }
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "security": [
+     {
+      "HTTPBearer": []
+     }
+    ],
+    "summary": "Post Company",
+    "tags": [
+     "companies"
+    ]
+   }
+  },
+  "/api/companies/{company_id}": {
+   "get": {
+    "operationId": "get_company_api_companies__company_id__get",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "company_id",
+      "required": true,
+      "schema": {
+       "format": "uuid",
+       "title": "Company Id",
+       "type": "string"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/CompanyOut"
+        }
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "security": [
+     {
+      "HTTPBearer": []
+     }
+    ],
+    "summary": "Get Company",
+    "tags": [
+     "companies"
+    ]
+   }
+  },
+  "/api/companies/{company_id}/agents": {
+   "get": {
+    "operationId": "list_company_agents_api_companies__company_id__agents_get",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "company_id",
+      "required": true,
+      "schema": {
+       "format": "uuid",
+       "title": "Company Id",
+       "type": "string"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "items": {
+          "$ref": "#/components/schemas/AgentOut"
+         },
+         "title": "Response List Company Agents Api Companies  Company Id  Agents Get",
+         "type": "array"
+        }
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "security": [
+     {
+      "HTTPBearer": []
+     }
+    ],
+    "summary": "List Company Agents",
+    "tags": [
+     "companies"
+    ]
+   }
+  },
+  "/api/companies/{company_id}/realtime/snapshot": {
+   "get": {
+    "description": "Agents, active tasks, recent events and ``last_seq``, read at one consistent moment.\nConnect the WebSocket with ``since=last_seq`` and apply newer events on top.",
+    "operationId": "get_snapshot_api_companies__company_id__realtime_snapshot_get",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "company_id",
+      "required": true,
+      "schema": {
+       "format": "uuid",
+       "title": "Company Id",
+       "type": "string"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/RealtimeSnapshot"
+        }
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "security": [
+     {
+      "HTTPBearer": []
+     }
+    ],
+    "summary": "Get Snapshot",
+    "tags": [
+     "realtime"
+    ]
+   }
+  },
+  "/api/companies/{company_id}/workflows": {
+   "post": {
+    "operationId": "post_workflow_api_companies__company_id__workflows_post",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "company_id",
+      "required": true,
+      "schema": {
+       "format": "uuid",
+       "title": "Company Id",
+       "type": "string"
+      }
+     }
+    ],
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/WorkflowStart"
+       }
+      }
+     },
+     "required": true
+    },
+    "responses": {
+     "201": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/WorkflowRunOut"
+        }
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "security": [
+     {
+      "HTTPBearer": []
+     }
+    ],
+    "summary": "Post Workflow",
+    "tags": [
+     "workflows"
+    ]
+   }
+  },
+  "/api/events": {
+   "get": {
+    "description": "Events of one company ordered by ``seq``. Used for trace views and realtime gap-fill.",
+    "operationId": "list_events_api_events_get",
+    "parameters": [
+     {
+      "in": "query",
+      "name": "company_id",
+      "required": true,
+      "schema": {
+       "format": "uuid",
+       "title": "Company Id",
+       "type": "string"
+      }
+     },
+     {
+      "description": "Return events with seq > after",
+      "in": "query",
+      "name": "after",
+      "required": false,
+      "schema": {
+       "default": 0,
+       "description": "Return events with seq > after",
+       "minimum": 0,
+       "title": "After",
+       "type": "integer"
+      }
+     },
+     {
+      "description": "Return events with seq <= until",
+      "in": "query",
+      "name": "until",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "minimum": 0,
+         "type": "integer"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "description": "Return events with seq <= until",
+       "title": "Until"
+      }
+     },
+     {
+      "description": "Filter by event_type (repeatable)",
+      "in": "query",
+      "name": "type",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "items": {
+          "type": "string"
+         },
+         "type": "array"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "description": "Filter by event_type (repeatable)",
+       "title": "Type"
+      }
+     },
+     {
+      "in": "query",
+      "name": "agent_id",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "format": "uuid",
+         "type": "string"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Agent Id"
+      }
+     },
+     {
+      "in": "query",
+      "name": "run_id",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "format": "uuid",
+         "type": "string"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Run Id"
+      }
+     },
+     {
+      "in": "query",
+      "name": "limit",
+      "required": false,
+      "schema": {
+       "default": 200,
+       "maximum": 500,
+       "minimum": 1,
+       "title": "Limit",
+       "type": "integer"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/EventsPage"
+        }
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "security": [
+     {
+      "HTTPBearer": []
+     }
+    ],
+    "summary": "List Events",
+    "tags": [
+     "events"
+    ]
+   }
+  },
+  "/api/runs/{run_id}": {
+   "get": {
+    "operationId": "get_run_api_runs__run_id__get",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "run_id",
+      "required": true,
+      "schema": {
+       "format": "uuid",
+       "title": "Run Id",
+       "type": "string"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/RunOut"
+        }
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "security": [
+     {
+      "HTTPBearer": []
+     }
+    ],
+    "summary": "Get Run",
+    "tags": [
+     "runs"
+    ]
+   }
+  },
+  "/api/runs/{run_id}/steps/{seq}/blob": {
+   "get": {
+    "description": "Full prompt/response payload of one step (admin only).",
+    "operationId": "step_blob_api_runs__run_id__steps__seq__blob_get",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "run_id",
+      "required": true,
+      "schema": {
+       "format": "uuid",
+       "title": "Run Id",
+       "type": "string"
+      }
+     },
+     {
+      "in": "path",
+      "name": "seq",
+      "required": true,
+      "schema": {
+       "title": "Seq",
+       "type": "integer"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "security": [
+     {
+      "HTTPBearer": []
+     }
+    ],
+    "summary": "Step Blob",
+    "tags": [
+     "runs"
+    ]
+   }
+  },
+  "/api/runs/{run_id}/trace": {
+   "get": {
+    "description": "The run's real events in seq order, each joined with the agent step it belongs to.",
+    "operationId": "run_trace_api_runs__run_id__trace_get",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "run_id",
+      "required": true,
+      "schema": {
+       "format": "uuid",
+       "title": "Run Id",
+       "type": "string"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/Trace"
+        }
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "security": [
+     {
+      "HTTPBearer": []
+     }
+    ],
+    "summary": "Run Trace",
+    "tags": [
+     "runs"
+    ]
+   }
+  },
+  "/api/tasks/{task_id}": {
+   "get": {
+    "operationId": "get_task_api_tasks__task_id__get",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "task_id",
+      "required": true,
+      "schema": {
+       "format": "uuid",
+       "title": "Task Id",
+       "type": "string"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/autora_api__routers__tasks__TaskOut"
+        }
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "security": [
+     {
+      "HTTPBearer": []
+     }
+    ],
+    "summary": "Get Task",
+    "tags": [
+     "tasks"
+    ]
+   }
+  },
+  "/health": {
+   "get": {
+    "operationId": "health_health_get",
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "additionalProperties": {
+          "type": "string"
+         },
+         "title": "Response Health Health Get",
+         "type": "object"
+        }
+       }
+      },
+      "description": "Successful Response"
+     }
+    },
+    "summary": "Health",
+    "tags": [
+     "meta"
+    ]
+   }
+  }
+ }
+}

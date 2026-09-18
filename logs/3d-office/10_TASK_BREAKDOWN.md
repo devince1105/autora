@@ -252,3 +252,5 @@ T-309,T-601 → T-608 ; T-211 → T-609 ; all → T-610
 | T-304 | `runtime/progress.py`（`ProgressPublisher`：每執行 ≤ 1 則 / 秒、間隔內合併為最新、結束時丟棄、失敗不影響執行）、執行器在模型呼叫與工具呼叫後回報、`ToolResult.progress`；**閘道尚無串流，進度只在步驟之間更新** |
 | T-305 | `frontend/web/src/realtime/{snapshot,reducer}.ts`、`src/stores/realtime.ts`（Zustand；`useRealtime` 與 `realtimeStore.subscribe`）；與 Python reducer 以 T-302 契約檔比對完全相同；**無等待緩衝 / 缺口偵測**（依 T-303）；`liveProgress` 在代理換執行時清除 |
 | T-306 | `frontend/web/src/realtime/client.ts`（hydrate → WS since → 套用；退避重連、5 次後 offline、SNAPSHOT_REQUIRED / 背景 60 秒重新 hydrate、心跳逾時、unauthorized / not_found 停止、ACK）、`src/config.ts`、API CORS（`CORS_ORIGINS`）；**無 REST 補洞**（依 T-303）；不依賴 close 事件（Node undici 連線被拒時只發 error） |
+| T-307 | `frontend/web/src/stores/ui.ts`（selectedAgentId、panelTab、cameraMode、timelinePaused、filters；follow 需有選取） |
+| T-308 | `backend/scripts/gen_openapi.py` → `src/api/openapi.json` → `schema.gen.ts`（`make gen-api`，CI 兩端檢查）、`src/api/{client,auth,queries,invalidation}.ts`（openapi-fetch、TanStack Query、`eventToQueryKeys`）；權杖存 localStorage 不編進程式；補上 `GET /api/runs/{id}`、`GET /api/tasks/{id}`，trace 回傳型別化 |
