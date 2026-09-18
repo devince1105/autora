@@ -9,7 +9,7 @@ import { realtimeStore, serverNow, type RealtimeStoreState } from "@/stores/real
 
 import type { Roster } from "../agents/roster";
 import { useRoster } from "../agents/roster";
-import { seatsForRole, walkPath, type Seat, type Vec2 } from "../scene/layout";
+import { APPROVAL_DESK, seatsForRole, walkPath, type Seat, type Vec2 } from "../scene/layout";
 import type { WalkCue } from "./cues";
 import { cuesFor, CueQueue } from "./director";
 
@@ -66,6 +66,9 @@ export interface Route {
   /** One way, metres. */
   length: number;
   durationMs: number;
+  /** What the courier faces while handing over (the colleague's chair, the approval desk). */
+  lookAt: Vec2;
+  returnAfter: boolean;
 }
 
 /** Where a walk goes and how long it takes (there and back, with the hand-over). */
@@ -85,7 +88,8 @@ export function routeFor(cue: WalkCue, roster: Pick<Roster, "members" | "seats">
   let length = 0;
   for (let i = 1; i < path.length; i++) length += Math.hypot(path[i][0] - path[i - 1][0], path[i][1] - path[i - 1][1]);
   const walking = (length / WALK_SPEED) * 1000 * (cue.returnAfter ? 2 : 1);
-  return { path, length, durationMs: Math.round(walking + HANDOVER_MS) };
+  const lookAt = to === "approval" ? APPROVAL_DESK.center : to.chair;
+  return { path, length, durationMs: Math.round(walking + HANDOVER_MS), lookAt, returnAfter: cue.returnAfter };
 }
 
 const CueContext = createContext<CueDirector | null>(null);

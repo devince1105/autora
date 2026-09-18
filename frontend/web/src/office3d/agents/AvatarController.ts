@@ -62,6 +62,7 @@ export function upperBody(pose: Pose, t: number): Partial<Record<BoneName, [numb
 
 export class AvatarController {
   readonly mixer: AnimationMixer;
+  /** The pose being shown; set to null to force the next setPose to apply. */
   pose: Pose | null = null;
   private readonly actions = new Map<string, AnimationAction>();
   private base: AnimationAction | null = null;
