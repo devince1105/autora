@@ -60,6 +60,7 @@ from autora.runtime.models.types import (
     ToolUseBlock,
 )
 from autora.runtime.policy import PolicyEngine
+from autora.runtime.progress import ProgressPublisher
 from autora.runtime.task_manager import Claim, LeaseLost, TaskManager
 from autora.runtime.tools import ToolRegistry, UnknownTool
 from autora.runtime.trace.recorder import record_step
@@ -100,6 +101,8 @@ class _State:
     approved: dict[str, dict[str, Any]] = field(default_factory=dict)
     """Approved tool calls by tool_call_id (payload of the approval)."""
     repairing: bool = False
+    tokens: int = 0
+    """Tokens used by the run so far (reported live, T-304)."""
 
     @property
     def agent_actor(self) -> Actor:
@@ -116,6 +119,8 @@ class AgentRunner:
     approvals: ApprovalService
     blobs: BlobStore
     behaviors: BehaviorRegistry
+    progress: ProgressPublisher | None = None
+    """Live AGENT_STEP_PROGRESS (ephemeral). None: no live progress."""
     clock: Callable[[], datetime] = field(default=lambda: datetime.now(UTC))
     actor: Actor = field(default_factory=lambda: Actor.system("agent_runner"))
 
@@ -137,6 +142,9 @@ class AgentRunner:
         except Exception as exc:  # noqa: BLE001 - a bug (or misconfiguration) must not take
             # the worker down: the attempt is consumed and the failure is visible in the trace.
             return await self._fail(claim, type(exc).__name__, str(exc), retryable=True)
+        finally:
+            if self.progress is not None:
+                await self.progress.finish(claim.run.id)
 
     # --- start / resume --------------------------------------------------------------------
 
@@ -164,6 +172,7 @@ class AgentRunner:
                 prompt_hash="",
                 messages=[],
                 next_seq=run.steps_count,
+                tokens=(run.tokens_in or 0) + (run.tokens_out or 0),
             )
             if claim.resumed:
                 await self._resume(session, state, run)
@@ -353,6 +362,8 @@ class AgentRunner:
                 usage=(response.usage.input_tokens, response.usage.output_tokens),
             )
             await session.commit()
+        state.tokens += response.usage.input_tokens + response.usage.output_tokens
+        await self._report(state, state.next_seq - 1)
         return response
 
     async def _act(self, state: _State, uses: list[ToolUseBlock]) -> RunOutcome | None:
@@ -493,6 +504,7 @@ class AgentRunner:
                 extra_result=result,
             )
             await session.commit()
+        await self._report(state, state.next_seq - 1, invocation.progress)
         return result
 
     async def _evaluate(
@@ -609,6 +621,26 @@ class AgentRunner:
         if usage is not None:
             run.tokens_in = (run.tokens_in or 0) + usage[0]
             run.tokens_out = (run.tokens_out or 0) + usage[1]
+
+    async def _report(
+        self, state: _State, step_seq: int, progress: ev.Progress | None = None
+    ) -> None:
+        """Live progress after a step (ephemeral, rate-limited, best-effort)."""
+        if self.progress is None:
+            return
+        task, run = state.ctx.task, state.claim.run
+        envelope = new_event(
+            ev.AgentStepProgress(step_seq=step_seq, tokens_so_far=state.tokens, progress=progress),
+            company_id=task.company_id,
+            actor=self.actor,
+            aggregate_type="agent_run",
+            aggregate_id=run.id,
+            agent_id=run.agent_id,
+            task_id=task.id,
+            run_id=run.id,
+            workflow_run_id=task.workflow_run_id,
+        )
+        await self.progress.report(run.id, envelope)
 
     async def _activity(self, session: AsyncSession, state: _State, payload: Any) -> None:
         task = state.ctx.task

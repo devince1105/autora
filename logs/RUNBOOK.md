@@ -145,6 +145,8 @@ SELECT role, alias, model_id, tokens_in, tokens_out, cost_usd FROM model_calls O
 | `GET /api/runs/{run_id}/steps/{seq}/blob` | 某一步的完整提示與回應 |
 | `GET /api/approvals?company_id=...` | 待審批項目 |
 | `POST /api/approvals/{id}/decide` | 核准或駁回 |
+| `GET /api/companies/{id}/realtime/snapshot` | 即時畫面的起始狀態：代理、進行中任務、最近 100 個事件與 `last_seq` |
+| `WS /ws/companies/{id}?token=<權杖>&since=<last_seq>` | 即時事件串流（WebSocket）：先補 `since` 之後的事件，再即時推送；另有代理的即時進度（不落表） |
 
 建立專案、雇用代理、調整預算與政策目前**還沒有 API**，請用下面第六節的腳本或 SQL。
 

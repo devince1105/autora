@@ -76,6 +76,8 @@ class ToolResult(BaseModel):
     summary: str | None = None
     produced: list[ev.ProducedRef] = []
     cost_usd: Decimal | None = None
+    progress: ev.Progress | None = None
+    """Optional progress of the agent's job after this call, e.g. sources 12/40 (T-304)."""
 
 
 ToolFn = Callable[[Any, ToolContext], Awaitable[ToolResult]]
@@ -112,6 +114,7 @@ class ToolInvocation:
     duration_ms: int
     produced: list[ev.ProducedRef] = field(default_factory=list)
     cost_usd: Decimal | None = None
+    progress: ev.Progress | None = None
 
 
 class _ToolError(Exception):
@@ -280,6 +283,7 @@ class ToolRegistry:
                     duration_ms=duration_ms,
                     produced=list(result.produced),
                     cost_usd=result.cost_usd,
+                    progress=result.progress,
                 )
         except _ToolError as failure:
             duration_ms = int((time.monotonic() - started) * 1000)

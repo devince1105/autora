@@ -146,6 +146,7 @@ def build_worker(
     from autora.runtime.agent_runner import AgentRunner
     from autora.runtime.cost.guard import DbCostGuard
     from autora.runtime.models.factory import gateway_from_settings
+    from autora.runtime.progress import ProgressPublisher
     from autora.runtime.scheduler import Scheduler
     from autora.runtime.worker import Worker
 
@@ -166,6 +167,7 @@ def build_worker(
         approvals=runtime.approvals,
         blobs=blobs or LocalFSBlobStore(settings.blob_store_dir),
         behaviors=build_behaviors(),
+        progress=ProgressPublisher(session_factory),
     )
     return Worker(
         worker_id=settings.worker_id,

@@ -28,6 +28,7 @@ class FakeSocket:
 
     def __init__(self, gate: asyncio.Event | None = None):
         self.messages: list[dict] = []
+        self.received_at: list[float] = []
         self.arrived = asyncio.Condition()
         self.closed: int | None = None
         self.gate = gate
@@ -37,6 +38,7 @@ class FakeSocket:
             await self.gate.wait()
         async with self.arrived:
             self.messages.append(json.loads(json.dumps(message)))
+            self.received_at.append(asyncio.get_running_loop().time())
             self.arrived.notify_all()
 
     async def close(self, code=1000):

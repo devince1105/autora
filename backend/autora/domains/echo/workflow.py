@@ -16,7 +16,7 @@ from autora.domains.echo.models import EchoNote
 from autora.runtime.actor import Actor
 from autora.runtime.behaviors import AgentBehavior, BehaviorRegistry, RunContext
 from autora.runtime.dag import NodeSpec, TemplateRegistry, WorkflowTemplate
-from autora.runtime.events.catalog import ProducedRef
+from autora.runtime.events.catalog import ProducedRef, Progress
 from autora.runtime.tools import ToolContext, ToolRegistry, ToolResult
 
 TEMPLATE_NAME = "echo.chain_v1"
@@ -93,6 +93,7 @@ async def echo_note(args: EchoNoteArgs, ctx: ToolContext) -> ToolResult:
         output={"note_id": str(note_id), "text": args.text, "reused": reused},
         summary=("reused note " if reused else "wrote note ") + str(note_id),
         produced=[ProducedRef(type="echo_note", id=note_id)],
+        progress=Progress(label="notes", current=1, target=1),
     )
 
 
