@@ -4,6 +4,7 @@ from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 
 import autora
 from autora.app import load_event_catalogs
@@ -31,6 +32,14 @@ def create_app() -> FastAPI:
     load_event_catalogs()  # stored events of every layer must be parseable
     app = FastAPI(title="Autora API", version=autora.__version__, lifespan=lifespan)
     problems.install(app)
+    # The web app runs on its own origin (localhost:3000 in dev). WebSockets are not subject
+    # to CORS; they authenticate with the token in the query string.
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=get_settings().cors_origins,
+        allow_methods=["GET", "POST"],
+        allow_headers=["Authorization", "Content-Type"],
+    )
 
     @app.get("/health", tags=["meta"])
     def health() -> dict[str, str]:

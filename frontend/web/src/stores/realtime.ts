@@ -17,7 +17,19 @@ import {
 } from "@/realtime/reducer";
 import { RealtimeSnapshot } from "@/realtime/snapshot";
 
-export type ConnectionStatus = "idle" | "connecting" | "live" | "reconnecting" | "offline";
+/**
+ * idle: not started; connecting: loading the snapshot or replaying the backlog; live: up to
+ * date; reconnecting: lost, retrying; offline: 5+ failures in a row, still retrying;
+ * unauthorized / not_found: stopped, retrying cannot help.
+ */
+export type ConnectionStatus =
+  | "idle"
+  | "connecting"
+  | "live"
+  | "reconnecting"
+  | "offline"
+  | "unauthorized"
+  | "not_found";
 
 export interface Connection {
   status: ConnectionStatus;

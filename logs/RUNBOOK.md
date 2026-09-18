@@ -130,6 +130,7 @@ SELECT role, alias, model_id, tokens_in, tokens_out, cost_usd FROM model_calls O
 | 變數 | 預設 | 說明 |
 |---|---|---|
 | `API_BEARER_TOKEN` | `change-me` | 所有 `/api/*` 都要帶 `Authorization: Bearer <權杖>`。`AUTORA_ENV=prod` 時不允許預設值 |
+| `CORS_ORIGINS` | `["http://localhost:3000"]` | JSON 陣列：允許從瀏覽器呼叫 API 的來源（前端的網址）。前端改用其他埠或網域時要加上 |
 | `AUTORA_ENV` | `dev` | `dev` / `test` / `prod` |
 | `BLOB_STORE_DIR` | `<repo>/data/blobs` | 步驟的完整提示與回應。**API 與工作程序必須指向同一個目錄** |
 
@@ -201,7 +202,7 @@ pnpm -F web dev
 打開 http://localhost:3000 。
 
 - **階段 2 的前端只有骨架頁面，還沒有連接 API。** Dashboard、代理面板、軌跡檢視器與即時更新在階段 3 實作，3D 辦公室在階段 4。
-- 階段 3 需要補上的設定：前端的 API 位址（`NEXT_PUBLIC_API_URL`，Docker 設定裡已預留）與 API 端的 CORS（目前未設定，瀏覽器從 :3000 呼叫 :8000 會被擋）。
+- 前端的 API 位址：`NEXT_PUBLIC_API_URL`（預設 `http://localhost:8000`，建置時寫入；Docker 設定已提供）。API 端需要在 `CORS_ORIGINS` 允許前端的網址（預設已允許 `http://localhost:3000`）。
 - 前端使用的事件型別由後端自動產生（`frontend/event-schema`）。後端事件有變動時執行 `make gen-schema`，不要手改產生的檔案。
 
 ---

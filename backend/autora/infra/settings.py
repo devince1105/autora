@@ -80,6 +80,8 @@ class Settings(BaseSettings):
 
     # --- API ---
     api_bearer_token: SecretStr = SecretStr("change-me")
+    cors_origins: list[str] = ["http://localhost:3000"]
+    """CORS_ORIGINS as a JSON list: browser origins allowed to call the API (the web app)."""
 
     # --- Worker (T-213) ---
     worker_id: str = Field(default_factory=lambda: f"{socket.gethostname()}-{os.getpid()}")

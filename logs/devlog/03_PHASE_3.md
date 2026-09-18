@@ -17,7 +17,7 @@
 | T-303 | WebSocket 閘道（LISTEN + 輪詢備援、backlog、SNAPSHOT_REQUIRED、心跳、有界佇列） | 後端 | T-301 | ✅ |
 | T-304 | 代理執行器的即時進度（AGENT_STEP_PROGRESS，不落表） | 後端 | T-211、T-303 | ✅ |
 | T-305 | 前端即時 store 與 reducer（跨語言契約） | 前端 | T-108 | ✅ |
-| T-306 | RealtimeClient（重連、補洞、心跳逾時、背景分頁） | 前端 | T-305、T-303 | ⏳ |
+| T-306 | RealtimeClient（重連、補洞、心跳逾時、背景分頁） | 前端 | T-305、T-303 | ✅ |
 | T-307 | UI store | 前端 | — | ⏳ |
 | T-308 | 型別化 API client 與 Query hooks | 前端 | T-110、T-210 | ⏳ |
 | T-309 | Dashboard 頁 | 前端 | T-305、T-308 | ⏳ |
@@ -35,7 +35,7 @@
 - **進入條件**：路線圖要求真實模型呼叫通過一次才進入階段 3（原為「真實 Anthropic 呼叫」，D-005 改為不限供應者）。✅ 2026-09-18 以 NVIDIA `z-ai/glm-5.3-flash` 跑 `tests/e2e/test_echo_live.py` 通過（見下方 D-005 一節的實測）。
 - 階段 2 留下、會在本階段用到的：
   - `GET /api/tasks/{id}`、`GET /api/runs/{id}` 尚未實作（T-308、T-310 需要時補上）；
-  - API 尚未設定 CORS，前端的 API 位址設定也還沒有（T-306 / T-308 時處理）；
+  - API 尚未設定 CORS，前端的 API 位址設定也還沒有（✅ T-306 已處理）；
   - 活動狀態的 `detail` 含有 `task_name` 與 `links`，這兩項不在事件本身，reducer 需要從任務資料補上（T-302 已處理 `task_name`；`links` 尚無領域提供）。
   - **事件序號是全域的，不是每間公司各自連號**（T-302 發現）：`05` §4 以「`seq > last_seq + 1` 即有缺口」判斷的做法不能照用。✅ T-303 以「閘道保證不斷流」解決，`05` §4 已修訂。
 
@@ -72,6 +72,46 @@
 - **效能**（`3d-office/07` §4 目標：本機 < 50 ms）：12 位代理、300 個任務、20,000 個事件，快照中位數約 **21 ms**。CI 的共用機器較慢，測試在 CI 上以 150 ms 為上限。
 - 以真實伺服器對開發資料庫呼叫：第一次 164 ms（建立連線），之後約 9 ms；示範公司的已完成狀態正確顯示為 IDLE；之後的請求不受隔離等級影響。
 - Python 測試共 600 個通過。
+
+---
+
+## T-306 · RealtimeClient
+
+### 做了什麼
+- `frontend/web/src/realtime/client.ts`：`RealtimeClient` 讓即時 store 與一間公司保持同步：
+  1. 取 snapshot（`GET .../realtime/snapshot`）→ `store.hydrate`；
+  2. 連線 `WS /ws/companies/{id}?token&since=<store 的 lastSeq>`；
+  3. EVENTS（補的）與 EVENT（即時）→ `store.applyEvents`；EPHEMERAL → 即時進度；HELLO / HEARTBEAT → 校正伺服器時鐘偏移。
+- 異常處理：
+
+| 狀況 | 處理 |
+|---|---|
+| 連線中斷 | 指數退避重連（1、2、4 … 30 秒，±20% 抖動），從 store 的 `lastSeq` 接續，由伺服器補送漏掉的事件；成功後退避歸零。連續 5 次失敗狀態為 `offline`（給畫面顯示），仍持續重試；畫面保留最後的狀態，不會清空 |
+| SNAPSHOT_REQUIRED（落後太多、佇列溢出、since 不明） | 重新取 snapshot，立刻重連 |
+| 沒有任何訊息超過 30 秒（2 個心跳週期） | 關閉並重連 |
+| 分頁回到前景時已超過 60 秒沒有訊息 | 重新取 snapshot（比補一長串便宜，而且背景時連線可能已默默斷掉） |
+| ERROR unauthorized / not_found、關閉碼 4401 / 4404、snapshot 回 401 / 404 | 停止，不再重試（重試不會成功，也避免狂打伺服器） |
+
+  - 每 50 個事件或每 5 秒送一次 ACK（伺服器只記錄）。
+  - WebSocket、fetch、亂數都可注入，測試用假連線與假時鐘；`attachToDocument` 把分頁可見性接到 client。
+- `src/config.ts`：`NEXT_PUBLIC_API_URL`（預設 `http://localhost:8000`）與 ws 網址轉換。
+- `stores/realtime.ts`：連線狀態加上 `unauthorized`、`not_found`。
+- API：加上 CORS（`CORS_ORIGINS`，預設允許 `http://localhost:3000`），有測試確認其他來源不被允許。WebSocket 不受 CORS 限制，以查詢字串的權杖驗證。
+- **沒有 REST 補洞**：依 T-303 的修訂，同一連線由閘道保證依序且完整，任務拆解中的「gap-fill via REST」因此不需要。
+
+### 真實環境測試找到的問題（我造成的）
+- 第一版假設 WebSocket 出錯後「一定會接著觸發 close」。瀏覽器依規格確實如此，但 **Node 22 內建的 WebSocket（undici）在伺服器拒絕連線時只觸發 error、不觸發 close，而且永遠停在 CONNECTING**。結果 API 重啟期間，重連嘗試卡住，狀態一直停在 `reconnecting`；心跳逾時也救不了，因為它同樣是呼叫 `close()` 再等 close 事件。
+  - 修正：連線尚未開啟時的 error 直接視為連線失敗；心跳逾時與背景回來重新 hydrate 改為「關閉並立刻自行處理」，不依賴 close 事件；處理可重複呼叫，之後若真的來了 close 會被忽略。
+  - 回歸測試：「開啟前的 error 視為失敗」、「`close()` 完全沒有反應的連線仍會被心跳逾時釋放」。
+  - 這個問題是用假連線的單元測試抓不到的（假連線照規格行為），靠下面的真實環境測試才發現。
+
+### 驗證
+- `client.test.ts`：15 個通過（假連線、假時鐘）——初次 hydrate 與連線網址、backlog 與重疊去重、即時進度、退避時間點與歸零、抖動範圍與上限、5 次後 `offline` 並持續重試、SNAPSHOT_REQUIRED 重新 hydrate 並以新的 since 重連、心跳逾時、分頁回前景（30 秒不重取、61 秒重取）、unauthorized 停止、snapshot 401 / 404 停止、snapshot 失敗退避重試、ACK、上述兩個回歸測試。
+- **真實環境測試**（暫時的測試檔，用完刪除；對開發資料庫、真實 API 與工作程序、Node 22 內建 WebSocket）：
+  1. client 連上、跟著第一個 EchoWorkflow 即時更新；
+  2. 停掉 API 約 20 秒，期間直接在資料庫啟動第二個工作流程並由工作程序完成；
+  3. 重啟 API。狀態依序為 connecting → live → reconnecting → **offline**（5 次失敗）→ connecting → live；client 從 324 補到 362（整個停機期間的工作流程），**與伺服器重新取得的 snapshot 完全相同**。
+- web 共 38 個測試通過；`typecheck`、`lint`、`next build` 通過；API 測試 28 個通過（含 CORS）。
 
 ---
 

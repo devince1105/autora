@@ -20,3 +20,21 @@ async def test_snapshot_endpoint(api, db_session):
     assert (await api.get(f"/api/companies/{uuid.uuid4()}/realtime/snapshot")).status_code == 404
     unauthorized = await api.get(url, headers={"Authorization": "Bearer nope"})
     assert unauthorized.status_code == 401
+
+
+async def test_cors_allows_the_web_app_only(api):
+    preflight = {
+        "Access-Control-Request-Method": "GET",
+        "Access-Control-Request-Headers": "authorization",
+    }
+    allowed = await api.options(
+        "/api/companies", headers={"Origin": "http://localhost:3000", **preflight}
+    )
+    assert allowed.status_code == 200
+    assert allowed.headers["access-control-allow-origin"] == "http://localhost:3000"
+    assert "authorization" in allowed.headers["access-control-allow-headers"].lower()
+
+    other = await api.options(
+        "/api/companies", headers={"Origin": "https://evil.example", **preflight}
+    )
+    assert "access-control-allow-origin" not in other.headers
