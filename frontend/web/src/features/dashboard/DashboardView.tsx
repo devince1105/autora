@@ -1,4 +1,7 @@
+import Link from "next/link";
 import type { ReactNode } from "react";
+
+import { withCompany } from "@/features/company/CompanyScope";
 
 import { formatMoney, type DashboardModel } from "./model";
 
@@ -63,7 +66,15 @@ function Tile({
 
 const PENDING = <span className="font-normal text-muted">—</span>;
 
-export function DashboardView({ companyName, model }: { companyName: string; model: DashboardModel }) {
+export function DashboardView({
+  companyId,
+  companyName,
+  model,
+}: {
+  companyId: string;
+  companyName: string;
+  model: DashboardModel;
+}) {
   const { money, agents, tasks, goal } = model;
   return (
     <main className="mx-auto max-w-6xl px-4 pt-8 pb-12">
@@ -72,7 +83,12 @@ export function DashboardView({ companyName, model }: { companyName: string; mod
           <p className="text-xs tracking-widest text-muted uppercase">Dashboard</p>
           <h1 className="mt-1 text-2xl font-semibold">{companyName}</h1>
         </div>
-        <ConnectionBadge connection={model.connection} />
+        <div className="flex items-center gap-4">
+          <Link href={withCompany("/timeline", companyId)} className="text-sm text-accent underline">
+            事件時間軸
+          </Link>
+          <ConnectionBadge connection={model.connection} />
+        </div>
       </header>
 
       {model.connection.status === "offline" ? (

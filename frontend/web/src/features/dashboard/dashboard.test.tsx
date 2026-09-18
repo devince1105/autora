@@ -86,7 +86,7 @@ describe("dashboard model: only real data", () => {
 describe("dashboard view", () => {
   it("shows every tile from the model", () => {
     const model = dashboardModel(company(), kpis, live, new Date(fixture.snapshot_after.server_time));
-    render(<DashboardView companyName="Echo Demo" model={model} />);
+    render(<DashboardView companyId="c1" companyName="Echo Demo" model={model} />);
     expect(screen.getByRole("heading", { name: "Echo Demo" })).toBeTruthy();
     expect(within(screen.getByTestId("cash")).getByText("US$103.00")).toBeTruthy();
     expect(within(screen.getByTestId("expenses")).getByText(/其中模型費用 US\$0\.40/)).toBeTruthy();
@@ -101,14 +101,14 @@ describe("dashboard view", () => {
   it("marks offline data as stale instead of blanking it", () => {
     const now = new Date();
     const offline = { status: "offline" as const, serverOffsetMs: 0, lastEventAt: now.getTime() - 30_000 };
-    render(<DashboardView companyName="Echo Demo" model={dashboardModel(company(), kpis, offline, now)} />);
+    render(<DashboardView companyId="c1" companyName="Echo Demo" model={dashboardModel(company(), kpis, offline, now)} />);
     expect(screen.getByRole("status").textContent).toContain("資料可能已過期 30 秒");
     expect(screen.getByRole("alert").textContent).toContain("畫面保留最後的狀態");
     expect(within(screen.getByTestId("cash")).getByText("US$103.00")).toBeTruthy();
   });
 
   it("shows placeholders, not zeros, before the KPIs arrive", () => {
-    render(<DashboardView companyName="Echo Demo" model={dashboardModel(null, undefined, live, new Date())} />);
+    render(<DashboardView companyId="c1" companyName="Echo Demo" model={dashboardModel(null, undefined, live, new Date())} />);
     expect(within(screen.getByTestId("cash")).getByText("—")).toBeTruthy();
     expect(within(screen.getByTestId("goal")).getByText("尚未設定")).toBeTruthy();
   });

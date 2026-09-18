@@ -2,18 +2,9 @@ import Link from "next/link";
 import { useState } from "react";
 
 import type { Schemas } from "@/api/client";
+import { TONE_DOT } from "@/features/events/describe";
 
-import type { Row, Tone, Trace, TraceSummary } from "./model";
-
-const TONE: Record<Tone, string> = {
-  neutral: "bg-neutral",
-  think: "bg-accent",
-  work: "bg-ok",
-  review: "bg-accent",
-  ok: "bg-ok",
-  warn: "bg-warn",
-  danger: "bg-danger",
-};
+import type { Row, Trace, TraceSummary } from "./model";
 
 function time(iso: string): string {
   return new Date(iso).toLocaleTimeString("zh-TW", { hour12: false, fractionalSecondDigits: 3 } as Intl.DateTimeFormatOptions);
@@ -74,7 +65,7 @@ function TraceRow({ row, loadBlob }: { row: Row; loadBlob: (seq: number) => Prom
   const [open, setOpen] = useState(!row.known);
   return (
     <li className="relative pl-6" data-testid={`row-${row.key}`}>
-      <span aria-hidden className={`absolute top-2 left-0 size-2.5 rounded-full ${TONE[row.tone]}`} />
+      <span aria-hidden className={`absolute top-2 left-0 size-2.5 rounded-full ${TONE_DOT[row.tone]}`} />
       <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
         <span className="text-xs text-muted tabular-nums">{time(row.at)}</span>
         {row.seq !== null ? <span className="text-xs text-muted tabular-nums">#{row.seq}</span> : null}

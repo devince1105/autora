@@ -68,12 +68,6 @@ export function dashboardModel(
     }
   }
 
-  const live = connection.status === "live";
-  const staleSeconds =
-    !live && company && connection.lastEventAt !== null
-      ? Math.max(0, Math.round((now.getTime() - connection.serverOffsetMs - connection.lastEventAt) / 1000))
-      : null;
-
   return {
     money: kpis
       ? {
@@ -95,8 +89,17 @@ export function dashboardModel(
           deadline: kpis.goal.deadline,
         }
       : null,
-    connection: { status: connection.status, staleSeconds },
+    connection: connectionModel(connection, company !== null, now),
   };
+}
+
+/** Connection badge data; stale seconds only when not live and there is data to be stale. */
+export function connectionModel(connection: Connection, hasData: boolean, now: Date): DashboardModel["connection"] {
+  const staleSeconds =
+    connection.status !== "live" && hasData && connection.lastEventAt !== null
+      ? Math.max(0, Math.round((now.getTime() - connection.serverOffsetMs - connection.lastEventAt) / 1000))
+      : null;
+  return { status: connection.status, staleSeconds };
 }
 
 export function formatMoney(amount: number, currency: string): string {

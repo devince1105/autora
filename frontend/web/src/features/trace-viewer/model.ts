@@ -2,12 +2,13 @@
 // nothing is synthesised on the client. Known event types get a readable line; any other type
 // (newer server, other domain) is still shown, with its raw payload.
 import type { Schemas } from "@/api/client";
+import { describeEvent, type Tone } from "@/features/events/describe";
+
+export type { Tone };
 
 export type Trace = Schemas["Trace"];
 export type TraceEntry = Schemas["TraceEntry"];
 export type Step = Schemas["StepView"];
-
-export type Tone = "neutral" | "think" | "work" | "review" | "ok" | "warn" | "danger";
 
 export interface Row {
   key: string;
@@ -22,60 +23,8 @@ export interface Row {
   step: Step | null;
 }
 
-type Payload = Record<string, unknown>;
-const s = (value: unknown) => (typeof value === "string" && value ? value : null);
-const n = (value: unknown) => (typeof value === "number" ? value : null);
-
-/** Readable line per event type: [label, tone, summary]. */
-const FORMAT: Record<string, (p: Payload) => [string, Tone, string | null]> = {
-  TASK_CREATED: (p) => ["任務建立", "neutral", s(p.display_name)],
-  TASK_READY: () => ["任務就緒", "neutral", null],
-  TASK_STARTED: (p) => ["任務開始", "neutral", `第 ${n(p.attempt) ?? "?"} 次嘗試`],
-  TASK_WAITING: (p) => ["任務等待", "warn", s(p.reason) === "approval" ? "等待審批" : s(p.reason)],
-  TASK_SUCCEEDED: (p) => {
-    const unlocks = Array.isArray(p.unlocks) ? p.unlocks.length : 0;
-    return ["任務成功", "ok", [s(p.output_ref), unlocks ? `解鎖 ${unlocks} 個下游任務` : null].filter(Boolean).join("・") || null];
-  },
-  TASK_FAILED: (p) => [p.final ? "任務失敗" : "任務失敗（將重試）", p.final ? "danger" : "warn", s(p.error_class)],
-  TASK_CANCELLED: (p) => ["任務取消", "warn", s(p.reason)],
-  TASK_BLOCKED: () => ["任務受阻", "warn", "預算不足"],
-  AGENT_RUN_STARTED: (p) => ["執行開始", "neutral", `第 ${n(p.attempt) ?? "?"} 次嘗試・${s(p.task_name) ?? ""}`],
-  AGENT_THINKING: (p) => ["思考", "think", s(p.phase) === "plan" ? "規劃" : s(p.phase) === "reason" ? "推理" : s(p.phase)],
-  AGENT_WORKING: (p) => ["使用工具", "work", s(p.tool)],
-  AGENT_REVIEWING: (p) => [
-    s(p.phase) === "repair" ? "修補" : "檢查",
-    "review",
-    n(p.issues_count) ? `${p.issues_count} 個問題` : "沒有問題",
-  ],
-  AGENT_WAITING: (p) => ["等待", "warn", s(p.reason)],
-  AGENT_RUN_COMPLETED: (p) => ["執行完成", "ok", [s(p.output_summary), p.cost_usd ? `US$${Number(p.cost_usd).toFixed(4)}` : null].filter(Boolean).join("・") || null],
-  AGENT_RUN_FAILED: (p) => [p.final ? "執行失敗" : "執行失敗（將重試）", "danger", [s(p.error_class), s(p.message)].filter(Boolean).join("：") || null],
-  AGENT_RUN_ABORTED: (p) => ["執行中止", "danger", [s(p.reason), s(p.message)].filter(Boolean).join("：") || null],
-  AGENT_IDLE: () => ["回到閒置", "neutral", null],
-  TOOL_CALLED: (p) => ["呼叫工具", "work", [s(p.tool), s(p.args_summary)].filter(Boolean).join(" ") || null],
-  TOOL_COMPLETED: (p) => {
-    const produced = Array.isArray(p.produced) ? p.produced.length : 0;
-    return [
-      "工具完成",
-      "ok",
-      [s(p.tool), n(p.duration_ms) !== null ? `${p.duration_ms} ms` : null, s(p.result_summary), produced ? `產出 ${produced}` : null]
-        .filter(Boolean)
-        .join("・") || null,
-    ];
-  },
-  TOOL_FAILED: (p) => ["工具失敗", "danger", [s(p.tool), s(p.error_class), s(p.message)].filter(Boolean).join("・") || null],
-  POLICY_DENIED: (p) => ["政策拒絕", "danger", [s(p.action), s(p.detail)].filter(Boolean).join("：") || null],
-  APPROVAL_REQUESTED: (p) => ["請求審批", "warn", s(p.summary)],
-  APPROVAL_APPROVED: () => ["審批通過", "ok", null],
-  APPROVAL_REJECTED: (p) => ["審批駁回", "danger", s(p.reason)],
-  APPROVAL_EXPIRED: () => ["審批過期", "warn", null],
-  BUDGET_EXHAUSTED: (p) => ["預算用盡", "danger", s(p.scope)],
-};
-
 export function eventRow(entry: TraceEntry): Row {
-  const payload = (entry.payload ?? {}) as Payload;
-  const format = FORMAT[entry.event_type];
-  const [label, tone, summary] = format ? format(payload) : [entry.event_type, "neutral" as Tone, null];
+  const { label, tone, summary, known } = describeEvent(entry.event_type, entry.payload);
   return {
     key: `e${entry.seq}`,
     kind: "event",
@@ -84,8 +33,8 @@ export function eventRow(entry: TraceEntry): Row {
     label,
     summary,
     tone,
-    known: Boolean(format),
-    payload,
+    known,
+    payload: (entry.payload ?? {}) as Record<string, unknown>,
     step: entry.step ?? null,
   };
 }
