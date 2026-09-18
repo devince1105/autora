@@ -259,3 +259,4 @@ T-309,T-601 → T-608 ; T-211 → T-609 ; all → T-610
 | T-310 | `features/agent-panel/{model,AgentCards,AgentPanelView,AgentPanel,StateBadge}`；產出計數來自 `TOOL_COMPLETED.produced`、下一步來自交接或下游任務、進度只在回報時顯示；Output 分頁暫為 JSON（依格式顯示留到階段 5） |
 | T-311 | `features/trace-viewer/{model,TraceView,TracePage}`、`/trace/[runId]`、`/tasks/[taskId]`（每次嘗試連到軌跡）；未知類型以原始資料顯示並列於頁首；未被事件指向的步驟依時間插入、共用步驟只顯示一次；完整提示按需從 blob API 載入；**文章入口待 T-517**；OpenAPI 的兩個 `TaskOut` 改名為 `WorkflowTaskOut` / `TaskDetailOut` |
 | T-312 | `features/timeline/{model,Timeline,TimelineView,TimelinePage}`、`/timeline`；由新到舊；暫停凍結畫面並計數新事件（store 照常套用）；篩選取交集、存在 UI store；事件說明抽成 `features/events/describe.ts`（與 T-311 共用）；`CompanyScope`、`connectionModel` 由 Dashboard 抽出共用 |
+| T-313 | `features/approvals/{model,ApprovalInbox,ApprovalsPage}`、`/approvals`；決議走 REST，列表由 APPROVAL_* 事件失效重取（連線中斷時立即重取；409 / 404 提示並重取）；Dashboard 顯示待審批數；`seed_echo.py --approval on|off`（公司政策覆寫 `echo_note`/`writer` = `needs_approval`）提供真實審批 |

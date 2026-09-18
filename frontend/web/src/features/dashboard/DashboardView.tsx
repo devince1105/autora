@@ -70,10 +70,13 @@ export function DashboardView({
   companyId,
   companyName,
   model,
+  pendingApprovals = null,
 }: {
   companyId: string;
   companyName: string;
   model: DashboardModel;
+  /** From GET /api/approvals; null while unknown. */
+  pendingApprovals?: number | null;
 }) {
   const { money, agents, tasks, goal } = model;
   return (
@@ -84,6 +87,18 @@ export function DashboardView({
           <h1 className="mt-1 text-2xl font-semibold">{companyName}</h1>
         </div>
         <div className="flex items-center gap-4">
+          <Link
+            href={withCompany("/approvals", companyId)}
+            className="text-sm text-accent underline"
+            data-testid="pending-approvals"
+          >
+            審批收件匣
+            {pendingApprovals ? (
+              <span className="ml-1 rounded-full bg-warn px-1.5 text-xs font-medium text-canvas no-underline">
+                {pendingApprovals}
+              </span>
+            ) : null}
+          </Link>
           <Link href={withCompany("/timeline", companyId)} className="text-sm text-accent underline">
             事件時間軸
           </Link>

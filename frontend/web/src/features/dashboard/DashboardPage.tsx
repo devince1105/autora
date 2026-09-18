@@ -2,7 +2,7 @@
 
 import { useQuery } from "@tanstack/react-query";
 
-import { kpisQuery } from "@/api/queries";
+import { approvalsQuery, kpisQuery } from "@/api/queries";
 import { AgentList, AgentPanel } from "@/features/agent-panel/AgentPanel";
 import { CompanyScope, type Company } from "@/features/company/CompanyScope";
 import { useCompanyStream } from "@/features/company/useCompanyStream";
@@ -20,6 +20,7 @@ export function DashboardPage() {
 function CompanyDashboard({ company }: { company: Company }) {
   useCompanyStream(company.id);
   const kpis = useQuery(kpisQuery(company.id));
+  const pending = useQuery(approvalsQuery(company.id));
   const realtime = useRealtime((state) => state.company);
   const connection = useRealtime((state) => state.connection);
   const now = useNow();
@@ -32,7 +33,12 @@ function CompanyDashboard({ company }: { company: Company }) {
   );
   return (
     <>
-      <DashboardView companyId={company.id} companyName={company.name} model={model} />
+      <DashboardView
+        companyId={company.id}
+        companyName={company.name}
+        model={model}
+        pendingApprovals={pending.data?.length ?? null}
+      />
       <section className="mx-auto max-w-6xl px-4 pb-12" aria-labelledby="agents-heading">
         <h2 id="agents-heading" className="mb-3 text-lg font-semibold">
           代理

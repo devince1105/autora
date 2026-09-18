@@ -190,6 +190,20 @@ SELECT role, alias, model_id, tokens_in, tokens_out, cost_usd FROM model_calls O
 
 3. 工作程序的日誌會依序出現 researcher、analyst、writer 三行 `completed`。`run_id` 可從日誌或 `GET /api/events` 取得，再用 `GET /api/runs/{run_id}/trace` 查看每一步。
 
+4. **試審批流程**：打開開關後，每次執行都會停在寫手（writer）的 `echo_note`，等操作者在前端的審批收件匣（`/approvals`）核准或駁回。用的是公司政策的收緊設定（`policy.overrides`：`echo_note` / `writer` = `needs_approval`），不是特別寫的測試路徑。
+
+   ```bash
+   .venv/bin/python backend/scripts/seed_echo.py --approval on
+   ```
+
+   試完關掉，回到全自動：
+
+   ```bash
+   .venv/bin/python backend/scripts/seed_echo.py --approval off
+   ```
+
+   核准後寫手會接著執行（同一次嘗試）；駁回則取消寫手的任務。注意：同時開兩個工作程序也能運作，但日誌會分散在兩邊。
+
 ---
 
 ## 五、前端
@@ -210,7 +224,8 @@ pnpm -F web dev
 - **代理卡片與面板**（T-310）：Dashboard 下方的卡片，點一下開右側面板（即時、步驟、工具、輸出）。
 - **軌跡**（T-311）：`/trace/<run_id>` 列出一次執行的每個事件與步驟，每一步可載入完整提示與回應；`/tasks/<task_id>` 列出任務的每一次嘗試。從代理面板的「完整軌跡」進入，或直接把 `run_id` 放進網址。
 - **事件時間軸**（T-312）：`/timeline`（Dashboard 右上角有連結）。最近的事件由新到舊，最多保留 500 則；可暫停（暫停期間的新事件會計數，按「繼續」一次顯示）、依代理與事件類型篩選。
-- 審批收件匣在 T-313 加入；**3D 辦公室在階段 4，預計網址 `/office`（T-411），目前還沒有**。
+- **審批收件匣**（T-313）：`/approvals`（Dashboard 右上角有連結，旁邊的數字是待審批數）。每筆顯示誰要做什麼、參數、已等待多久、何時過期，可連到執行軌跡與任務；填選填的理由後按「核准」或「駁回」。送出後卡片顯示「等待更新」，由 APPROVAL_* 事件更新列表（即時連線中斷時改為立即重新載入）；已被別人處理（409）會提示並重新載入。另有已核准、已駁回、已過期三個分頁。
+- **3D 辦公室在階段 4，預計網址 `/office`（T-411），目前還沒有**。
 - 前端的 API 位址：`NEXT_PUBLIC_API_URL`（預設 `http://localhost:8000`，建置時寫入；Docker 設定已提供）。API 端需要在 `CORS_ORIGINS` 允許前端的網址（預設已允許 `http://localhost:3000`）。
 - 前端使用的事件型別由後端自動產生（`frontend/event-schema`）。後端事件有變動時執行 `make gen-schema`，不要手改產生的檔案。
 - 前端呼叫 REST API 的型別也由後端產生：API 的回應或參數有變動時執行 `make gen-api`（先輸出 OpenAPI 文件，再產生 TypeScript 型別）。CI 會檢查兩者是否最新。

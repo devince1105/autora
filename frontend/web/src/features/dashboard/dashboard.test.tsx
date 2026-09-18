@@ -132,4 +132,18 @@ describe("token gate", () => {
     act(() => storeToken(null));
     expect(screen.queryByText("inside")).toBeNull();
   });
+
+  it("links to the approval inbox with the pending count", () => {
+    render(
+      <DashboardView
+        companyId="c1"
+        companyName="Echo Demo"
+        model={dashboardModel(null, undefined, live, new Date())}
+        pendingApprovals={1}
+      />,
+    );
+    const link = screen.getByTestId("pending-approvals");
+    expect(link.getAttribute("href")).toBe("/approvals?company=c1");
+    expect(link.textContent).toBe("審批收件匣1");
+  });
 });
