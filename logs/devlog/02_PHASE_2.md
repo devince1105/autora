@@ -222,6 +222,19 @@
 - `tests/runtime/test_task_manager.py`：14 個通過，包含驗收條件 **4 個工作程序同時處理 1,000 個任務，每個任務恰好被領取一次、恰好一次執行、全部成功**。
 - 全部 Python 測試 **263 個通過**；lint、匯入邊界、`alembic check`（含 0008 降版再升版）、事件結構產生物皆通過。
 
+## 儲存庫重整：frontend/ 與 backend/（D-004，2026-09-18）
+
+### 做了什麼
+- 依使用者要求，以 `git mv`（保留歷史）把儲存庫整理為前後端兩個資料夾：
+  - `backend/`：單一 Python 專案——`autora/` 套件、`tests/`、`api/`、`worker/`、`scripts/`，以及 `pyproject.toml`、`alembic.ini`；
+  - `frontend/`：`web/`（Next.js）與 `event-schema/`（由後端 pydantic 產生、給前端使用的 TS 事件契約）。
+- 同步更新：Makefile、CI、三個 Dockerfile（改為整個 `backend/` 複製）、pnpm workspace 與鎖定檔、ruff 設定、README；新增 `.dockerignore`。
+- 以路徑定位檔案的程式也一併修正：設定檔尋找 `.env` 與物件儲存預設路徑（`parents[3]`）、API 測試夾具、事件結構產生器的輸出路徑與其測試。
+- 單獨一個提交，不與功能變更混在一起。
+
+### 驗證
+Python 263 個、TypeScript 17 個測試通過；lint 與匯入邊界、遷移、事件結構檢查、階段 1 驗收皆通過；api、worker、web 三個 Docker 映像檔可建置並啟動。
+
 ## 目前的整體驗證（2026-09-17）
 
 | 檢查項目 | 結果 |

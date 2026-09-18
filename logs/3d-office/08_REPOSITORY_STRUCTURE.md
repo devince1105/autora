@@ -1,5 +1,17 @@
 # 08 — Repository Structure
 
+> **2026-09-18 更新（D-004）**：實際配置改為 `frontend/` + `backend/`，取代下方原先的 `apps/` + `packages/`：
+>
+> ```
+> backend/   pyproject.toml · alembic.ini · autora/（套件）· tests/ · api/ · worker/ · scripts/
+> frontend/  web/（Next.js）· event-schema/（產生的 TS 事件契約）
+> infra/  logs/  Makefile  package.json  pnpm-workspace.yaml  ruff.toml  .importlinter
+> ```
+>
+> 對應：`packages/autora/autora` → `backend/autora`；`packages/autora/tests` → `backend/tests`；`apps/api` → `backend/api`；
+> `apps/worker` → `backend/worker`；`scripts/` → `backend/scripts`；`apps/web` → `frontend/web`；`packages/event-schema` → `frontend/event-schema`。
+> 下方其餘的邊界規則（層級、import-linter、ESLint、schema 產生）不變。本文與其他文件中的舊路徑請依此對應閱讀。
+
 ---
 
 ## 1. 判斷

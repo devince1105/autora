@@ -26,7 +26,7 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
-      - run: python -m venv .venv && .venv/bin/pip install -e "packages/autora[dev]"
+      - run: python -m venv .venv && .venv/bin/pip install -e "backend[dev]"
       - name: Lint (ruff + import boundaries)
         run: make lint-py
       - name: Migrations apply and match models
@@ -34,7 +34,7 @@ jobs:
       - name: Generated event schema is up to date
         run: make gen-schema-check
       - name: Tests (DB tests run against a real Postgres; none may be skipped)
-        run: .venv/bin/pytest packages/autora -q -rs
+        run: .venv/bin/pytest backend -q -rs
 
   web:
     runs-on: ubuntu-latest

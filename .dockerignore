@@ -1,0 +1,12 @@
+# Keep build contexts small and free of local state.
+.git
+.venv
+**/node_modules
+**/.next
+**/__pycache__
+**/.pytest_cache
+**/.ruff_cache
+**/*.egg-info
+data
+.env
+logs

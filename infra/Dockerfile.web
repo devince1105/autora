@@ -4,8 +4,8 @@ WORKDIR /app
 
 FROM base AS deps
 COPY package.json pnpm-workspace.yaml pnpm-lock.yaml* ./
-COPY apps/web/package.json apps/web/
-COPY packages/event-schema/package.json packages/event-schema/
+COPY frontend/web/package.json frontend/web/
+COPY frontend/event-schema/package.json frontend/event-schema/
 RUN pnpm install --frozen-lockfile
 
 FROM deps AS build

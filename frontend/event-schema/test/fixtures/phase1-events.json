@@ -1,0 +1,268 @@
+[
+  {
+    "event_id": "01a0b236-4abe-749e-a9bb-cc7f7f2bb4e5",
+    "seq": 1,
+    "event_type": "AGENT_IDLE",
+    "schema_version": 1,
+    "company_id": "01a0b236-4ab6-746a-b300-7c9969f5231a",
+    "occurred_at": "2026-09-18T01:51:37.662121Z",
+    "aggregate_type": "agent",
+    "aggregate_id": "01a0b236-4ab9-7188-a44d-76e8cc8ed4c3",
+    "agent_id": "01a0b236-4ab9-7188-a44d-76e8cc8ed4c3",
+    "task_id": null,
+    "run_id": null,
+    "workflow_run_id": null,
+    "cycle_id": null,
+    "correlation_id": null,
+    "causation_id": null,
+    "actor": {
+      "kind": "system",
+      "id": "setup"
+    },
+    "payload": {
+      "reason": "initialized"
+    }
+  },
+  {
+    "event_id": "01a0b236-4ac7-75c1-b72c-cf492c61cf46",
+    "seq": 2,
+    "event_type": "AGENT_THINKING",
+    "schema_version": 1,
+    "company_id": "01a0b236-4ab6-746a-b300-7c9969f5231a",
+    "occurred_at": "2026-09-18T01:51:37.671957Z",
+    "aggregate_type": "agent_run",
+    "aggregate_id": "870750a0-31b4-4ec0-aad0-6aec55149bcd",
+    "agent_id": "01a0b236-4ab9-7188-a44d-76e8cc8ed4c3",
+    "task_id": "971ed3e9-15bd-4bdb-9574-97fe7c441298",
+    "run_id": "870750a0-31b4-4ec0-aad0-6aec55149bcd",
+    "workflow_run_id": null,
+    "cycle_id": null,
+    "correlation_id": null,
+    "causation_id": null,
+    "actor": {
+      "kind": "system",
+      "id": "agent_runner"
+    },
+    "payload": {
+      "phase": "plan",
+      "step_seq": 0
+    }
+  },
+  {
+    "event_id": "01a0b236-4acc-727c-b95a-e8dfdbad0f34",
+    "seq": 3,
+    "event_type": "AGENT_WORKING",
+    "schema_version": 1,
+    "company_id": "01a0b236-4ab6-746a-b300-7c9969f5231a",
+    "occurred_at": "2026-09-18T01:51:37.676086Z",
+    "aggregate_type": "agent_run",
+    "aggregate_id": "870750a0-31b4-4ec0-aad0-6aec55149bcd",
+    "agent_id": "01a0b236-4ab9-7188-a44d-76e8cc8ed4c3",
+    "task_id": "971ed3e9-15bd-4bdb-9574-97fe7c441298",
+    "run_id": "870750a0-31b4-4ec0-aad0-6aec55149bcd",
+    "workflow_run_id": null,
+    "cycle_id": null,
+    "correlation_id": null,
+    "causation_id": null,
+    "actor": {
+      "kind": "system",
+      "id": "agent_runner"
+    },
+    "payload": {
+      "tool": "web_search",
+      "tool_call_id": "call_1",
+      "step_seq": 1,
+      "progress": {
+        "label": "sources",
+        "current": 12,
+        "target": 40
+      }
+    }
+  },
+  {
+    "event_id": "01a0b236-4acf-74a1-9b5c-57a70024ad22",
+    "seq": 4,
+    "event_type": "AGENT_WAITING",
+    "schema_version": 1,
+    "company_id": "01a0b236-4ab6-746a-b300-7c9969f5231a",
+    "occurred_at": "2026-09-18T01:51:37.679826Z",
+    "aggregate_type": "agent_run",
+    "aggregate_id": "870750a0-31b4-4ec0-aad0-6aec55149bcd",
+    "agent_id": "01a0b236-4ab9-7188-a44d-76e8cc8ed4c3",
+    "task_id": "971ed3e9-15bd-4bdb-9574-97fe7c441298",
+    "run_id": "870750a0-31b4-4ec0-aad0-6aec55149bcd",
+    "workflow_run_id": null,
+    "cycle_id": null,
+    "correlation_id": null,
+    "causation_id": null,
+    "actor": {
+      "kind": "system",
+      "id": "agent_runner"
+    },
+    "payload": {
+      "reason": "approval",
+      "approval_id": "6e1dc22b-6a9c-433f-b958-d67dd2fdd0dd",
+      "blocked_task_id": null,
+      "waiting_on_roles": []
+    }
+  },
+  {
+    "event_id": "01a0b236-4ad3-749e-bc4e-29b64e33825e",
+    "seq": 5,
+    "event_type": "AGENT_REVIEWING",
+    "schema_version": 1,
+    "company_id": "01a0b236-4ab6-746a-b300-7c9969f5231a",
+    "occurred_at": "2026-09-18T01:51:37.683621Z",
+    "aggregate_type": "agent_run",
+    "aggregate_id": "870750a0-31b4-4ec0-aad0-6aec55149bcd",
+    "agent_id": "01a0b236-4ab9-7188-a44d-76e8cc8ed4c3",
+    "task_id": "971ed3e9-15bd-4bdb-9574-97fe7c441298",
+    "run_id": "870750a0-31b4-4ec0-aad0-6aec55149bcd",
+    "workflow_run_id": null,
+    "cycle_id": null,
+    "correlation_id": null,
+    "causation_id": null,
+    "actor": {
+      "kind": "system",
+      "id": "agent_runner"
+    },
+    "payload": {
+      "phase": "evaluate",
+      "attempt": 1,
+      "issues_count": 0
+    }
+  },
+  {
+    "event_id": "01a0b236-4ad7-703e-bc74-fcb83072471d",
+    "seq": 6,
+    "event_type": "AGENT_RUN_COMPLETED",
+    "schema_version": 1,
+    "company_id": "01a0b236-4ab6-746a-b300-7c9969f5231a",
+    "occurred_at": "2026-09-18T01:51:37.687318Z",
+    "aggregate_type": "agent_run",
+    "aggregate_id": "870750a0-31b4-4ec0-aad0-6aec55149bcd",
+    "agent_id": "01a0b236-4ab9-7188-a44d-76e8cc8ed4c3",
+    "task_id": "971ed3e9-15bd-4bdb-9574-97fe7c441298",
+    "run_id": "870750a0-31b4-4ec0-aad0-6aec55149bcd",
+    "workflow_run_id": null,
+    "cycle_id": null,
+    "correlation_id": null,
+    "causation_id": null,
+    "actor": {
+      "kind": "system",
+      "id": "agent_runner"
+    },
+    "payload": {
+      "output_summary": "37 sources",
+      "cost_usd": "0.184",
+      "steps": 19,
+      "duration_ms": 217000,
+      "handoff": [
+        {
+          "to_role": "analyst",
+          "task_id": "2a1fec5d-3121-49e5-aa8d-1830a928710a"
+        }
+      ],
+      "display_until": "2026-09-18T01:51:57.687318Z"
+    }
+  },
+  {
+    "event_id": "01a0b236-4ada-75e1-bc50-d6619d885985",
+    "seq": 7,
+    "event_type": "AGENT_RUN_FAILED",
+    "schema_version": 1,
+    "company_id": "01a0b236-4ab6-746a-b300-7c9969f5231a",
+    "occurred_at": "2026-09-18T01:51:37.690890Z",
+    "aggregate_type": "agent_run",
+    "aggregate_id": "870750a0-31b4-4ec0-aad0-6aec55149bcd",
+    "agent_id": "01a0b236-4ab9-7188-a44d-76e8cc8ed4c3",
+    "task_id": "971ed3e9-15bd-4bdb-9574-97fe7c441298",
+    "run_id": "870750a0-31b4-4ec0-aad0-6aec55149bcd",
+    "workflow_run_id": null,
+    "cycle_id": null,
+    "correlation_id": null,
+    "causation_id": null,
+    "actor": {
+      "kind": "system",
+      "id": "agent_runner"
+    },
+    "payload": {
+      "error_class": "E",
+      "message": "t",
+      "attempt": 3,
+      "final": true
+    }
+  },
+  {
+    "event_id": "01a0b236-4ade-72f3-b22c-3085e73c4ed2",
+    "seq": 8,
+    "event_type": "AGENT_IDLE",
+    "schema_version": 1,
+    "company_id": "01a0b236-4ab6-746a-b300-7c9969f5231a",
+    "occurred_at": "2026-09-18T01:51:37.694421Z",
+    "aggregate_type": "agent",
+    "aggregate_id": "01a0b236-4ab9-7188-a44d-76e8cc8ed4c3",
+    "agent_id": "01a0b236-4ab9-7188-a44d-76e8cc8ed4c3",
+    "task_id": null,
+    "run_id": null,
+    "workflow_run_id": null,
+    "cycle_id": null,
+    "correlation_id": null,
+    "causation_id": null,
+    "actor": {
+      "kind": "human",
+      "id": "operator"
+    },
+    "payload": {
+      "reason": "failure_acknowledged"
+    }
+  },
+  {
+    "event_id": "01a0b236-4ae2-743f-b3a7-f798458b0e0d",
+    "seq": 9,
+    "event_type": "AGENT_PAUSED",
+    "schema_version": 1,
+    "company_id": "01a0b236-4ab6-746a-b300-7c9969f5231a",
+    "occurred_at": "2026-09-18T01:51:37.698053Z",
+    "aggregate_type": "agent",
+    "aggregate_id": "01a0b236-4ab9-7188-a44d-76e8cc8ed4c3",
+    "agent_id": "01a0b236-4ab9-7188-a44d-76e8cc8ed4c3",
+    "task_id": null,
+    "run_id": null,
+    "workflow_run_id": null,
+    "cycle_id": null,
+    "correlation_id": null,
+    "causation_id": null,
+    "actor": {
+      "kind": "human",
+      "id": "operator"
+    },
+    "payload": {
+      "reason": "maintenance"
+    }
+  },
+  {
+    "event_id": "01a0b236-4ae5-7216-ac1d-c855dccf0b08",
+    "seq": 10,
+    "event_type": "AGENT_RESUMED",
+    "schema_version": 1,
+    "company_id": "01a0b236-4ab6-746a-b300-7c9969f5231a",
+    "occurred_at": "2026-09-18T01:51:37.701454Z",
+    "aggregate_type": "agent",
+    "aggregate_id": "01a0b236-4ab9-7188-a44d-76e8cc8ed4c3",
+    "agent_id": "01a0b236-4ab9-7188-a44d-76e8cc8ed4c3",
+    "task_id": null,
+    "run_id": null,
+    "workflow_run_id": null,
+    "cycle_id": null,
+    "correlation_id": null,
+    "causation_id": null,
+    "actor": {
+      "kind": "human",
+      "id": "operator"
+    },
+    "payload": {
+      "reason": null
+    }
+  }
+]
