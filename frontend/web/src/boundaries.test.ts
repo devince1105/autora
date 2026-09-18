@@ -2,10 +2,16 @@
 // these tests fail even though no violating file exists in the tree yet.
 import { ESLint } from "eslint";
 import { fileURLToPath } from "node:url";
-import { describe, expect, it } from "vitest";
+import { beforeAll, describe, expect, it } from "vitest";
 
 const cwd = fileURLToPath(new URL("..", import.meta.url));
 const eslint = new ESLint({ cwd });
+
+// Loading the config and plugins takes seconds when the other test files run alongside; do it once,
+// with room, instead of inside the first test's 5 s budget.
+beforeAll(async () => {
+  await eslint.lintText("export {};", { filePath: "src/warmup.ts" });
+}, 60_000);
 
 async function ruleIds(filePath: string, code: string): Promise<string[]> {
   const [result] = await eslint.lintText(code, { filePath });

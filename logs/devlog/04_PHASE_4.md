@@ -17,7 +17,7 @@
 | T-402 | `layout.ts` 與房間 / 工作區（role → 座位、`seatsForRole`、桌椅用 Instances） | T-401 | ✅ |
 | T-403 | `visual/mapping.ts`：活動狀態 + 角色 → 視覺狀態（02 §7 對照表） | T-108 | ✅ |
 | T-404 | 人物與家具素材（CC0 低多邊形 GLB、6 個動作、授權紀錄 `LICENSES.md`、三角形數檢查） | — | ✅ |
-| T-405 | AgentAvatar（GLB 複製、動畫混合、transient subscribe：store 變化不觸發 React 重繪） | T-402、T-403、T-404 | ⏳ |
+| T-405 | AgentAvatar（GLB 複製、動畫混合、transient subscribe：store 變化不觸發 React 重繪） | T-402、T-403、T-404 | ✅ |
 | T-406 | 螢幕與狀態指示（螢幕亮度、桌燈顏色 / 閃爍、頭頂標籤） | T-402、T-403 | ⏳ |
 | T-407 | Animation Director 與 CueRunner（事件 → 動畫提示，合併 / 逾時 / 中止規則） | T-305、T-403 | ⏳ |
 | T-408 | Courier：交接時走到目標桌或審批桌再回座 | T-405、T-407 | ⏳ |
@@ -35,6 +35,26 @@
   - 即時 store、UI store（含 `cameraMode`、`selectedAgentId`）、代理面板都已存在，`/office` 直接重用；
   - 瀏覽器端到端測試的環境（`frontend/web/e2e/stack.ts`）可重用來看 3D 畫面：這個環境用測試專用權杖，**我可以在 Playwright 裡實際看到登入後的畫面並截圖**（開發伺服器那邊的權杖畫面我不輸入）；
   - 素材的授權要逐一記錄（D-008、`12_RISKS` Q4）。
+
+---
+
+## T-405 · AgentAvatar（人物坐進辦公室）
+
+### 做了什麼
+- `office3d/agents/Agents.tsx`：依座位分配（`assignSeats`）每位代理一個人物（`characterFor`：`avatar_key` 指定或依 id 固定挑選），頭上有名字標籤（角色色點 + 名字）。**React 只在人員名單改變時重繪**：selector 回傳名單字串（id、角色、名字、人物），一般事件不會觸發。
+- `AgentAvatar.tsx`：`SkeletonUtils.clone` 複製 GLB（同一個角色可多人使用）、投射陰影、坐在椅子上面向螢幕；**用 store 的 `subscribe` 與畫面迴圈讀狀態，不經過 React state**（05 §5）。另外每秒重讀一次，讓「已完成」過了顯示時間自動回到閒置（沒有事件也會變）。完成時起身站到椅子後方。
+- `AvatarController.ts`：動作混合（0.3 秒 crossFade）、一次性動作（完成時點頭 `emote-yes` 後回到 `idle`；坐著時不疊站立動作）、**上半身疊加層**：素材只有一種坐姿，所以打字（雙手在鍵盤上交替敲）、思考（托腮、歪頭輕晃）、閱讀（低頭）、失敗（垂頭前傾）、閒置（呼吸）都是在 `sit` 之上旋轉手臂 / 頭 / 軀幹；每幀先還原骨頭再套用，不會累積。
+- 大小：Kenney 人物高 0.67 單位，放大 2 倍（約 1.35 公尺的 Q 版），頭會露出椅背；第一版 1.5 倍在截圖中太小、被椅背擋住。
+
+### 驗證
+- `avatar.test.tsx`：5 個通過（R3F test renderer + React Profiler 計算提交次數，用和 Kenney 相同骨頭名稱的替身模型）：
+  - **驗收條件**：6 位代理、套用 T-302 契約測試的 148 個真實事件，每個事件後所有人的姿勢都等於對照表算出的姿勢、姿勢確實改變多次，而 **React 提交次數從掛載後一次都沒有增加**；
+  - 名單：事件不重繪、有新代理加入（`AGENT_CREATED`）才重繪並多一個人物；
+  - 控制器：各姿勢的動作、完成點頭後回到 idle、上半身旋轉方向與「不累積」。
+- **破壞測試**：暫時讓人物用 `useRealtime` 訂閱 `lastSeq`，兩個測試立刻失敗（提交次數 1 → 149），還原後通過——測試確實能抓到重繪。
+- 真實瀏覽器截圖：三位代理坐在各自座位、名字標籤、完成者起身、思考中的人托腮；FPS 60、每幀 27 次繪製（含人物與陰影）。
+- `boundaries.test.ts` 在 20 個測試檔平行時，ESLint 第一次載入超過 5 秒而逾時（與本次變更無關）：改在 `beforeAll` 先暖機；之後連跑 3 次全數通過。
+- web 共 159 個測試、event-schema 8 個通過；`typecheck`、`lint`、`check-assets`、`next build`、`make e2e`（5 個）以結束碼確認通過。開發伺服器重啟後 `/office` 無錯誤。
 
 ---
 

@@ -63,6 +63,9 @@ importers:
       '@playwright/test':
         specifier: ^1.63.0
         version: 1.63.0
+      '@react-three/test-renderer':
+        specifier: ^9.1.1
+        version: 9.1.1(@react-three/fiber@9.7.0(@types/react@19.3.0)(react-dom@19.2.8(react@19.2.8))(react@19.2.8)(three@0.186.0))(react@19.2.8)(three@0.186.0)
       '@tailwindcss/postcss':
         specifier: ^4.3.3
         version: 4.3.3
@@ -681,6 +684,13 @@ packages:
         optional: true
       react-native:
         optional: true
+
+  '@react-three/test-renderer@9.1.1':
+    resolution: {integrity: sha512-4DmLn0tg+AP8aU0Mb5vekjHqFrwRJ3z11HfQGOJIDj6DxZ/5BjRHRsDxY0Y+g4l8+WHysQ6PeuSdzTDDYoGuXg==}
+    peerDependencies:
+      '@react-three/fiber': '>=9.0.0'
+      react: ^19.0.0
+      three: '>=0.156'
 
   '@redocly/ajv@8.11.2':
     resolution: {integrity: sha512-io1JpnwtIcvojV7QKDUSIuMN/ikdOUd1ReEnUnMKGfDVridQZ31J0MmIuqwuRjWDZfmvr+Q0MqCcfHM2gTivOg==}
@@ -2503,6 +2513,12 @@ snapshots:
     transitivePeerDependencies:
       - '@types/react'
       - immer
+
+  '@react-three/test-renderer@9.1.1(@react-three/fiber@9.7.0(@types/react@19.3.0)(react-dom@19.2.8(react@19.2.8))(react@19.2.8)(three@0.186.0))(react@19.2.8)(three@0.186.0)':
+    dependencies:
+      '@react-three/fiber': 9.7.0(@types/react@19.3.0)(react-dom@19.2.8(react@19.2.8))(react@19.2.8)(three@0.186.0)
+      react: 19.2.8
+      three: 0.186.0
 
   '@redocly/ajv@8.11.2':
     dependencies:
