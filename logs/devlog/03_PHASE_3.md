@@ -16,7 +16,7 @@
 | T-302 | 投影契約測試（Python 參考 reducer） | 後端 | T-301 | ✅ |
 | T-303 | WebSocket 閘道（LISTEN + 輪詢備援、backlog、SNAPSHOT_REQUIRED、心跳、有界佇列） | 後端 | T-301 | ✅ |
 | T-304 | 代理執行器的即時進度（AGENT_STEP_PROGRESS，不落表） | 後端 | T-211、T-303 | ✅ |
-| T-305 | 前端即時 store 與 reducer（跨語言契約） | 前端 | T-108 | ⏳ |
+| T-305 | 前端即時 store 與 reducer（跨語言契約） | 前端 | T-108 | ✅ |
 | T-306 | RealtimeClient（重連、補洞、心跳逾時、背景分頁） | 前端 | T-305、T-303 | ⏳ |
 | T-307 | UI store | 前端 | — | ⏳ |
 | T-308 | 型別化 API client 與 Query hooks | 前端 | T-110、T-210 | ⏳ |
@@ -72,6 +72,30 @@
 - **效能**（`3d-office/07` §4 目標：本機 < 50 ms）：12 位代理、300 個任務、20,000 個事件，快照中位數約 **21 ms**。CI 的共用機器較慢，測試在 CI 上以 150 ms 為上限。
 - 以真實伺服器對開發資料庫呼叫：第一次 164 ms（建立連線），之後約 9 ms；示範公司的已完成狀態正確顯示為 IDLE；之後的請求不受隔離等級影響。
 - Python 測試共 600 個通過。
+
+---
+
+## T-305 · 前端即時 store 與 reducer
+
+### 做了什麼
+- `frontend/web/src/realtime/snapshot.ts`：snapshot 的 zod 結構（對應後端 `projection.py`），在邊界驗證，格式不對直接拒絕，不讓錯誤資料進入 store。
+- `frontend/web/src/realtime/reducer.ts`：純函式的 reducer，是後端 `reducer.py` 的 TypeScript 對應版本，規則逐條相同：
+  - `hydrate(snapshot)`、`applyEvent(state, event)`（被忽略時回傳同一個物件，方便 React 判斷是否需要重繪）、`applyEphemeral(state, message)`、`view(state, now)`；
+  - 重複或較舊的事件、其他公司的事件、沒有 seq 的事件一律忽略；非最終的 AGENT_RUN_FAILED / ABORTED 是軌跡資料，不改變狀態；
+  - `effectiveState`（COMPLETED 超過 `display_until` 顯示為 IDLE）與 `isTaskVisible`（已完成任務保留 10 分鐘）；
+  - **不做缺口偵測**：依 T-303 的修訂，由閘道保證同一連線依序且完整，所以沒有 `05` 原本寫的等待緩衝。
+  - 即時進度 `liveProgress` 掛在代理上，不屬於投影；代理的下一個活動屬於不同的執行（或沒有執行）時自動清除。
+- `frontend/web/src/stores/realtime.ts`：Zustand store。唯一的修改入口是 `hydrate` / `applyEvent(s)` / `applyEphemeral`（內部呼叫 reducer）；事件先以 `parseEvent`（zod）驗證，不認得的類型或較新的版本記錄後丟棄並計數，不會讓畫面當掉。`applyEvents` 一次套用一批只觸發一次更新。提供 `useRealtime(selector)` 給 React，3D 辦公室則用 `realtimeStore.subscribe`（不觸發 React 重繪，`05` §5）。`serverNow()` 以伺服器時鐘偏移校正「現在」。
+- 相依套件：web 加入 `zustand`、`zod` 與 workspace 的 `@autora/event-schema`；vitest 設定 `@/` 路徑別名。
+
+### 驗證
+- **跨語言契約**：以 T-302 產生的檔案（真實隨機歷史：第一個快照、148 個事件、24 種類型、最後一個快照），TypeScript 的 `hydrate + applyEvent` 在最後快照的伺服器時間產生的投影，與 Python 產生的快照**完全相同**。
+- **變異測試**：故意改壞三條規則，確認契約測試會抓到：
+  - 「狀態不變時保留 since」改掉 → 失敗 ✅；
+  - `task_name` 改成不填 → 失敗 ✅；
+  - 「非最終的 TASK_FAILED 不改狀態」改掉 → 仍通過。這是**等價變異**：非最終失敗之後在同一交易一定接著 TASK_READY，所以提交後的狀態相同，規則只影響交易中途，不是測試的漏洞。
+- `reducer.test.ts`（9 個）與 `stores/realtime.test.ts`（5 個）：重複與其他公司的事件、非最終 / 最終中止、時鐘規則、即時進度的附加與清除、snapshot 驗證、批次套用只通知一次、無效事件計數、未 hydrate 前不套用、時鐘偏移。
+- web 共 23 個測試通過；`typecheck`、`lint`、`next build` 皆通過。
 
 ---
 
