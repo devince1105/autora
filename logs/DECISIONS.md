@@ -12,6 +12,7 @@
 | D-006 | 2026-09-18 | **主要模型改為 `z-ai/glm-5.3-flash`，暫不設備援**（取代 D-005 的模型選擇；NVIDIA 為供應者、保留 Anthropic 切換不變） | `.env`；`RUNBOOK.md` 第六節；`.env.example` | 實測 NVIDIA 免費端點：`z-ai/glm-5.3` 回答一個字 224 秒（另一次 120 秒無回應），無法供代理使用；`z-ai/glm-5.3-flash` 4 ~ 30 秒，結構化輸出、工具迴圈、EchoWorkflow 全流程皆通過。`FRONTIER_MODEL_ID=z-ai/glm-5.3-flash`、`FAST_MODEL_ID` 留空。glm-5.3 可日後再測或改用付費端點 |
 | D-007 | 2026-09-18 | **前端樣式改用 Tailwind CSS v4**（取代 T-309 暫用的 CSS Modules） | `frontend/web`：`postcss.config.mjs`、`src/app/globals.css`；之後所有畫面（T-310 起、階段 4 的 2D 疊層） | 顏色以語意 token 定義在 `@theme`（`bg-surface`、`text-muted`、`border-line`、`bg-accent`…），淺色 / 深色切換只改一組 CSS 變數，不在每個元素寫 `dark:`。不另加元件庫 |
 | D-008 | 2026-09-18 | **3D 辦公室人物：免費授權（CC0）的低多邊形人物，風格參考《動物森友會》**；階段 3 先完成再做 3D | `3d-office/04` §10 資產計畫；`12_RISKS` Q4（已回答）、R10；階段 4 的 T-404（`LICENSES.md`） | **只參考風格**：Q 版比例（大頭、短身）、圓潤造型、柔和粉彩、溫馨的辦公室與家具。**不使用任天堂的任何角色、模型、貼圖或商標，也不做可辨識的仿製**。素材只用 CC0（候選：Quaternius、Kenney、KayKit），每個檔案的來源與授權記入 `LICENSES.md`；選定前先確認授權條款。動畫 clip 若素材沒有，自製。**補充（同日）**：辦公室場景另參考任天堂《Good Job!》——明亮色彩、Q 版上班族、辦公桌與隔間的俏皮佈局；同樣只參考風格，不使用其素材或做可辨識的仿製 |
+| D-009 | 2026-09-18 | **React 釘在 19.2.x（19.2.8），配合 React Three Fiber 9.7 的支援範圍** | `frontend/web/package.json`；階段 4 全部（T-401 起） | R3F 9.7（目前最新穩定版）宣告 `react >=19 <19.3`，並內建對應 React 19.2 的 reconciler；專案原本是 19.3.0，版本錯配屬於未經測試的組合。改為 `react` / `react-dom` 19.2.8；Next 16.3.5 支援 `^19.0.0`。原有 97 個前端測試、兩個 Playwright 驗收測試皆通過。R3F 發布支援 19.3 的穩定版後再升級（屆時加一筆新決策） |
 
 ## 尚未決定的 P0
 

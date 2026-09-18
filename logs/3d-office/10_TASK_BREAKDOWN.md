@@ -261,3 +261,9 @@ T-309,T-601 → T-608 ; T-211 → T-609 ; all → T-610
 | T-312 | `features/timeline/{model,Timeline,TimelineView,TimelinePage}`、`/timeline`；由新到舊；暫停凍結畫面並計數新事件（store 照常套用）；篩選取交集、存在 UI store；事件說明抽成 `features/events/describe.ts`（與 T-311 共用）；`CompanyScope`、`connectionModel` 由 Dashboard 抽出共用 |
 | T-313 | `features/approvals/{model,ApprovalInbox,ApprovalsPage}`、`/approvals`；決議走 REST，列表由 APPROVAL_* 事件失效重取（連線中斷時立即重取；409 / 404 提示並重取）；Dashboard 顯示待審批數；`seed_echo.py --approval on|off`（公司政策覆寫 `echo_note`/`writer` = `needs_approval`）提供真實審批 |
 | T-315 | `frontend/web/e2e/{realtime.spec,stack}.ts`、`playwright.config.ts`、`backend/scripts/e2e_prepare.py`、`make e2e`、CI `e2e` 工作；獨立資料庫 `<db>_e2e`、API :8100、web :3100（`.next-e2e`）、不讀 `.env`；驗收四項：兩個 Dashboard 分頁卡片同步、API 停 20 秒後自動恢復、最新 seq = 伺服器、停機期間的軌跡完整 |
+
+## Phase 4 實作註記（進行中，2026-09-18 起）
+
+| Task | 實際位置 / 差異 |
+|---|---|
+| T-401 | `office3d/{OfficeCanvas,Canvas3D,capabilities,usePageVisible,palette}`、`fallback/OfficeBoard2D`（暫時版，T-410 完成）、`features/office/OfficePage`、`/office`（`?view=3d\|2d`）；context 遺失 → 提示 + 手動重建（換新畫布），不自動重試；分頁隱藏 `frameloop="never"`；**React 釘在 19.2.8（D-009，R3F 9.7 的支援範圍）**；瀏覽器測試 `e2e/office.spec.ts`（CI 用 SwiftShader） |

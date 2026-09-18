@@ -15,11 +15,13 @@
   },
   "dependencies": {
     "@autora/event-schema": "workspace:^",
+    "@react-three/fiber": "^9.7.0",
     "@tanstack/react-query": "^5.103.1",
     "next": "16.3.5",
     "openapi-fetch": "^0.17.0",
-    "react": "19.3.0",
-    "react-dom": "19.3.0",
+    "react": "19.2.8",
+    "react-dom": "19.2.8",
+    "three": "^0.186.0",
     "zod": "^4.6.5",
     "zustand": "^5"
   },
@@ -31,6 +33,7 @@
     "@types/node": "^22.10.0",
     "@types/react": "^19.2.0",
     "@types/react-dom": "^19.2.0",
+    "@types/three": "^0.186.0",
     "eslint": "^10.10.0",
     "jsdom": "^30.1.0",
     "openapi-typescript": "^7.13.0",

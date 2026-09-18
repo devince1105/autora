@@ -15,6 +15,8 @@ export default defineConfig({
     baseURL: `http://localhost:${WEB_PORT}`,
     // Locally the installed Google Chrome; CI installs Playwright's Chromium.
     channel: process.env.CI ? undefined : "chrome",
+    // CI runners have no GPU: allow Chromium's software WebGL (SwiftShader) for the office tests.
+    launchOptions: process.env.CI ? { args: ["--use-angle=swiftshader", "--enable-unsafe-swiftshader"] } : undefined,
     trace: "retain-on-failure",
   },
   webServer: {
