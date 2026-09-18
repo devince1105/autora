@@ -1,16 +1,18 @@
 // Assembles the office (04 §1, D-010): a key light from the upper left whose shadows fall toward
 // the camera (as in the reference renders), an environment of light panels (no download), the floors, the merged static office, glass, windows and screens, all
-// fitted into the camera, and the agents (T-405). Status lights and the courier join in T-406+.
+// fitted into the camera; the agents (T-405) with their screens, lamps and tags (T-406). The
+// courier joins in T-408.
 import { Bounds, Environment, Lightformer } from "@react-three/drei";
 import { useEffect, useMemo } from "react";
 
 import { Agents } from "../agents/Agents";
+import { DeskStatus, HeadTags } from "../agents/StatusIndicators";
 import { StatsProbe } from "../perf/StatsProbe";
+import { VisualTrackerProvider } from "../visual/tracker";
 import { Floors } from "./Floors";
 import { officeParts, partitionGlassParts, windowGlassParts } from "./furniture";
 import { buildGeometry } from "./kit";
 import { ROOM } from "./layout";
-import { Screens } from "./Screens";
 
 const SHADOW_EXTENT = 17;
 
@@ -70,8 +72,11 @@ export function OfficeScene() {
       <mesh geometry={glass} renderOrder={1}>
         <meshStandardMaterial vertexColors transparent opacity={0.22} roughness={0.05} metalness={0.1} depthWrite={false} />
       </mesh>
-      <Screens />
-      <Agents />
+      <VisualTrackerProvider>
+        <DeskStatus />
+        <Agents />
+        <HeadTags />
+      </VisualTrackerProvider>
       <StatsProbe />
     </>
   );

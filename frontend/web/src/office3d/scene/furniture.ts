@@ -133,12 +133,30 @@ function workstation(): Part[] {
   return parts;
 }
 
+/** The desk lamp at the back right of each desk: its shade and glow are live (T-406). */
+export const LAMP = { x: 0.7, z: -0.3, height: 0.42, reach: 0.16 } as const;
+
+export function lampSpot(seat: Seat): { shade: [number, number, number]; glow: [number, number, number] } {
+  const x = seat.desk[0] + LAMP.x - LAMP.reach;
+  const z = seat.desk[1] + LAMP.z;
+  return { shade: [x, TOP + LAMP.height - 0.05, z], glow: [x, TOP + 0.004, z + 0.08] };
+}
+
+/** The lamp's fixed parts: base, pole and arm (the shade is drawn live). */
+function lampBody(): Part[] {
+  return [
+    cyl(0.08, 0.08, 0.02, [LAMP.x, TOP, LAMP.z], P.metal, 10),
+    cyl(0.012, 0.012, LAMP.height, [LAMP.x, TOP, LAMP.z], P.metal, 6),
+    box(LAMP.reach + 0.02, 0.02, 0.02, [LAMP.x - LAMP.reach / 2, TOP + LAMP.height, LAMP.z], P.metal),
+  ];
+}
+
 function seatParts(seat: Seat): Part[] {
   const accent = ROLE_COLOR[seat.role] ?? ROLE_COLOR.spare;
   const [x, z] = seat.desk;
   const desk = seat.bench ? [] : seat.role === "ceo" ? execDesk() : singleDesk();
   return [
-    ...place([...desk, ...workstation()], x, z),
+    ...place([...desk, ...workstation(), ...lampBody()], x, z),
     ...place(officeChair(accent, seat.role === "ceo"), seat.chair[0], seat.chair[1]),
   ];
 }

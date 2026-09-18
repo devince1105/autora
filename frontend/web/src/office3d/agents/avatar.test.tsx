@@ -118,7 +118,7 @@ describe("Agents: the roster renders only when it changes", () => {
     const { Agents } = await import("./Agents");
     realtimeStore.getState().hydrate(fixture.snapshot_before);
     let commits = 0;
-    const renderer = await ReactThreeTestRenderer.create(counted(<Agents labels={false} />, () => void commits++));
+    const renderer = await ReactThreeTestRenderer.create(counted(<Agents />, () => void commits++));
     await ReactThreeTestRenderer.act(async () => renderer.advanceFrames(1, 0.016));
     const avatars = () => renderer.scene.findAll((n) => typeof n.instance.userData?.agentId === "string");
     expect(avatars()).toHaveLength(6);
