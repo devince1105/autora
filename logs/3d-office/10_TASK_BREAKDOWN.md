@@ -267,3 +267,4 @@ T-309,T-601 → T-608 ; T-211 → T-609 ; all → T-610
 | Task | 實際位置 / 差異 |
 |---|---|
 | T-401 | `office3d/{OfficeCanvas,Canvas3D,capabilities,usePageVisible,palette}`、`fallback/OfficeBoard2D`（暫時版，T-410 完成）、`features/office/OfficePage`、`/office`（`?view=3d\|2d`）；context 遺失 → 提示 + 手動重建（換新畫布），不自動重試；分頁隱藏 `frameloop="never"`；**React 釘在 19.2.8（D-009，R3F 9.7 的支援範圍）**；瀏覽器測試 `e2e/office.spec.ts`（CI 用 SwiftShader） |
+| T-403 | `office3d/visual/mapping.ts`（`visualState`、`visualForAgent`）；`stores/realtime` 轉出型別與 `effectiveState` 供 3D 使用；zh-TW 標籤與代理卡片一致（`src/labels.test.ts`）；`handoff` 為陣列、`walkTo` 以角色表示；差異記於 02 §7 實作註記 |

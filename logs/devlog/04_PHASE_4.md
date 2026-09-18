@@ -15,7 +15,7 @@
 |---|---|---|---|
 | T-401 | OfficeCanvas：WebGL 偵測、動態載入、DPR、頁面隱藏時停止繪製、WebGL context 遺失的處理、切換 2D | T-307 | ✅ |
 | T-402 | `layout.ts` 與房間 / 工作區（role → 座位、`seatsForRole`、桌椅用 Instances） | T-401 | ⏳ |
-| T-403 | `visual/mapping.ts`：活動狀態 + 角色 → 視覺狀態（02 §7 對照表） | T-108 | ⏳ |
+| T-403 | `visual/mapping.ts`：活動狀態 + 角色 → 視覺狀態（02 §7 對照表） | T-108 | ✅ |
 | T-404 | 人物與家具素材（CC0 低多邊形 GLB、6 個動作、授權紀錄 `LICENSES.md`、三角形數檢查） | — | ⏳ |
 | T-405 | AgentAvatar（GLB 複製、動畫混合、transient subscribe：store 變化不觸發 React 重繪） | T-402、T-403、T-404 | ⏳ |
 | T-406 | 螢幕與狀態指示（螢幕亮度、桌燈顏色 / 閃爍、頭頂標籤） | T-402、T-403 | ⏳ |
@@ -35,6 +35,21 @@
   - 即時 store、UI store（含 `cameraMode`、`selectedAgentId`）、代理面板都已存在，`/office` 直接重用；
   - 瀏覽器端到端測試的環境（`frontend/web/e2e/stack.ts`）可重用來看 3D 畫面：這個環境用測試專用權杖，**我可以在 Playwright 裡實際看到登入後的畫面並截圖**（開發伺服器那邊的權杖畫面我不輸入）；
   - 素材的授權要逐一記錄（D-008、`12_RISKS` Q4）。
+
+---
+
+## T-403 · 視覺狀態對照表
+
+### 做了什麼
+- `office3d/visual/mapping.ts`：`visualState({ state, detail, role, progress })` → 姿勢、螢幕、桌燈、頭頂標籤、對話泡泡，以及完成後的交接走路（`walkTo`）。這是前端唯一「狀態 → 畫面」的知識，3D 場景與 2D 看板（T-410）都用它。
+- `visualForAgent(agent, now)`：先套用投影的時間規則（COMPLETED 過了 `display_until` 視為 IDLE），進度只取**同一次執行**的即時進度，再對照。
+- 3D 層不能直接 import `@/realtime/*`（ESLint 邊界），所以由 `stores/realtime` 轉出需要的型別與 `effectiveState`（04 §1：3D 只讀 store）。
+- 與 02 §7 的差異已在該節下方加註：標籤用 zh-TW 且與代理卡片同詞；`handoff` 實際是陣列；`walkTo` 以角色表示（桌位由 layout 決定）；補上 WAITING{rate_limit}；中止時顯示中止原因。
+
+### 驗證
+- `mapping.test.ts`：18 個通過——02 §7 每一列、角色例外（編輯用 `read_*` 工具時是閱讀姿勢）、進度（即時進度優先、只取同一次執行）、交接走路、文字截斷、**所有狀態 × 角色 × 等待原因都得到合法值**；並用 **T-302 契約測試的真實執行紀錄**逐一套用每個事件，每一步都檢查所有代理的視覺狀態合法，且紀錄中確實出現交接，交接對象都是公司裡存在的角色。
+- `labels.test.ts`：3 個通過——辦公室與代理卡片的角色、狀態用詞一致（兩邊不能互相 import，由這個測試綁在一起）。
+- web 共 131 個測試、event-schema 8 個通過；`typecheck`、`lint`、`next build` 以結束碼確認通過。本次沒有畫面變更（對照表由 T-405、T-406、T-410 使用）。
 
 ---
 

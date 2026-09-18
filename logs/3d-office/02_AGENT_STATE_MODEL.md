@@ -209,6 +209,14 @@ type VisualState = {
 - Handoff 的 walk 是 cue，不是狀態：agent 的 activity 已是 IDLE 時它可能還在走路回座位——這是允許的視覺延遲。
 - 沒有任何 visual 值會被寫回 store 的 domain 區塊。
 
+**實作註記（T-403，2026-09-19）**：`office3d/visual/mapping.ts` 依上表實作，差異如下——
+- 標籤與泡泡用 zh-TW（D-002），用詞與 2D 代理卡片相同（`src/labels.test.ts` 檢查兩邊一致）；WAITING{upstream} 顯示「等待研究員」等實際角色。
+- 事件中的 `handoff` 是**陣列**（`AGENT_RUN_COMPLETED.handoff: Handoff[]`），不是 §4 寫的單一物件；mapping 取第一個有效的交接。
+- `walkTo` 用 `targetRole`（加上 `taskId`），不是 `targetAgentId`：mapping 只看（activity, role），角色 → 桌位由 layout / Courier（T-402、T-408）決定。COMPLETED 的 pose 為 `stand`，走路由 cue 執行。
+- 多一列 WAITING{rate_limit}（事件定義有此原因，上表沒有）：與 upstream 相同的外觀，標籤「等待限流解除」。
+- FAILED 來自 `AGENT_RUN_ABORTED` 時沒有 `error_class`，泡泡改顯示中止原因（預算用盡 / 政策拒絕 / 逾時 / 人工中止）。
+- CEO 的 THINKING 例外（sit_think + active）與其他角色相同，因此沒有特別分支。
+
 ---
 
 ## 8. 不變式（測試會驗證）

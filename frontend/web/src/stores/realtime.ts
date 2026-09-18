@@ -17,6 +17,12 @@ import {
 } from "@/realtime/reducer";
 import { RealtimeSnapshot } from "@/realtime/snapshot";
 
+// What the 3D office may read (it must not import @/realtime/* itself, 3d-office/04 §1): the
+// state types and the projection's one time-based rule.
+export { effectiveState } from "@/realtime/reducer";
+export type { AgentState, LiveProgress, RealtimeState } from "@/realtime/reducer";
+export { ACTIVITY_STATES, type ActivityState, type ActivityView } from "@/realtime/snapshot";
+
 /**
  * idle: not started; connecting: loading the snapshot or replaying the backlog; live: up to
  * date; reconnecting: lost, retrying; offline: 5+ failures in a row, still retrying;
