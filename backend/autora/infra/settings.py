@@ -53,9 +53,13 @@ class Settings(BaseSettings):
     """SQLAlchemy async URL, e.g. postgresql+asyncpg://user:pass@host:5434/db"""
     db_echo: bool = False
 
-    # --- Model provider (T-207/T-208). Ids come from env, never from code. ---
-    model_provider: Literal["fake", "anthropic"] = "fake"
+    # --- Model provider (T-207/T-208, D-005). Ids come from env, never from code. ---
+    model_provider: Literal["fake", "anthropic", "nvidia"] = "fake"
+    """fake: simulated, free. anthropic: Claude API. nvidia: NVIDIA Build (OpenAI-compatible).
+    Both keys may be set at once; this chooses which one is used."""
     anthropic_api_key: SecretStr | None = None
+    nvidia_api_key: SecretStr | None = None
+    nvidia_base_url: str = "https://integrate.api.nvidia.com/v1"
     frontier_model_id: str | None = None
     fast_model_id: str | None = None
     model_prices: dict[str, dict[str, float]] = {}
@@ -92,11 +96,17 @@ class Settings(BaseSettings):
         problems: list[str] = []
         if not self.database_url.startswith("postgresql+asyncpg://"):
             problems.append("DATABASE_URL must use the postgresql+asyncpg:// scheme")
-        if self.model_provider == "anthropic":
-            if self.anthropic_api_key is None:
-                problems.append("ANTHROPIC_API_KEY is required when MODEL_PROVIDER=anthropic")
+        if self.model_provider != "fake":
+            key = {"anthropic": self.anthropic_api_key, "nvidia": self.nvidia_api_key}
+            if key[self.model_provider] is None:
+                problems.append(
+                    f"{self.model_provider.upper()}_API_KEY is required when "
+                    f"MODEL_PROVIDER={self.model_provider}"
+                )
             if not self.frontier_model_id:
-                problems.append("FRONTIER_MODEL_ID is required when MODEL_PROVIDER=anthropic")
+                problems.append(
+                    f"FRONTIER_MODEL_ID is required when MODEL_PROVIDER={self.model_provider}"
+                )
             for model_id in {self.frontier_model_id, self.fast_model_id} - {None, ""}:
                 if model_id not in self.model_prices:
                     problems.append(f"MODEL_PRICES has no entry for {model_id}")

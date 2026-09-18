@@ -117,16 +117,15 @@ def router_from_settings(settings: Settings) -> ModelRouter:
             },
             routes={"*.*": "frontier"},
         )
-    if settings.model_provider == "anthropic":
+    if settings.model_provider in ("anthropic", "nvidia"):
+        provider = settings.model_provider
         prices = {model_id: Price(**entry) for model_id, entry in settings.model_prices.items()}
         frontier = settings.frontier_model_id
         assert frontier is not None  # Settings validates this
         fast = settings.fast_model_id or frontier
         aliases = {
-            "frontier": ModelBinding(
-                provider="anthropic", model_id=frontier, price=prices[frontier]
-            ),
-            "fast": ModelBinding(provider="anthropic", model_id=fast, price=prices[fast]),
+            "frontier": ModelBinding(provider=provider, model_id=frontier, price=prices[frontier]),
+            "fast": ModelBinding(provider=provider, model_id=fast, price=prices[fast]),
         }
         fallbacks = {"frontier": ["fast"]} if fast != frontier else {}
         return ModelRouter(

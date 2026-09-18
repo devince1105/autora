@@ -32,7 +32,7 @@
 
 ### 進入條件與帶過來的待辦
 
-- **進入條件尚缺一項**：路線圖要求「真實 Anthropic 呼叫通過一次」才進入階段 3。目前沒有 API 金鑰，這項尚未完成；依使用者指示先開始階段 3，此項保留為待辦，設定方式見 `logs/RUNBOOK.md` 第六節。
+- **進入條件尚缺一項**：路線圖要求真實模型呼叫通過一次才進入階段 3（原為「真實 Anthropic 呼叫」，D-005 改為不限供應者）。尚未執行：需要在 `.env` 填入 NVIDIA 金鑰後跑 `tests/e2e/test_echo_live.py`。依使用者指示先開始階段 3，此項保留為待辦，設定方式見 `logs/RUNBOOK.md` 第六節。
 - 階段 2 留下、會在本階段用到的：
   - `GET /api/tasks/{id}`、`GET /api/runs/{id}` 尚未實作（T-308、T-310 需要時補上）；
   - API 尚未設定 CORS，前端的 API 位址設定也還沒有（T-306 / T-308 時處理）；
@@ -71,6 +71,38 @@
 - **效能**（`3d-office/07` §4 目標：本機 < 50 ms）：12 位代理、300 個任務、20,000 個事件，快照中位數約 **21 ms**。CI 的共用機器較慢，測試在 CI 上以 150 ms 為上限。
 - 以真實伺服器對開發資料庫呼叫：第一次 164 ms（建立連線），之後約 9 ms；示範公司的已完成狀態正確顯示為 IDLE；之後的請求不受隔離等級影響。
 - Python 測試共 600 個通過。
+
+---
+
+## 模型供應者：NVIDIA Build（D-005，2026-09-18）
+
+使用者決定改用 NVIDIA Build 的 `z-ai/glm-5.3` 為主要模型，並保留 Anthropic 可隨時切換。
+
+### 選擇過程
+依代理的三個必要能力（呼叫工具、依格式輸出 JSON、繁體中文）比對 NVIDIA 模型頁：
+- `z-ai/glm-5.3`：頁面明列函式呼叫、結構化輸出、推理皆支援 → 主要模型；
+- `z-ai/glm-5.3-flash`：同系列、支援工具呼叫、較快 → 備援；
+- `moonshotai/kimi-k3`：主打代理，但頁面未列函式呼叫與結構化輸出 → 留待實測比較；
+- `deepseek-v4-flash-0731`：標示 5 天後下架 → 不採用。
+
+### 做了什麼
+- `runtime/models/providers/openai_compat.py`：`OpenAICompatibleProvider`，以 httpx 呼叫 `POST {base_url}/chat/completions`，不依賴廠商 SDK；以名稱與網址參數化，自架 NIM 或其他 OpenAI 相容服務也能用。
+  - 工具呼叫對應 `tools` / `tool_calls`，工具結果為 `role: tool` 訊息；模型產生的參數不是合法 JSON 時原樣轉交，由工具登錄表拒絕並回饋給模型。
+  - **結構化輸出分兩種**：沒有提供工具時用伺服器端 `response_format: json_schema` 強制；有工具時改把 schema 寫進系統提示，因為這類伺服器的受限解碼可能讓模型無法呼叫工具。兩種情況都由閘道驗證、執行器修補。
+  - 推理內容（`reasoning_content`）保留在軌跡中，不送回下一輪。
+  - 快取的提示權杖記為 `cache_read_tokens`，不重複計入輸入。
+  - 429 與 5xx 依 `Retry-After` 等待後重試兩次（免費端點每分鐘限流），仍失敗才交給路由的備援；其他 4xx 不備援。
+- 設定：`MODEL_PROVIDER` 新增 `nvidia`；`NVIDIA_API_KEY`、`NVIDIA_BASE_URL`。兩把金鑰可同時存在，`MODEL_PROVIDER` 決定用哪一個；路由器對兩者使用同一套 frontier / fast 規則。
+- `httpx` 由開發相依改為執行相依。
+- echo 代理的輸出上限由 1024 提高到 4096 權杖：真實模型會先推理再回答，1024 容易被截斷。
+- 文件：`DECISIONS.md` 新增 D-005；`.env.example` 與 `RUNBOOK.md` 第六節改寫（NVIDIA 串接、Anthropic 切換、驗證方式、常見錯誤）。
+
+### 驗證
+- `tests/runtime/models/test_openai_compat.py`：22 個通過（請求與回應對應、兩種結構化輸出、工具迴圈歷史、推理不回送、停止原因、限流重試、錯誤對應、設定與切換）。
+- 真實呼叫測試（標記 `integration`，沒有金鑰時略過）：
+  - `test_nvidia_live.py`：glm-5.3 的結構化輸出（中英標題）與兩輪工具迴圈；
+  - `tests/e2e/test_echo_live.py`：用目前選的真實供應者完整跑 EchoWorkflow，作為階段 3 進入條件的檢查。
+- **尚未以真實金鑰執行**：`.env` 目前沒有 NVIDIA 金鑰。glm-5.3 在工具呼叫、JSON 輸出、繁體中文上的實際表現要等實測確認。
 
 ---
 

@@ -211,30 +211,52 @@ pnpm -F web dev
 | `MODEL_PROVIDER` | 行為 | 何時用 |
 |---|---|---|
 | `fake`（預設） | 不呼叫任何真實模型、不產生費用。由各領域的模擬模型回答（目前只有 echo 領域有模擬） | 開發、示範、自動化測試 |
-| `anthropic` | 呼叫 Claude API | 真實運作 |
+| `nvidia` | 呼叫 NVIDIA Build（OpenAI 相容 API）。**主要使用的供應者**，模型 `z-ai/glm-5.3`（決策 D-005） | 真實運作 |
+| `anthropic` | 呼叫 Claude API，保留作為隨時切換的選項 | 真實運作 |
 
-自動化測試永遠使用 fake，不受 `.env` 影響（真實呼叫測試除外，見第七節）。
+自動化測試永遠使用 fake，不受 `.env` 影響（真實呼叫測試除外，見第 4 點）。
 
-### 2. 串接 Claude API
+### 2. 串接 NVIDIA Build（主要）
 
-在 `.env` 設定：
+1. 到 https://build.nvidia.com 登入，按「Generate API Key」取得金鑰（`nvapi-` 開頭）。
+2. 在 `.env` 設定：
 
 ```
-MODEL_PROVIDER=anthropic
-ANTHROPIC_API_KEY=<你的 API 金鑰>
-FRONTIER_MODEL_ID=claude-fable-5-1
-FAST_MODEL_ID=claude-sonnet-5
-MODEL_PRICES={"claude-fable-5-1":{"input":<價格>,"output":<價格>,"cache_read":<價格>,"cache_write":<價格>},"claude-sonnet-5":{"input":<價格>,"output":<價格>,"cache_read":<價格>,"cache_write":<價格>}}
-ANTHROPIC_SERVER_FALLBACKS=true
+MODEL_PROVIDER=nvidia
+NVIDIA_API_KEY=<你的 NVIDIA 金鑰>
+FRONTIER_MODEL_ID=z-ai/glm-5.3
+FAST_MODEL_ID=z-ai/glm-5.3-flash
+MODEL_PRICES={"z-ai/glm-5.3":{"input":0,"output":0},"z-ai/glm-5.3-flash":{"input":0,"output":0}}
 ```
 
 | 變數 | 說明 |
 |---|---|
-| `ANTHROPIC_API_KEY` | 從 Anthropic Console 取得。只放在 `.env` |
-| `FRONTIER_MODEL_ID` | 必填。所有代理預設使用的模型 |
-| `FAST_MODEL_ID` | 選填。與 frontier 不同時，frontier 服務中斷、過載或限流時自動改用它；不設定則沒有備援 |
-| `MODEL_PRICES` | 必填，一行 JSON。每個設定的模型 ID 都要有價格，單位是**每百萬權杖美元**；`cache_read` / `cache_write` 可省略（視為 0）。缺少價格時程序會拒絕啟動 |
-| `ANTHROPIC_SERVER_FALLBACKS` | 預設開啟。模型拒答時由 API 端自動改用備援模型重試；成本依實際回覆的模型價格計算 |
+| `NVIDIA_API_KEY` | NVIDIA 金鑰，只放在 `.env` |
+| `NVIDIA_BASE_URL` | 預設 `https://integrate.api.nvidia.com/v1`。改用自架的 NIM 或其他 OpenAI 相容服務時才需要改 |
+| `FRONTIER_MODEL_ID` | 必填。**API 用的模型 ID 和網站卡片上的名稱不同**：卡片寫 `glm-5-3`，API 要填 `z-ai/glm-5.3`。每個模型頁面的程式範例中 `model=` 後面就是正確的 ID |
+| `FAST_MODEL_ID` | 選填。主要模型過載、限流或服務中斷時改用它 |
+| `MODEL_PRICES` | 免費端點填 0。改用付費的合作夥伴端點時，填該端點的每百萬權杖價格 |
+
+注意事項：
+
+- **速率限制**：免費端點多數模型約每分鐘 40 次請求。遇到限流時程式會依伺服器指示等待並重試兩次，仍失敗才改用備援模型或讓任務稍後重試。同時執行的代理多時，可調低 `WORKER_CONCURRENCY`。
+- **隱私**：NVIDIA 試用條款允許記錄輸入與輸出並用於改善其服務，不要送出機密資料。
+- **預算**：價格為 0 時，成本紀錄與預算上限不會擋下任何呼叫，實際的限制只有速率限制。
+- **繁體中文**：glm 系列可能預設輸出簡體中文。代理的系統提示要明確要求繁體中文（zh-TW），新聞編輯部的驗證器也會檢查（階段 5）。
+- 與 Claude 相比少了：伺服器端拒答備援、思考內容在工具迴圈中往返、提示快取計價。框架其他功能不受影響。
+
+### 3. 串接 Claude API（隨時可切換）
+
+在 `.env` 設定（NVIDIA 的金鑰可以留著）：
+
+```
+MODEL_PROVIDER=anthropic
+ANTHROPIC_API_KEY=<你的 Anthropic 金鑰>
+FRONTIER_MODEL_ID=claude-opus-5
+FAST_MODEL_ID=claude-sonnet-5
+MODEL_PRICES={"claude-opus-5":{"input":<價格>,"output":<價格>,"cache_read":<價格>,"cache_write":<價格>},"claude-sonnet-5":{"input":<價格>,"output":<價格>,"cache_read":<價格>,"cache_write":<價格>}}
+ANTHROPIC_SERVER_FALLBACKS=true
+```
 
 可用的模型 ID：
 
@@ -245,28 +267,42 @@ ANTHROPIC_SERVER_FALLBACKS=true
 | Claude Sonnet 5 | `claude-sonnet-5` | 較快、較便宜，適合當 fast |
 | Claude Haiku 4.5 | `claude-haiku-4-5-20251001` | 最快、最便宜 |
 
-> **價格請以 Anthropic 官方定價頁為準**填入 `MODEL_PRICES`，本文件不列數字以免過期。價格填錯會讓成本紀錄與預算控管失準。
+> **價格請以 Anthropic 官方定價頁為準**填入 `MODEL_PRICES`，本文件不列數字以免過期。Claude API 依權杖實際計費，費用記在 Anthropic Console 帳戶，與 Claude 訂閱方案分開；建議在 Console 設定每月花費上限。`ANTHROPIC_SERVER_FALLBACKS` 預設開啟：模型拒答時由 API 端自動改用備援模型重試。
 
-程式碼中不寫任何模型 ID（有測試強制），換模型只要改 `.env` 並重啟工作程序。
+### 切換供應者
 
-### 3. 確認串接成功
+兩把金鑰可以同時留在 `.env`。切換只要改三行，再重新啟動工作程序：
 
-設定好後執行真實呼叫測試（會產生少量費用，共三次小型呼叫）：
+| 要改的設定 | NVIDIA | Anthropic |
+|---|---|---|
+| `MODEL_PROVIDER` | `nvidia` | `anthropic` |
+| `FRONTIER_MODEL_ID` | `z-ai/glm-5.3` | 例如 `claude-opus-5` |
+| `FAST_MODEL_ID` | `z-ai/glm-5.3-flash` | 例如 `claude-sonnet-5` |
+
+`MODEL_PRICES` 可以一次列出兩邊所有會用到的模型，切換時就不用改。每次呼叫實際用了哪個供應者與模型，都記錄在 `model_calls` 資料表。程式碼中不寫任何模型 ID（有測試強制）。
+
+### 4. 確認串接成功
+
+設定好後執行真實呼叫測試。沒有設定金鑰的測試會顯示為略過：
 
 ```bash
-.venv/bin/pytest backend -m integration -v
+.venv/bin/pytest backend -m integration -v -s
 ```
 
-兩個測試都通過代表：金鑰有效、模型 ID 正確、結構化輸出可用、思考區塊可在工具迴圈中正確往返。這也是進入階段 3 前必須通過一次的檢查。
+| 測試 | 需要 | 驗證什麼 |
+|---|---|---|
+| `test_nvidia_live.py`（2 個） | `NVIDIA_API_KEY` | glm-5.3 的結構化輸出（中英標題）；工具呼叫 → 工具結果 → 最終 JSON 的兩輪迴圈 |
+| `test_anthropic_live.py`（2 個） | `ANTHROPIC_API_KEY` | Claude 的結構化輸出；思考內容在工具迴圈中正確往返（會計費，共三次小型呼叫） |
+| `tests/e2e/test_echo_live.py`（1 個） | `MODEL_PROVIDER` 設為 `nvidia` 或 `anthropic` 與其金鑰 | 用目前選的真實模型完整跑一次 EchoWorkflow：三位代理各寫一則筆記並回報合法 JSON |
 
-之後重啟工作程序，照第四節試跑 EchoWorkflow，三位代理就會由真實模型執行。每次呼叫的模型、權杖與成本記錄在 `model_calls` 資料表。
+EchoWorkflow 的真實模型測試通過，就滿足進入階段 3 的條件「真實模型呼叫通過一次」。之後照第四節啟動工作程序，三位代理就會由真實模型執行。
 
-### 4. 目前的路由規則
+### 5. 目前的路由規則
 
 - 所有角色、所有能力都使用 `frontier`；`fast` 只作為服務中斷時的備援。
 - `agents.model_policy` 欄位目前**尚未生效**。依角色指定不同模型（例如行銷用 fast）屬於之後的工作。
 
-### 5. 代理的其他設定（目前以 SQL 調整）
+### 6. 代理的其他設定（目前以 SQL 調整）
 
 以下設定目前沒有 API，請連進資料庫（第三節）後以 SQL 修改。範例以示範公司 `echo-demo` 為例，已在開發資料庫驗證可執行。
 
@@ -311,7 +347,7 @@ WHERE company_id = (SELECT id FROM companies WHERE slug = 'echo-demo') AND role 
 
 政策與預算在每次執行開始時讀取，修改後不需要重啟工作程序。
 
-### 6. 代理的提示、輸出格式與工具在哪裡
+### 7. 代理的提示、輸出格式與工具在哪裡
 
 代理的「工作內容」是程式碼，由各領域提供，並在 `backend/autora/app.py` 註冊：
 
@@ -365,7 +401,7 @@ pnpm test
 
 ### 真實模型測試
 
-見第六節第 3 點。預設不執行，沒有設定金鑰時會顯示為略過。
+見第六節第 4 點。預設不執行，沒有設定金鑰時會顯示為略過。
 
 ### 提交前的檢查（與 CI 相同）
 
@@ -424,7 +460,9 @@ make up
 | 前端指令出現 `internal/modules/cjs/loader.js` 錯誤 | Node 版本太舊，執行 `nvm use 22` |
 | Python 測試大量「skipped」 | 資料庫沒啟動。執行 `make dev`，並加上 `AUTORA_REQUIRE_DB=1` 讓它直接報錯 |
 | `database unavailable at ...` | 同上；或 5434 埠被佔用，可在 `.env` 改 `AUTORA_DB_PORT` 與 `DATABASE_URL` |
-| 任何程序啟動時出現 `Invalid configuration` | `.env` 不完整。例如 `MODEL_PROVIDER=anthropic` 卻缺少金鑰、模型 ID 或 `MODEL_PRICES`；訊息會列出缺哪一項 |
+| 任何程序啟動時出現 `Invalid configuration` | `.env` 不完整。例如 `MODEL_PROVIDER=nvidia` 卻缺少 `NVIDIA_API_KEY`、模型 ID 或 `MODEL_PRICES`；訊息會列出缺哪一項 |
+| 工作程序日誌出現 `RateLimited` | NVIDIA 免費端點限流。程式已自動重試；經常發生時調低 `WORKER_CONCURRENCY` |
+| 工作程序日誌出現 `NotFound` 或 `BadRequest` 且提到模型 | 模型 ID 寫錯。NVIDIA 要用頁面程式範例中的 ID（例如 `z-ai/glm-5.3`），不是卡片名稱 |
 | 工作流程啟動了但任務一直是 READY | 工作程序沒開，或 `WORKER_COMPANY_IDS` 沒有包含這間公司，或代理被暫停 |
 | 啟動工作流程回 422「project … is PROPOSED」 | 工作流程只能在 ACTIVE 專案中執行；用 `seed_echo.py` 建立的專案即為 ACTIVE |
 | API 回 401 | 權杖與 `.env` 的 `API_BEARER_TOKEN` 不一致 |

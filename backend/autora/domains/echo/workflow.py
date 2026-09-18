@@ -146,7 +146,7 @@ def register_behaviors(registry: BehaviorRegistry) -> None:
                 validators=(note_belongs_to_task,),
                 max_steps=4,
                 repair_limit=1,
-                max_output_tokens=1024,
+                max_output_tokens=4096,  # real models think before answering
                 context=upstream_notes,
                 summarize=lambda report: report.message[:200],
             )

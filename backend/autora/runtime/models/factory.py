@@ -21,6 +21,18 @@ def providers_from_settings(
     if settings.model_provider == "fake":
         return {"fake": FakeModelProvider(default=fake_default)}
 
+    if settings.model_provider == "nvidia":
+        from autora.runtime.models.providers.openai_compat import OpenAICompatibleProvider
+
+        assert settings.nvidia_api_key is not None  # Settings validates this
+        return {
+            "nvidia": OpenAICompatibleProvider(
+                name="nvidia",
+                base_url=settings.nvidia_base_url,
+                api_key=settings.nvidia_api_key.get_secret_value(),
+            )
+        }
+
     from anthropic import AsyncAnthropic
 
     from autora.runtime.models.providers.anthropic import AnthropicProvider
