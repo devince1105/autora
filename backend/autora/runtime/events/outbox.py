@@ -23,6 +23,8 @@ from autora.db.models import EventRecord
 from autora.runtime.events.schema import EventEnvelope, Persistence, parse_event
 
 EVENTS_CHANNEL = "autora_events"
+EPHEMERAL_CHANNEL = "autora_ephemeral"
+EPHEMERAL_MAX_BYTES = 7900  # NOTIFY payloads must stay under 8000 bytes
 _LOCK_NAMESPACE = 0x41_55_54  # arbitrary int4 namespace for pg_advisory_xact_lock(int, int)
 
 
@@ -68,6 +70,17 @@ async def emit(session: AsyncSession, envelope: EventEnvelope) -> EventEnvelope:
     )
     await session.execute(select(func.pg_notify(EVENTS_CHANNEL, f"{company}:{seq}")))
     return envelope.model_copy(update={"seq": seq})
+
+
+async def publish_ephemeral(session: AsyncSession, envelope: EventEnvelope) -> None:
+    """Send an ephemeral event (progress, agent heartbeat) to live viewers. Never stored; the
+    NOTIFY is delivered when the caller commits. Oversized payloads are refused."""
+    if envelope.persistence is not Persistence.EPHEMERAL:
+        raise EventEmitError(f"{envelope.event_type} is persisted; use emit()")
+    data = envelope.model_dump_json(exclude={"seq"})
+    if len(data.encode("utf-8")) > EPHEMERAL_MAX_BYTES:
+        raise EventEmitError(f"{envelope.event_type} payload exceeds {EPHEMERAL_MAX_BYTES} bytes")
+    await session.execute(select(func.pg_notify(EPHEMERAL_CHANNEL, data)))
 
 
 def to_envelope(row: EventRecord) -> EventEnvelope:

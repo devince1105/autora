@@ -7,19 +7,23 @@ from fastapi import FastAPI
 
 import autora
 from autora.app import load_event_catalogs
-from autora.db.session import dispose_engine, get_engine
+from autora.db.session import dispose_engine, get_engine, get_sessionmaker
 from autora.infra.settings import get_settings
+from autora.realtime.gateway import EventHub
 from autora_api import problems
-from autora_api.routers import approvals, companies, events, realtime, runs, workflows
+from autora_api.routers import approvals, companies, events, realtime, runs, workflows, ws
 
 
 @asynccontextmanager
-async def lifespan(_: FastAPI) -> AsyncIterator[None]:
+async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     get_settings()  # fail fast on missing/inconsistent configuration
-    get_engine()
+    hub = EventHub(engine=get_engine(), session_factory=get_sessionmaker())
+    app.state.hub = hub
+    await hub.start()
     try:
         yield
     finally:
+        await hub.stop()
         await dispose_engine()
 
 
@@ -38,4 +42,5 @@ def create_app() -> FastAPI:
     app.include_router(approvals.router)
     app.include_router(workflows.router)
     app.include_router(realtime.router)
+    app.include_router(ws.router)
     return app

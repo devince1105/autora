@@ -81,7 +81,7 @@ Snapshot 的投影函式在後端 `realtime/projection.py`；**snapshot 端點�
 | 問題 | 處理 |
 |---|---|
 | **Reconnect** | 指數退避 1s → 2s → 4s → … → 30s，±20% jitter。每次重連帶 `since=last_seq`。連續 5 次失敗顯示 offline banner（3D 內的「LIVE」牌變灰）。 |
-| **Event ordering** | 唯一依據 `seq`。Reducer 只接受 `seq > last_seq`。若 `seq > last_seq + 1`：放入 `pending` buffer，等待 300ms；仍有洞 → `GET /api/events?after=last_seq&until=seq` 補洞（REST），再依序套用。若補洞失敗 → 觸發 snapshot rehydrate。 |
+| **Event ordering** | 唯一依據 `seq`。Reducer 只接受 `seq > last_seq`。**（T-303 實作修訂）`seq` 是全域序號，一間公司的事件序號本來就不連續，不能以 `seq > last_seq + 1` 判斷缺口。** 改由 Gateway 保證：同一條連線上的事件依序且完整（outbox 以公司鎖讓同公司事件依 seq 提交，Gateway 以 `seq > cursor` 從 DB 讀取），唯一會斷流的情況（佇列溢出、落後太多）一律送 `SNAPSHOT_REQUIRED` 並關閉連線。前端因此不需要 pending buffer 與 REST 補洞；重連時以 `since=last_seq` 由 backlog 補齊。 |
 | **Duplicate events** | `seq ≤ last_seq` 直接丟棄（O(1)）。backlog 與 live 交界處可能重複，此規則涵蓋。 |
 | **Stale events** | 「stale」只影響**動畫**，不影響狀態：director 對 `occurred_at < now - 10s` 不產生 cue（狀態照套用）。前端用 `HELLO.server_time` 校正時鐘偏移。 |
 | **Connection failure** | WS 關閉 → store.connection = "reconnecting"；UI 保留最後狀態並標示「資料可能過期 Ns」。不清空畫面。 |

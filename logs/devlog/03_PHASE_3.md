@@ -14,7 +14,7 @@
 |---|---|---|---|---|
 | T-301 | 即時投影與 snapshot API | 後端 | 階段 1、2 | ✅ |
 | T-302 | 投影契約測試（Python 參考 reducer） | 後端 | T-301 | ✅ |
-| T-303 | WebSocket 閘道（LISTEN + 輪詢備援、backlog、SNAPSHOT_REQUIRED、心跳、有界佇列） | 後端 | T-301 | ⏳ |
+| T-303 | WebSocket 閘道（LISTEN + 輪詢備援、backlog、SNAPSHOT_REQUIRED、心跳、有界佇列） | 後端 | T-301 | ✅ |
 | T-304 | 代理執行器的即時進度（AGENT_STEP_PROGRESS，不落表） | 後端 | T-211、T-303 | ⏳ |
 | T-305 | 前端即時 store 與 reducer（跨語言契約） | 前端 | T-108 | ⏳ |
 | T-306 | RealtimeClient（重連、補洞、心跳逾時、背景分頁） | 前端 | T-305、T-303 | ⏳ |
@@ -37,7 +37,7 @@
   - `GET /api/tasks/{id}`、`GET /api/runs/{id}` 尚未實作（T-308、T-310 需要時補上）；
   - API 尚未設定 CORS，前端的 API 位址設定也還沒有（T-306 / T-308 時處理）；
   - 活動狀態的 `detail` 含有 `task_name` 與 `links`，這兩項不在事件本身，reducer 需要從任務資料補上（T-302 已處理 `task_name`；`links` 尚無領域提供）。
-  - **事件序號是全域的，不是每間公司各自連號**（T-302 發現，見該節）：`05` §4 以「`seq > last_seq + 1` 即有缺口」判斷的做法不能照用，T-303 / T-306 需要另外的缺口偵測方式。
+  - **事件序號是全域的，不是每間公司各自連號**（T-302 發現）：`05` §4 以「`seq > last_seq + 1` 即有缺口」判斷的做法不能照用。✅ T-303 以「閘道保證不斷流」解決，`05` §4 已修訂。
 
 ---
 
@@ -72,6 +72,52 @@
 - **效能**（`3d-office/07` §4 目標：本機 < 50 ms）：12 位代理、300 個任務、20,000 個事件，快照中位數約 **21 ms**。CI 的共用機器較慢，測試在 CI 上以 150 ms 為上限。
 - 以真實伺服器對開發資料庫呼叫：第一次 164 ms（建立連線），之後約 9 ms；示範公司的已完成狀態正確顯示為 IDLE；之後的請求不受隔離等級影響。
 - Python 測試共 600 個通過。
+
+---
+
+## T-303 · WebSocket 閘道
+
+### 做了什麼
+- `realtime/gateway.py`：
+  - `EventHub`：每個 API 程序一個。LISTEN `autora_events`（收到 `公司:序號` 就讀取該公司 `seq > 游標` 的事件，每次最多 500 筆），另每 2 秒輪詢有連線的公司（NOTIFY 遺失或監聽連線中斷時的備援；監聽連線斷掉會自動重連）；LISTEN `autora_ephemeral` 轉送即時事件；每 15 秒送 HEARTBEAT。
+  - `Connection`：每條連線一個有界佇列（1000）。一般事件放不下 → 清空佇列、送 SNAPSHOT_REQUIRED{queue_overflow} 後關閉；即時事件與心跳放不下就直接捨棄（本來就可遺失）。
+  - 傳輸層抽象（`send_json` / `close`），所以可以用假連線測試；FastAPI 只是轉接。
+- `api/.../routers/ws.py`：`WS /ws/companies/{id}?token=...&since=...`。瀏覽器無法在 WebSocket 上帶標頭，權杖放查詢字串（`05` §6）；權杖錯誤或公司不存在時先送 ERROR 訊息再關閉（4401 / 4404），因為瀏覽器讀不到握手被拒的原因。
+- API 啟動時建立並啟動 `EventHub`，關閉時停止並關掉所有連線。
+- `runtime/events/outbox.py`：新增 `publish_ephemeral()`（即時事件只走 NOTIFY、不落表、上限 7900 位元組），供 T-304 使用。
+
+### 協定
+
+| 伺服器 → 瀏覽器 | 說明 |
+|---|---|
+| HELLO `{server_time, head_seq, mode}` | 第一則；`mode` 為 live（已是最新）、backlog（要補）、snapshot_required |
+| EVENTS `{items}` → BACKLOG_DONE `{head_seq}` | 從 `since` 補到最新，每批 ≤ 200 |
+| EVENT `{...envelope}` | 即時，依序、不重複 |
+| EPHEMERAL `{event_type, agent_id, run_id, payload, occurred_at}` | 沒有 seq，可能被捨棄 |
+| HEARTBEAT `{server_time, head_seq}` | 每 15 秒；收到 PING 也回一則 |
+| SNAPSHOT_REQUIRED `{reason}` | gap_too_large（落後超過 5000）、unknown_since（沒帶或大於最新）、queue_overflow；之後關閉連線 |
+
+瀏覽器 → 伺服器：ACK `{last_seq}`（只記錄）、PING。
+
+### 設計決策
+- **不以序號算術偵測缺口**（T-302 帶來的問題）：序號是全域的，公司的事件序號本來就不連續。改由閘道保證同一條連線依序且完整：outbox 以公司鎖讓同公司事件依序號提交，閘道以 `seq > 游標` 從資料庫讀，所以讀到的一定是完整的後續；WebSocket 在同一條連線上不會掉訊息。會斷流的只有兩種情況，而且都明確通知（SNAPSHOT_REQUIRED）。前端因此不需要等待緩衝與 REST 補洞，`05` §4 已修訂。
+- **先登記、再補 backlog**：新連線先加入公司的連線集合，再讀 backlog；這段期間到的即時事件先進佇列，送出時丟掉序號不大於已送出的部分。這樣 backlog 與即時之間不會漏，也不會重複。
+- **公司的游標**在第一條連線時設為目前最新序號，最後一條連線離開時清除；讀取在同一把鎖下進行，避免同時的通知與輪詢重複送出。
+
+### 遇到的問題
+- （我造成的）第一版在讀取時一口氣把整批事件放進所有連線的佇列，中間不讓出執行權；佇列較小時，連正常的連線也會被判定溢出。改為每個事件之後讓出一次，溢出才真正代表「這條連線送不出去」。由佇列溢出測試（一快一慢兩條連線）發現。
+- （我造成的）停止時只關閉連線、沒有取消各連線的送出工作，測試結束時出現「Task was destroyed but it is pending」。改為停止時逐一中斷連線。
+- （我造成的）第一條連線登記前若剛好有讀取在進行，舊版會清掉游標，之後從序號 0 重讀該公司全部歷史。改為游標只在讀取時於鎖內建立、最後一條連線離開時才清除。
+
+### 驗證
+- `tests/realtime/test_gateway.py`：10 個通過，連續 5 次皆通過。包含 `05` §8 的四個測試：
+  - backlog 後轉即時（分批、BACKLOG_DONE、順序與不重複）；
+  - SNAPSHOT_REQUIRED（落後太多、沒帶 since、since 大於最新；剛好在上限內則正常補）；
+  - 完全關閉 LISTEN 時由輪詢送達；
+  - 佇列溢出：慢的連線收到 SNAPSHOT_REQUIRED 並被關閉，同公司快的連線 10 個事件全部收到。
+  - 另有：即時通知不必等輪詢、公司隔離、即時事件只送到所屬公司、心跳與 PING / ACK，以及**以真實 uvicorn 伺服器與真實 WebSocket 客戶端**測端點（錯誤權杖 4401、不存在的公司、HELLO、即時事件、PING）。
+- 在開發資料庫手動測試：API + 工作程序（假模型）+ WebSocket 客戶端。快照的 `last_seq` 與 HELLO 的 `head_seq` 一致（48），啟動 EchoWorkflow 後 40 個事件依序即時送達，最後是三個 AGENT_RUN_COMPLETED；兩個程序正常結束、日誌沒有錯誤。
+- Python 測試共 643 個通過。
 
 ---
 
