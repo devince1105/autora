@@ -6,6 +6,7 @@ import { useEffect } from "react";
 
 import { ApiError } from "@/api/client";
 import { companiesQuery, kpisQuery } from "@/api/queries";
+import { AgentList, AgentPanel } from "@/features/agent-panel/AgentPanel";
 import { storeToken } from "@/features/auth/TokenGate";
 import { useCompanyStream } from "@/features/company/useCompanyStream";
 import { useNow } from "@/hooks/useNow";
@@ -53,5 +54,16 @@ export function DashboardPage() {
     connection,
     now,
   );
-  return <DashboardView companyName={company.name} model={model} />;
+  return (
+    <>
+      <DashboardView companyName={company.name} model={model} />
+      <section className="mx-auto max-w-6xl px-4 pb-12" aria-labelledby="agents-heading">
+        <h2 id="agents-heading" className="mb-3 text-lg font-semibold">
+          代理
+        </h2>
+        <AgentList />
+      </section>
+      <AgentPanel />
+    </>
+  );
 }

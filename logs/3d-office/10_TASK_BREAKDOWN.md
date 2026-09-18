@@ -255,4 +255,5 @@ T-309,T-601 → T-608 ; T-211 → T-609 ; all → T-610
 | T-307 | `frontend/web/src/stores/ui.ts`（selectedAgentId、panelTab、cameraMode、timelinePaused、filters；follow 需有選取） |
 | T-308 | `backend/scripts/gen_openapi.py` → `src/api/openapi.json` → `schema.gen.ts`（`make gen-api`，CI 兩端檢查）、`src/api/{client,auth,queries,invalidation}.ts`（openapi-fetch、TanStack Query、`eventToQueryKeys`）；權杖存 localStorage 不編進程式；補上 `GET /api/runs/{id}`、`GET /api/tasks/{id}`，trace 回傳型別化 |
 | T-314 | `company/reporting_min.py`、`GET /api/companies/{id}/kpis`；模型費用只由 `model_calls` 計一次；**KPI 為伺服器狀態（Query），不在即時 store**（模型費用不是事件；snapshot.kpis 維持 null） |
-| T-309 | `/dashboard`（`features/dashboard/{model,DashboardView,DashboardPage}`、`features/auth/TokenGate`、`features/company/useCompanyStream`）；純 CSS Modules；權杖存 localStorage |
+| T-309 | `/dashboard`（`features/dashboard/{model,DashboardView,DashboardPage}`、`features/auth/TokenGate`、`features/company/useCompanyStream`）；Tailwind（D-007）；權杖存 localStorage |
+| T-310 | `features/agent-panel/{model,AgentCards,AgentPanelView,AgentPanel,StateBadge}`；產出計數來自 `TOOL_COMPLETED.produced`、下一步來自交接或下游任務、進度只在回報時顯示；Output 分頁暫為 JSON（依格式顯示留到階段 5） |
