@@ -1,15 +1,16 @@
 """T-208: one real call through the Anthropic provider.
 
-Run with ``pytest backend -m integration``; needs ANTHROPIC_API_KEY and FRONTIER_MODEL_ID.
+Run with ``pytest backend -m integration``. Reads the same configuration as the app
+(``.env`` or environment): ANTHROPIC_API_KEY and FRONTIER_MODEL_ID; skipped without them.
 """
 
-import os
 import uuid
 
 import pytest
 from anthropic import AsyncAnthropic
 from pydantic import BaseModel
 
+from autora.infra.settings import SettingsError, load_settings
 from autora.runtime.models.providers.anthropic import AnthropicProvider
 from autora.runtime.models.router import FREE, ModelBinding
 from autora.runtime.models.types import (
@@ -21,12 +22,22 @@ from autora.runtime.models.types import (
     ToolResultBlock,
 )
 
+
+def _config() -> tuple[str, str] | None:
+    """(api key, frontier model id) from settings, whatever MODEL_PROVIDER says."""
+    try:
+        settings = load_settings()
+    except SettingsError:
+        return None
+    if settings.anthropic_api_key is None or not settings.frontier_model_id:
+        return None
+    return settings.anthropic_api_key.get_secret_value(), settings.frontier_model_id
+
+
+CONFIG = _config()
 pytestmark = [
     pytest.mark.integration,
-    pytest.mark.skipif(
-        not (os.getenv("ANTHROPIC_API_KEY") and os.getenv("FRONTIER_MODEL_ID")),
-        reason="needs ANTHROPIC_API_KEY and FRONTIER_MODEL_ID",
-    ),
+    pytest.mark.skipif(CONFIG is None, reason="needs ANTHROPIC_API_KEY and FRONTIER_MODEL_ID"),
 ]
 
 
@@ -36,7 +47,7 @@ class Headline(BaseModel):
 
 
 def _binding() -> ModelBinding:
-    return ModelBinding(provider="anthropic", model_id=os.environ["FRONTIER_MODEL_ID"], price=FREE)
+    return ModelBinding(provider="anthropic", model_id=CONFIG[1], price=FREE)
 
 
 def _context() -> CallContext:
@@ -44,7 +55,7 @@ def _context() -> CallContext:
 
 
 async def test_structured_output_live():
-    provider = AnthropicProvider(AsyncAnthropic())
+    provider = AnthropicProvider(AsyncAnthropic(api_key=CONFIG[0]))
     response = await provider.complete(
         ModelRequest(
             capability="drafting",
@@ -68,7 +79,7 @@ async def test_structured_output_live():
 
 async def test_tool_loop_live():
     """Thinking blocks from turn one must be accepted back unchanged in turn two."""
-    provider = AnthropicProvider(AsyncAnthropic())
+    provider = AnthropicProvider(AsyncAnthropic(api_key=CONFIG[0]))
     tool = ToolDefinition(
         name="get_time",
         description="Current UTC time",

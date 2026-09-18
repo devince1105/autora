@@ -168,3 +168,52 @@ async def test_worker_is_idle_without_work(committed, e2e_settings, echo_company
     )
     assert await worker.tick() == 0
     await worker.run_until_idle()
+
+
+async def test_policy_override_makes_the_writer_wait_for_a_human(
+    committed, e2e_settings, echo_company
+):
+    """The runbook's approval walk-through: a company override tightens echo_note for writers."""
+    from autora.app import build_runtime
+    from autora.db.models import Approval
+    from autora.db.repositories.companies import upsert_policy
+    from tests.e2e.conftest import OPERATOR
+
+    company_id = echo_company.company.id
+    async with committed() as session:
+        await upsert_policy(
+            session,
+            company_id,
+            "policy.overrides",
+            {"echo_note": {"writer": "needs_approval"}},
+            updated_by=OPERATOR.as_json(),
+        )
+        await session.commit()
+    worker = build_worker(
+        e2e_settings, session_factory=committed, company_ids=frozenset({company_id})
+    )
+    wf, tasks = await start_echo(committed, echo_company)
+
+    await worker.run_until_idle()
+    async with committed() as session:
+        approval = await session.scalar(select(Approval).where(Approval.company_id == company_id))
+        writer = await session.get(AgentActivity, echo_company.agents["writer"].id)
+        states = [(await session.get(Task, tasks[n].id)).state for n in ORDER]
+    assert states == ["SUCCEEDED", "SUCCEEDED", "WAITING_APPROVAL"]
+    assert approval.action == "echo_note" and approval.state == "PENDING"
+    assert writer.state == ActivityState.WAITING and writer.detail["reason"] == "approval"
+
+    async with committed() as session:
+        await build_runtime().approvals.decide(
+            session, approval.id, outcome="approve", actor=OPERATOR
+        )
+        await session.commit()
+    await worker.run_until_idle()
+    async with committed() as session:
+        assert (await session.get(WorkflowRun, wf.id)).state == "SUCCEEDED"
+        runs = (
+            await session.scalars(
+                select(AgentRun).where(AgentRun.task_id == tasks["echo_write"].id)
+            )
+        ).all()
+    assert [r.state for r in runs] == ["COMPLETED"], "the same run resumed after approval"
