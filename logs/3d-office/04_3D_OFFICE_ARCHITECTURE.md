@@ -187,5 +187,6 @@ WS event ──▶ realtimeStore.applyEvent(event)      // domain 投影更新�
 ## 10. 資產計畫
 
 - 一個人形 GLB（可先用 Mixamo 風格低模 + 自製 6 clips，或 Kenney/Quaternius 類 CC0 低模）。**版權必須確認**，見 12_RISKS。
+- **（D-008）風格參考《動物森友會》**：Q 版比例、圓潤造型、柔和粉彩、溫馨辦公室。只參考風格，不使用任天堂的任何素材或可辨識的仿製；只用 CC0 素材（候選 Quaternius、Kenney、KayKit），來源與授權記入 `LICENSES.md`。
 - 家具 3 個 GLB。所有資產進 `public/models/`，透過 `useGLTF`。
 - 不做角色客製化系統。

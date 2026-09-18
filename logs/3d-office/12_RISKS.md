@@ -41,7 +41,7 @@
 | Q1 | Approval 在 MVP 是否一定要人？ | ✅ 已決（D-001） | **人核准**；demo 可用 policy flag 切 auto（本身是 HUMAN action） |
 | Q2 | 雙語的主語言與「只發一種語言」是否允許？ | ✅ 主語言已決（D-002） | **主語言 zh-TW**；單語發布未決，暫用兩語皆需 |
 | Q3 | Web search / embedding 供應商 | search ✅（D-003）／embedding 未決 | **search: Tavily**（結果只是候選，evidence 仍由 fetch_url 快照）；embedding: 抽象 `embed` alias，MVP 用 OpenAI-compatible adapter |
-| Q4 | 3D 資產來源：自製、CC0、或購買？ | P0（Phase 4 gate） | CC0 低模 + 自製 clips |
+| Q4 | 3D 資產來源：自製、CC0、或購買？ | P0（Phase 4 gate） | ✅ 已決定（D-008）：CC0 低多邊形人物，風格參考《動物森友會》（只參考風格，不用任天堂素材） |
 | Q5 | 每日預算數量級 | P1（Phase 6 gate） | $10/day，max_workflows_per_cycle=5 |
 | Q6 | 是否需要多人同時操作（審批權限）？ | P2 | 單一 operator |
 | Q7 | 公開站是否與 admin 同一部署？ | P2 | 同一 Next.js app 兩個 route group |
