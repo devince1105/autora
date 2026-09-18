@@ -143,11 +143,13 @@ function HeadTag({ member, seat }: { member: Member; seat: Seat }) {
   const tracker = useVisualTracker();
   const badge = useRef<HTMLSpanElement>(null);
   const bubble = useRef<HTMLSpanElement>(null);
-  const seen = useRef(-1);
+  const seen = useRef<{ version: number; el: HTMLElement | null }>({ version: -1, el: null });
   useFrame(() => {
-    if (tracker.version === seen.current || !badge.current) return;
-    seen.current = tracker.version;
-    applyTag({ badge: badge.current, bubble: bubble.current }, tracker.get(member.id));
+    const el = badge.current;
+    // write when the state moved, or when <Html> rebuilt its DOM (a fresh, empty tag)
+    if (!el || (tracker.version === seen.current.version && el === seen.current.el)) return;
+    seen.current = { version: tracker.version, el };
+    applyTag({ badge: el, bubble: bubble.current }, tracker.get(member.id));
   });
   return (
     <Html position={[seat.chair[0], 2.05, seat.chair[1]]} center zIndexRange={[20, 0]} style={{ pointerEvents: "none" }}>

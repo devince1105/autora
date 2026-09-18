@@ -13,6 +13,7 @@ import { realtimeStore, serverNow } from "@/stores/realtime";
 import type { Seat } from "../scene/layout";
 import { routeFor, useCues, type Route } from "../visual/CueRunner";
 import { visualForAgent, type Pose } from "../visual/mapping";
+import { avatarHandlers } from "../interaction/picking";
 import { AvatarController } from "./AvatarController";
 import { courierState } from "./courier";
 import { useRoster } from "./roster";
@@ -53,6 +54,7 @@ export function AgentAvatar({ agentId, seat, model }: { agentId: string; seat: S
   const latestRoster = useRef(roster);
   latestRoster.current = roster;
   const walk = useRef<{ seq: number; startedAt: number; route: Route | null } | null>(null);
+  const handlers = useMemo(() => avatarHandlers(agentId), [agentId]);
 
   useEffect(() => realtimeStore.subscribe(() => void (dirty.current = true)), []);
   useEffect(() => () => controller.dispose(), [controller]);
@@ -99,7 +101,14 @@ export function AgentAvatar({ agentId, seat, model }: { agentId: string; seat: S
   });
 
   return (
-    <group ref={group} position={placeFor(seat, "sit_idle")} rotation-y={seat.facing} scale={AVATAR_SCALE} userData={{ agentId }}>
+    <group
+      ref={group}
+      position={placeFor(seat, "sit_idle")}
+      rotation-y={seat.facing}
+      scale={AVATAR_SCALE}
+      userData={{ agentId }}
+      {...handlers}
+    >
       <primitive object={body} />
       {/* the document a courier carries, held at the chest (model units: the group is scaled) */}
       <mesh ref={paper} visible={false} position={[0, 0.3, 0.17]} rotation-x={-0.35}>

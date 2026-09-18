@@ -2,10 +2,12 @@
 // the camera (as in the reference renders), an environment of light panels (no download), the floors, the merged static office, glass, windows and screens, all
 // fitted into the camera; the agents (T-405) with their screens, lamps and tags (T-406). The
 // courier joins in T-408.
-import { Bounds, Environment, Lightformer } from "@react-three/drei";
+import { Environment, Lightformer } from "@react-three/drei";
 import { useEffect, useMemo } from "react";
 
 import { Agents } from "../agents/Agents";
+import { CameraRig } from "../camera/CameraRig";
+import { SelectionMarker } from "../interaction/SelectionMarker";
 import { DeskStatus, HeadTags } from "../agents/StatusIndicators";
 import { StatsProbe } from "../perf/StatsProbe";
 import { CueProvider } from "../visual/CueRunner";
@@ -13,7 +15,6 @@ import { VisualTrackerProvider } from "../visual/tracker";
 import { Floors } from "./Floors";
 import { officeParts, partitionGlassParts, windowGlassParts } from "./furniture";
 import { buildGeometry } from "./kit";
-import { ROOM } from "./layout";
 
 const SHADOW_EXTENT = 17;
 
@@ -55,18 +56,12 @@ export function OfficeScene() {
         <Lightformer form="rect" intensity={0.8} color="#fff6ea" position={[0, 6, 24]} rotation-y={Math.PI} scale={[30, 12, 1]} />
       </Environment>
 
-      <Bounds fit clip observe margin={1.04} maxDuration={0}>
-        <group>
-          <Floors />
-          <mesh geometry={office} castShadow receiveShadow>
-            <meshStandardMaterial vertexColors roughness={0.6} />
-          </mesh>
-          {/* an invisible box so the fit includes the full wall height */}
-          <mesh visible={false} position={[0, ROOM.wallHeight / 2, 0]}>
-            <boxGeometry args={[ROOM.maxX - ROOM.minX + 0.8, ROOM.wallHeight, ROOM.maxZ - ROOM.minZ + 0.8]} />
-          </mesh>
-        </group>
-      </Bounds>
+      <group>
+        <Floors />
+        <mesh geometry={office} castShadow receiveShadow>
+          <meshStandardMaterial vertexColors roughness={0.6} />
+        </mesh>
+      </group>
       <mesh geometry={windows}>
         <meshStandardMaterial vertexColors emissive="#e8f6ff" emissiveIntensity={0.55} roughness={0.1} />
       </mesh>
@@ -78,8 +73,10 @@ export function OfficeScene() {
           <DeskStatus />
           <Agents />
           <HeadTags />
+          <SelectionMarker />
         </CueProvider>
       </VisualTrackerProvider>
+      <CameraRig />
       <StatsProbe />
     </>
   );

@@ -10,6 +10,7 @@ import { useEffect, useState, type ComponentType } from "react";
 import type { Canvas3DProps } from "./Canvas3D";
 import { chooseMode, detectCapabilities, type Capabilities, type ModeReason, type OfficeView } from "./capabilities";
 import { OfficeBoard2D } from "./fallback/OfficeBoard2D";
+import { onOfficeKey } from "./interaction/picking";
 import { usePageVisible } from "./usePageVisible";
 
 export type { OfficeView } from "./capabilities";
@@ -39,6 +40,12 @@ export function OfficeCanvas({ view = "auto", onViewChange, detect = detectCapab
   const [lost, setLost] = useState(false);
   const [generation, setGeneration] = useState(0);
   const visible = usePageVisible();
+
+  // Esc clears the selection, 1–6 pick a role: in 3D and on the 2D board alike
+  useEffect(() => {
+    window.addEventListener("keydown", onOfficeKey);
+    return () => window.removeEventListener("keydown", onOfficeKey);
+  }, []);
 
   useEffect(() => {
     // Once, on the client (no window during server rendering); probing again changes nothing.

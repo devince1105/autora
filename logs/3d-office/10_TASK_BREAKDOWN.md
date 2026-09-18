@@ -123,6 +123,8 @@
 
 **T-411 · Office page integration** — `/office` = Canvas + Agent Detail Panel(T-310) + 迷你 Dashboard 條 + 連線指示 / In: T-401–T-410, T-310 / Out: `app/(admin)/office/page.tsx` / Validate: `pnpm -F web e2e office`
 
+**T-413 · 外觀調整（2026-09-19 使用者回饋新增）** — 配色協調、大門 / 玄關、分區邊界與標示、人物頭部比例、可切換的幾套風格（調色盤） / In: T-402, T-405 / Out: `office3d/palette.ts`、`scene/*` / Validate: 截圖檢視 + 既有版面測試
+
 **T-412 · Perf & soak test** — 2 小時 simulation soak（heap、FPS 記錄腳本）、lint 邊界 / In: T-411 / Out: `apps/web/e2e/office-soak.spec.ts`, 報告 / AC: Phase 4 Acceptance / Validate: `pnpm -F web e2e office-soak`
 
 ---
@@ -274,4 +276,5 @@ T-309,T-601 → T-608 ; T-211 → T-609 ; all → T-610
 | T-406 | `office3d/visual/tracker.tsx`（全場景共用的視覺狀態追蹤器，version 變動才更新）、`agents/{roster,indicators,StatusIndicators}`；螢幕 / 燈罩 / 光暈為三個 InstancedMesh 每幀設顏色；**桌燈不用 PointLight**（自發光燈罩 + 加法混合光暈，避免增加像素光源成本）；頭頂標籤以 ref 直接寫 DOM；重複泡泡隱藏 |
 | T-407 | `office3d/visual/{cues,director,CueRunner}`：`cuesFor`（04 §4 表）、`CueQueue`（同目標不重複、新執行中止、TTL 10 秒、每人最多 4 趟、效果並行）、`CueDirector` 只處理新事件、`routeFor`（路線與時間，供 T-408）；審批桌燈依狀態閃；**審批事件的 `agent_id` 為空，改取 actor** |
 | T-408 | `office3d/agents/courier.ts`（`along`、`courierState`）+ `AgentAvatar` 內的走路；人物本身走（不做分身）、胸前文件道具、交接時面向同事點頭；`routeFor` 加 `lookAt`；AC 以整條鏈路測試（新執行開始 → 立即回座） |
+| T-409 | `office3d/camera/{framing,CameraRig}`、`interaction/{picking,SelectionMarker}`；**自算總覽縮放取代 drei `Bounds`**；選取 → 聚焦並跟隨、拖曳 → free、取消 → 回預設等角總覽；OrbitControls 俯角 / 方位角 / 縮放 / 平移限制；點空白或 Esc 取消、1～6 選角色；HeadTag 在 `Html` 重建 DOM 後重寫 |
 | T-402 | **（D-010 重做）** `office3d/scene/{layout,kit,furniture,textures,Floors,Screens,OfficeScene}`：等角剖面辦公室（後排執行長 / 會議室 / 茶水間、兩條走道、長條桌、前排單桌 / 審批櫃台 / 休息區），靜態家具合併成一個頂點色網格（16 次繪製、約 2.1 萬三角形）、正交等角相機 + `Bounds`、左上主光陰影、`Lightformer` 環境光、Neutral 色調映射；初版：`office3d/scene/{layout,Room,Zones,Furniture,OfficeScene}`、`perf/StatsProbe`（`window.__autoraOffice`：FPS、繪製呼叫、三角形）；每角色 2 張桌（行銷 3、未知角色空桌 3），`assignSeats` 依 id 穩定、坐不下列入 `unseated`；`walkPath` 走前 / 後走道與中央走道；家具全用 `<Instances>`（34 次繪製、2,288 三角形）；`flat`（不用 ACES 色調映射）；drei 10.7.8 |

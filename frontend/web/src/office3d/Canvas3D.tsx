@@ -5,13 +5,12 @@
 import { Canvas } from "@react-three/fiber";
 import { NeutralToneMapping } from "three";
 
+import { uiStore } from "@/stores/ui";
+
 import { OfficeScene } from "./scene/OfficeScene";
 
 export const CANVAS_DPR: [number, number] = [1, 1.5];
-/**
- * Isometric view from the front right (D-010): an orthographic camera along (1, 1.15, 1); the
- * scene's <Bounds> fits the room into the canvas and refits on resize (CameraRig in T-409).
- */
+/** The camera starts isometric; CameraRig (T-409) frames the room and takes it from there. */
 const CAMERA_POSITION: [number, number, number] = [40, 46, 40];
 
 export interface Canvas3DProps {
@@ -29,8 +28,9 @@ export default function Canvas3D({ frameloop, onContextLost, onContextRestored }
       frameloop={frameloop}
       camera={{ position: CAMERA_POSITION, zoom: 30, near: 0.1, far: 500 }}
       gl={{ antialias: true, powerPreference: "high-performance" }}
-      onCreated={({ gl, camera }) => {
-        camera.lookAt(0, 0, 0);
+      // a click on nothing (not a drag) clears the selection
+      onPointerMissed={() => uiStore.getState().selectAgent(null)}
+      onCreated={({ gl }) => {
         // Neutral tone mapping keeps the palette's colours (filmic ACES greys them out).
         gl.toneMapping = NeutralToneMapping;
         const canvas = gl.domElement;
