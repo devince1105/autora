@@ -214,7 +214,8 @@ export class RealtimeClient {
         this.setStatus("live");
         break;
       case "EVENT": {
-        const { type: _type, ...envelope } = message;
+        const envelope = { ...message };
+        delete envelope.type; // the rest of the message is the event envelope
         this.count(state.applyEvents([envelope]));
         break;
       }

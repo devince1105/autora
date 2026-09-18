@@ -112,6 +112,7 @@
   2. 停掉 API 約 20 秒，期間直接在資料庫啟動第二個工作流程並由工作程序完成；
   3. 重啟 API。狀態依序為 connecting → live → reconnecting → **offline**（5 次失敗）→ connecting → live；client 從 324 補到 362（整個停機期間的工作流程），**與伺服器重新取得的 snapshot 完全相同**。
 - web 共 38 個測試通過；`typecheck`、`lint`、`next build` 通過；API 測試 28 個通過（含 CORS）。
+- （我造成的）第一次推送後 CI 的 web 工作失敗：`client.ts` 有一個未使用的變數（ESLint `no-unused-vars`）。本機其實也會失敗，但我用 `pnpm -r --silent lint | tail` 檢查，`--silent` 隱藏了錯誤、管線又吃掉了結束碼，所以誤以為通過。與階段 2 記下的教訓相同：**檢查要看指令本身的結束碼，不要只看經過管線的輸出**。修正後以結束碼確認 lint、typecheck、測試皆通過。
 
 ---
 
