@@ -8,6 +8,7 @@ import { useEffect, useMemo } from "react";
 import { Agents } from "../agents/Agents";
 import { DeskStatus, HeadTags } from "../agents/StatusIndicators";
 import { StatsProbe } from "../perf/StatsProbe";
+import { CueProvider } from "../visual/CueRunner";
 import { VisualTrackerProvider } from "../visual/tracker";
 import { Floors } from "./Floors";
 import { officeParts, partitionGlassParts, windowGlassParts } from "./furniture";
@@ -73,9 +74,11 @@ export function OfficeScene() {
         <meshStandardMaterial vertexColors transparent opacity={0.22} roughness={0.05} metalness={0.1} depthWrite={false} />
       </mesh>
       <VisualTrackerProvider>
-        <DeskStatus />
-        <Agents />
-        <HeadTags />
+        <CueProvider>
+          <DeskStatus />
+          <Agents />
+          <HeadTags />
+        </CueProvider>
       </VisualTrackerProvider>
       <StatsProbe />
     </>

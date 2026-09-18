@@ -142,6 +142,15 @@ export function lampSpot(seat: Seat): { shade: [number, number, number]; glow: [
   return { shade: [x, TOP + LAMP.height - 0.05, z], glow: [x, TOP + 0.004, z + 0.08] };
 }
 
+/** The approval desk's lamp, on its counter: blinks while someone waits for a decision (T-407). */
+const APPROVAL_LAMP = { dx: 1.0, dz: 0.2, lift: 1.1 - TOP } as const;
+
+export function approvalLampSpot(): { shade: [number, number, number]; glow: [number, number, number] } {
+  const x = APPROVAL_DESK.center[0] + APPROVAL_LAMP.dx - LAMP.reach;
+  const z = APPROVAL_DESK.center[1] + APPROVAL_LAMP.dz;
+  return { shade: [x, 1.1 + LAMP.height - 0.05, z], glow: [x, 1.1 + 0.004, z - 0.05] };
+}
+
 /** The lamp's fixed parts: base, pole and arm (the shade is drawn live). */
 function lampBody(): Part[] {
   return [
@@ -376,6 +385,7 @@ function approvalDesk(): Part[] {
     box(0.35, 0.35, 0.02, [0, 0.35, -depth / 2 - 0.005], P.approvalAccent),
     ...place(workstation(), 0, 0.1),
     ...place(officeChair(P.approvalAccent), 0, depth / 2 + 0.45),
+    ...place(lampBody(), APPROVAL_LAMP.dx - LAMP.x, APPROVAL_LAMP.dz - LAMP.z, 0, APPROVAL_LAMP.lift),
   ];
   return place(parts, APPROVAL_DESK.center[0], APPROVAL_DESK.center[1]);
 }

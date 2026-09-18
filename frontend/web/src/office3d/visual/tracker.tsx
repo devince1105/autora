@@ -14,6 +14,8 @@ type Store = { getState(): RealtimeStoreState; subscribe(listener: () => void): 
 
 export class VisualTracker {
   version = 0;
+  /** Agents waiting for a human's approval now (the approval desk lamp blinks while > 0). */
+  approvalsWaiting = 0;
   private visuals = new Map<string, VisualState>();
   private keys = new Map<string, string>();
   private dirty = true;
@@ -37,7 +39,9 @@ export class VisualTracker {
     const at = serverNow(state);
     const next = new Map<string, VisualState>();
     let changed = false;
+    let waiting = 0;
     for (const agent of Object.values(state.company?.agents ?? {})) {
+      if (agent.activity?.stored_state === "WAITING" && agent.activity.detail.reason === "approval") waiting++;
       const visual = visualForAgent(agent, at);
       if (!visual) continue;
       next.set(agent.id, visual);
@@ -49,6 +53,10 @@ export class VisualTracker {
     }
     for (const id of this.visuals.keys()) if (!next.has(id)) changed = true;
     this.visuals = next;
+    if (waiting !== this.approvalsWaiting) {
+      this.approvalsWaiting = waiting;
+      changed = true;
+    }
     if (changed) this.version++;
     return this.version;
   }

@@ -19,13 +19,15 @@ import {
 } from "three";
 
 import { ROLE_COLOR } from "../palette";
-import { lampSpot, MONITOR, screenSpots } from "../scene/furniture";
+import { approvalLampSpot, lampSpot, MONITOR, screenSpots } from "../scene/furniture";
 import { allSeats, type Seat } from "../scene/layout";
+import { useCues } from "../visual/CueRunner";
 import { useVisualTracker } from "../visual/tracker";
 import { applyTag, lampColors, screenColor } from "./indicators";
 import { useRoster, type Member } from "./roster";
 
 const SEATS = allSeats();
+const APPROVAL = "approval";
 
 function instanced(geometry: ConstructorParameters<typeof InstancedMesh>[0], material: MeshBasicMaterial, placements: { pos: readonly number[]; rot?: [number, number, number] }[]) {
   const mesh = new InstancedMesh(geometry, material, placements.length);
@@ -56,14 +58,20 @@ function glowTexture(): CanvasTexture | null {
   return new CanvasTexture(canvas);
 }
 
-/** Screens and lamps of every desk; an empty desk's are off. */
+/**
+ * Screens and lamps of every desk (an empty desk's are off), the approval desk's lamp (blinking
+ * while anyone waits for approval), and the cue effects: a red flash on a final failure, an alert
+ * on a screen.
+ */
 export function DeskStatus() {
   const tracker = useVisualTracker();
+  const cues = useCues();
   const { bySeat } = useRoster();
 
   const meshes = useMemo(() => {
     const screenPlaces = SEATS.flatMap((seat) => screenSpots(seat).map((s) => ({ seat: seat.key, pos: s.pos, rot: [0, s.rotY, 0] as [number, number, number] })));
-    const lampPlaces = SEATS.map((seat) => ({ seat: seat.key, ...lampSpot(seat) }));
+    // every desk's lamp, then the approval desk's (last)
+    const lampPlaces = [...SEATS.map((seat) => ({ seat: seat.key, ...lampSpot(seat) })), { seat: APPROVAL, ...approvalLampSpot() }];
     const glowMap = glowTexture();
     return {
       screenSeats: screenPlaces.map((p) => p.seat),
@@ -98,9 +106,24 @@ export function DeskStatus() {
       const agentId = bySeat.get(seatKey);
       return agentId ? tracker.get(agentId) : undefined;
     };
-    meshes.screenSeats.forEach((seat, i) => meshes.screens.setColorAt(i, screenColor(visualAt(seat)?.screen ?? "off", t, c.screen)));
+    const effect = (kind: "flash" | "screen_alert", seatKey: string) => {
+      const agentId = bySeat.get(seatKey);
+      return Boolean(agentId && cues?.queue.effect(kind, agentId));
+    };
+    meshes.screenSeats.forEach((seat, i) => {
+      const screen = effect("screen_alert", seat) ? "alert" : (visualAt(seat)?.screen ?? "off");
+      meshes.screens.setColorAt(i, screenColor(screen, t, c.screen));
+    });
     meshes.lampSeats.forEach((seat, i) => {
-      const { shade, glow } = lampColors(visualAt(seat)?.deskLight ?? "off", t, c.shade, c.glow);
+      const light =
+        seat === APPROVAL
+          ? tracker.approvalsWaiting > 0
+            ? "blink_amber"
+            : "on"
+          : effect("flash", seat)
+            ? "blink_red"
+            : (visualAt(seat)?.deskLight ?? "off");
+      const { shade, glow } = lampColors(light, t, c.shade, c.glow);
       meshes.shades.setColorAt(i, shade);
       meshes.glows.setColorAt(i, glow);
     });

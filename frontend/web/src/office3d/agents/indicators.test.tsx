@@ -10,6 +10,7 @@ import { createRealtimeStore, realtimeStore, serverNow } from "@/stores/realtime
 
 import { allSeats, assignSeats } from "../scene/layout";
 import { visualForAgent, type VisualState } from "../visual/mapping";
+import { CueDirector, CueProvider } from "../visual/CueRunner";
 import { VisualTracker, VisualTrackerProvider } from "../visual/tracker";
 import { applyTag, BLINK, lampColors, SCREEN_COLOR, screenColor } from "./indicators";
 import { DeskStatus } from "./StatusIndicators";
@@ -140,3 +141,48 @@ describe("DeskStatus", () => {
     await renderer.unmount();
   });
 });
+
+describe("cue effects and the approval desk", () => {
+  it("a final failure flashes the agent's lamp red; the approval desk blinks while someone waits", async () => {
+    realtimeStore.getState().hydrate(fixture.snapshot_before);
+    const director = new CueDirector(realtimeStore);
+    const renderer = await ReactThreeTestRenderer.create(
+      <VisualTrackerProvider>
+        <CueProvider director={director}>
+          <DeskStatus />
+        </CueProvider>
+      </VisualTrackerProvider>,
+    );
+    const agentId = fixture.snapshot_before.agents[0].id;
+    const { seats } = assignSeats(fixture.snapshot_before.agents);
+    const lampIndex = allSeats().findIndex((s) => s.key === seats.get(agentId)!.key);
+    const [, shades] = renderer.scene
+      .findAll((n) => (n.instance as InstancedMesh).isInstancedMesh)
+      .map((n) => n.instance as InstancedMesh);
+    const shade = (i: number) => {
+      const c = new Color();
+      shades.getColorAt(i, c);
+      return c;
+    };
+
+    // a flash, at its brightest (blink phase: a quarter period), is red
+    director.queue.apply([{ kind: "flash", agentId, color: "red", durationMs: 60_000, seq: 1 }], performance.now());
+    await ReactThreeTestRenderer.act(async () => renderer.advanceFrames(1, BLINK.blink_red / 4));
+    const red = shade(lampIndex);
+    expect(red.r).toBeGreaterThan(red.g * 2);
+
+    // someone waiting for approval: the approval desk lamp (the last one) turns amber
+    const approvalLamp = allSeats().length;
+    const waitingEvent = fixture.events.find((e) => e.event_type === "AGENT_WAITING" && (e.payload as { reason: string }).reason === "approval");
+    expect(waitingEvent).toBeTruthy();
+    await ReactThreeTestRenderer.act(async () => {
+      realtimeStore.getState().applyEvents(fixture.events.slice(0, fixture.events.indexOf(waitingEvent!) + 1));
+      await renderer.advanceFrames(1, 0.016);
+    });
+    const amber = shade(approvalLamp);
+    expect(amber.r).toBeGreaterThan(amber.b * 2);
+    await renderer.unmount();
+    director.dispose();
+  });
+});
+
