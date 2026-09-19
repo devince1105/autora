@@ -45,7 +45,8 @@ test("desktop: a WebGL 2 canvas that draws", async ({ page }, info) => {
   });
   expect(state).toMatchObject({ webgl2: true, lost: false });
   // sized to its container once measured (300 x 150 is a canvas's default size)
-  await expect.poll(() => canvas.evaluate((el: HTMLCanvasElement) => el.width)).toBeGreaterThan(300);
+  // (the first layout can take a while under CI's software rendering)
+  await expect.poll(() => canvas.evaluate((el: HTMLCanvasElement) => el.width), { timeout: 30_000 }).toBeGreaterThan(300);
 
   // The in-canvas probe: frames are drawn, instancing keeps draw calls low, the scene is low-poly.
   // Its first report can say 0 fps under CI's software WebGL (shaders still compiling in that
