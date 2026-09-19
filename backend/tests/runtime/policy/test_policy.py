@@ -24,6 +24,7 @@ MATRIX = {
     "search_evidence":      (A, A, A, A, A, A, D),
     "create_claim":         (D, A, D, D, D, D, D),
     "link_evidence":        (D, A, D, D, D, D, D),
+    "list_claims":          (A, A, A, A, A, A, D),
     "write_draft":          (D, D, A, D, D, D, D),
     "read_draft":           (D, D, A, A, A, A, D),
     "run_fact_check":       (D, D, D, A, D, D, D),

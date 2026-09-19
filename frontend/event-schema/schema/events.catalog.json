@@ -1126,6 +1126,46 @@
         }
       }
     },
+    "CLAIM_CREATED": {
+      "1": {
+        "persistence": "persisted",
+        "payload": {
+          "additionalProperties": false,
+          "properties": {
+            "claim_id": {
+              "format": "uuid",
+              "title": "Claim Id",
+              "type": "string"
+            },
+            "story_id": {
+              "format": "uuid",
+              "title": "Story Id",
+              "type": "string"
+            },
+            "claim_type": {
+              "title": "Claim Type",
+              "type": "string"
+            },
+            "evidence_ids": {
+              "default": [],
+              "items": {
+                "format": "uuid",
+                "type": "string"
+              },
+              "title": "Evidence Ids",
+              "type": "array"
+            }
+          },
+          "required": [
+            "claim_id",
+            "story_id",
+            "claim_type"
+          ],
+          "title": "ClaimCreated",
+          "type": "object"
+        }
+      }
+    },
     "COMPANY_CREATED": {
       "1": {
         "persistence": "persisted",

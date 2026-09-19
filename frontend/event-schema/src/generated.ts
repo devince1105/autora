@@ -326,6 +326,20 @@ export const BudgetExhaustedV1Event = z.object({
   payload: BudgetExhaustedV1Payload,
 });
 
+export const ClaimCreatedV1Payload = z.object({
+  claim_id: z.uuid(),
+  story_id: z.uuid(),
+  claim_type: z.string(),
+  evidence_ids: z.array(z.uuid()).default(() => ([])),
+});
+export type ClaimCreatedV1Payload = z.infer<typeof ClaimCreatedV1Payload>;
+export const ClaimCreatedV1Event = z.object({
+  ...envelopeFields,
+  event_type: z.literal("CLAIM_CREATED"),
+  schema_version: z.literal(1),
+  payload: ClaimCreatedV1Payload,
+});
+
 export const CompanyCreatedV1Payload = z.object({
   slug: z.string(),
   name: z.string(),
@@ -961,6 +975,7 @@ export const EventEnvelope = z.discriminatedUnion("event_type", [
   ApprovalRequestedV1Event,
   BudgetAllocatedV1Event,
   BudgetExhaustedV1Event,
+  ClaimCreatedV1Event,
   CompanyCreatedV1Event,
   CycleCompletedV1Event,
   CyclePlanFallbackV1Event,
@@ -1034,6 +1049,7 @@ export const EVENT_TYPES = [
   "APPROVAL_REQUESTED",
   "BUDGET_ALLOCATED",
   "BUDGET_EXHAUSTED",
+  "CLAIM_CREATED",
   "COMPANY_CREATED",
   "CYCLE_COMPLETED",
   "CYCLE_PLAN_FALLBACK",

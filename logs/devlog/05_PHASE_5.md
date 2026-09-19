@@ -18,7 +18,7 @@
 | T-502 | `fetch_url` 工具 + Evidence + 快照（BlobStore） | T-204、T-210 | ✅ |
 | T-503 | `evidence_chunks` + embedding（pgvector） | T-502、T-207 | ✅ |
 | T-504 | Stories + 去重 | T-501、T-503 | ✅ |
-| T-505 | Claims / ClaimEvidence + 工具（`create_claim`、`link_evidence`，引文定位） | T-504 | ⏳ |
+| T-505 | Claims / ClaimEvidence + 工具（`create_claim`、`link_evidence`，引文定位） | T-504 | ✅ |
 | T-506 | Researcher 代理（提示、`ResearchNote` schema、validators） | T-211、T-500、T-502 | ⏳ |
 | T-507 | Analyst 代理（`AnalysisNote`、claims） | T-505 | ⏳ |
 | T-508 | Articles / ArticleVersions（lang、draft_group）+ `write_draft` 工具；雙語 claim 集合一致 | T-504 | ⏳ |
@@ -189,6 +189,31 @@ T-500 → T-501 → T-502 → T-503 → T-504 → T-505 → T-508 → T-510 → 
 - `tests/newsroom/test_stories.py`（9 個，向量用「依主題給定」的腳本，每個併入 / 新開的判斷都是確定的）：兩個 feed 的 5 則項目分成 3 個故事（微電網 3 則、2 個來源；相似度 0.6 < 0.65 的居民報導另開；咖啡另開），事件與相似度正確、再跑一次沒有待處理；同一網址從另一個來源進來會併入（相似度 1.0）；被忽略的故事吸收新項目、不開新題；超過 30 天的故事不比對；分數（1 個來源、剛發布、信任 0.5 → 0.567；一週前 → 0.267）；embedding 失敗什麼都不寫（排程之後重試）；選定 / 忽略 / 放棄、不合法的轉換、跨公司的專案被拒、稽核紀錄；**經過工作程序排程器：輪詢後分群**。
 - 真實模型：`test_embed_live.py` 新增門檻檢查通過（同事件 ≥ 0.65、相關與無關 < 0.65）。
 - 後端 741 個測試通過；`ruff`、`lint-imports`、`make db-check` 通過；event-schema 8 個、web 209 個測試與 typecheck、lint 通過。
+
+---
+
+## T-505 · 主張（Claim）與證據引文
+
+### 做了什麼
+- **資料表**（migration `0016`）：
+  - `claims`：屬於哪個題材、主張本文、類型（`fact` 事實、`number` 數字、`quote` 引述、`attribution` 歸屬、`opinion` 意見）、查核狀態（`UNVERIFIED` / `VERIFIED` / `REJECTED`，T-510 推進）、建立它的工具呼叫鍵（唯一：重試不會重複建立）、任務與執行。
+  - `claim_evidence`：主張與證據的連結：**引文一律是證據原文中定位到的那一段**（含起訖位置），不是模型寫的版本；關係是 `supports` 支持 / `contradicts` 矛盾 / `context` 背景；同一主張、同一證據、同一位置、同一關係只有一筆。
+- **引文定位**（`domains/newsroom/quotes.py`，fact-check 第一層的基礎）：只容許排版差異——連續空白算一個、彎引號算直引號、各種破折號算連字號、全形與不斷行空白算空白，**中文字旁邊的空白不算**（中文不用空格分詞，換行或空格只是排版）。字詞、數字、標點、大小寫都必須一致：改一個數字或把 six 寫成 five 都找不到。長度 4～500 字（太短沒意義；太長等於轉載，platform/05 §8）。回傳原文中的起訖位置，存進去的是原文。
+- **工具**（`domains/newsroom/tools/claims.py`）：
+  - `create_claim`（write，分析師）：建立主張，**可以同時附上證據引文**（通常的用法）；所有引文都找到才寫入，任何一段找不到整個呼叫失敗、什麼都不寫，錯誤訊息告訴模型怎麼修（「從 read_evidence / search_evidence 原樣複製，只有空白與引號可以不同」）。新主張發 `CLAIM_CREATED`（含引用的證據）、`produced: claim`（AC-5 分析師面板的「Claims」計數）。事實、數字、引述類的主張沒有支持引文時照樣建立，但結果會註明「查核前還需要至少一段支持引文」；意見不需要。
+  - `link_evidence`（write，分析師）：之後再補引文（支持 / 矛盾 / 背景），同一條連結重複送只存一次。
+  - `list_claims`（read，新動作）：列出題材的主張與引文（含證據網址、標題、狀態），寫手與編輯之後會用。權限：研究、分析、寫作、編輯、行銷、CEO 都可以讀（和 `read_evidence` 相同）；已同步 `platform/07` 權限表與權限矩陣測試。
+- 時間軸：「新增主張：數字・引用 2 份證據」。
+
+### 過程中的問題
+- 測試抓到兩個問題：
+  1. 模型把中文引文換行（`1,200 組屋頂\n太陽能板`）時找不到——原本把所有空白當成一個空格，但原文在中文字之間沒有空格。改成中文字旁的空白一律不算，兩邊用同樣的規則正規化。
+  2. 同一個交易裡建立的多條連結，建立時間相同，讀回來的順序不一定是寫入順序。連結的 ID 改用有時間順序的 UUIDv7，依 ID 排序。
+- 新增 `list_claims` 動作後，權限矩陣測試提醒它不在矩陣裡（沒有宣告的動作預設拒絕，矩陣要涵蓋每個動作）；補上矩陣與 `platform/07`。
+
+### 驗證
+- `tests/newsroom/test_claims.py`（13 個）：引文定位（原文位置、空白 / 引號 / 破折號差異、拼字 / 大小寫 / 數字 / 內容不同都找不到、中文與中文空白、第一次出現、長度限制）；`create_claim` 附兩段引文（中英各一，存的是原文、位置正確、事件帶證據、run 正確）；重試回傳同一個主張；一段找不到就整個不寫；太長的引文、別家公司的題材與證據；之後補引文、重複連結只存一次、背景引文、意見不需證據、`list_claims`；權限。
+- 後端 754 個測試通過（含權限矩陣）；`ruff`、`lint-imports`、`make db-check` 通過；event-schema 8 個、web 210 個測試與 typecheck、lint 通過。
 
 ---
 

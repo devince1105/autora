@@ -1,7 +1,7 @@
 """Newsroom tables (logs/platform/05_NEWSROOM_DOMAIN.md §1, 10_DATABASE_SCHEMA.md).
 
 Phase 5 adds them task by task; T-501: sources and the items polled from them; T-502: evidence;
-T-503: evidence chunks with embeddings; T-504: stories.
+T-503: evidence chunks with embeddings; T-504: stories; T-505: claims and their evidence.
 """
 
 from __future__ import annotations
@@ -216,3 +216,70 @@ class StoryItem(Base):
     similarity: Mapped[float | None]
     """How close the item was to the story when it joined (None: it started the story)."""
     joined_at: Mapped[datetime] = mapped_column(server_default=text("now()"))
+
+
+class ClaimType(StrEnum):
+    FACT = "fact"
+    NUMBER = "number"
+    QUOTE = "quote"
+    """Someone's words, quoted."""
+    ATTRIBUTION = "attribution"
+    """Who said or did something."""
+    OPINION = "opinion"
+    """An assessment; the only type that needs no supporting evidence (T-510)."""
+
+
+class ClaimStatus(StrEnum):
+    UNVERIFIED = "UNVERIFIED"
+    VERIFIED = "VERIFIED"
+    REJECTED = "REJECTED"
+
+
+class SupportType(StrEnum):
+    SUPPORTS = "supports"
+    CONTRADICTS = "contradicts"
+    CONTEXT = "context"
+
+
+class Claim(IdMixin, TimestampMixin, Base):
+    """A checkable statement about a story (T-505). Articles cite claims, claims cite evidence:
+    every fact, number and quote in an article traces back to a quote in a captured page."""
+
+    __tablename__ = "claims"
+    __table_args__ = (
+        check_in("claim_type", ClaimType),
+        check_in("status", ClaimStatus),
+        Index("ix_claims_story", "story_id"),
+    )
+
+    company_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("companies.id"))
+    story_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("stories.id"))
+    text: Mapped[str]
+    claim_type: Mapped[str]
+    status: Mapped[str] = mapped_column(server_default=ClaimStatus.UNVERIFIED.value)
+    idempotency_key: Mapped[str | None] = mapped_column(unique=True)
+    """The creating tool call's key: a retried call returns the same claim."""
+    task_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("tasks.id"))
+    run_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("agent_runs.id"))
+
+
+class ClaimEvidence(IdMixin, CreatedAtMixin, Base):
+    """A quote from an evidence text, and how it bears on a claim. ``quote`` is always the
+    evidence's own text between ``quote_start`` and ``quote_end``."""
+
+    __tablename__ = "claim_evidence"
+    __table_args__ = (
+        check_in("support_type", SupportType),
+        CheckConstraint("quote_end > quote_start AND quote_start >= 0", name="quote_span"),
+        UniqueConstraint("claim_id", "evidence_id", "quote_start", "support_type"),
+        Index("ix_claim_evidence_evidence", "evidence_id"),
+    )
+
+    company_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("companies.id"))
+    claim_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("claims.id"))
+    evidence_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("evidence.id"))
+    quote: Mapped[str]
+    quote_start: Mapped[int]
+    quote_end: Mapped[int]
+    support_type: Mapped[str]
+    run_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("agent_runs.id"))

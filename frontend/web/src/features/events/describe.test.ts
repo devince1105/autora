@@ -32,6 +32,11 @@ describe("describeEvent: newsroom sources and evidence (T-501, T-502)", () => {
     expect(describeEvent("STORY_DROPPED", { title: "B", score: 0, reason: "no sources" }).summary).toBe("B・no sources");
   });
 
+  it("claims say their type and how much evidence they quote (T-505)", () => {
+    expect(describeEvent("CLAIM_CREATED", { claim_type: "number", evidence_ids: ["a", "b"] }).summary).toBe("數字・引用 2 份證據");
+    expect(describeEvent("CLAIM_CREATED", { claim_type: "opinion", evidence_ids: [] }).summary).toBe("意見・尚無證據");
+  });
+
   it("an unknown type is shown as itself", () => {
     expect(describeEvent("SOMETHING_NEW", {})).toEqual({ label: "SOMETHING_NEW", tone: "neutral", summary: null, known: false });
   });

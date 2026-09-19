@@ -21,6 +21,8 @@ const n = (value: unknown) => (typeof value === "number" ? value : null);
 const duration = (value: unknown) => (n(value) === null ? null : `${Math.round((value as number) / 1000)} 秒`);
 const money = (p: Payload) => (s(p.amount) ? `${s(p.currency) ?? "USD"} ${p.amount}` : null);
 
+const CLAIM_TYPE: Record<string, string> = { fact: "事實", number: "數字", quote: "引述", attribution: "歸屬", opinion: "意見" };
+
 const storyLine = (p: Payload) => {
   const score = Number(p.score);
   return [s(p.title), Number.isFinite(score) && p.score !== null && p.score !== undefined ? `分數 ${Math.round(score * 100)}` : null]
@@ -97,6 +99,11 @@ const FORMAT: Record<string, (p: Payload) => [string, Tone, string | null]> = {
   // stories (T-504): a score is 0-1, shown as a percentage
   STORY_DISCOVERED: (p) => ["發現題材", "neutral", storyLine(p)],
   STORY_SELECTED: (p) => ["選定題材", "ok", storyLine(p)],
+  CLAIM_CREATED: (p) => {
+    const quoted = Array.isArray(p.evidence_ids) ? p.evidence_ids.length : 0;
+    const type = CLAIM_TYPE[s(p.claim_type) ?? ""] ?? s(p.claim_type);
+    return ["新增主張", "work", [type, quoted ? `引用 ${quoted} 份證據` : "尚無證據"].filter(Boolean).join("・")];
+  },
   STORY_DROPPED: (p) => ["放棄題材", "warn", [s(p.title), s(p.reason)].filter(Boolean).join("・") || null],
 };
 
