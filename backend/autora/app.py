@@ -16,6 +16,7 @@ if TYPE_CHECKING:
     from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
     from autora.infra.blobstore import BlobStore
+    from autora.infra.http import PageFetcher
     from autora.infra.search import SearchProvider
     from autora.infra.settings import Settings
     from autora.runtime.approvals import ApprovalService
@@ -24,6 +25,7 @@ if TYPE_CHECKING:
     from autora.runtime.models.providers.fake import FakeTurn
     from autora.runtime.models.types import ModelRequest
     from autora.runtime.policy import PolicyEngine
+    from autora.runtime.scheduler import Scheduler
     from autora.runtime.task_manager import TaskManager
     from autora.runtime.tools import ToolRegistry
     from autora.runtime.worker import Worker
@@ -32,15 +34,15 @@ if TYPE_CHECKING:
 def load_event_catalogs() -> None:
     """Import every module that registers event payloads, so the registry is complete."""
     import autora.company.events  # noqa: F401
+    import autora.domains.newsroom.events  # noqa: F401
     import autora.runtime.events  # noqa: F401
-
-    # Domains register their events here once they have any (Phase 5: autora.domains.newsroom).
 
 
 def load_models() -> None:
     """Import every module that declares tables, so SQLAlchemy's metadata is complete."""
     import autora.db.models  # noqa: F401
     import autora.domains.echo.models  # noqa: F401
+    import autora.domains.newsroom.models  # noqa: F401
 
 
 def build_policy_engine() -> PolicyEngine:
@@ -96,6 +98,40 @@ def build_search_provider(settings: Settings | None) -> SearchProvider:
     return FixtureSearchProvider.from_file(
         Path(newsroom.__file__).parent / "fixtures" / "search.json"
     )
+
+
+def build_page_fetcher(settings: Settings | None) -> PageFetcher:
+    """Pages and feeds: the web when ``TOOLS_PROFILE=live``, else the newsroom's fixture files."""
+    import json
+    from pathlib import Path
+
+    from autora.infra.http import FixtureFetcher, HttpFetcher
+
+    if settings is not None and settings.tools_profile == "live":
+        return HttpFetcher(
+            timeout_s=settings.fetch_timeout_seconds, max_bytes=settings.fetch_max_bytes
+        )
+    import autora.domains.newsroom as newsroom
+
+    root = Path(newsroom.__file__).parent / "fixtures"
+    return FixtureFetcher(root, json.loads((root / "routes.json").read_text("utf-8")))
+
+
+def build_scheduler(
+    settings: Settings | None,
+    session_factory: async_sessionmaker[AsyncSession],
+    worker_id: str,
+) -> Scheduler:
+    """The scheduler with every domain's handlers (newsroom: the source poller, T-501)."""
+    from autora.domains.newsroom.sources import POLL_SCHEDULE, SourcePoller
+    from autora.runtime.scheduler import Scheduler
+
+    scheduler = Scheduler(session_factory, worker_id)
+    poller = SourcePoller(
+        fetcher=build_page_fetcher(settings), search=build_search_provider(settings)
+    )
+    scheduler.register(POLL_SCHEDULE, poller.schedule_handler())
+    return scheduler
 
 
 def build_tools(
@@ -175,7 +211,6 @@ def build_worker(
     from autora.runtime.cost.guard import DbCostGuard
     from autora.runtime.models.factory import gateway_from_settings
     from autora.runtime.progress import ProgressPublisher
-    from autora.runtime.scheduler import Scheduler
     from autora.runtime.worker import Worker
 
     runtime = build_runtime(settings)
@@ -203,7 +238,7 @@ def build_worker(
         task_manager=runtime.task_manager,
         runner=runner,
         approvals=runtime.approvals,
-        scheduler=Scheduler(session_factory, settings.worker_id),
+        scheduler=build_scheduler(settings, session_factory, settings.worker_id),
         concurrency=settings.worker_concurrency,
         poll_interval=settings.worker_poll_seconds,
         maintenance_interval=settings.worker_maintenance_seconds,

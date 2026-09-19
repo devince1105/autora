@@ -398,6 +398,10 @@ WHERE company_id = (SELECT id FROM companies WHERE slug = 'echo-demo') AND role 
 - `TOOLS_PROFILE=live`：用 Tavily，需要 `TAVILY_API_KEY`（到 tavily.com 申請，填進 `.env`；空白等於沒設，沒有金鑰會拒絕啟動）。每次搜尋的成本（預設 basic 1 點 credit × `TAVILY_COST_PER_CREDIT` 0.008 美元）記在該次工具呼叫的 `TOOL_COMPLETED` 事件。其他可調：`TAVILY_SEARCH_DEPTH`（basic / advanced，advanced 2 點）、`TAVILY_TIMEOUT_SECONDS`（15）、`TAVILY_REQUESTS_PER_MINUTE`（60，單一程序內的上限）。
 - 搜尋結果只是**候選**，不是證據：要用某個網頁，代理必須再用 `fetch_url` 抓取並存成快照（T-502）。
 
+**新聞來源（T-501）**：來源可以是 RSS / Atom feed、一組要追蹤的網址、或一個搜尋查詢。工作程序每 5 分鐘檢查一次，各來源依自己的間隔（預設 1 小時）讀取，新的項目寫進 `source_items`，時間軸會出現「讀取來源」事件。連續 5 次讀取失敗的來源會自動暫停（時間軸顯示「來源暫停」）。
+- `TOOLS_PROFILE=fixture` 時只讀 `backend/autora/domains/newsroom/fixtures/feeds/` 裡的虛構 feed；`live` 才連網。連網時只會抓公開網址，`localhost`、內網、雲端 metadata 位址一律拒絕。可調：`FETCH_TIMEOUT_SECONDS`（15）、`FETCH_MAX_BYTES`（5000000）。
+- 新增來源的頁面與 API 在 T-517 才會加入；目前只能從程式呼叫 `autora.domains.newsroom.sources.add_source`。
+
 ---
 
 ## 七、執行測試

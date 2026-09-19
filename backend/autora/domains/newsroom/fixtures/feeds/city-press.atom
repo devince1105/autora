@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<feed xmlns="http://www.w3.org/2005/Atom">
+  <title>流明市政府新聞稿（fixture）</title>
+  <id>urn:fixture:lumen-city-press</id>
+  <updated>2026-09-16T10:30:00Z</updated>
+  <entry>
+    <title>流明市港區社區微電網啟用 市府：停電時可供電六小時</title>
+    <link rel="alternate" href="https://city.fixtures.autora.test/press/2026-09-14-microgrid"/>
+    <id>urn:fixture:press:2026-09-14-microgrid</id>
+    <published>2026-09-14T02:00:00Z</published>
+    <summary type="html">&lt;p&gt;港區微電網串連 1,200 組屋頂太陽能板與 4 MWh 儲能電池。&lt;/p&gt;</summary>
+  </entry>
+  <entry>
+    <title>What a neighbourhood microgrid really costs</title>
+    <link href="https://analysis.fixtures.autora.test/microgrid-costs"/>
+    <id>urn:fixture:press:microgrid-costs</id>
+    <updated>2026-09-16T10:30:00Z</updated>
+    <content type="text">An independent review puts the microgrid at NT$4.6 billion over ten years.</content>
+  </entry>
+</feed>

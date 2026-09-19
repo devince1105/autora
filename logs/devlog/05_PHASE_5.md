@@ -14,7 +14,7 @@
 | 任務 | 內容 | 依賴 | 狀態 |
 |---|---|---|---|
 | T-500 | `web_search` 工具：Tavily adapter + fixture 模式（`SearchProvider` 介面、金鑰只在環境變數、逾時、速率限制、每次呼叫記成本） | T-204、T-209 | ✅ |
-| T-501 | Sources 與 poller（models、RSS / URL 輪詢、去重） | T-212 | ⏳ |
+| T-501 | Sources 與 poller（models、RSS / URL 輪詢、去重） | T-212 | ✅ |
 | T-502 | `fetch_url` 工具 + Evidence + 快照（BlobStore） | T-204、T-210 | ⏳ |
 | T-503 | `evidence_chunks` + embedding（pgvector） | T-502、T-207 | ⏳ |
 | T-504 | Stories + 去重 | T-501、T-503 | ⏳ |
@@ -71,6 +71,40 @@ T-500 → T-501 → T-502 → T-503 → T-504 → T-505 → T-508 → T-510 → 
 - `tests/newsroom/test_tavily.py`（integration，需要 `TAVILY_API_KEY`）：一次真實搜尋、成本記錄、沒有產生 Evidence。**目前 `.env` 沒有金鑰，已確認會跳過**；要跑請填入金鑰後執行 `.venv/bin/pytest backend -m integration`。
 - `tests/infra/test_settings.py`、`tests/runtime/test_tools.py` 各加一個測試（空白金鑰、例外自帶 retryable）。
 - 後端 678 個測試通過；`ruff check`、`ruff format`、`lint-imports`（2 個合約）通過。
+
+---
+
+## T-501 · 新聞來源與輪詢
+
+### 做了什麼
+- **資料表**（migration `0012`，`domains/newsroom/models.py`）：
+  - `sources`：種類 `rss`（RSS / Atom 網址）、`url_list`（`config.urls`，要追蹤的網頁）、`search_query`（`config.query`，用 T-500 的搜尋供應者）；`trust_level` 0～1（T-510 查核用：信任度低的來源不能單獨支持一個主張）、語言、輪詢間隔（至少 60 秒）、狀態 `active` / `paused`、`next_poll_at`、連續失敗次數與最後錯誤。
+  - `source_items`：每個來源依 `external_id` 與 `content_hash`（標準網址 + 標題）各有唯一限制，同一則再被列出不會變成新項目。
+- **標準網址**（`canonical_url`）：scheme 與主機轉小寫、去掉預設埠、去掉 `#` 片段、去掉追蹤參數（`utm_*`、`fbclid`、`gclid` 等）、去掉結尾斜線。同一頁不同寫法算同一頁。**跨來源**的重複（兩個來源連到同一篇）留給 T-504 的故事分群。
+- **讀 feed**（`domains/newsroom/feeds.py`）：只用標準函式庫，支援 RSS 2.0、RSS 1.0（RDF）、Atom。feed 是不可信的輸入：**有 DTD 或 entity 宣告的文件一律拒絕**（XML 炸彈），HTML 摘要去標籤、解碼、截到 1,000 字，沒有連結的項目略過。
+- **抓網頁的共用元件**（`infra/http`，T-502 的 `fetch_url` 也會用）：
+  - `HttpFetcher`：只允許 http / https，有逾時、大小上限（預設 5 MB）、轉址次數上限，**拒絕私有位址**（連線前先解析網域，loopback、內網、link-local、保留位址、IPv4 對應的 IPv6 都拒絕；每次轉址重新檢查）。不做這個檢查的話，模型或 feed 裡的網址可以讓伺服器去讀 `localhost:8000` 的 API 或雲端的 metadata 端點。已知限制：檢查與實際連線之間仍有 DNS 重綁的空隙，要完全封住需要固定解析結果連線，列為之後的強化。
+  - `FixtureFetcher`：依 `fixtures/routes.json` 把網址對應到本地檔案，其他網址回 404，檔案不能跑出 fixture 目錄。
+- **輪詢**（`domains/newsroom/sources.py` 的 `SourcePoller`）：
+  - 每家公司一個排程 `newsroom.poll_sources`（每 5 分鐘），觸發時輪詢該公司「到期、啟用中」的來源（每次最多 20 個、同時 4 個）。新增第一個來源時自動建立排程（`add_source`）。
+  - 分兩段：先並行抓取（不寫資料），再寫入新項目、發事件、把 `next_poll_at` 往後移。**等網路時不發事件**，所以不會占住公司的事件鎖。
+  - 每次最多收 50 則、由新到舊，第一次讀大型 feed 時不會洗版時間軸。
+  - 事件：每則新項目一個 `SOURCE_ITEM_DISCOVERED`、每次輪詢一個 `SOURCE_POLLED`（新增幾則、共列出幾則、成本、錯誤）；失敗會記錄並在下個間隔重試，**連續 5 次失敗自動暫停**並發 `SOURCE_PAUSED`；成功一次就歸零。`search_query` 來源的搜尋成本記在 `SOURCE_POLLED.cost_usd`。
+  - 模式與工具相同：`TOOLS_PROFILE=fixture` 讀 `fixtures/feeds/` 裡的虛構 feed（RSS 與 Atom 各一，含追蹤參數、重複、沒有連結的項目等情況），`live` 才連網。
+- 組裝：`autora/app.py` 新增 `build_page_fetcher`、`build_scheduler`（工作程序的排程器現在會註冊新聞室的處理器）；設定 `FETCH_TIMEOUT_SECONDS`、`FETCH_MAX_BYTES`。
+- 前端：事件型別重新產生（`make gen-schema`）；時間軸與軌跡頁加上三個新事件的中文說明（「讀取來源：新增 2 則・共 5 則」、「來源讀取失敗」、「來源暫停」）。
+- **還沒有的**：新增 / 管理來源的 API 與頁面（計畫中的 `/api/sources` 與管理頁屬於 T-517）；在那之前只能從程式呼叫 `add_source`。
+
+### 驗證
+- `tests/newsroom/test_sources.py`（31 個）：
+  - feed：RSS、Atom、RDF 的解析；DTD / entity、壞 XML、不是 feed 的文件都拒絕。
+  - 標準網址與 `content_hash`。
+  - 新增來源的檢查（錯誤的 scheme、空清單、`javascript:` 網址、空查詢、k 超出範圍、未知種類）與排程只建一個。
+  - 輪詢：RSS 第一次 3 則新項目（追蹤參數已去掉、由新到舊）、第二次 0 則；網址清單裡 `/a` 與 `/a/` 算一則；搜尋來源（fixture 不計費、付費的記成本）；上限只留最新的；失敗記錄、連續 3 次（測試設定）暫停、成功後歸零；`poll_due` 只處理到期且啟用中的來源。
+  - **經過排程器的端到端**：工作程序的排程器觸發 `newsroom.poll_sources`，項目寫入資料庫（這個測試會 commit，結束時停用自己的排程，避免影響其他排程測試）。
+  - 抓網頁：轉址、`localhost`、`127.0.0.1`、`10.x`、`169.254.169.254`、`[::1]`、`[::ffff:127.0.0.1]`、`file://`、`ftp://` 都在連線前拒絕；轉址到內網拒絕；大小上限、404、503、429、轉址迴圈；fixture 的 404 與路徑跳脫。
+- 寫測試時抓到自己的錯：網址清單的項目 ID 與標題原本直接用原始網址，`/a` 與 `/a/` 被當成兩則。改成先轉標準網址。
+- 後端 709 個測試通過；`ruff`、`lint-imports`、`make db-check`（模型與 migration 一致）通過；前端 event-schema 8 個、web 208 個測試與 typecheck、lint 通過。
 
 ---
 

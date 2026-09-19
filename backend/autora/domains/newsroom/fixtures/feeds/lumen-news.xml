@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<rss version="2.0" xmlns:dc="http://purl.org/dc/elements/1.1/">
+  <channel>
+    <title>Lumen City News (fixture)</title>
+    <link>https://news.fixtures.autora.test/</link>
+    <description>Fictional news for Autora's offline tests.</description>
+    <item>
+      <title>Lumen City switches on its first neighbourhood solar microgrid</title>
+      <link>https://news.fixtures.autora.test/lumen-city-microgrid-pilot?utm_source=rss&amp;utm_medium=feed</link>
+      <guid isPermaLink="false">lumen-news-1001</guid>
+      <pubDate>Tue, 15 Sep 2026 08:00:00 GMT</pubDate>
+      <description>&lt;p&gt;The pilot in Harbor District links 1,200 rooftop panels and a 4 MWh battery.&lt;/p&gt;</description>
+    </item>
+    <item>
+      <title>Harbor District residents on living next to the battery park</title>
+      <link>https://blog.fixtures.autora.test/harbor-residents</link>
+      <guid isPermaLink="false">lumen-news-1002</guid>
+      <pubDate>Thu, 17 Sep 2026 12:00:00 GMT</pubDate>
+      <description>Residents welcome fewer outages but ask about fire safety.</description>
+    </item>
+    <item>
+      <title>Coffee bean prices hit a three-year high</title>
+      <link>https://news.fixtures.autora.test/coffee-prices</link>
+      <guid isPermaLink="false">lumen-news-0990</guid>
+      <pubDate>Thu, 10 Sep 2026 09:00:00 GMT</pubDate>
+      <description>Wholesale arabica prices rose 18% this quarter.</description>
+    </item>
+    <item>
+      <title>An entry without a link is skipped</title>
+      <guid isPermaLink="false">lumen-news-0000</guid>
+    </item>
+  </channel>
+</rss>

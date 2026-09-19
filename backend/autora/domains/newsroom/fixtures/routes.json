@@ -1,0 +1,4 @@
+{
+  "https://news.fixtures.autora.test/feed.xml": "feeds/lumen-news.xml",
+  "https://city.fixtures.autora.test/press/feed.atom": "feeds/city-press.atom"
+}

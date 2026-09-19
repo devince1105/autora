@@ -81,6 +81,9 @@ class Settings(BaseSettings):
     """USD per Tavily credit (pay-as-you-go price); recorded as each search's cost."""
     tavily_timeout_seconds: float = Field(default=15.0, gt=0)
     tavily_requests_per_minute: int = Field(default=60, ge=1)
+    fetch_timeout_seconds: float = Field(default=15.0, gt=0)
+    """Live page and feed fetches (T-501, T-502)."""
+    fetch_max_bytes: int = Field(default=5_000_000, ge=1)
 
     # --- Blob storage (T-210) ---
     blob_store_dir: Path = Path(__file__).resolve().parents[3] / "data" / "blobs"

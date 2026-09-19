@@ -79,6 +79,13 @@ const FORMAT: Record<string, (p: Payload) => [string, Tone, string | null]> = {
   COMPANY_CREATED: (p) => ["公司建立", "neutral", s(p.name)],
   PROJECT_APPROVED: (p) => ["專案核准", "ok", s(p.name)],
   BUDGET_EXHAUSTED: (p) => ["預算用盡", "danger", s(p.scope)],
+  // newsroom (T-501)
+  SOURCE_POLLED: (p) =>
+    s(p.error)
+      ? ["來源讀取失敗", "warn", s(p.error)]
+      : ["讀取來源", "neutral", `新增 ${n(p.count) ?? 0} 則・共 ${n(p.seen) ?? 0} 則`],
+  SOURCE_ITEM_DISCOVERED: (p) => ["新來源項目", "neutral", s(p.title)],
+  SOURCE_PAUSED: (p) => ["來源暫停", "danger", s(p.reason)],
 };
 
 export interface Described {

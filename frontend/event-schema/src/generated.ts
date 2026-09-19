@@ -619,6 +619,48 @@ export const ScheduleFiredV1Event = z.object({
   payload: ScheduleFiredV1Payload,
 });
 
+export const SourceItemDiscoveredV1Payload = z.object({
+  item_id: z.uuid(),
+  source_id: z.uuid(),
+  url: z.string(),
+  title: z.string(),
+});
+export type SourceItemDiscoveredV1Payload = z.infer<typeof SourceItemDiscoveredV1Payload>;
+export const SourceItemDiscoveredV1Event = z.object({
+  ...envelopeFields,
+  event_type: z.literal("SOURCE_ITEM_DISCOVERED"),
+  schema_version: z.literal(1),
+  payload: SourceItemDiscoveredV1Payload,
+});
+
+export const SourcePausedV1Payload = z.object({
+  source_id: z.uuid(),
+  reason: z.string(),
+  failures: z.number().int(),
+});
+export type SourcePausedV1Payload = z.infer<typeof SourcePausedV1Payload>;
+export const SourcePausedV1Event = z.object({
+  ...envelopeFields,
+  event_type: z.literal("SOURCE_PAUSED"),
+  schema_version: z.literal(1),
+  payload: SourcePausedV1Payload,
+});
+
+export const SourcePolledV1Payload = z.object({
+  source_id: z.uuid(),
+  count: z.number().int(),
+  seen: z.number().int().default(0),
+  cost_usd: z.string().regex(new RegExp("^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$")).nullable().default(null),
+  error: z.string().nullable().default(null),
+});
+export type SourcePolledV1Payload = z.infer<typeof SourcePolledV1Payload>;
+export const SourcePolledV1Event = z.object({
+  ...envelopeFields,
+  event_type: z.literal("SOURCE_POLLED"),
+  schema_version: z.literal(1),
+  payload: SourcePolledV1Payload,
+});
+
 export const StrategyUpdatedV1Payload = z.object({
   summary: z.string(),
   approval_id: z.uuid().nullable().default(null),
@@ -886,6 +928,9 @@ export const EventEnvelope = z.discriminatedUnion("event_type", [
   ProjectResumedV1Event,
   RevenueRecordedV1Event,
   ScheduleFiredV1Event,
+  SourceItemDiscoveredV1Event,
+  SourcePausedV1Event,
+  SourcePolledV1Event,
   StrategyUpdatedV1Event,
   TaskBlockedV1Event,
   TaskCancelledV1Event,
@@ -952,6 +997,9 @@ export const EVENT_TYPES = [
   "PROJECT_RESUMED",
   "REVENUE_RECORDED",
   "SCHEDULE_FIRED",
+  "SOURCE_ITEM_DISCOVERED",
+  "SOURCE_PAUSED",
+  "SOURCE_POLLED",
   "STRATEGY_UPDATED",
   "TASK_BLOCKED",
   "TASK_CANCELLED",

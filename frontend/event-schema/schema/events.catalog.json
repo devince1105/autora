@@ -1975,6 +1975,128 @@
         }
       }
     },
+    "SOURCE_ITEM_DISCOVERED": {
+      "1": {
+        "persistence": "persisted",
+        "payload": {
+          "additionalProperties": false,
+          "description": "Archivable (03 §3): one per new item, so a timeline can show what came in.",
+          "properties": {
+            "item_id": {
+              "format": "uuid",
+              "title": "Item Id",
+              "type": "string"
+            },
+            "source_id": {
+              "format": "uuid",
+              "title": "Source Id",
+              "type": "string"
+            },
+            "url": {
+              "title": "Url",
+              "type": "string"
+            },
+            "title": {
+              "title": "Title",
+              "type": "string"
+            }
+          },
+          "required": [
+            "item_id",
+            "source_id",
+            "url",
+            "title"
+          ],
+          "title": "SourceItemDiscovered",
+          "type": "object"
+        }
+      }
+    },
+    "SOURCE_PAUSED": {
+      "1": {
+        "persistence": "persisted",
+        "payload": {
+          "additionalProperties": false,
+          "properties": {
+            "source_id": {
+              "format": "uuid",
+              "title": "Source Id",
+              "type": "string"
+            },
+            "reason": {
+              "title": "Reason",
+              "type": "string"
+            },
+            "failures": {
+              "title": "Failures",
+              "type": "integer"
+            }
+          },
+          "required": [
+            "source_id",
+            "reason",
+            "failures"
+          ],
+          "title": "SourcePaused",
+          "type": "object"
+        }
+      }
+    },
+    "SOURCE_POLLED": {
+      "1": {
+        "persistence": "persisted",
+        "payload": {
+          "additionalProperties": false,
+          "properties": {
+            "source_id": {
+              "format": "uuid",
+              "title": "Source Id",
+              "type": "string"
+            },
+            "count": {
+              "title": "Count",
+              "type": "integer"
+            },
+            "seen": {
+              "default": 0,
+              "title": "Seen",
+              "type": "integer"
+            },
+            "cost_usd": {
+              "anyOf": [
+                {
+                  "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Cost Usd"
+            },
+            "error": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Error"
+            }
+          },
+          "required": [
+            "source_id",
+            "count"
+          ],
+          "title": "SourcePolled",
+          "type": "object"
+        }
+      }
+    },
     "STRATEGY_UPDATED": {
       "1": {
         "persistence": "persisted",
