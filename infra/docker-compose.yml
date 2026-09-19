@@ -57,6 +57,8 @@ services:
       dockerfile: infra/Dockerfile.web
     environment:
       NEXT_PUBLIC_API_URL: http://localhost:8000
+      # the public site is rendered on the server, which reaches the API inside the network
+      API_INTERNAL_URL: http://api:8000
     ports:
       - "3000:3000"
     depends_on:

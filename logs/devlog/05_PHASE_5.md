@@ -28,7 +28,7 @@
 | T-512 | Publisher（`PublishArticle` command、冪等、Distribution site） | T-508、T-205 | ✅ |
 | T-513 | Marketing 代理（`DistributionPlan`、`create_distribution`：只寫 DB） | T-512 | ✅ |
 | T-514 | `story_to_article_v2` 範本 + `register()` + `activity_links` | T-203、T-506 ～ T-513 | ✅ |
-| T-515 | 公開站（zh-TW / en）+ beacon API | T-512 | ⏳ |
+| T-515 | 公開站（zh-TW / en）+ beacon API | T-512 | ✅ |
 | T-516 | Analytics collector（每小時 → `analytics_daily`，事件） | T-515、T-212 | ⏳ |
 | T-517 | Newsroom 管理頁（stories、articles、versions、fact-check、distribution、timeline） | T-308、T-311 | ⏳ |
 | T-518 | 模擬資料（FakeModelProvider 劇本 + fixture HTML + revise 分支） | T-207、T-514 | ✅ |
@@ -476,6 +476,34 @@ T-203 的工作流程引擎只會跑固定的 DAG、而且每個節點都由代�
 - `tests/newsroom/test_simulation.py`：`pace_seconds` 生效、上限 60 秒、格式不對或沒有時不延遲。
 - 後端 852 個測試通過；`ruff`、`lint-imports`、`make db-check`、`gen-schema-check`、`gen-api-check` 通過。
 - 有一次全套測試出現 1 個失敗，之後連續三次全套與六次新測試都通過，無法重現；那次失敗的測試名稱沒有留下（之後的通過清掉了 pytest 的紀錄）。先記錄在這裡，若再出現會記下名稱並處理。
+---
+
+## T-515 · 公開站（中 / 英）與讀者計數 API
+
+### 做了什麼
+- **讀者計數的資料表**（`analytics_events`，migration `0020`）：文章、語言、種類（`view` 打開文章 / `read_complete` 讀到結尾）、`session_hash`、收到的 UTC 日期。**不存 IP 或任何關於讀者的資料**（platform/05 §8）：`session_hash` 是讀者瀏覽器每天產生的隨機 ID（16～64 個十六進位字元，資料庫也檢查格式），無法對應到人、也無法跨日追蹤。唯一鍵（文章、語言、種類、session、日）讓同一讀者同一天重複送出只算一次（重新整理、重送）。規格寫的 `ts` 用 `created_at` 表示，另加 `day` 作為去重的日界。彙總與 30 天後清除屬於 T-516。
+- **公開讀取與計數**（`domains/newsroom/site.py`）：
+  - `published_article(lang, slug)`：只給發布出去的那一版（`published_group_id`）、而且文章有以該語言發布；回傳標題、摘要、段落（只有類型與文字，不含主張 ID 等內部資料）、**資料來源**（文章引用的主張所依據的證據：標題、網站、連結，依第一次引用的順序、每個網址一次）、各語言的網址（語言切換與 hreflang）、公司名稱。
+  - `published_articles(lang, company?)`：最新發布在前，最多 50 篇，可限定公司。
+  - `record_beacon`：只接受已發布文章的已發布語言；`INSERT … ON CONFLICT DO NOTHING`。
+- **API**（`api/routers/public.py`，不需權杖）：`GET /api/public/articles?lang=&company=&limit=`、`GET /api/public/articles/{lang}/{slug}`（沒發布或沒有該語言 → 404）、`POST /api/analytics/beacon`（`{article_id, lang, event_type, session_hash}` → 204；重複也回 204；文章 / 語言不對 → 404；格式不對 → 422）。OpenAPI 與前端型別重新產生。
+- **前端公開站**（`app/(site)/[lang]`）：
+  - 版頭（站名、另一語言的首頁連結）；`/zh-TW`、`/en` 最新報導；`/{lang}/articles/{slug}` 文章頁：標題、摘要、公司與發布日期（台北時間）、「閱讀其他語言」、段落（小標、段落、引文）、**資料來源**（`rel="noopener nofollow"`）、示範說明。`generateMetadata` 給標題、描述、canonical 與各語言的 `hreflang`。其他語言代碼 → 404。
+  - 根版面（admin 頁面共用）是 `<html lang="zh-TW">`，公開站在自己的區塊設 `lang`，英文頁的內容仍標為英文。
+  - `features/site/`：`api.ts`（沒有權杖的型別化讀取，伺服器端用 `SERVER_API_URL`）、`ArticleView`、`ArticleList`、`Beacon`（進頁送一次 `view`；文章結尾進入畫面時送一次 `read_complete`，用 IntersectionObserver）、`session.ts`（每日 ID 存 localStorage，換日就換；storage 被封鎖時用這一頁自己的 ID；送出失敗不影響讀者，`keepalive`）、`i18n.ts`（兩種語言與介面文字；站名預設「Autora 新聞 / Autora News」，不用示範公司的名字）。
+  - `config.SERVER_API_URL`：伺服器端讀 API 的位址（`API_INTERNAL_URL`，預設同 `NEXT_PUBLIC_API_URL`）；docker-compose 的 web 服務設為 `http://api:8000`。`SITE_COMPANY` 可限定首頁的公司。
+- RUNBOOK 前端一節加上公開站、`SITE_COMPANY`、`API_INTERNAL_URL`。
+
+### 過程中的問題
+- `Beacon.tsx` 與 `beacon.ts` 在不分大小寫的檔案系統上是同一個名字，TypeScript 拒絕；工具函式改名為 `session.ts`。
+- alembic 產生的 migration 用單引號，改 revision ID 的替換沒有生效，已套用到開發資料庫的是隨機 ID；先 downgrade、改成 `0020` 再升級。
+- 實際在瀏覽器試時，計數一開始失敗（`ERR_FAILED`）：用的是之前準備的 e2e 資料庫，還沒有 `0020` 的資料表，API 回 500 而 500 沒有 CORS 標頭；升級資料庫後正常。
+
+### 驗證
+- `tests/api/test_beacon.py`（4 個）：已發布文章中英兩種語言都能讀（標題、網址、各語言網址、段落不含內部資料、資料來源兩個網站依序）、列表與限定公司；草稿、沒有的語言、不合法的語言代碼 → 404 / 422；**同一 session 送三次只算一次**，換種類 / 語言 / session 各算一次；`session_hash` 太短、非十六進位、太長、像 email → 422，不存在的種類 → 422，不存在的文章或沒發布的語言 → 404。
+- `src/features/site/site.test.tsx`（10 個）：文章頁（標題、小標、段落、引文、公司、日期、資料來源連結與 nofollow、英文連結與 hreflang）、打開時送一次瀏覽（網址、內容、keepalive、32 位十六進位 ID）、讀到結尾送一次讀完並停止觀察、首頁列表與空列表、每日 ID（同一天相同、隔天換新、沒有 storage、storage 壞掉或被封鎖）、送出失敗不拋錯、公開讀取（沒有 Authorization、404 → null、500 → 錯誤、列表的查詢參數）、語言判斷。
+- **實際在瀏覽器看過**：在 e2e 資料庫以模擬模式跑完一篇（T-518 的示範）並核准發布，開 API（8001）與 Next（3001）：中文與英文文章頁、首頁都正常顯示；讀者計數存下一筆瀏覽與一筆讀完（開發模式的 React 重複執行多送的一次瀏覽被去重）；`/ja` 與不存在的文章 404；英文頁有兩個 `hreflang` 的 alternate 連結。
+- 後端 856 個測試通過；`ruff`、`lint-imports`、`make db-check`、`gen-schema-check`、`gen-api-check` 通過；web 223 個測試與 typecheck、lint 通過。
 ---
 
 ## 提交紀錄

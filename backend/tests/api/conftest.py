@@ -13,6 +13,7 @@ from autora.infra.settings import load_settings  # noqa: E402
 from autora_api.app import create_app  # noqa: E402
 from autora_api.deps import get_session, runtime_dep, settings_dep  # noqa: E402
 from autora_api.routers.runs import blob_store_dep  # noqa: E402
+from tests.newsroom.conftest import newsroom_room  # noqa: E402, F401 (fixture)
 
 TOKEN = "test-operator-token"
 

@@ -1,0 +1,77 @@
+"""The public site's API (T-515): published articles and the reader beacon. No authentication:
+anyone can read what was published, and the beacon carries nothing about the reader.
+
+- GET  /api/public/articles?lang=zh-TW[&company=<slug>][&limit=20]: newest published first
+- GET  /api/public/articles/{lang}/{slug}: one published article (404: not published in lang)
+- POST /api/analytics/beacon: {article_id, lang, event_type, session_hash} -> 204
+"""
+
+from __future__ import annotations
+
+import uuid
+from typing import Annotated
+
+from fastapi import APIRouter, HTTPException, Query, Response, status
+from pydantic import BaseModel, Field
+
+from autora.domains.newsroom.models import AnalyticsEventType
+from autora.domains.newsroom.site import (
+    MAX_LIST,
+    BeaconRejected,
+    PublicArticle,
+    PublicArticleSummary,
+    published_article,
+    published_articles,
+    record_beacon,
+)
+from autora_api.deps import Session
+
+router = APIRouter(tags=["public"])
+
+Lang = Annotated[str, Field(pattern=r"^[a-z]{2}(-[A-Z][A-Za-z]{1,3})?$", max_length=10)]
+
+
+@router.get("/api/public/articles")
+async def list_articles(
+    session: Session,
+    lang: Annotated[str, Query(pattern=r"^[a-z]{2}(-[A-Z][A-Za-z]{1,3})?$", max_length=10)],
+    company: Annotated[str | None, Query(max_length=100)] = None,
+    limit: Annotated[int, Query(ge=1, le=MAX_LIST)] = 20,
+) -> list[PublicArticleSummary]:
+    return await published_articles(session, lang, company_slug=company, limit=limit)
+
+
+@router.get("/api/public/articles/{lang}/{slug}")
+async def get_article(lang: str, slug: str, session: Session) -> PublicArticle:
+    article = await published_article(session, lang, slug)
+    if article is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, f"no published article {slug} in {lang}")
+    return article
+
+
+class Beacon(BaseModel):
+    article_id: uuid.UUID
+    lang: Lang
+    event_type: AnalyticsEventType
+    session_hash: str = Field(
+        pattern=r"^[0-9a-f]{16,64}$",
+        description="A random id the reader's browser makes each day; nothing about the reader.",
+    )
+
+
+@router.post("/api/analytics/beacon", status_code=status.HTTP_204_NO_CONTENT)
+async def beacon(body: Beacon, session: Session) -> Response:
+    """Count a view or a completed read. A repeat from the same session that day is dropped
+    (still 204: the reader's page has nothing to do about it)."""
+    try:
+        await record_beacon(
+            session,
+            article_id=body.article_id,
+            lang=body.lang,
+            event_type=body.event_type,
+            session_hash=body.session_hash,
+        )
+    except BeaconRejected as error:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, str(error)) from None
+    await session.commit()
+    return Response(status_code=status.HTTP_204_NO_CONTENT)

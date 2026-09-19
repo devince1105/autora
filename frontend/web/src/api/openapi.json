@@ -238,6 +238,14 @@
     "title": "AgentView",
     "type": "object"
    },
+   "AnalyticsEventType": {
+    "enum": [
+     "view",
+     "read_complete"
+    ],
+    "title": "AnalyticsEventType",
+    "type": "string"
+   },
    "ApprovalOut": {
     "properties": {
      "action": {
@@ -400,6 +408,38 @@
     ],
     "title": "ApprovalState",
     "type": "string"
+   },
+   "Beacon": {
+    "properties": {
+     "article_id": {
+      "format": "uuid",
+      "title": "Article Id",
+      "type": "string"
+     },
+     "event_type": {
+      "$ref": "#/components/schemas/AnalyticsEventType"
+     },
+     "lang": {
+      "maxLength": 10,
+      "pattern": "^[a-z]{2}(-[A-Z][A-Za-z]{1,3})?$",
+      "title": "Lang",
+      "type": "string"
+     },
+     "session_hash": {
+      "description": "A random id the reader's browser makes each day; nothing about the reader.",
+      "pattern": "^[0-9a-f]{16,64}$",
+      "title": "Session Hash",
+      "type": "string"
+     }
+    },
+    "required": [
+     "article_id",
+     "lang",
+     "event_type",
+     "session_hash"
+    ],
+    "title": "Beacon",
+    "type": "object"
    },
    "CompanyCreate": {
     "properties": {
@@ -845,6 +885,180 @@
      "model_cost_today"
     ],
     "title": "Kpis",
+    "type": "object"
+   },
+   "PublicArticle": {
+    "properties": {
+     "article_id": {
+      "format": "uuid",
+      "title": "Article Id",
+      "type": "string"
+     },
+     "blocks": {
+      "items": {
+       "$ref": "#/components/schemas/PublicBlock"
+      },
+      "title": "Blocks",
+      "type": "array"
+     },
+     "company": {
+      "title": "Company",
+      "type": "string"
+     },
+     "lang": {
+      "title": "Lang",
+      "type": "string"
+     },
+     "langs": {
+      "additionalProperties": {
+       "type": "string"
+      },
+      "title": "Langs",
+      "type": "object"
+     },
+     "path": {
+      "title": "Path",
+      "type": "string"
+     },
+     "published_at": {
+      "format": "date-time",
+      "title": "Published At",
+      "type": "string"
+     },
+     "slug": {
+      "title": "Slug",
+      "type": "string"
+     },
+     "sources": {
+      "items": {
+       "$ref": "#/components/schemas/PublicSource"
+      },
+      "title": "Sources",
+      "type": "array"
+     },
+     "summary": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Summary"
+     },
+     "title": {
+      "title": "Title",
+      "type": "string"
+     }
+    },
+    "required": [
+     "article_id",
+     "lang",
+     "slug",
+     "path",
+     "title",
+     "summary",
+     "published_at",
+     "blocks",
+     "sources",
+     "langs",
+     "company"
+    ],
+    "title": "PublicArticle",
+    "type": "object"
+   },
+   "PublicArticleSummary": {
+    "properties": {
+     "article_id": {
+      "format": "uuid",
+      "title": "Article Id",
+      "type": "string"
+     },
+     "lang": {
+      "title": "Lang",
+      "type": "string"
+     },
+     "path": {
+      "title": "Path",
+      "type": "string"
+     },
+     "published_at": {
+      "format": "date-time",
+      "title": "Published At",
+      "type": "string"
+     },
+     "slug": {
+      "title": "Slug",
+      "type": "string"
+     },
+     "summary": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Summary"
+     },
+     "title": {
+      "title": "Title",
+      "type": "string"
+     }
+    },
+    "required": [
+     "article_id",
+     "lang",
+     "slug",
+     "path",
+     "title",
+     "summary",
+     "published_at"
+    ],
+    "title": "PublicArticleSummary",
+    "type": "object"
+   },
+   "PublicBlock": {
+    "properties": {
+     "text": {
+      "title": "Text",
+      "type": "string"
+     },
+     "type": {
+      "title": "Type",
+      "type": "string"
+     }
+    },
+    "required": [
+     "type",
+     "text"
+    ],
+    "title": "PublicBlock",
+    "type": "object"
+   },
+   "PublicSource": {
+    "properties": {
+     "site": {
+      "title": "Site",
+      "type": "string"
+     },
+     "title": {
+      "title": "Title",
+      "type": "string"
+     },
+     "url": {
+      "title": "Url",
+      "type": "string"
+     }
+    },
+    "required": [
+     "title",
+     "site",
+     "url"
+    ],
+    "title": "PublicSource",
     "type": "object"
    },
    "RealtimeSnapshot": {
@@ -1725,6 +1939,41 @@
  },
  "openapi": "3.1.0",
  "paths": {
+  "/api/analytics/beacon": {
+   "post": {
+    "description": "Count a view or a completed read. A repeat from the same session that day is dropped\n(still 204: the reader's page has nothing to do about it).",
+    "operationId": "beacon_api_analytics_beacon_post",
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/Beacon"
+       }
+      }
+     },
+     "required": true
+    },
+    "responses": {
+     "204": {
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Beacon",
+    "tags": [
+     "public"
+    ]
+   }
+  },
   "/api/approvals": {
    "get": {
     "description": "The approval inbox. Oldest first, so the longest-waiting request is on top.",
@@ -2328,6 +2577,134 @@
     "summary": "List Events",
     "tags": [
      "events"
+    ]
+   }
+  },
+  "/api/public/articles": {
+   "get": {
+    "operationId": "list_articles_api_public_articles_get",
+    "parameters": [
+     {
+      "in": "query",
+      "name": "lang",
+      "required": true,
+      "schema": {
+       "maxLength": 10,
+       "pattern": "^[a-z]{2}(-[A-Z][A-Za-z]{1,3})?$",
+       "title": "Lang",
+       "type": "string"
+      }
+     },
+     {
+      "in": "query",
+      "name": "company",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "maxLength": 100,
+         "type": "string"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Company"
+      }
+     },
+     {
+      "in": "query",
+      "name": "limit",
+      "required": false,
+      "schema": {
+       "default": 20,
+       "maximum": 50,
+       "minimum": 1,
+       "title": "Limit",
+       "type": "integer"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "items": {
+          "$ref": "#/components/schemas/PublicArticleSummary"
+         },
+         "title": "Response List Articles Api Public Articles Get",
+         "type": "array"
+        }
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "List Articles",
+    "tags": [
+     "public"
+    ]
+   }
+  },
+  "/api/public/articles/{lang}/{slug}": {
+   "get": {
+    "operationId": "get_article_api_public_articles__lang___slug__get",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "lang",
+      "required": true,
+      "schema": {
+       "title": "Lang",
+       "type": "string"
+      }
+     },
+     {
+      "in": "path",
+      "name": "slug",
+      "required": true,
+      "schema": {
+       "title": "Slug",
+       "type": "string"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/PublicArticle"
+        }
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Get Article",
+    "tags": [
+     "public"
     ]
    }
   },

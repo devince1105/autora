@@ -4,6 +4,27 @@
  */
 
 export interface paths {
+    "/api/analytics/beacon": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Beacon
+         * @description Count a view or a completed read. A repeat from the same session that day is dropped
+         *     (still 204: the reader's page has nothing to do about it).
+         */
+        post: operations["beacon_api_analytics_beacon_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/approvals": {
         parameters: {
             query?: never;
@@ -163,6 +184,40 @@ export interface paths {
          * @description Events of one company ordered by ``seq``. Used for trace views and realtime gap-fill.
          */
         get: operations["list_events_api_events_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/public/articles": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Articles */
+        get: operations["list_articles_api_public_articles_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/public/articles/{lang}/{slug}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Article */
+        get: operations["get_article_api_public_articles__lang___slug__get"];
         put?: never;
         post?: never;
         delete?: never;
@@ -355,6 +410,11 @@ export interface components {
             /** Role */
             role: string;
         };
+        /**
+         * AnalyticsEventType
+         * @enum {string}
+         */
+        AnalyticsEventType: "view" | "read_complete";
         /** ApprovalOut */
         ApprovalOut: {
             /** Action */
@@ -415,6 +475,22 @@ export interface components {
          * @enum {string}
          */
         ApprovalState: "PENDING" | "APPROVED" | "REJECTED" | "EXPIRED";
+        /** Beacon */
+        Beacon: {
+            /**
+             * Article Id
+             * Format: uuid
+             */
+            article_id: string;
+            event_type: components["schemas"]["AnalyticsEventType"];
+            /** Lang */
+            lang: string;
+            /**
+             * Session Hash
+             * @description A random id the reader's browser makes each day; nothing about the reader.
+             */
+            session_hash: string;
+        };
         /** CompanyCreate */
         CompanyCreate: {
             /** Mission */
@@ -575,6 +651,78 @@ export interface components {
             published_today?: number | null;
             /** Revenue Today */
             revenue_today: string;
+        };
+        /** PublicArticle */
+        PublicArticle: {
+            /**
+             * Article Id
+             * Format: uuid
+             */
+            article_id: string;
+            /** Blocks */
+            blocks: components["schemas"]["PublicBlock"][];
+            /** Company */
+            company: string;
+            /** Lang */
+            lang: string;
+            /** Langs */
+            langs: {
+                [key: string]: string;
+            };
+            /** Path */
+            path: string;
+            /**
+             * Published At
+             * Format: date-time
+             */
+            published_at: string;
+            /** Slug */
+            slug: string;
+            /** Sources */
+            sources: components["schemas"]["PublicSource"][];
+            /** Summary */
+            summary: string | null;
+            /** Title */
+            title: string;
+        };
+        /** PublicArticleSummary */
+        PublicArticleSummary: {
+            /**
+             * Article Id
+             * Format: uuid
+             */
+            article_id: string;
+            /** Lang */
+            lang: string;
+            /** Path */
+            path: string;
+            /**
+             * Published At
+             * Format: date-time
+             */
+            published_at: string;
+            /** Slug */
+            slug: string;
+            /** Summary */
+            summary: string | null;
+            /** Title */
+            title: string;
+        };
+        /** PublicBlock */
+        PublicBlock: {
+            /** Text */
+            text: string;
+            /** Type */
+            type: string;
+        };
+        /** PublicSource */
+        PublicSource: {
+            /** Site */
+            site: string;
+            /** Title */
+            title: string;
+            /** Url */
+            url: string;
         };
         /** RealtimeSnapshot */
         RealtimeSnapshot: {
@@ -952,6 +1100,37 @@ export interface components {
 }
 export type $defs = Record<string, never>;
 export interface operations {
+    beacon_api_analytics_beacon_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["Beacon"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     list_approvals_api_approvals_get: {
         parameters: {
             query: {
@@ -1258,6 +1437,71 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["EventsPage"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_articles_api_public_articles_get: {
+        parameters: {
+            query: {
+                lang: string;
+                company?: string | null;
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PublicArticleSummary"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_article_api_public_articles__lang___slug__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                lang: string;
+                slug: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PublicArticle"];
                 };
             };
             /** @description Validation Error */

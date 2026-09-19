@@ -419,3 +419,35 @@ class Distribution(IdMixin, CreatedAtMixin, Base):
     created_by: Mapped[dict[str, Any]]
     """Actor JSON."""
     run_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("agent_runs.id"))
+
+
+class AnalyticsEventType(StrEnum):
+    VIEW = "view"
+    """The article's page was opened."""
+    READ_COMPLETE = "read_complete"
+    """The reader reached the end of the article."""
+
+
+class AnalyticsEvent(IdMixin, CreatedAtMixin, Base):
+    """One reader beacon from the public site (T-515; platform/05 §8: no IP, no personal data).
+
+    ``session_hash`` is a random id the reader's browser makes each day (it cannot be tied to a
+    person or followed across days). A session counts once per article, language, kind and day:
+    a repeat is dropped (unique key). Aggregated into ``analytics_daily`` (T-516); raw rows are
+    deleted 30 days after aggregation (platform/08)."""
+
+    __tablename__ = "analytics_events"
+    __table_args__ = (
+        check_in("event_type", AnalyticsEventType),
+        check_regex("session_hash", "^[0-9a-f]{16,64}$"),
+        UniqueConstraint("article_id", "lang", "event_type", "session_hash", "day"),
+        Index("ix_analytics_events_company_created", "company_id", "created_at"),
+    )
+
+    company_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("companies.id"))
+    article_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("articles.id"))
+    lang: Mapped[str]
+    event_type: Mapped[str]
+    session_hash: Mapped[str]
+    day: Mapped[date] = mapped_column(Date)
+    """The UTC day it was received (the dedup window; the session id rotates daily too)."""
