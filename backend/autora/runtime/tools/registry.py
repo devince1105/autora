@@ -12,7 +12,9 @@ Transaction layout (why it is not one transaction):
    which AgentRunner uses to set activity = WORKING atomically with it).
 2. The tool runs in a second transaction. Its domain writes and TOOL_COMPLETED commit together:
    either the evidence row and the event both exist, or neither does.
-3. On any failure that transaction is rolled back and TOOL_FAILED commits separately.
+3. On any failure that transaction is rolled back and TOOL_FAILED commits separately. Whether
+   the failure is worth a retry is the tool's ``retryable``, unless the exception carries its
+   own ``retryable`` attribute.
 
 Policy decisions (ALLOW / DENY / NEEDS_APPROVAL) happen before ``invoke`` in the PolicyEngine
 (T-205); the registry only exposes the metadata policy needs (``side_effect``).
@@ -251,7 +253,12 @@ class ToolRegistry:
                 except _ToolError:
                     raise
                 except Exception as exc:  # noqa: BLE001 - tool bugs and upstream errors alike
-                    raise _ToolError(type(exc).__name__, str(exc), spec.retryable) from exc
+                    # an exception may know better than the tool's default whether a retry can
+                    # help (an invalid API key never recovers; a timeout may)
+                    retryable = getattr(exc, "retryable", None)
+                    if not isinstance(retryable, bool):
+                        retryable = spec.retryable
+                    raise _ToolError(type(exc).__name__, str(exc), retryable) from exc
 
                 if not isinstance(result, ToolResult):
                     raise _ToolError(

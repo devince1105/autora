@@ -1,6 +1,7 @@
 from autora.runtime.tools.registry import (
     InvalidToolDefinition,
     ToolContext,
+    ToolFn,
     ToolInvocation,
     ToolRegistry,
     ToolResult,
@@ -11,6 +12,7 @@ from autora.runtime.tools.registry import (
 __all__ = [
     "InvalidToolDefinition",
     "ToolContext",
+    "ToolFn",
     "ToolInvocation",
     "ToolRegistry",
     "ToolResult",

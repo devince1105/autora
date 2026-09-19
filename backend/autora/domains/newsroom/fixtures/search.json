@@ -1,0 +1,37 @@
+[
+  {
+    "url": "https://news.fixtures.autora.test/lumen-city-microgrid-pilot",
+    "title": "Lumen City switches on its first neighbourhood solar microgrid",
+    "snippet": "The pilot in Harbor District links 1,200 rooftop panels and a 4 MWh battery; the city says it can keep 3,000 homes powered for six hours during an outage.",
+    "published_at": "2026-09-15T08:00:00Z",
+    "keywords": ["solar", "microgrid", "energy", "battery", "lumen city", "太陽能", "微電網", "能源"]
+  },
+  {
+    "url": "https://city.fixtures.autora.test/press/2026-09-14-microgrid",
+    "title": "流明市港區社區微電網啟用 市府：停電時可供電六小時",
+    "snippet": "流明市政府表示，港區微電網串連 1,200 組屋頂太陽能板與 4 MWh 儲能電池，停電時可維持約 3,000 戶供電六小時；總經費新台幣 4.2 億元。",
+    "published_at": "2026-09-14T02:00:00Z",
+    "keywords": ["微電網", "太陽能", "儲能", "流明市", "microgrid", "solar"]
+  },
+  {
+    "url": "https://analysis.fixtures.autora.test/microgrid-costs",
+    "title": "What a neighbourhood microgrid really costs",
+    "snippet": "An independent review puts Lumen City's microgrid at NT$4.6 billion over ten years once maintenance is counted, and warns battery capacity fades about 2% a year.",
+    "published_at": "2026-09-16T10:30:00Z",
+    "keywords": ["microgrid", "cost", "battery", "analysis", "微電網", "成本"]
+  },
+  {
+    "url": "https://blog.fixtures.autora.test/harbor-residents",
+    "title": "Harbor District residents on living next to the battery park",
+    "snippet": "Residents welcome fewer outages but ask about fire safety at the battery site; the fire department inspected it in August.",
+    "published_at": "2026-09-17T12:00:00Z",
+    "keywords": ["microgrid", "residents", "battery", "safety", "居民", "安全"]
+  },
+  {
+    "url": "https://news.fixtures.autora.test/coffee-prices",
+    "title": "Coffee bean prices hit a three-year high",
+    "snippet": "Wholesale arabica prices rose 18% this quarter after a poor harvest.",
+    "published_at": "2026-09-10T09:00:00Z",
+    "keywords": ["coffee", "prices", "咖啡", "價格"]
+  }
+]

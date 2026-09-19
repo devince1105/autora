@@ -16,6 +16,7 @@ if TYPE_CHECKING:
     from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
     from autora.infra.blobstore import BlobStore
+    from autora.infra.search import SearchProvider
     from autora.infra.settings import Settings
     from autora.runtime.approvals import ApprovalService
     from autora.runtime.behaviors import BehaviorRegistry
@@ -74,12 +75,39 @@ def build_behaviors() -> BehaviorRegistry:
     return behaviors
 
 
-def build_tools(session_factory: async_sessionmaker[AsyncSession]) -> ToolRegistry:
+def build_search_provider(settings: Settings | None) -> SearchProvider:
+    """``web_search``'s provider: Tavily when ``TOOLS_PROFILE=live``, else the fixture corpus."""
+    from pathlib import Path
+
+    from autora.infra.search.fixture import FixtureSearchProvider
+    from autora.infra.search.tavily import TavilySearchProvider
+
+    if settings is not None and settings.tools_profile == "live":
+        assert settings.tavily_api_key is not None  # Settings refuses live without a key
+        return TavilySearchProvider(
+            settings.tavily_api_key,
+            timeout_s=settings.tavily_timeout_seconds,
+            depth=settings.tavily_search_depth,
+            cost_per_credit=settings.tavily_cost_per_credit,
+            requests_per_minute=settings.tavily_requests_per_minute,
+        )
+    import autora.domains.newsroom as newsroom
+
+    return FixtureSearchProvider.from_file(
+        Path(newsroom.__file__).parent / "fixtures" / "search.json"
+    )
+
+
+def build_tools(
+    session_factory: async_sessionmaker[AsyncSession], settings: Settings | None = None
+) -> ToolRegistry:
     from autora.domains import echo
+    from autora.domains.newsroom import tools as newsroom_tools
     from autora.runtime.tools import ToolRegistry
 
     tools = ToolRegistry(session_factory)
     echo.register_tools(tools)
+    newsroom_tools.register_tools(tools, search_provider=build_search_provider(settings))
     return tools
 
 
@@ -162,7 +190,7 @@ def build_worker(
         session_factory=session_factory,
         task_manager=runtime.task_manager,
         gateway=gateway,
-        tools=build_tools(session_factory),
+        tools=build_tools(session_factory, settings),
         policy=runtime.policy,
         approvals=runtime.approvals,
         blobs=blobs or LocalFSBlobStore(settings.blob_store_dir),

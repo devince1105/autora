@@ -325,6 +325,7 @@ ANTHROPIC_SERVER_FALLBACKS=true
 | `test_nvidia_live.py`（2 個） | `NVIDIA_API_KEY` | 目前主要模型的結構化輸出（中英標題）；工具呼叫 → 工具結果 → 最終 JSON 的兩輪迴圈 |
 | `test_anthropic_live.py`（2 個） | `ANTHROPIC_API_KEY` | Claude 的結構化輸出；思考內容在工具迴圈中正確往返（會計費，共三次小型呼叫） |
 | `tests/e2e/test_echo_live.py`（1 個） | `MODEL_PROVIDER` 設為 `nvidia` 或 `anthropic` 與其金鑰 | 用目前選的真實模型完整跑一次 EchoWorkflow：三位代理各寫一則筆記並回報合法 JSON |
+| `tests/newsroom/test_tavily.py`（1 個） | `TAVILY_API_KEY` | 透過 `web_search` 工具做一次真實的 Tavily 搜尋（basic，1 點 credit），確認有結果、成本記在 `TOOL_COMPLETED` 事件、沒有產生 Evidence |
 
 EchoWorkflow 的真實模型測試通過，就滿足進入階段 3 的條件「真實模型呼叫通過一次」。之後照第四節啟動工作程序，三位代理就會由真實模型執行。
 
@@ -390,7 +391,12 @@ WHERE company_id = (SELECT id FROM companies WHERE slug = 'echo-demo') AND role 
 | 權限規則 | `backend/autora/domains/echo/policy.py` |
 | fake 模式下的模擬模型 | `backend/autora/domains/echo/simulation.py` |
 
-新聞編輯部的代理（研究、分析、寫作、編輯、行銷）與網路搜尋（Tavily，`TOOLS_PROFILE=live` 與 `TAVILY_API_KEY`）在階段 5 實作；目前這兩個設定**尚未生效**。
+新聞編輯部（階段 5）的代理（研究、分析、寫作、編輯、行銷）陸續加入中。
+
+**網路搜尋（`web_search`，T-500、D-003）**：
+- `TOOLS_PROFILE=fixture`（預設）：搜尋虛構的離線資料（`backend/autora/domains/newsroom/fixtures/search.json`，網址都在不存在的 `*.fixtures.autora.test`），不連網、不花錢。測試與模擬都用這個。
+- `TOOLS_PROFILE=live`：用 Tavily，需要 `TAVILY_API_KEY`（到 tavily.com 申請，填進 `.env`；空白等於沒設，沒有金鑰會拒絕啟動）。每次搜尋的成本（預設 basic 1 點 credit × `TAVILY_COST_PER_CREDIT` 0.008 美元）記在該次工具呼叫的 `TOOL_COMPLETED` 事件。其他可調：`TAVILY_SEARCH_DEPTH`（basic / advanced，advanced 2 點）、`TAVILY_TIMEOUT_SECONDS`（15）、`TAVILY_REQUESTS_PER_MINUTE`（60，單一程序內的上限）。
+- 搜尋結果只是**候選**，不是證據：要用某個網頁，代理必須再用 `fetch_url` 抓取並存成快照（T-502）。
 
 ---
 

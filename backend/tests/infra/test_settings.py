@@ -61,6 +61,14 @@ def test_live_tools_require_tavily_key():
     assert "TAVILY_API_KEY" in str(exc.value)
 
 
+def test_blank_keys_count_as_unset():
+    # `TAVILY_API_KEY=` (a blank line copied from .env.example) must not pass for a key
+    s = _load(database_url=VALID_URL, tavily_api_key="", anthropic_api_key="  ")
+    assert s.tavily_api_key is None and s.anthropic_api_key is None
+    with pytest.raises(SettingsError, match="TAVILY_API_KEY"):
+        _load(database_url=VALID_URL, tools_profile="live", tavily_api_key="")
+
+
 def test_secrets_are_not_printed(monkeypatch):
     s = _load(database_url=VALID_URL, anthropic_api_key="sk-secret")
     assert "sk-secret" not in repr(s)

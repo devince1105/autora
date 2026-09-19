@@ -188,6 +188,25 @@ async def test_failure_rolls_back_domain_writes_and_emits_failed(committed, setu
     ]
 
 
+async def test_an_exception_may_say_whether_a_retry_helps(committed, setup):
+    class Rejected(Exception):
+        retryable = False
+
+    class Busy(Exception):
+        retryable = True
+
+    registry = setup["registry"]
+
+    @registry.tool("flaky", description="", side_effect="read", retryable=True)
+    async def flaky(args: SearchArgs, ctx: ToolContext) -> ToolResult:
+        raise {"bad key": Rejected, "busy": Busy}[args.query](args.query)
+
+    rejected = await registry.invoke("flaky", {"query": "bad key"}, **_kw(setup))
+    busy = await registry.invoke("flaky", {"query": "busy"}, **_kw(setup))
+    assert (rejected.error_class, rejected.will_retry) == ("Rejected", False)
+    assert (busy.error_class, busy.will_retry) == ("Busy", True)
+
+
 async def test_invalid_arguments_are_a_recorded_failure(committed, setup):
     kw = _kw(setup)
     result = await setup["registry"].invoke("web_search", {"query": "", "k": 99}, **kw)

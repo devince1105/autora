@@ -10,11 +10,12 @@ from __future__ import annotations
 import os
 import socket
 import uuid
+from decimal import Decimal
 from functools import lru_cache
 from pathlib import Path
 from typing import Literal
 
-from pydantic import Field, SecretStr, ValidationError, model_validator
+from pydantic import Field, SecretStr, ValidationError, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -72,7 +73,14 @@ class Settings(BaseSettings):
 
     # --- Tools (T-500, D-003) ---
     tools_profile: Literal["fixture", "live"] = "fixture"
+    """fixture: tools read local fixtures (tests, simulation); live: real web (Tavily, fetch)."""
     tavily_api_key: SecretStr | None = None
+    tavily_search_depth: Literal["basic", "advanced"] = "basic"
+    """basic costs 1 credit per search, advanced 2."""
+    tavily_cost_per_credit: Decimal = Field(default=Decimal("0.008"), ge=0)
+    """USD per Tavily credit (pay-as-you-go price); recorded as each search's cost."""
+    tavily_timeout_seconds: float = Field(default=15.0, gt=0)
+    tavily_requests_per_minute: int = Field(default=60, ge=1)
 
     # --- Blob storage (T-210) ---
     blob_store_dir: Path = Path(__file__).resolve().parents[3] / "data" / "blobs"
@@ -94,6 +102,16 @@ class Settings(BaseSettings):
     """WORKER_COMPANY_IDS as a JSON list: only run these companies' agents (empty: all)."""
     task_lease_seconds: float = Field(default=300.0, gt=0)
     task_retry_base_seconds: float = Field(default=10.0, gt=0)
+
+    @field_validator("anthropic_api_key", "nvidia_api_key", "tavily_api_key", mode="before")
+    @classmethod
+    def _blank_key_is_no_key(cls, value: object) -> object:
+        """``KEY=`` in .env (the example's blank line) means "not set", not an empty key."""
+        if isinstance(value, str) and not value.strip():
+            return None
+        if isinstance(value, SecretStr) and not value.get_secret_value().strip():
+            return None
+        return value
 
     @model_validator(mode="after")
     def _check_consistency(self) -> Settings:
