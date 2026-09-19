@@ -1,4 +1,10 @@
 {
   "https://news.fixtures.autora.test/feed.xml": "feeds/lumen-news.xml",
-  "https://city.fixtures.autora.test/press/feed.atom": "feeds/city-press.atom"
+  "https://city.fixtures.autora.test/press/feed.atom": "feeds/city-press.atom",
+  "https://news.fixtures.autora.test/lumen-city-microgrid-pilot": "pages/lumen-city-microgrid-pilot.html",
+  "https://city.fixtures.autora.test/press/2026-09-14-microgrid": "pages/city-press-microgrid.html",
+  "https://analysis.fixtures.autora.test/microgrid-costs": "pages/microgrid-costs.html",
+  "https://blog.fixtures.autora.test/harbor-residents": "pages/harbor-residents.html",
+  "https://app.fixtures.autora.test/dashboard": "pages/needs-javascript.html",
+  "https://city.fixtures.autora.test/reports/microgrid.pdf": "pages/report.pdf"
 }

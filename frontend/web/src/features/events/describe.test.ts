@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import { describeEvent } from "./describe";
 
-describe("describeEvent: newsroom sources (T-501)", () => {
+describe("describeEvent: newsroom sources and evidence (T-501, T-502)", () => {
   it("a poll reads as new items of total, or as a failure with its reason", () => {
     expect(describeEvent("SOURCE_POLLED", { count: 2, seen: 5, error: null })).toMatchObject({
       label: "讀取來源",
@@ -17,6 +17,10 @@ describe("describeEvent: newsroom sources (T-501)", () => {
     });
     expect(describeEvent("SOURCE_ITEM_DISCOVERED", { title: "微電網啟用" }).summary).toBe("微電網啟用");
     expect(describeEvent("SOURCE_PAUSED", { reason: "5 failed polls" }).tone).toBe("danger");
+    expect(describeEvent("EVIDENCE_CAPTURED", { url: "https://x.test/a", title: null })).toMatchObject({
+      label: "擷取證據",
+      summary: "https://x.test/a",
+    });
   });
 
   it("an unknown type is shown as itself", () => {

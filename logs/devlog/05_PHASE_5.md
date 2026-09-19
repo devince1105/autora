@@ -15,7 +15,7 @@
 |---|---|---|---|
 | T-500 | `web_search` 工具：Tavily adapter + fixture 模式（`SearchProvider` 介面、金鑰只在環境變數、逾時、速率限制、每次呼叫記成本） | T-204、T-209 | ✅ |
 | T-501 | Sources 與 poller（models、RSS / URL 輪詢、去重） | T-212 | ✅ |
-| T-502 | `fetch_url` 工具 + Evidence + 快照（BlobStore） | T-204、T-210 | ⏳ |
+| T-502 | `fetch_url` 工具 + Evidence + 快照（BlobStore） | T-204、T-210 | ✅ |
 | T-503 | `evidence_chunks` + embedding（pgvector） | T-502、T-207 | ⏳ |
 | T-504 | Stories + 去重 | T-501、T-503 | ⏳ |
 | T-505 | Claims / ClaimEvidence + 工具（`create_claim`、`link_evidence`，引文定位） | T-504 | ⏳ |
@@ -68,7 +68,7 @@ T-500 → T-501 → T-502 → T-503 → T-504 → T-505 → T-508 → T-510 → 
 
 ### 驗證
 - `tests/newsroom/test_search.py`（22 個）：Tavily 的請求內容與標頭（金鑰只在標頭）、結果解析（兩種日期格式、無法解析的日期丟掉、摘要截斷）、recency 對應、成本（有 / 沒有 usage、basic / advanced）、各種錯誤碼的分類與訊息不含金鑰、逾時；速率限制（等空位、等太久放棄）；離線語料的排序、中文查詢、不捏造、recency；工具經過登錄表：`TOOL_COMPLETED` 帶成本、`produced` 為空、失敗時 `will_retry` 依錯誤種類、參數上限；依設定選 provider。Tavily 都用 mock transport，不連網。
-- `tests/newsroom/test_tavily.py`（integration，需要 `TAVILY_API_KEY`）：一次真實搜尋、成本記錄、沒有產生 Evidence。**目前 `.env` 沒有金鑰，已確認會跳過**；要跑請填入金鑰後執行 `.venv/bin/pytest backend -m integration`。
+- `tests/newsroom/test_tavily.py`（integration，需要 `TAVILY_API_KEY`）：一次真實搜尋、成本記錄、沒有產生 Evidence。當時 `.env` 沒有金鑰，確認會跳過；**使用者在 T-502 期間填入金鑰後實際執行通過**（basic 搜尋 1 次，成本 0.008 美元記在 `TOOL_COMPLETED`）。
 - `tests/infra/test_settings.py`、`tests/runtime/test_tools.py` 各加一個測試（空白金鑰、例外自帶 retryable）。
 - 後端 678 個測試通過；`ruff check`、`ruff format`、`lint-imports`（2 個合約）通過。
 
@@ -105,6 +105,32 @@ T-500 → T-501 → T-502 → T-503 → T-504 → T-505 → T-508 → T-510 → 
   - 抓網頁：轉址、`localhost`、`127.0.0.1`、`10.x`、`169.254.169.254`、`[::1]`、`[::ffff:127.0.0.1]`、`file://`、`ftp://` 都在連線前拒絕；轉址到內網拒絕；大小上限、404、503、429、轉址迴圈；fixture 的 404 與路徑跳脫。
 - 寫測試時抓到自己的錯：網址清單的項目 ID 與標題原本直接用原始網址，`/a` 與 `/a/` 被當成兩則。改成先轉標準網址。
 - 後端 709 個測試通過；`ruff`、`lint-imports`、`make db-check`（模型與 migration 一致）通過；前端 event-schema 8 個、web 208 個測試與 typecheck、lint 通過。
+
+---
+
+## T-502 · `fetch_url` 與 Evidence
+
+### 做了什麼
+- **資料表 `evidence`**（migration `0013`）：網址（標準形式）、最後落點、標題、內容類型、語言、擷取時間與日期、BlobStore 的快照位置、抽出的本文與其雜湊、是否截斷，以及來源（若某個來源列過這個網址，信任度就跟著它）、任務、執行。**同一家公司、同一網址、同一天、同樣內容只有一筆**（唯一限制），再抓一次就重用。
+- **抽本文**（`domains/newsroom/extract.py`）：用標準函式庫的 `html.parser`，不另裝擷取套件、也不用模型——同一頁永遠得到同樣的文字，之後引文才能精確定位（T-505）。去掉 script、style、導覽、頁首頁尾、側欄、表單；頁面有 `<article>` / `<main>` 就只取那段；區塊元素變成段落（段落間空一行），HTML 原始碼裡的換行只是排版、當成空格；編碼依序看回應標頭、`<meta charset>`、預設 UTF-8（未知編碼名稱退回 UTF-8）；純文字直接分段。
+  - 沒有用設計文件提到的 trafilatura：新增套件要下載，而標準函式庫版本已足以處理新聞頁；之後若遇到抽不好的真實網站再評估。
+- **`fetch_url` 工具**（write、可重試、30 秒）：抓網頁（共用 T-501 的抓取元件：只抓公開網址）→ 原始內容存進 BlobStore（`evidence/<公司>/<年>/<月>/<日>/<id>.snapshot`，私有、不公開）→ 抽本文（上限 20 萬字，超過截斷並標記）→ 寫入 `evidence`、`TOOL_COMPLETED`，新的快照另發 `EVIDENCE_CAPTURED`，都在同一個交易。回傳 evidence_id、前 1,500 字摘錄，並提醒模型「引文必須與證據文字完全一致」。
+  - 重用時也回報 `produced: evidence`：代理確實用了這份證據，AC-5 面板上的「Sources」計數才正確。
+  - 不能成為證據的直接失敗、不重試：非文字內容（PDF、圖片）、沒有可讀文字的頁面（多半要執行 JavaScript）、私有位址、4xx。
+  - `render=true`（執行 JavaScript 後再讀）目前沒有 Playwright 可用：照常讀取並在結果中說明，不假裝有執行。
+- **`read_evidence` 工具**（read）：分段讀證據全文（offset、limit 最多 8,000 字、`next_offset`），只能讀自己公司的證據。
+- `FixtureFetcher` 像真的伺服器一樣忽略網址的查詢參數與 `#` 片段（沒有路由特別指定時）；離線頁面 `fixtures/pages/`：搜尋結果與 feed 背後的 4 個虛構新聞頁（外面包著導覽、script、側欄、頁尾），另有一個需要 JavaScript 的頁面和一個 PDF。
+- 組裝：`build_tools` 會帶入 BlobStore（工作程序用設定的目錄）；時間軸加上「擷取證據」的說明。
+
+### 過程中的問題
+- 測試用了隨便產生的執行 ID，`evidence.run_id` 有外鍵，寫入失敗。改用測試共用的 `running_agent_run` 建立真的代理、任務與執行——也順便驗證了事件上帶著正確的 run、task、agent。
+- 第一版測試用 `add_source` 建來源，它會建立真的輪詢排程，而其他排程測試會觸發資料庫裡所有到期的排程；改成直接建立來源資料列。
+- 已知限制：快照先寫進 BlobStore 再寫資料庫；資料庫交易若失敗，會留下一個沒有被引用的快照檔（不影響正確性，之後可加清理）。
+
+### 驗證
+- `tests/newsroom/test_evidence.py`（12 個）：抽本文（去掉周邊雜訊、段落切分、中文頁、og:title / h1 當標題、沒有 article 時用 body、Big5 與未知編碼、純文字）；`fetch_url` 建立證據與快照（帶追蹤參數的網址存成標準網址、快照內容與原頁相同、連到列過它的來源、事件帶 run / task / agent）；同一天同內容重用、隔天重新擷取；PDF、需要 JavaScript 的頁面、404 都失敗且不重試；截斷；`read_evidence` 分段與只能讀自己公司的。
+- **真實連網（integration）**：`test_fetch_live.py` 抓 `https://example.com`（免費）通過——真實的 DNS 公開位址檢查、串流讀取、抽取、快照；`test_tavily.py` 的真實搜尋也通過（見 T-500）。
+- 後端 721 個測試通過；`ruff`、`lint-imports`、`make db-check` 通過；event-schema 8 個、web 208 個測試與 typecheck、lint 通過。
 
 ---
 

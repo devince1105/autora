@@ -5,6 +5,7 @@ The Tavily adapter is tested against a mock transport (no network); the live smo
 """
 
 import json
+import tempfile
 import uuid
 from datetime import UTC, datetime
 from decimal import Decimal
@@ -16,9 +17,10 @@ from pydantic import SecretStr
 from sqlalchemy import select
 
 import autora.domains.newsroom as newsroom
-from autora.app import build_search_provider, build_tools
+from autora.app import build_page_fetcher, build_search_provider, build_tools
 from autora.db.models import EventRecord
 from autora.domains.newsroom.tools.search import CANDIDATES_NOTE
+from autora.infra.blobstore import LocalFSBlobStore
 from autora.infra.search import SearchRejected, SearchResponse, SearchUnavailable
 from autora.infra.search.fixture import FixtureDocument, FixtureSearchProvider
 from autora.infra.search.tavily import ENDPOINT, RateLimiter, TavilySearchProvider
@@ -243,7 +245,12 @@ async def _invoke(committed, provider, args):
         company = await unique_company(session, "search")
         await session.commit()
     registry = ToolRegistry(committed)
-    register_tools(registry, search_provider=provider)
+    register_tools(
+        registry,
+        search_provider=provider,
+        fetcher=build_page_fetcher(None),
+        blobs=LocalFSBlobStore(tempfile.mkdtemp()),
+    )
     call_id = f"call_{uuid.uuid4().hex[:8]}"
     result = await registry.invoke(
         "web_search",

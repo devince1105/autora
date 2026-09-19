@@ -86,6 +86,7 @@ const FORMAT: Record<string, (p: Payload) => [string, Tone, string | null]> = {
       : ["讀取來源", "neutral", `新增 ${n(p.count) ?? 0} 則・共 ${n(p.seen) ?? 0} 則`],
   SOURCE_ITEM_DISCOVERED: (p) => ["新來源項目", "neutral", s(p.title)],
   SOURCE_PAUSED: (p) => ["來源暫停", "danger", s(p.reason)],
+  EVIDENCE_CAPTURED: (p) => ["擷取證據", "work", s(p.title) ?? s(p.url)],
 };
 
 export interface Described {

@@ -135,15 +135,31 @@ def build_scheduler(
 
 
 def build_tools(
-    session_factory: async_sessionmaker[AsyncSession], settings: Settings | None = None
+    session_factory: async_sessionmaker[AsyncSession],
+    settings: Settings | None = None,
+    *,
+    blobs: BlobStore | None = None,
 ) -> ToolRegistry:
+    """Every domain's tools. Without ``blobs``: the settings' blob store, else a temporary one."""
+    import tempfile
+    from pathlib import Path
+
     from autora.domains import echo
     from autora.domains.newsroom import tools as newsroom_tools
+    from autora.infra.blobstore import LocalFSBlobStore
     from autora.runtime.tools import ToolRegistry
 
+    if blobs is None:
+        root = settings.blob_store_dir if settings else Path(tempfile.gettempdir()) / "autora-blobs"
+        blobs = LocalFSBlobStore(root)
     tools = ToolRegistry(session_factory)
     echo.register_tools(tools)
-    newsroom_tools.register_tools(tools, search_provider=build_search_provider(settings))
+    newsroom_tools.register_tools(
+        tools,
+        search_provider=build_search_provider(settings),
+        fetcher=build_page_fetcher(settings),
+        blobs=blobs,
+    )
     return tools
 
 
@@ -215,6 +231,7 @@ def build_worker(
 
     runtime = build_runtime(settings)
     session_factory = session_factory or get_sessionmaker()
+    blobs = blobs or LocalFSBlobStore(settings.blob_store_dir)
     gateway = gateway_from_settings(
         settings,
         session_factory,
@@ -225,10 +242,10 @@ def build_worker(
         session_factory=session_factory,
         task_manager=runtime.task_manager,
         gateway=gateway,
-        tools=build_tools(session_factory, settings),
+        tools=build_tools(session_factory, settings, blobs=blobs),
         policy=runtime.policy,
         approvals=runtime.approvals,
-        blobs=blobs or LocalFSBlobStore(settings.blob_store_dir),
+        blobs=blobs,
         behaviors=build_behaviors(),
         progress=ProgressPublisher(session_factory),
     )

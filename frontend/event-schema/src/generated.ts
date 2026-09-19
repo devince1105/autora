@@ -410,6 +410,21 @@ export const CycleStartedV1Event = z.object({
   payload: CycleStartedV1Payload,
 });
 
+export const EvidenceCapturedV1Payload = z.object({
+  evidence_id: z.uuid(),
+  url: z.string(),
+  title: z.string().nullable().default(null),
+  source_id: z.uuid().nullable().default(null),
+  story_id: z.uuid().nullable().default(null),
+});
+export type EvidenceCapturedV1Payload = z.infer<typeof EvidenceCapturedV1Payload>;
+export const EvidenceCapturedV1Event = z.object({
+  ...envelopeFields,
+  event_type: z.literal("EVIDENCE_CAPTURED"),
+  schema_version: z.literal(1),
+  payload: EvidenceCapturedV1Payload,
+});
+
 export const ExpenseRecordedV1Payload = z.object({
   transaction_id: z.uuid(),
   project_id: z.uuid().nullable().default(null),
@@ -912,6 +927,7 @@ export const EventEnvelope = z.discriminatedUnion("event_type", [
   CycleStageChangedV1Event,
   CycleStageTimeoutV1Event,
   CycleStartedV1Event,
+  EvidenceCapturedV1Event,
   ExpenseRecordedV1Event,
   GoalCreatedV1Event,
   GoalUpdatedV1Event,
@@ -981,6 +997,7 @@ export const EVENT_TYPES = [
   "CYCLE_STAGE_CHANGED",
   "CYCLE_STAGE_TIMEOUT",
   "CYCLE_STARTED",
+  "EVIDENCE_CAPTURED",
   "EXPENSE_RECORDED",
   "GOAL_CREATED",
   "GOAL_UPDATED",

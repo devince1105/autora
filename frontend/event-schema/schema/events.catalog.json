@@ -1344,6 +1344,70 @@
         }
       }
     },
+    "EVIDENCE_CAPTURED": {
+      "1": {
+        "persistence": "persisted",
+        "payload": {
+          "additionalProperties": false,
+          "description": "A new snapshot (a re-fetch of identical content reuses the old one and emits nothing).",
+          "properties": {
+            "evidence_id": {
+              "format": "uuid",
+              "title": "Evidence Id",
+              "type": "string"
+            },
+            "url": {
+              "title": "Url",
+              "type": "string"
+            },
+            "title": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Title"
+            },
+            "source_id": {
+              "anyOf": [
+                {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Source Id"
+            },
+            "story_id": {
+              "anyOf": [
+                {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Story Id"
+            }
+          },
+          "required": [
+            "evidence_id",
+            "url"
+          ],
+          "title": "EvidenceCaptured",
+          "type": "object"
+        }
+      }
+    },
     "EXPENSE_RECORDED": {
       "1": {
         "persistence": "persisted",

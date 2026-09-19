@@ -34,7 +34,7 @@ include = ["autora*"]
 
 [tool.setuptools.package-data]
 "autora.db.migrations" = ["script.py.mako"]
-"autora.domains.newsroom" = ["fixtures/*", "fixtures/feeds/*"]
+"autora.domains.newsroom" = ["fixtures/*", "fixtures/feeds/*", "fixtures/pages/*"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

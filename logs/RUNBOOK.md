@@ -326,6 +326,7 @@ ANTHROPIC_SERVER_FALLBACKS=true
 | `test_anthropic_live.py`（2 個） | `ANTHROPIC_API_KEY` | Claude 的結構化輸出；思考內容在工具迴圈中正確往返（會計費，共三次小型呼叫） |
 | `tests/e2e/test_echo_live.py`（1 個） | `MODEL_PROVIDER` 設為 `nvidia` 或 `anthropic` 與其金鑰 | 用目前選的真實模型完整跑一次 EchoWorkflow：三位代理各寫一則筆記並回報合法 JSON |
 | `tests/newsroom/test_tavily.py`（1 個） | `TAVILY_API_KEY` | 透過 `web_search` 工具做一次真實的 Tavily 搜尋（basic，1 點 credit），確認有結果、成本記在 `TOOL_COMPLETED` 事件、沒有產生 Evidence |
+| `tests/newsroom/test_fetch_live.py`（1 個） | 網路（免費） | `fetch_url` 抓 `https://example.com`：真實的公開位址檢查、下載、抽本文、存成 Evidence 與快照 |
 
 EchoWorkflow 的真實模型測試通過，就滿足進入階段 3 的條件「真實模型呼叫通過一次」。之後照第四節啟動工作程序，三位代理就會由真實模型執行。
 
@@ -401,6 +402,8 @@ WHERE company_id = (SELECT id FROM companies WHERE slug = 'echo-demo') AND role 
 **新聞來源（T-501）**：來源可以是 RSS / Atom feed、一組要追蹤的網址、或一個搜尋查詢。工作程序每 5 分鐘檢查一次，各來源依自己的間隔（預設 1 小時）讀取，新的項目寫進 `source_items`，時間軸會出現「讀取來源」事件。連續 5 次讀取失敗的來源會自動暫停（時間軸顯示「來源暫停」）。
 - `TOOLS_PROFILE=fixture` 時只讀 `backend/autora/domains/newsroom/fixtures/feeds/` 裡的虛構 feed；`live` 才連網。連網時只會抓公開網址，`localhost`、內網、雲端 metadata 位址一律拒絕。可調：`FETCH_TIMEOUT_SECONDS`（15）、`FETCH_MAX_BYTES`（5000000）。
 - 新增來源的頁面與 API 在 T-517 才會加入；目前只能從程式呼叫 `autora.domains.newsroom.sources.add_source`。
+
+**證據（`fetch_url`，T-502）**：代理要用某個網頁，必須用 `fetch_url` 把它存成證據——原始網頁存進 BlobStore（`BLOB_STORE_DIR`，私有，不會公開），抽出的本文存進資料庫，之後的主張（claim）只能引用這些文字。同一網址同一天內容沒變就重用同一份證據。PDF、圖片與需要執行 JavaScript 才有內容的頁面目前無法成為證據。
 
 ---
 

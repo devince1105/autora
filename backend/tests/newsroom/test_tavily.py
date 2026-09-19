@@ -4,14 +4,17 @@ Run with ``pytest backend -m integration``. Skipped unless TAVILY_API_KEY is set
 environment); it costs one basic search (1 credit). Only the shape is asserted: the web changes.
 """
 
+import tempfile
 import uuid
 from decimal import Decimal
 
 import pytest
 from sqlalchemy import select
 
+from autora.app import build_page_fetcher
 from autora.db.models import EventRecord
 from autora.domains.newsroom.tools import register_tools
+from autora.infra.blobstore import LocalFSBlobStore
 from autora.infra.search.tavily import TavilySearchProvider
 from autora.infra.settings import SettingsError, load_settings
 from autora.runtime.actor import Actor
@@ -42,7 +45,12 @@ async def test_one_real_search_records_its_cost(committed):
         timeout_s=settings.tavily_timeout_seconds,
     )
     registry = ToolRegistry(committed)
-    register_tools(registry, search_provider=provider)
+    register_tools(
+        registry,
+        search_provider=provider,
+        fetcher=build_page_fetcher(None),
+        blobs=LocalFSBlobStore(tempfile.mkdtemp()),
+    )
     async with committed() as session:
         company = await unique_company(session, "tavily")
         await session.commit()

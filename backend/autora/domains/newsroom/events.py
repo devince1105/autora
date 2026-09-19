@@ -1,6 +1,6 @@
 """Newsroom events (logs/3d-office/03_EVENT_MODEL.md §2.5, platform/11_EVENT_CATALOG.md).
 
-Added with the task that first emits them; T-501: the source poller's.
+Added with the task that first emits them; T-501: the source poller's; T-502: evidence.
 """
 
 from __future__ import annotations
@@ -39,3 +39,15 @@ class SourcePaused(EventPayload):
     source_id: uuid.UUID
     reason: str
     failures: int
+
+
+@event("EVIDENCE_CAPTURED")
+class EvidenceCaptured(EventPayload):
+    """A new snapshot (a re-fetch of identical content reuses the old one and emits nothing)."""
+
+    evidence_id: uuid.UUID
+    url: str
+    title: str | None = None
+    source_id: uuid.UUID | None = None
+    story_id: uuid.UUID | None = None
+    """Filled once stories exist (T-504) and the fetch was for one."""

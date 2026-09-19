@@ -1,17 +1,17 @@
 """Newsroom tables (logs/platform/05_NEWSROOM_DOMAIN.md §1, 10_DATABASE_SCHEMA.md).
 
-Phase 5 adds them task by task; T-501: sources and the items polled from them.
+Phase 5 adds them task by task; T-501: sources and the items polled from them; T-502: evidence.
 """
 
 from __future__ import annotations
 
 import uuid
-from datetime import datetime
+from datetime import date, datetime
 from decimal import Decimal
 from enum import StrEnum
 from typing import Any
 
-from sqlalchemy import CheckConstraint, ForeignKey, Index, Numeric, UniqueConstraint, text
+from sqlalchemy import CheckConstraint, Date, ForeignKey, Index, Numeric, UniqueConstraint, text
 from sqlalchemy.orm import Mapped, mapped_column
 
 from autora.db.base import Base, CreatedAtMixin, IdMixin, TimestampMixin, check_in
@@ -83,3 +83,39 @@ class SourceItem(IdMixin, CreatedAtMixin, Base):
     summary: Mapped[str | None]
     published_at: Mapped[datetime | None]
     content_hash: Mapped[str]
+
+
+class Evidence(IdMixin, CreatedAtMixin, Base):
+    """A page as it was when fetched (T-502): the raw snapshot in the blob store (private, never
+    published) and its readable text. Claims are supported by quotes from ``extracted_text``.
+
+    The same URL with the same text on the same day is one evidence row: fetching it again
+    returns the existing one (unique on company, URL, text hash and day)."""
+
+    __tablename__ = "evidence"
+    __table_args__ = (
+        UniqueConstraint("company_id", "url", "text_hash", "retrieved_on"),
+        Index("ix_evidence_company_retrieved", "company_id", "retrieved_at"),
+        Index("ix_evidence_task", "task_id"),
+    )
+
+    company_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("companies.id"))
+    url: Mapped[str]
+    """Canonical URL (as asked for); ``final_url`` is where redirects ended."""
+    final_url: Mapped[str]
+    title: Mapped[str | None]
+    content_type: Mapped[str]
+    language: Mapped[str | None]
+    retrieved_at: Mapped[datetime]
+    retrieved_on: Mapped[date] = mapped_column(Date)
+    blob_key: Mapped[str]
+    extracted_text: Mapped[str]
+    text_hash: Mapped[str]
+    truncated: Mapped[bool] = mapped_column(server_default="false")
+    """The text was cut at the length limit."""
+    source_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("sources.id"))
+    """The source that listed this URL, when one did (its trust level applies)."""
+    source_item_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("source_items.id"))
+    task_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("tasks.id"))
+    run_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("agent_runs.id"))
+    """The run that first captured it."""

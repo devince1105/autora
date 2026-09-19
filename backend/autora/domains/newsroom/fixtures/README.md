@@ -7,3 +7,6 @@ resolve on the internet, so a fixture can never be mistaken for, or leak into, r
 - `search.json`: the corpus `web_search` searches in fixture mode (`FixtureSearchProvider`).
 - `routes.json`: which fixture file each URL serves in fixture mode (`FixtureFetcher`); any other
   URL answers 404. Feeds for the source poller (T-501) are in `feeds/`.
+- `pages/`: the pages behind the search results and feed items, for `fetch_url` (T-502), with
+  navigation, scripts and footers around the article so text extraction is exercised; plus a
+  page that needs JavaScript and a PDF, which cannot become evidence.

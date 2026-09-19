@@ -151,14 +151,20 @@ def _raise_for_status(status: int, url: str) -> None:
 
 
 class FixtureFetcher:
-    """Serves ``root/<file>`` for each URL in ``routes`` (URL -> file name, relative to root)."""
+    """Serves ``root/<file>`` for each URL in ``routes`` (URL -> file name, relative to root).
+    The URL answers as given (not as redirected); unknown URLs answer 404."""
 
     def __init__(self, root: Path, routes: Mapping[str, str]):
         self._root = root
         self._routes = dict(routes)
 
     async def fetch(self, url: str) -> FetchedPage:
-        name = self._routes.get(url)
+        # like a real server, ignore the fragment and the query (tracking parameters and the
+        # like) when no route names them
+        parts = urlsplit(url)
+        name = self._routes.get(url) or self._routes.get(
+            f"{parts.scheme}://{parts.netloc}{parts.path}"
+        )
         if name is None:
             raise FetchRefused(f"{url} answered 404 (no fixture)")
         path = (self._root / name).resolve()
@@ -169,6 +175,7 @@ class FixtureFetcher:
             ".xml": "application/rss+xml",
             ".atom": "application/atom+xml",
             ".html": "text/html; charset=utf-8",
+            ".pdf": "application/pdf",
         }.get(suffix, "application/octet-stream")
         return FetchedPage(url=url, status=200, content_type=content_type, body=path.read_bytes())
 
