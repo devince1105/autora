@@ -10,7 +10,7 @@ COMPOSE := docker compose -f infra/docker-compose.yml
 
 ALEMBIC := cd backend && ../$(VENV)/bin/alembic
 
-.PHONY: help setup dev down up logs migrate migration db-check gen-schema gen-schema-check gen-api gen-api-check phase1-acceptance realtime-fixture test test-py test-web e2e lint lint-py lint-web clean
+.PHONY: help setup dev down up logs migrate migration db-check gen-schema gen-schema-check gen-api gen-api-check phase1-acceptance realtime-fixture test test-py test-web e2e soak lint lint-py lint-web clean
 
 help: ## Show targets
 	@grep -E '^[a-zA-Z_-]+:.*?## ' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-12s\033[0m %s\n", $$1, $$2}'
@@ -82,6 +82,9 @@ test-web: ## Run JS tests
 
 e2e: ## Browser end-to-end tests (Playwright; needs Postgres, starts its own API/worker/web)
 	pnpm -F web e2e
+
+soak: ## Phase 4 soak: the office open 2 h, a run every 5 min (SOAK_MINUTES to change)
+	SOAK_MINUTES=$${SOAK_MINUTES:-120} pnpm -F web e2e office-soak
 
 lint: lint-py lint-web ## Run all linters
 

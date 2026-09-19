@@ -1,8 +1,7 @@
 // Assembles the office (04 §1, D-010): a key light from the upper left whose shadows fall toward
-// the camera (as in the reference renders), an environment of light panels (no download), the floors, the merged static office, glass, windows and screens, all
+// the camera (as in the reference renders), an environment baked from light panels (no download), the floors, the merged static office, glass, windows and screens, all
 // fitted into the camera; the agents (T-405) with their screens, lamps and tags (T-406). The
 // courier joins in T-408.
-import { Environment, Lightformer } from "@react-three/drei";
 import { useEffect, useMemo } from "react";
 
 import { Agents } from "../agents/Agents";
@@ -13,6 +12,7 @@ import { StatsProbe } from "../perf/StatsProbe";
 import { CueProvider } from "../visual/CueRunner";
 import { VisualTrackerProvider } from "../visual/tracker";
 import { Floors } from "./Floors";
+import { OfficeEnvironment } from "./OfficeEnvironment";
 import { officeParts, partitionGlassParts, windowGlassParts } from "./furniture";
 import { buildGeometry } from "./kit";
 
@@ -48,13 +48,8 @@ export function OfficeScene({ insetRight = 0 }: { insetRight?: number }) {
         shadow-bias={-0.0004}
         shadow-normalBias={0.03}
       />
-      {/* light panels for reflections and fill: above, and on the two open sides (the inner faces
-          of the back and left walls face them) */}
-      <Environment resolution={128} frames={1}>
-        <Lightformer form="rect" intensity={0.9} position={[0, 14, 0]} rotation-x={Math.PI / 2} scale={[40, 40, 1]} />
-        <Lightformer form="rect" intensity={0.8} position={[24, 6, 0]} rotation-y={-Math.PI / 2} scale={[30, 12, 1]} />
-        <Lightformer form="rect" intensity={0.8} color="#fff6ea" position={[0, 6, 24]} rotation-y={Math.PI} scale={[30, 12, 1]} />
-      </Environment>
+      {/* light panels for reflections and fill, baked once (not drei's portal: it leaked) */}
+      <OfficeEnvironment />
 
       <group>
         <Floors />

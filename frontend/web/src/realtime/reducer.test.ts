@@ -6,6 +6,7 @@ import {
   applyEphemeral,
   applyEvent,
   effectiveState,
+  FINISHED_TASK_WINDOW_MS,
   hydrate,
   view,
   type Projection,
@@ -162,3 +163,27 @@ describe("live progress (ephemeral)", () => {
     expect(applyEphemeral(state, { ...message, event_type: "SOMETHING_NEW" })).toBe(state);
   });
 });
+
+describe("finished tasks leave the state (T-412)", () => {
+  it("ten minutes after they finished, a later event drops them; the projection is unchanged", () => {
+    const state = replay();
+    const finished = Object.values(state.tasks).filter((t) => ["SUCCEEDED", "FAILED", "CANCELLED"].includes(t.state));
+    const open = Object.values(state.tasks).filter((t) => !["SUCCEEDED", "FAILED", "CANCELLED"].includes(t.state));
+    expect(finished.length).toBeGreaterThan(5);
+    const last = events.at(-1)!;
+    const later = new Date(Math.max(...Object.values(state.tasks).map((t) => Date.parse(t.since))) + FINISHED_TASK_WINDOW_MS + 1000);
+    const tick: EventEnvelope = { ...last, seq: state.lastSeq + 1, event_id: "01a0b800-0000-7000-8000-000000000001", occurred_at: later.toISOString() };
+    const after = applyEvent(state, tick);
+    expect(Object.keys(after.tasks).sort()).toEqual(open.map((t) => t.id).sort());
+    const now = new Date(later.getTime() + 1);
+    expect(canonical(view(after, now)).tasks).toEqual(canonical(view(state, now)).tasks);
+  });
+
+  it("an event within the window keeps them", () => {
+    const state = replay();
+    const last = events.at(-1)!;
+    const tick: EventEnvelope = { ...last, seq: state.lastSeq + 1, event_id: "01a0b800-0000-7000-8000-000000000002" };
+    expect(Object.keys(applyEvent(state, tick).tasks).length).toBe(Object.keys(state.tasks).length);
+  });
+});
+

@@ -14,7 +14,8 @@
 // - TASK_CREATED adds a task (PENDING); TASK_* set its state, since and lastEventSeq;
 //   TASK_STARTED also sets attempt, run and agent.
 // - view(now): effective activity state (COMPLETED past display_until reads IDLE), finished tasks
-//   older than 10 minutes left out, the last 100 events.
+//   older than 10 minutes left out, the last 100 events. Those tasks also leave the state itself
+//   as later events arrive (T-412: the store must not grow with history).
 //
 // No visual state lives here (05 §5): poses, bubbles and animation are derived elsewhere.
 import { parseEvent, type EventEnvelope } from "@autora/event-schema";
@@ -103,8 +104,31 @@ export function hydrate(snapshot: RealtimeSnapshot): RealtimeState {
 
 // --- apply ----------------------------------------------------------------------------------
 
-/** Apply one persisted event. Returns the same object when the event is ignored. */
+/**
+ * Apply one persisted event. Returns the same object when the event is ignored.
+ *
+ * Tasks that finished more than FINISHED_TASK_WINDOW_MS before the event are dropped from the
+ * state (04 §7: the store must not grow with history; view() already leaves them out, so the
+ * projection is unchanged). Measured from the event's time, not the local clock, so replaying
+ * the same events gives the same state.
+ */
 export function applyEvent(state: RealtimeState, event: EventEnvelope): RealtimeState {
+  const next = applyOne(state, event);
+  return next === state ? state : pruneFinishedTasks(next, Date.parse(event.occurred_at));
+}
+
+function pruneFinishedTasks(state: RealtimeState, at: number): RealtimeState {
+  let tasks: Record<string, TaskView> | null = null;
+  for (const [id, task] of Object.entries(state.tasks)) {
+    if (FINISHED.has(task.state) && Date.parse(task.since) <= at - FINISHED_TASK_WINDOW_MS) {
+      tasks ??= { ...state.tasks };
+      delete tasks[id];
+    }
+  }
+  return tasks ? { ...state, tasks } : state;
+}
+
+function applyOne(state: RealtimeState, event: EventEnvelope): RealtimeState {
   if (event.seq === null || event.seq <= state.lastSeq || event.company_id !== state.companyId) {
     return state;
   }
