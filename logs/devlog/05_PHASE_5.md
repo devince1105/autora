@@ -22,7 +22,7 @@
 | T-506 | Researcher 代理（提示、`ResearchNote` schema、validators） | T-211、T-500、T-502 | ✅ |
 | T-507 | Analyst 代理（`AnalysisNote`、claims） | T-505 | ✅ |
 | T-508 | Articles / ArticleVersions（lang、draft_group）+ `write_draft` 工具；雙語 claim 集合一致 | T-504 | ✅ |
-| T-509 | Writer 代理（雙語草稿） | T-507、T-508 | ⏳ |
+| T-509 | Writer 代理（雙語草稿） | T-507、T-508 | ✅ |
 | T-510 | 確定性 fact-check validators + `run_fact_check` 工具 | T-505、T-508 | ✅ |
 | T-511 | Editor 代理（`EditorReview`、`request_revision` / `accept_draft`） | T-509、T-510 | ⏳ |
 | T-512 | Publisher（`PublishArticle` command、冪等、Distribution site） | T-508、T-205 | ✅ |
@@ -343,6 +343,27 @@ T-500 → T-501 → T-502 → T-503 → T-504 → T-505 → T-508 → T-510 → 
   - 驗證器對著真實的主張：合格的通過；捏造的主張 ID、題材不對、主張不足、別的任務建立的主張、**沒有引文支撐的數字主張**（「會通不過事實查核：沒有支撐的引文」）、關鍵數字指向不在清單的主張；
   - 工作程序找得到分析師行為與工具。
 - 後端 815 個測試通過；`ruff`、`lint-imports`、`make db-check`、`gen-schema-check` 通過。
+---
+
+## T-509 · 寫手代理
+
+### 做了什麼
+- **行為**（`domains/newsroom/agents/writer.py`，角色 `writer`、任務 `draft`，輸入 `params.story_id`，接在分析任務之後）：工具 `write_draft`、`read_draft`、`list_claims`、`read_evidence`；能力 `drafting`，最多 8 次模型呼叫、2 次修正（platform/04 §4）。
+  - **提示**：文章裡的每個事實、數字、引述都來自主張，每段列出它陳述的主張、標題不引用；不加主張沒說的事、不改數字或說話的人；**先寫主要語言（繁體中文，明確禁止簡體），其他語言用完全相同的一組主張**，彼此忠實但不逐字翻譯；有爭議的寫成誰說了什麼；引文短；`write_draft` 拒絕時照列出的問題全部修正再寫；修訂時先讀目前的草稿、逐一處理編輯意見、寫明改了什麼。
+  - **輸出 `ArticleDraft`**：文章 ID、草稿群組 ID、各語言版本 ID（3d-office/06 §1）。
+  - **背景**：題材、**公司的語言政策**（主要語言、其他語言、是否全部必備）、上游分析任務的角度與主張（ID、類型、內容；**標出關鍵數字**；排除被查核駁回的）、有爭議之處；**修訂**（`params.issues`：`[{message, lang?, block_ref?, kind?}]`）時列出編輯的意見並要求先 `read_draft`。
+  - **驗證**：文章規則（語言、每段引用主張、兩語言同一組主張、引文長度、只能引用本題材未被駁回的主張）已經由 `write_draft` 在寫入前把關；代理的驗證則看**回報是否和實際發生的事一致**——草稿群組必須是**這個任務自己的 `write_draft` 寫的**（查 `TOOL_COMPLETED.produced` 的 `article_version`）、是文章**目前**的草稿（之後又寫一版就要回報新的）、文章 ID 與各語言版本 ID 都要對；**分析師標出的每個關鍵數字都要引用**（被查核駁回的主張不能引用，所以不要求）；修訂必須寫 `change_summary`。
+- **模擬模型**：從背景解析語言與主張 → 修訂時先 `read_draft` → 每則主張寫一段（最多 6 段）、每個語言引用同一組主張；主張本身是該語言就照用，否則標明「根據來源」（模擬不翻譯）→ 用 `write_draft` 回傳的 ID 回報。
+- 測試整理：研究 → 分析 → 撰稿這條線的測試輔助移到 `tests/newsroom/agents/conftest.run_line`（分析師的測試也改用它）。
+
+### 驗證
+- `tests/newsroom/agents/test_writer.py`（5 個）：
+  - **真正的工作程序**跑研究 → 分析 → 撰稿：成功、文章屬於該題材且為 DRAFT、中英兩版在同一個草稿群組、**兩語言引用同一組主張、正是分析師的主張**、每段都有引用、英文版標為中文版的翻譯、`ARTICLE_CREATED` 事件；
+  - **修訂任務**（帶編輯意見）：先讀了草稿、寫出同一篇文章的第 2 版、成為目前草稿、有 `change_summary`；
+  - 背景：語言政策、角度、主張與關鍵數字標記、爭議、修訂意見（含語言與段落位置）、找不到題材；
+  - 驗證器對著真實寫入的草稿：合格通過；捏造的草稿群組、文章 ID 與版本 ID 不符、**別的任務寫的草稿**、回報舊的草稿；漏掉關鍵數字；關鍵數字的主張被駁回後不再要求；修訂沒寫 / 有寫 `change_summary`；
+  - 工作程序找得到寫手行為（echo 的寫手仍處理自己的 `echo_write`）。
+- 後端 820 個測試通過；`ruff`、`lint-imports`、`make db-check`、`gen-schema-check` 通過。
 ---
 
 ## 提交紀錄

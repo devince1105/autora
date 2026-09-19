@@ -4,9 +4,8 @@ import uuid
 
 from sqlalchemy import select
 
-from autora.app import build_behaviors, build_worker
-from autora.company.agents import hire_agent
-from autora.db.models import Agent, EventRecord, Project, Task
+from autora.app import build_behaviors
+from autora.db.models import Agent, EventRecord, Task
 from autora.domains.newsroom.agents import analyst
 from autora.domains.newsroom.agents.analyst import (
     AnalysisNote,
@@ -16,54 +15,16 @@ from autora.domains.newsroom.agents.analyst import (
     claims_would_pass,
 )
 from autora.domains.newsroom.factcheck import check_claim
-from autora.domains.newsroom.models import Claim, Story
+from autora.domains.newsroom.models import Claim
 from autora.domains.newsroom.policy import trust_policy
 from autora.domains.newsroom.tools.factcheck import claim_quotes
-from autora.runtime.actor import Actor
 from autora.runtime.behaviors import RunContext
-from autora.runtime.task_manager import TaskManager
-from tests.conftest import unique_company
-
-SETUP = Actor.system("test")
+from tests.newsroom.agents.conftest import run_line
 
 
 async def research_then_analysis(committed, e2e_settings):
-    async with committed() as session:
-        company = await unique_company(session, "analysis")
-        project = Project(
-            company_id=company.id,
-            name="newsroom",
-            state="ACTIVE",
-            kill_criteria={"max_cost_usd": 10},
-        )
-        session.add(project)
-        await session.flush()
-        for role, name in (("researcher", "Rae"), ("analyst", "Ana")):
-            await hire_agent(
-                session, company_id=company.id, role=role, display_name=name, actor=SETUP
-            )
-        story = Story(company_id=company.id, title="Lumen City microgrid", state="SELECTED")
-        session.add(story)
-        await session.flush()
-        params = {"story_id": str(story.id)}
-        research = await TaskManager().add_task(
-            session, company_id=company.id, project_id=project.id, name="research",
-            display_name="Research", required_role="researcher", input={"params": params},
-        )  # fmt: skip
-        await session.commit()
-    worker = build_worker(
-        e2e_settings, session_factory=committed, company_ids=frozenset({company.id})
-    )
-    await worker.run_until_idle()
-    async with committed() as session:
-        analysis = await TaskManager().add_task(
-            session, company_id=company.id, project_id=project.id, name="analysis",
-            display_name="Analysis", required_role="analyst", input={"params": params},
-            depends_on=[research.id], ready=True,
-        )  # fmt: skip
-        await session.commit()
-    await worker.run_until_idle()
-    return company, story, research, analysis
+    line = await run_line(committed, e2e_settings, until="analysis")
+    return line.company, line.story, line.tasks["research"], line.tasks["analysis"]
 
 
 async def test_an_analyst_run_makes_claims_that_would_pass(committed, e2e_settings):

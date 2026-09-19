@@ -4,8 +4,8 @@ It reads its conversation like a real model would (the task's first message, the
 far) and acts through the same tools, so everything a run does is real: searches hit the search
 provider, pages become evidence, validators check the result. Only the decisions are scripted.
 
-T-506: the researcher; T-507: the analyst. The other newsroom roles are added with their
-behaviors (T-509 ...), the full demo scripts with T-518.
+T-506: the researcher; T-507: the analyst; T-509: the writer. The other newsroom roles are
+added with their behaviors (T-511 ...), the full demo scripts with T-518.
 """
 
 from __future__ import annotations
@@ -208,4 +208,78 @@ def _analysis(request: ModelRequest) -> FakeTurn:
     )
 
 
-_HANDLERS = {("researcher", "research"): _research, ("analyst", "analysis"): _analysis}
+# --- writer (T-509) ---------------------------------------------------------------------------
+
+_LANG = re.compile(r"\b[a-z]{2}(?:-[A-Z][A-Za-z]+)?\b")
+_CJK = re.compile(r"[\u4e00-\u9fff]")
+_CLAIM_LINE = re.compile(rf"^- ({_UUID.pattern}) \| (\w+)[^|]*\| (.+)$", re.MULTILINE)
+MAX_PARAGRAPHS = 6
+
+
+def _in(lang: str, text: str) -> str:
+    """The claim's words in a language's paragraph: as they are when the claim is already in that
+    language, else attributed to the source (the simulation does not translate)."""
+    chinese = bool(_CJK.search(text))
+    if lang.startswith("zh"):
+        return text if chinese else f"根據來源：{text}"
+    return f"According to the source: {text}" if chinese else text
+
+
+def _draft(request: ModelRequest) -> FakeTurn:
+    first = _first_text(request)
+    story_id = _field(first, "Story id")
+    title = _field(first, "Story") or "the story"
+    langs_line = _field(first, "Languages") or "zh-TW (primary)"
+    langs = _LANG.findall(langs_line.split(";")[0])
+    claims = _CLAIM_LINE.findall(first.split("Claims (cite these ids):", 1)[-1])
+    revision = "This is a revision" in first
+    calls = _calls(request)
+
+    if revision and not any(name == "read_draft" for name, _, _ in calls):
+        return FakeTurn(
+            text="Reading the current draft.",
+            tool_uses=[FakeToolUse(name="read_draft", input={"story_id": story_id})],
+        )
+    written = [
+        out for name, _, result in calls if name == "write_draft" and (out := _output(result))
+    ]
+    if not written:
+        picks = claims[:MAX_PARAGRAPHS]
+        versions = []
+        for lang in langs:
+            zh = lang.startswith("zh")
+            versions.append(
+                {
+                    "lang": lang,
+                    "title": f"{title}：數據一覽" if zh else f"{title}: the numbers",
+                    "summary": f"{title}的重點數字。" if zh else f"The key numbers on {title}.",
+                    "blocks": [
+                        {"type": "heading", "text": "重點" if zh else "Key points"},
+                        *(
+                            {"type": "paragraph", "text": _in(lang, text), "claim_ids": [cid]}
+                            for cid, _, text in picks
+                        ),
+                    ],
+                }
+            )
+        args: dict[str, Any] = {"story_id": story_id, "versions": versions}
+        if revision:
+            args["change_summary"] = "依編輯意見修正各段落。"
+        return FakeTurn(
+            text="Writing the draft.", tool_uses=[FakeToolUse(name="write_draft", input=args)]
+        )
+    out = written[-1]
+    return FakeTurn(
+        structured={
+            "article_id": out["article_id"],
+            "draft_group_id": out["draft_group_id"],
+            "versions": out["versions"],
+        }
+    )
+
+
+_HANDLERS = {
+    ("researcher", "research"): _research,
+    ("analyst", "analysis"): _analysis,
+    ("writer", "draft"): _draft,
+}
