@@ -48,7 +48,11 @@ test("desktop: a WebGL 2 canvas that draws", async ({ page }, info) => {
   await expect.poll(() => canvas.evaluate((el: HTMLCanvasElement) => el.width)).toBeGreaterThan(300);
 
   // The in-canvas probe: frames are drawn, instancing keeps draw calls low, the scene is low-poly.
-  const stats = await page.waitForFunction(() => window.__autoraOffice ?? null, null, { timeout: 15_000 });
+  // Its first report can say 0 fps under CI's software WebGL (shaders still compiling in that
+  // second): wait for one with frames in it.
+  const stats = await page.waitForFunction(() => ((window.__autoraOffice?.fps ?? 0) > 0 ? window.__autoraOffice : null), null, {
+    timeout: 60_000,
+  });
   const { fps, drawCalls, triangles } = (await stats.jsonValue())!;
   info.annotations.push({ type: "office stats", description: JSON.stringify({ fps, drawCalls, triangles }) });
   expect(fps).toBeGreaterThan(0);
