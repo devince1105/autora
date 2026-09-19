@@ -9,6 +9,7 @@ from __future__ import annotations
 
 from collections.abc import Mapping
 from dataclasses import dataclass
+from decimal import Decimal
 from typing import Any
 
 from autora.runtime.policy import Limit, PolicyEngine, Rule, allow
@@ -24,6 +25,20 @@ LANGUAGE_DEFAULTS = {
     LANGS_KEY: ["zh-TW", "en"],
     REQUIRE_ALL_LANGS_KEY: True,
 }
+
+
+# T-510: how much a source must be trusted to support a claim alone
+MIN_TRUST_KEY = "newsroom.min_source_trust"
+DEFAULT_TRUST_KEY = "newsroom.default_source_trust"
+TRUST_DEFAULTS = {MIN_TRUST_KEY: "0.4", DEFAULT_TRUST_KEY: "0.5"}
+
+
+def trust_policy(policies: Mapping[str, Any]) -> tuple[Decimal, Decimal]:
+    """(minimum trust to support a claim alone, trust of evidence no source listed)."""
+    return (
+        Decimal(str(policies.get(MIN_TRUST_KEY, TRUST_DEFAULTS[MIN_TRUST_KEY]))),
+        Decimal(str(policies.get(DEFAULT_TRUST_KEY, TRUST_DEFAULTS[DEFAULT_TRUST_KEY]))),
+    )
 
 
 @dataclass(frozen=True)

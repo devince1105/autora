@@ -41,6 +41,14 @@ describe("describeEvent: newsroom sources and evidence (T-501, T-502)", () => {
     expect(describeEvent("ARTICLE_CREATED", { langs: ["zh-TW", "en"] })).toMatchObject({ label: "文章初稿", summary: "zh-TW / en" });
   });
 
+  it("fact-check verdicts on claims (T-510)", () => {
+    expect(describeEvent("CLAIM_VERIFIED", { claim_type: "number" })).toMatchObject({ label: "主張查核通過", tone: "ok", summary: "數字" });
+    expect(describeEvent("CLAIM_REJECTED", { claim_type: "fact", problems: ["no supporting quote"] })).toMatchObject({
+      tone: "danger",
+      summary: "no supporting quote",
+    });
+  });
+
   it("an unknown type is shown as itself", () => {
     expect(describeEvent("SOMETHING_NEW", {})).toEqual({ label: "SOMETHING_NEW", tone: "neutral", summary: null, known: false });
   });

@@ -1,7 +1,8 @@
 """Newsroom tables (logs/platform/05_NEWSROOM_DOMAIN.md §1, 10_DATABASE_SCHEMA.md).
 
 Phase 5 adds them task by task: sources and polled items (T-501), evidence (T-502) and its
-chunks (T-503), stories (T-504), claims and their evidence (T-505), articles and versions (T-508).
+chunks (T-503), stories (T-504), claims and their evidence (T-505), articles and versions (T-508),
+fact-check reports (T-510).
 """
 
 from __future__ import annotations
@@ -356,3 +357,25 @@ class ArticleVersion(IdMixin, CreatedAtMixin, Base):
     """On the primary-language row: the writing call's key (a retry returns the same draft)."""
     task_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("tasks.id"))
     author_run_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("agent_runs.id"))
+
+
+class FactCheckReport(IdMixin, CreatedAtMixin, Base):
+    """One deterministic fact-check of a draft (T-510): a verdict per cited claim, and what is left
+    for the editor's semantic check (layer 3). A new report per run; the latest one counts."""
+
+    __tablename__ = "fact_check_reports"
+    __table_args__ = (Index("ix_fact_check_reports_article", "article_id", "created_at"),)
+
+    company_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("companies.id"))
+    article_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("articles.id"))
+    article_version_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("article_versions.id"))
+    """The primary-language version of the draft checked (its group shares the claims)."""
+    draft_group_id: Mapped[uuid.UUID]
+    passed: Mapped[bool]
+    results: Mapped[list[dict[str, Any]]] = mapped_column(JSONB)
+    """[{claim_id, claim_type, verdict: pass|fail, problems[], notes[], related[]}]"""
+    semantic_review: Mapped[list[dict[str, Any]]] = mapped_column(JSONB)
+    """For the editor (layer 3): each passing claim with its supporting quotes."""
+    idempotency_key: Mapped[str | None] = mapped_column(unique=True)
+    task_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("tasks.id"))
+    run_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("agent_runs.id"))

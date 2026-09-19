@@ -92,7 +92,9 @@ def _textual(content_type: str) -> bool:
     return kind in _TEXTUAL or kind == ""
 
 
-async def _caller(ctx: ToolContext) -> EmbedCaller:
+async def embed_caller(ctx: ToolContext) -> EmbedCaller:
+    """Who an embedding made inside a tool call is for (its model_calls attribution)."""
+
     role = "system"
     if ctx.agent_id is not None:
         role = await ctx.session.scalar(select(Agent.role).where(Agent.id == ctx.agent_id)) or role
@@ -150,7 +152,7 @@ def fetch_url_tool(
                     ctx.session,
                     [c.text for c in chunks[:MAX_EMBED_CHUNKS]],
                     purpose="passage",
-                    caller=await _caller(ctx),
+                    caller=await embed_caller(ctx),
                 )
             except EmbeddingError:
                 vectors = []  # recorded in model_calls; the chunks stay keyword-searchable
@@ -266,7 +268,7 @@ def search_evidence_tool(embedder: Embedder) -> ToolFn:
         method = "vector"
         try:
             [vector] = await embedder.embed(
-                ctx.session, [args.query], purpose="query", caller=await _caller(ctx)
+                ctx.session, [args.query], purpose="query", caller=await embed_caller(ctx)
             )
         except EmbeddingError:
             vector = None
@@ -274,14 +276,21 @@ def search_evidence_tool(embedder: Embedder) -> ToolFn:
         if vector is not None:
             query = bindparam("query_vector", vector, type_=HalfVector(EMBED_DIM))
             distance = EvidenceChunk.embedding.op("<=>", return_type=Float)(query)
-            # filtered HNSW scans keep going until k rows pass the filter (pgvector 0.8)
-            await ctx.session.execute(text("SET LOCAL hnsw.iterative_scan = 'relaxed_order'"))
+            score = (literal(1.0) - distance).label("score")
+            if args.evidence_ids:
+                # a few named pages: an exact scan of their chunks (evidence_id index)
+                order = score.desc()
+            else:
+                # the whole company: the HNSW index; filtered scans keep going until k rows pass
+                # the filter (pgvector 0.8)
+                order = distance
+                await ctx.session.execute(text("SET LOCAL hnsw.iterative_scan = 'relaxed_order'"))
             rows = (
                 await ctx.session.execute(
-                    select(*columns, (literal(1.0) - distance).label("score"))
+                    select(*columns, score)
                     .join(Evidence, Evidence.id == EvidenceChunk.evidence_id)
                     .where(*scope, EvidenceChunk.embedding_model == embedder.model_id)
-                    .order_by(distance)
+                    .order_by(order)
                     .limit(args.k)
                 )
             ).all()

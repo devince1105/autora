@@ -104,6 +104,12 @@ const FORMAT: Record<string, (p: Payload) => [string, Tone, string | null]> = {
     const type = CLAIM_TYPE[s(p.claim_type) ?? ""] ?? s(p.claim_type);
     return ["新增主張", "work", [type, quoted ? `引用 ${quoted} 份證據` : "尚無證據"].filter(Boolean).join("・")];
   },
+  CLAIM_VERIFIED: (p) => ["主張查核通過", "ok", CLAIM_TYPE[s(p.claim_type) ?? ""] ?? s(p.claim_type)],
+  CLAIM_REJECTED: (p) => [
+    "主張查核未過",
+    "danger",
+    Array.isArray(p.problems) && p.problems.length ? String(p.problems[0]) : (CLAIM_TYPE[s(p.claim_type) ?? ""] ?? s(p.claim_type)),
+  ],
   ARTICLE_CREATED: (p) => ["文章初稿", "work", Array.isArray(p.langs) ? p.langs.join(" / ") : null],
   STORY_DROPPED: (p) => ["放棄題材", "warn", [s(p.title), s(p.reason)].filter(Boolean).join("・") || null],
 };

@@ -1212,6 +1212,95 @@
         }
       }
     },
+    "CLAIM_REJECTED": {
+      "1": {
+        "persistence": "persisted",
+        "payload": {
+          "additionalProperties": false,
+          "properties": {
+            "claim_id": {
+              "format": "uuid",
+              "title": "Claim Id",
+              "type": "string"
+            },
+            "story_id": {
+              "format": "uuid",
+              "title": "Story Id",
+              "type": "string"
+            },
+            "claim_type": {
+              "title": "Claim Type",
+              "type": "string"
+            },
+            "evidence_ids": {
+              "default": [],
+              "items": {
+                "format": "uuid",
+                "type": "string"
+              },
+              "title": "Evidence Ids",
+              "type": "array"
+            },
+            "problems": {
+              "default": [],
+              "items": {
+                "type": "string"
+              },
+              "title": "Problems",
+              "type": "array"
+            }
+          },
+          "required": [
+            "claim_id",
+            "story_id",
+            "claim_type"
+          ],
+          "title": "ClaimRejected",
+          "type": "object"
+        }
+      }
+    },
+    "CLAIM_VERIFIED": {
+      "1": {
+        "persistence": "persisted",
+        "payload": {
+          "additionalProperties": false,
+          "description": "Passed the deterministic fact-check (the editor still judges the meaning).",
+          "properties": {
+            "claim_id": {
+              "format": "uuid",
+              "title": "Claim Id",
+              "type": "string"
+            },
+            "story_id": {
+              "format": "uuid",
+              "title": "Story Id",
+              "type": "string"
+            },
+            "claim_type": {
+              "title": "Claim Type",
+              "type": "string"
+            },
+            "evidence_ids": {
+              "default": [],
+              "items": {
+                "format": "uuid",
+                "type": "string"
+              },
+              "title": "Evidence Ids",
+              "type": "array"
+            }
+          },
+          "required": [
+            "claim_id",
+            "story_id",
+            "claim_type"
+          ],
+          "title": "ClaimVerified",
+          "type": "object"
+        }
+      }
+    },
     "COMPANY_CREATED": {
       "1": {
         "persistence": "persisted",

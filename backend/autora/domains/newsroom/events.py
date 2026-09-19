@@ -1,7 +1,8 @@
 """Newsroom events (logs/3d-office/03_EVENT_MODEL.md §2.5, platform/11_EVENT_CATALOG.md).
 
 Added with the task that first emits them; T-501: the source poller's; T-502: evidence;
-T-504: stories; T-505: claims; T-508: articles.
+T-504: stories; T-505: claims; T-508: articles;
+T-510: fact-check verdicts.
 """
 
 from __future__ import annotations
@@ -96,3 +97,22 @@ class ArticleCreated(EventPayload):
     """The primary-language version of the first draft."""
     langs: list[str]
     slug: str
+
+
+@event("CLAIM_VERIFIED")
+class ClaimVerified(EventPayload):
+    """Passed the deterministic fact-check (the editor still judges the meaning)."""
+
+    claim_id: uuid.UUID
+    story_id: uuid.UUID
+    claim_type: str
+    evidence_ids: list[uuid.UUID] = []
+
+
+@event("CLAIM_REJECTED")
+class ClaimRejected(EventPayload):
+    claim_id: uuid.UUID
+    story_id: uuid.UUID
+    claim_type: str
+    evidence_ids: list[uuid.UUID] = []
+    problems: list[str] = []
