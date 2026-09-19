@@ -1,6 +1,7 @@
 """Newsroom tables (logs/platform/05_NEWSROOM_DOMAIN.md §1, 10_DATABASE_SCHEMA.md).
 
-Phase 5 adds them task by task; T-501: sources and the items polled from them; T-502: evidence.
+Phase 5 adds them task by task; T-501: sources and the items polled from them; T-502: evidence;
+T-503: evidence chunks with embeddings.
 """
 
 from __future__ import annotations
@@ -15,6 +16,10 @@ from sqlalchemy import CheckConstraint, Date, ForeignKey, Index, Numeric, Unique
 from sqlalchemy.orm import Mapped, mapped_column
 
 from autora.db.base import Base, CreatedAtMixin, IdMixin, TimestampMixin, check_in
+from autora.db.vector import HalfVector
+
+EMBED_DIM = 2048
+"""Dimension of stored embeddings (the configured EMBED_MODEL_ID must produce it; T-503)."""
 
 
 class SourceKind(StrEnum):
@@ -119,3 +124,31 @@ class Evidence(IdMixin, CreatedAtMixin, Base):
     task_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("tasks.id"))
     run_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("agent_runs.id"))
     """The run that first captured it."""
+
+
+class EvidenceChunk(IdMixin, CreatedAtMixin, Base):
+    """A retrieval unit of an evidence text (T-503): ``start``/``end`` locate it in
+    ``evidence.extracted_text``. ``embedding`` is NULL when it could not be computed (it is then
+    only found by keyword); ``embedding_model`` says which model made it, because vectors from
+    different models are not comparable."""
+
+    __tablename__ = "evidence_chunks"
+    __table_args__ = (
+        UniqueConstraint("evidence_id", "seq"),
+        Index("ix_evidence_chunks_company", "company_id"),
+        Index(
+            "ix_evidence_chunks_embedding",
+            "embedding",
+            postgresql_using="hnsw",
+            postgresql_ops={"embedding": "halfvec_cosine_ops"},
+        ),
+    )
+
+    company_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("companies.id"))
+    evidence_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("evidence.id"))
+    seq: Mapped[int]
+    start: Mapped[int]
+    end: Mapped[int]
+    text: Mapped[str]
+    embedding: Mapped[list[float] | None] = mapped_column(HalfVector(EMBED_DIM))
+    embedding_model: Mapped[str | None]

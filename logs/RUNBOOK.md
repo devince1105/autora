@@ -326,6 +326,7 @@ ANTHROPIC_SERVER_FALLBACKS=true
 | `test_anthropic_live.py`（2 個） | `ANTHROPIC_API_KEY` | Claude 的結構化輸出；思考內容在工具迴圈中正確往返（會計費，共三次小型呼叫） |
 | `tests/e2e/test_echo_live.py`（1 個） | `MODEL_PROVIDER` 設為 `nvidia` 或 `anthropic` 與其金鑰 | 用目前選的真實模型完整跑一次 EchoWorkflow：三位代理各寫一則筆記並回報合法 JSON |
 | `tests/newsroom/test_tavily.py`（1 個） | `TAVILY_API_KEY` | 透過 `web_search` 工具做一次真實的 Tavily 搜尋（basic，1 點 credit），確認有結果、成本記在 `TOOL_COMPLETED` 事件、沒有產生 Evidence |
+| `tests/newsroom/test_embed_live.py`（1 個） | `EMBED_PROVIDER=nvidia`、`EMBED_MODEL_ID` | 真實 embedding：維度 2048、中文問句能找到相關的英文段落、呼叫記在 `model_calls` |
 | `tests/newsroom/test_fetch_live.py`（1 個） | 網路（免費） | `fetch_url` 抓 `https://example.com`：真實的公開位址檢查、下載、抽本文、存成 Evidence 與快照 |
 
 EchoWorkflow 的真實模型測試通過，就滿足進入階段 3 的條件「真實模型呼叫通過一次」。之後照第四節啟動工作程序，三位代理就會由真實模型執行。
@@ -404,6 +405,8 @@ WHERE company_id = (SELECT id FROM companies WHERE slug = 'echo-demo') AND role 
 - 新增來源的頁面與 API 在 T-517 才會加入；目前只能從程式呼叫 `autora.domains.newsroom.sources.add_source`。
 
 **證據（`fetch_url`，T-502）**：代理要用某個網頁，必須用 `fetch_url` 把它存成證據——原始網頁存進 BlobStore（`BLOB_STORE_DIR`，私有，不會公開），抽出的本文存進資料庫，之後的主張（claim）只能引用這些文字。同一網址同一天內容沒變就重用同一份證據。PDF、圖片與需要執行 JavaScript 才有內容的頁面目前無法成為證據。
+
+**證據搜尋（T-503、D-012）**：證據存進來時會切成段落並算出向量，代理可以用 `search_evidence` 依「意思」找段落（中英文可以互相找到）。向量由 `EMBED_PROVIDER` / `EMBED_MODEL_ID` 決定：`fake` 是離線的雜湊向量（測試與模擬用，只看字詞重疊）；`nvidia` 用 `nvidia/nemotron-3-embed-1b`（沿用 `NVIDIA_API_KEY`，免費端點）。每次 embedding 呼叫記在 `model_calls`（alias `embed`）。**換 embedding 模型時，新模型的向量維度必須是 2048**；舊段落的向量不會被新模型的搜尋用到（每段記錄了是哪個模型算的），只能用關鍵字找到。embedding 服務暫時失敗時，證據照樣存下，只是那些段落只能用關鍵字搜尋。
 
 ---
 

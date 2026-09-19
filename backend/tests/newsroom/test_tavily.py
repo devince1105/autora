@@ -11,7 +11,7 @@ from decimal import Decimal
 import pytest
 from sqlalchemy import select
 
-from autora.app import build_page_fetcher
+from autora.app import build_embedder, build_page_fetcher
 from autora.db.models import EventRecord
 from autora.domains.newsroom.tools import register_tools
 from autora.infra.blobstore import LocalFSBlobStore
@@ -50,6 +50,7 @@ async def test_one_real_search_records_its_cost(committed):
         search_provider=provider,
         fetcher=build_page_fetcher(None),
         blobs=LocalFSBlobStore(tempfile.mkdtemp()),
+        embedder=build_embedder(None),
     )
     async with committed() as session:
         company = await unique_company(session, "tavily")

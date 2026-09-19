@@ -81,6 +81,12 @@ class Settings(BaseSettings):
     """USD per Tavily credit (pay-as-you-go price); recorded as each search's cost."""
     tavily_timeout_seconds: float = Field(default=15.0, gt=0)
     tavily_requests_per_minute: int = Field(default=60, ge=1)
+    # --- Embeddings (T-503): the ``embed`` binding, separate from the agents' model ---
+    embed_provider: Literal["fake", "nvidia"] = "fake"
+    """fake: deterministic hashing vectors (no network); nvidia: NVIDIA Build's /embeddings."""
+    embed_model_id: str | None = None
+    """Required unless fake. Its vectors must have the dimension the database stores (2048)."""
+
     fetch_timeout_seconds: float = Field(default=15.0, gt=0)
     """Live page and feed fetches (T-501, T-502)."""
     fetch_max_bytes: int = Field(default=5_000_000, ge=1)
@@ -135,6 +141,13 @@ class Settings(BaseSettings):
             for model_id in {self.frontier_model_id, self.fast_model_id} - {None, ""}:
                 if model_id not in self.model_prices:
                     problems.append(f"MODEL_PRICES has no entry for {model_id}")
+        if self.embed_provider != "fake":
+            if not self.embed_model_id:
+                problems.append(
+                    f"EMBED_MODEL_ID is required when EMBED_PROVIDER={self.embed_provider}"
+                )
+            if self.embed_provider == "nvidia" and self.nvidia_api_key is None:
+                problems.append("NVIDIA_API_KEY is required when EMBED_PROVIDER=nvidia")
         if self.tools_profile == "live" and self.tavily_api_key is None:
             problems.append("TAVILY_API_KEY is required when TOOLS_PROFILE=live")
         if self.autora_env == "prod" and self.api_bearer_token.get_secret_value() in (

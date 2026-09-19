@@ -22,10 +22,13 @@ class EchoCompany:
 
 @pytest.fixture
 def e2e_settings(db_settings, tmp_path):
-    """Test DB, fake model, blobs in a temp dir; whatever the developer's .env says."""
+    """Test DB, fake model and embeddings, fixture tools, blobs in a temp dir; whatever the
+    developer's .env says."""
     return db_settings.model_copy(
         update={
             "model_provider": "fake",
+            "embed_provider": "fake",
+            "tools_profile": "fixture",
             "blob_store_dir": tmp_path / "blobs",
             "worker_id": "e2e-worker",
             "worker_poll_seconds": 0.05,

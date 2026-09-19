@@ -9,6 +9,7 @@ import uuid
 
 import pytest
 
+from autora.app import build_embedder
 from autora.db.models import Company
 from autora.domains.newsroom.models import Evidence
 from autora.domains.newsroom.tools import evidence as evidence_tools
@@ -28,7 +29,7 @@ async def test_fetch_a_real_page(committed, tmp_path):
     blobs = LocalFSBlobStore(tmp_path)
     registry = ToolRegistry(committed)
     registry.tool("fetch_url", description="", side_effect="write", retryable=True)(
-        evidence_tools.fetch_url_tool(HttpFetcher(), blobs)
+        evidence_tools.fetch_url_tool(HttpFetcher(), blobs, build_embedder(None))
     )
     result = await registry.invoke(
         "fetch_url",

@@ -7,6 +7,7 @@ from collections.abc import Callable
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from autora.infra.settings import Settings
+from autora.runtime.models.embeddings import Embedder
 from autora.runtime.models.gateway import CostGuard, ModelGateway, NoCostGuard
 from autora.runtime.models.providers.base import ModelProvider
 from autora.runtime.models.providers.fake import FakeModelProvider, FakeTurn
@@ -57,4 +58,35 @@ def gateway_from_settings(
         providers=providers_from_settings(settings, fake_default=fake_default),
         session_factory=session_factory,
         cost_guard=cost_guard or NoCostGuard(),
+    )
+
+
+FAKE_EMBED_MODEL = "hashing-v1"
+
+
+def embedder_from_settings(settings: Settings | None, *, dim: int) -> Embedder:
+    """The ``embed`` binding (T-503): EMBED_PROVIDER / EMBED_MODEL_ID, priced from MODEL_PRICES
+    (``input`` per million tokens; unpriced means free)."""
+    from decimal import Decimal
+
+    from autora.runtime.models.embeddings import (
+        Embedder,
+        HashingEmbeddings,
+        OpenAICompatibleEmbeddings,
+    )
+
+    if settings is None or settings.embed_provider == "fake":
+        return Embedder(provider=HashingEmbeddings(dim), model_id=FAKE_EMBED_MODEL, dim=dim)
+    assert settings.embed_model_id and settings.nvidia_api_key  # Settings validates this
+    price = settings.model_prices.get(settings.embed_model_id, {}).get("input", 0)
+    return Embedder(
+        provider=OpenAICompatibleEmbeddings(
+            name="nvidia",
+            base_url=settings.nvidia_base_url,
+            api_key=settings.nvidia_api_key.get_secret_value(),
+            timeout_s=min(settings.nvidia_timeout_seconds, 60.0),
+        ),
+        model_id=settings.embed_model_id,
+        dim=dim,
+        price_per_mtok=Decimal(str(price)),
     )

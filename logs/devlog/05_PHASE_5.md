@@ -16,7 +16,7 @@
 | T-500 | `web_search` 工具：Tavily adapter + fixture 模式（`SearchProvider` 介面、金鑰只在環境變數、逾時、速率限制、每次呼叫記成本） | T-204、T-209 | ✅ |
 | T-501 | Sources 與 poller（models、RSS / URL 輪詢、去重） | T-212 | ✅ |
 | T-502 | `fetch_url` 工具 + Evidence + 快照（BlobStore） | T-204、T-210 | ✅ |
-| T-503 | `evidence_chunks` + embedding（pgvector） | T-502、T-207 | ⏳ |
+| T-503 | `evidence_chunks` + embedding（pgvector） | T-502、T-207 | ✅ |
 | T-504 | Stories + 去重 | T-501、T-503 | ⏳ |
 | T-505 | Claims / ClaimEvidence + 工具（`create_claim`、`link_evidence`，引文定位） | T-504 | ⏳ |
 | T-506 | Researcher 代理（提示、`ResearchNote` schema、validators） | T-211、T-500、T-502 | ⏳ |
@@ -46,7 +46,7 @@ T-500 → T-501 → T-502 → T-503 → T-504 → T-505 → T-508 → T-510 → 
 - 帶過來的：
   - `TOOLS_PROFILE`、`TAVILY_API_KEY` 設定欄位在 T-209 就已存在（`TOOLS_PROFILE=live` 沒有金鑰會拒絕啟動）；**`.env` 目前沒有 `TAVILY_API_KEY`**，所以 Tavily 的真實呼叫測試（integration）要等使用者填入金鑰才能跑，其餘都用 fixture。
   - 模型：NVIDIA `z-ai/glm-5.3-flash`（D-006），免費端點有速率限制；真模型測試放在最後（T-519）。
-  - **Embedding 供應者尚未決定**（`DECISIONS.md` Q-embed，暫用預設：以任一 OpenAI 相容的 embedding 端點實作 adapter，換供應者只改設定）。T-503 前要確認；NVIDIA Build 也有 OpenAI 相容的 embedding 模型，可沿用現有金鑰。
+  - **Embedding 供應者尚未決定**（`DECISIONS.md` Q-embed，暫用預設：以任一 OpenAI 相容的 embedding 端點實作 adapter，換供應者只改設定）。T-503 前要確認；NVIDIA Build 也有 OpenAI 相容的 embedding 模型，可沿用現有金鑰。→ T-503 決定（D-012）。
   - 資料庫映像已是 `pgvector/pgvector:pg16`，不需要換。
   - `domains/newsroom/policy.py`（T-205 的權限規則）已存在；`autora/app.py` 已預留 newsroom 的事件、範本、工具、行為與模擬的註冊位置。
   - `activity.detail.links` 的消費端（代理面板的連結）在階段 3 已預留，T-514 開始有資料。
@@ -131,6 +131,32 @@ T-500 → T-501 → T-502 → T-503 → T-504 → T-505 → T-508 → T-510 → 
 - `tests/newsroom/test_evidence.py`（12 個）：抽本文（去掉周邊雜訊、段落切分、中文頁、og:title / h1 當標題、沒有 article 時用 body、Big5 與未知編碼、純文字）；`fetch_url` 建立證據與快照（帶追蹤參數的網址存成標準網址、快照內容與原頁相同、連到列過它的來源、事件帶 run / task / agent）；同一天同內容重用、隔天重新擷取；PDF、需要 JavaScript 的頁面、404 都失敗且不重試；截斷；`read_evidence` 分段與只能讀自己公司的。
 - **真實連網（integration）**：`test_fetch_live.py` 抓 `https://example.com`（免費）通過——真實的 DNS 公開位址檢查、串流讀取、抽取、快照；`test_tavily.py` 的真實搜尋也通過（見 T-500）。
 - 後端 721 個測試通過；`ruff`、`lint-imports`、`make db-check` 通過；event-schema 8 個、web 208 個測試與 typecheck、lint 通過。
+
+---
+
+## T-503 · 證據分段與向量搜尋
+
+### 決定 embedding 模型（D-012）
+- 使用者同意沿用 NVIDIA 的建議。先列出帳號可用的 embedding 模型（免費的模型清單查詢），再實際試兩個：`nvidia/llama-3.2-nv-embedqa-1b-v1` 對這個帳號不可用（404）；`nvidia/nemotron-3-embed-1b` 可用，而且**跨中英檢索有效**：中文問句「停電時微電網可以供電多久？」對英文相關段落 0.51、中文相關段落 0.58、無關的咖啡價格 −0.01。
+- 它只提供 2048 維（試了 `dimensions` 1024 / 768，伺服器回「只能 2048」）。pgvector 的 `vector` 型別索引上限是 2000 維，所以改用 **`halfvec(2048)`**（16 位元浮點，索引上限 4000 維、儲存減半）；資料庫的 pgvector 是 0.8.6，支援。
+- 沒有安裝 Python 的 `pgvector` 套件：自己寫一個 SQLAlchemy 型別（`db/vector.py`），向量以文字形式傳送、在 SQL 裡轉型，asyncpg 不需要額外的編碼器。
+
+### 做了什麼
+- **`embed` binding**（`runtime/models/embeddings.py`，屬於執行層，不知道新聞室）：`Embedder` 把文字分批（每批 16）送給供應者、檢查每個向量的維度與儲存一致，**每次呼叫都記一筆 `model_calls`**（alias `embed`、capability `embedding`，歸屬到該次代理執行、任務與角色），成本照 `MODEL_PRICES` 的 `input` 價格（沒列就是 0）。供應者：`OpenAICompatibleEmbeddings`（NVIDIA 的 `/embeddings`，區分 query 與 passage）、`HashingEmbeddings`（模擬與測試用：確定性的特徵雜湊，英文依單字、中文依兩字組，共用字詞的文字才會相近，不連網）。
+- 設定：`EMBED_PROVIDER`（`fake` / `nvidia`）、`EMBED_MODEL_ID`（非 fake 時必填，啟動時檢查；NVIDIA 需要金鑰）。**已在使用者的 `.env` 加上 `EMBED_PROVIDER=nvidia`、`EMBED_MODEL_ID=nvidia/nemotron-3-embed-1b`**（非機密設定）；`.env.example` 有說明。
+- **分段**（`domains/newsroom/chunks.py`）：依段落合併到約 900 字，超過 1,400 字的段落在句尾（。！？.!?）切開，沒有句尾就硬切；**每段記錄它在證據原文中的起訖位置**，命中結果可以放回原文脈絡，引用時一律引證據原文、不是段落。
+- **資料表 `evidence_chunks`**（migration `0014`）：段落文字、起訖位置、`halfvec(2048)` 向量（可為空）、算出向量的模型；HNSW 索引（cosine）。
+- **`fetch_url` 擷取新證據時一併分段並算向量**，而且在寫入任何資料之前就算好，所以等 embedding 服務時不會占住公司的事件鎖。**embedding 失敗不影響擷取**：證據照存，段落沒有向量（失敗也記在 `model_calls`）。一頁最多先算 64 段，更長的部分只能用關鍵字找到。重用既有證據時不重算。
+- **`search_evidence` 工具**（read）：把問句轉成向量，在自己公司的段落中找最近的（只比對同一個模型算的向量；過濾條件下用 pgvector 0.8 的 iterative scan，確保過濾後仍有 k 筆），可限定在某幾份證據內；向量不可用或沒有結果時退回**關鍵字搜尋**（英文 3 字以上的詞、中文兩字組），結果標示用的是哪種方法。回傳段落、所屬證據、起訖位置、分數，並提醒「引文必須與證據原文一致」。
+
+### 過程中的問題
+- `halfvec` 型別第一版：寫入時參數型別被改成 Text，自己的轉換函式沒被呼叫（asyncpg 收到 list 而報錯）；讀取時也因為轉成 Text 而拿到字串。改成用一個小的 TypeDecorator 負責寫入轉換、讀取時轉型後再宣告回向量型別。
+- echo 的工作程序測試原本只把聊天模型固定成 fake，其他設定照開發者的 `.env`；加了 `EMBED_PROVIDER=nvidia` 之後，測試裡建立的工作程序會帶著真實的 embedding 設定（雖然 echo 用不到）。改成測試一律固定 fake embedding 與 fixture 工具，測試不依賴 `.env`、不連網。
+
+### 驗證
+- `tests/newsroom/test_chunks.py`（11 個）：分段（合併段落、每段可在原文定位、全文都被涵蓋、長段落依句尾切、無句尾硬切、空白文字）；雜湊向量（確定性、單位長度、共用字詞較近、中文兩字組）；NVIDIA 相容供應者（請求內容、依 index 排序、token 用量、429 / 5xx 可重試、4xx 不可）；`Embedder`（分批、每次呼叫一筆 `model_calls` 與成本、維度不符報錯、失敗也記錄）；設定檢查；`halfvec` 存取（0.25、−0.5、1.0 在半精度下完全相同）；`fetch_url` 產生段落與向量、段落都能在證據原文定位、重用時不重算；embedding 失敗仍擷取、搜尋退回關鍵字；`search_evidence` 以向量找到正確段落（含中文查詢）、限定證據、別家公司找不到。
+- **真實 embedding（integration）**：`test_embed_live.py` 通過——2048 維、中文問句對相關英文段落的相似度比無關段落高出 0.2 以上、兩次呼叫各記一筆 `model_calls`。
+- 後端 732 個測試通過；`ruff`、`lint-imports`、`make db-check` 通過；事件型別沒有變動。
 
 ---
 

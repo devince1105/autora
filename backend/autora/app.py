@@ -22,6 +22,7 @@ if TYPE_CHECKING:
     from autora.runtime.approvals import ApprovalService
     from autora.runtime.behaviors import BehaviorRegistry
     from autora.runtime.dag import TemplateRegistry, WorkflowEngine
+    from autora.runtime.models.embeddings import Embedder
     from autora.runtime.models.providers.fake import FakeTurn
     from autora.runtime.models.types import ModelRequest
     from autora.runtime.policy import PolicyEngine
@@ -134,6 +135,14 @@ def build_scheduler(
     return scheduler
 
 
+def build_embedder(settings: Settings | None) -> Embedder:
+    """The ``embed`` binding sized for the newsroom's stored vectors (T-503)."""
+    from autora.domains.newsroom.models import EMBED_DIM
+    from autora.runtime.models.factory import embedder_from_settings
+
+    return embedder_from_settings(settings, dim=EMBED_DIM)
+
+
 def build_tools(
     session_factory: async_sessionmaker[AsyncSession],
     settings: Settings | None = None,
@@ -159,6 +168,7 @@ def build_tools(
         search_provider=build_search_provider(settings),
         fetcher=build_page_fetcher(settings),
         blobs=blobs,
+        embedder=build_embedder(settings),
     )
     return tools
 

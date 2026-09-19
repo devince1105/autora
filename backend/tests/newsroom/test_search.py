@@ -17,7 +17,7 @@ from pydantic import SecretStr
 from sqlalchemy import select
 
 import autora.domains.newsroom as newsroom
-from autora.app import build_page_fetcher, build_search_provider, build_tools
+from autora.app import build_embedder, build_page_fetcher, build_search_provider, build_tools
 from autora.db.models import EventRecord
 from autora.domains.newsroom.tools.search import CANDIDATES_NOTE
 from autora.infra.blobstore import LocalFSBlobStore
@@ -250,6 +250,7 @@ async def _invoke(committed, provider, args):
         search_provider=provider,
         fetcher=build_page_fetcher(None),
         blobs=LocalFSBlobStore(tempfile.mkdtemp()),
+        embedder=build_embedder(None),
     )
     call_id = f"call_{uuid.uuid4().hex[:8]}"
     result = await registry.invoke(

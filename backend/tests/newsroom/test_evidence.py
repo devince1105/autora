@@ -13,6 +13,7 @@ import pytest
 from sqlalchemy import func, select
 
 import autora.domains.newsroom as newsroom
+from autora.app import build_embedder
 from autora.db.models import Company, EventRecord
 from autora.domains.newsroom.extract import decode, extract
 from autora.domains.newsroom.models import Evidence, Source
@@ -114,7 +115,7 @@ async def kit(committed, tmp_path):
     clock = Clock(DAY1)
     registry = ToolRegistry(committed)
     registry.tool("fetch_url", description="", side_effect="write", retryable=True)(
-        evidence_tools.fetch_url_tool(fetcher, blobs, clock)
+        evidence_tools.fetch_url_tool(fetcher, blobs, build_embedder(None), clock)
     )
     registry.tool("read_evidence", description="", side_effect="read")(evidence_tools.read_evidence)
     run_id, task_id, agent_id = run.id, run.task_id, run.agent_id
