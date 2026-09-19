@@ -8,6 +8,8 @@ Each tick:
 - **maintenance** (every ``maintenance_interval``): reclaim expired leases (crashed or stalled
   workers), expire overdue approvals, fire due schedules. Each job commits on its own; one
   failing does not stop the others or the loop.
+- **services** (T-514): run the READY service tasks (workflow steps no agent runs, e.g. approve
+  and publish an article) through their handlers, each in its own transaction.
 - **dispatch**: for every active agent whose role has a behavior and that this worker is not
   already running, try to claim its next task (or resume its approved run) and start the run as
   an asyncio task, up to ``concurrency`` runs at once.
@@ -35,6 +37,7 @@ from autora.db.models import ActivityState, Agent, AgentActivity, AgentStatus
 from autora.runtime.agent_runner import AgentRunner, RunOutcome
 from autora.runtime.approvals import ApprovalService
 from autora.runtime.scheduler import Scheduler
+from autora.runtime.services import ServiceDispatcher
 from autora.runtime.task_manager import AgentBusy, Claim, TaskManager
 
 log = logging.getLogger("autora.worker")
@@ -48,6 +51,7 @@ class Worker:
     runner: AgentRunner
     approvals: ApprovalService
     scheduler: Scheduler | None = None
+    services: ServiceDispatcher | None = None
     concurrency: int = 4
     poll_interval: float = 1.0
     maintenance_interval: float = 15.0
@@ -75,14 +79,21 @@ class Worker:
         await self.shutdown()
 
     async def tick(self) -> int:
-        """One pass: maintenance if due, then claim and start runs. Returns runs started."""
+        """One pass: maintenance if due, service steps, then claim and start runs. Returns the
+        service steps handled plus the runs started."""
         now = self.clock()
         if self._last_maintenance is None or now - self._last_maintenance >= timedelta(
             seconds=self.maintenance_interval
         ):
             await self.maintain()
             self._last_maintenance = now
-        return await self.dispatch()
+        handled = 0
+        if self.services is not None:
+            try:
+                handled = await self.services.dispatch()
+            except Exception:  # noqa: BLE001
+                log.exception("service dispatch failed")
+        return handled + await self.dispatch()
 
     async def run_until_idle(self, max_ticks: int = 1000) -> None:
         """Tick until nothing is running and nothing can be claimed (tests, one-off drains)."""

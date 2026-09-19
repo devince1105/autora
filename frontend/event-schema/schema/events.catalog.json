@@ -3293,6 +3293,41 @@
         }
       }
     },
+    "WORKFLOW_RUN_EXTENDED": {
+      "1": {
+        "persistence": "persisted",
+        "payload": {
+          "additionalProperties": false,
+          "description": "A loop added another round of tasks (T-514), e.g. a revision after the editor's review.",
+          "properties": {
+            "reason": {
+              "title": "Reason",
+              "type": "string"
+            },
+            "round": {
+              "minimum": 2,
+              "title": "Round",
+              "type": "integer"
+            },
+            "task_ids": {
+              "items": {
+                "format": "uuid",
+                "type": "string"
+              },
+              "title": "Task Ids",
+              "type": "array"
+            }
+          },
+          "required": [
+            "reason",
+            "round",
+            "task_ids"
+          ],
+          "title": "WorkflowRunExtended",
+          "type": "object"
+        }
+      }
+    },
     "WORKFLOW_RUN_FAILED": {
       "1": {
         "persistence": "persisted",

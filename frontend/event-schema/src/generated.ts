@@ -1068,6 +1068,19 @@ export const WorkflowRunCreatedV1Event = z.object({
   payload: WorkflowRunCreatedV1Payload,
 });
 
+export const WorkflowRunExtendedV1Payload = z.object({
+  reason: z.string(),
+  round: z.number().int().min(2),
+  task_ids: z.array(z.uuid()),
+});
+export type WorkflowRunExtendedV1Payload = z.infer<typeof WorkflowRunExtendedV1Payload>;
+export const WorkflowRunExtendedV1Event = z.object({
+  ...envelopeFields,
+  event_type: z.literal("WORKFLOW_RUN_EXTENDED"),
+  schema_version: z.literal(1),
+  payload: WorkflowRunExtendedV1Payload,
+});
+
 export const WorkflowRunFailedV1Payload = z.object({
   duration_ms: z.number().int().min(0),
   failed_task_id: z.uuid().nullable().default(null),
@@ -1158,6 +1171,7 @@ export const EventEnvelope = z.discriminatedUnion("event_type", [
   WorkflowRunCancelledV1Event,
   WorkflowRunCompletedV1Event,
   WorkflowRunCreatedV1Event,
+  WorkflowRunExtendedV1Event,
   WorkflowRunFailedV1Event,
 ]);
 export type EventEnvelope = z.infer<typeof EventEnvelope>;
@@ -1241,6 +1255,7 @@ export const EVENT_TYPES = [
   "WORKFLOW_RUN_CANCELLED",
   "WORKFLOW_RUN_COMPLETED",
   "WORKFLOW_RUN_CREATED",
+  "WORKFLOW_RUN_EXTENDED",
   "WORKFLOW_RUN_FAILED",
 ] as const satisfies readonly EventType[];
 

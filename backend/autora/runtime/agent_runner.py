@@ -653,6 +653,7 @@ class AgentRunner:
             task_id=task.id,
             workflow_run_id=task.workflow_run_id,
             task_name=task.display_name,
+            links=await self.task_manager.activity_links(session, task, state.claim.run),
         )
 
     async def _emit(self, session: AsyncSession, state: _State, payload: Any) -> None:

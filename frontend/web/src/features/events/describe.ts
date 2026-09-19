@@ -79,6 +79,7 @@ const FORMAT: Record<string, (p: Payload) => [string, Tone, string | null]> = {
   WORKFLOW_RUN_COMPLETED: (p) => ["工作流程完成", "ok", duration(p.duration_ms)],
   WORKFLOW_RUN_FAILED: (p) => ["工作流程失敗", "danger", [s(p.reason), duration(p.duration_ms)].filter(Boolean).join("・") || null],
   WORKFLOW_RUN_CANCELLED: (p) => ["工作流程取消", "warn", s(p.reason)],
+  WORKFLOW_RUN_EXTENDED: (p) => ["工作流程加一輪", "warn", `第 ${n(p.round) ?? "?"} 輪・${Array.isArray(p.task_ids) ? p.task_ids.length : 0} 個任務`],
   AGENT_CREATED: (p) => ["新代理", "neutral", [s(p.display_name), s(p.role)].filter(Boolean).join("・") || null],
   AGENT_PAUSED: (p) => ["代理暫停", "warn", s(p.reason)],
   AGENT_RESUMED: (p) => ["代理恢復", "neutral", s(p.reason)],

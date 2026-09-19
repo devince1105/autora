@@ -1,0 +1,313 @@
+"""T-514: the newsroom workflow — a story to a published article, run by a real worker (simulated
+model, offline tools), with a person's approval, automatic approval, revisions and rejection."""
+
+import uuid
+
+from sqlalchemy import delete, select
+
+from autora.app import build_runtime, build_worker
+from autora.company.agents import hire_agent
+from autora.db.models import (
+    AgentActivity,
+    Approval,
+    EventRecord,
+    Project,
+    Task,
+    WorkflowRun,
+)
+from autora.db.repositories.companies import upsert_policy
+from autora.domains.newsroom.models import (
+    Article,
+    ArticleVersion,
+    ClaimEvidence,
+    Distribution,
+    Story,
+)
+from autora.domains.newsroom.policy import AUTO_APPROVE_KEY
+from autora.domains.newsroom.workflow import TEMPLATE_NAME, start_story
+from autora.runtime.actor import Actor
+from tests.conftest import unique_company
+
+OPERATOR = Actor.human("operator")
+ROLES = ("researcher", "analyst", "writer", "editor", "marketing")
+
+
+class Newsroom:
+    """A staffed company with a selected story, its workflow started, and a worker."""
+
+    async def start(self, committed, settings, *, auto_approve=False):
+        self.committed = committed
+        self.runtime = build_runtime()
+        async with committed() as session:
+            self.company = await unique_company(session, "workflow")
+            project = Project(
+                company_id=self.company.id,
+                name="newsroom",
+                state="ACTIVE",
+                kill_criteria={"max_cost_usd": 10},
+            )
+            session.add(project)
+            await session.flush()
+            self.agents = {}
+            for role in ROLES:
+                agent = await hire_agent(
+                    session,
+                    company_id=self.company.id,
+                    role=role,
+                    display_name=role,
+                    actor=OPERATOR,
+                )
+                self.agents[role] = agent
+            if auto_approve:
+                await upsert_policy(
+                    session, self.company.id, AUTO_APPROVE_KEY, True, updated_by=OPERATOR.as_json()
+                )
+            self.story = Story(
+                company_id=self.company.id, title="Lumen City microgrid", state="SELECTED"
+            )
+            session.add(self.story)
+            await session.flush()
+            self.run = await start_story(
+                session,
+                policy=self.runtime.policy,
+                workflows=self.runtime.workflows,
+                story=self.story,
+                project_id=project.id,
+                actor=OPERATOR,
+            )
+            await session.commit()
+        self.worker = build_worker(
+            settings, session_factory=committed, company_ids=frozenset({self.company.id})
+        )
+        return self
+
+    async def tasks(self) -> dict[str, list[Task]]:
+        async with self.committed() as session:
+            rows = (
+                await session.scalars(
+                    select(Task)
+                    .where(Task.workflow_run_id == self.run.id)
+                    .order_by(Task.created_at, Task.id)
+                )
+            ).all()
+        out: dict[str, list[Task]] = {}
+        for row in rows:
+            out.setdefault(row.name, []).append(row)
+        return out
+
+    async def get(self, model, key):
+        async with self.committed() as session:
+            return await session.get(model, key)
+
+    async def article(self) -> Article:
+        async with self.committed() as session:
+            return await session.scalar(select(Article).where(Article.story_id == self.story.id))
+
+    async def approval(self) -> Approval:
+        approve = (await self.tasks())["approve"][0]
+        async with self.committed() as session:
+            return await session.scalar(select(Approval).where(Approval.task_id == approve.id))
+
+    async def decide(self, outcome, reason=None):
+        approval = await self.approval()
+        async with self.committed() as session:
+            await self.runtime.approvals.decide(
+                session, approval.id, outcome=outcome, actor=OPERATOR, reason=reason
+            )
+            await session.commit()
+
+    async def events(self, event_type):
+        async with self.committed() as session:
+            return (
+                await session.scalars(
+                    select(EventRecord)
+                    .where(
+                        EventRecord.company_id == self.company.id,
+                        EventRecord.event_type == event_type,
+                    )
+                    .order_by(EventRecord.id)
+                )
+            ).all()
+
+
+async def test_a_story_goes_to_a_person_then_is_published_and_distributed(committed, e2e_settings):
+    room = await Newsroom().start(committed, e2e_settings)
+    assert (await room.get(Story, room.story.id)).state == "IN_PRODUCTION"
+    await room.worker.run_until_idle()
+
+    tasks = await room.tasks()
+    for name in ("research", "analysis", "draft", "review"):
+        assert tasks[name][0].state == "SUCCEEDED", name
+    assert tasks["approve"][0].state == "WAITING_APPROVAL"
+    assert tasks["approve"][0].required_role == "human"
+    assert tasks["publish"][0].state == tasks["distribute"][0].state == "PENDING"
+    assert tasks["draft"][0].display_name == "撰稿：Lumen City microgrid"
+    approval = await room.approval()
+    assert approval.kind == "article" and approval.action == "approve_article"
+    assert approval.state == "PENDING" and approval.summary.startswith("核准發布：")
+    article = await room.article()
+    assert article.state == "IN_REVIEW" and approval.payload["article_id"] == str(article.id)
+
+    # a person approves: the article is approved, then published, then marketing distributes
+    await room.decide("approve", reason="looks good")
+    await room.worker.run_until_idle()
+    tasks = await room.tasks()
+    assert all(t.state == "SUCCEEDED" for ts in tasks.values() for t in ts)
+    assert (await room.get(WorkflowRun, room.run.id)).state == "SUCCEEDED"
+    article = await room.article()
+    assert article.state == "PUBLISHED" and article.published_langs == ["zh-TW", "en"]
+    assert (await room.get(Story, room.story.id)).state == "PUBLISHED"
+    [approved] = await room.events("ARTICLE_APPROVED")
+    assert approved.payload["by"] == "human"
+    publish = tasks["publish"][0]
+    assert publish.output["urls"]["zh-TW"] == f"/zh-TW/articles/{article.slug}"
+    async with committed() as session:
+        channels = {
+            d.channel: d.status
+            for d in await session.scalars(
+                select(Distribution).where(Distribution.article_id == article.id)
+            )
+        }
+    assert channels == {"site": "published", "social_draft": "draft"}
+
+    # the hand-offs are the template's: review unlocked approve, publish unlocked distribute
+    succeeded = {e.task_id: e.payload["unlocks"] for e in await room.events("TASK_SUCCEEDED")}
+    assert [u["task_id"] for u in succeeded[tasks["review"][0].id]] == [str(tasks["approve"][0].id)]
+    assert succeeded[tasks["publish"][0].id][0]["required_role"] == "marketing"
+
+    # every agent's activity links to its work (3d-office/06 §4)
+    async with committed() as session:
+        links = {
+            role: (await session.get(AgentActivity, agent.id)).detail.get("links")
+            for role, agent in room.agents.items()
+        }
+    href = f"/newsroom/articles/{article.id}"
+    assert links["researcher"] == [
+        {"label": "題材與來源", "href": f"/newsroom/stories/{room.story.id}"}
+    ]
+    assert links["analyst"][0]["href"] == f"/newsroom/stories/{room.story.id}#claims"
+    assert links["writer"] == [{"label": "文章草稿 v1", "href": f"{href}?version=1"}]
+    assert links["editor"][1] == {"label": "事實查核", "href": f"{href}?version=1#fact-check"}
+    assert links["marketing"] == [{"label": "發布紀錄", "href": f"{href}#distribution"}]
+
+
+async def test_with_automatic_approval_nobody_is_asked(committed, e2e_settings):
+    room = await Newsroom().start(committed, e2e_settings, auto_approve=True)
+    await room.worker.run_until_idle()
+    tasks = await room.tasks()
+    assert all(t.state == "SUCCEEDED" for ts in tasks.values() for t in ts)
+    assert tasks["approve"][0].output["approved_by"] == "system"
+    assert await room.approval() is None
+    [approved] = await room.events("ARTICLE_APPROVED")
+    assert approved.payload["by"] == "system"
+    assert (await room.article()).state == "PUBLISHED"
+
+
+def _break_each_draft(room, times):
+    """After each of the first ``times`` drafts, one cited claim loses its evidence: the
+    fact-check rejects it and the editor sends the draft back."""
+    broken = []
+
+    async def on_outcome(outcome):
+        async with room.committed() as session:
+            run_task = await session.scalar(
+                select(Task).join(EventRecord, EventRecord.task_id == Task.id).where(
+                    EventRecord.run_id == outcome.run_id
+                ).limit(1)
+            )  # fmt: skip
+            if run_task is None or run_task.name != "draft" or len(broken) >= times:
+                return
+            version = await session.get(
+                ArticleVersion, uuid.UUID(run_task.output["versions"]["zh-TW"])
+            )
+            claim = version.claim_ids[0]
+            await session.execute(delete(ClaimEvidence).where(ClaimEvidence.claim_id == claim))
+            await session.commit()
+            broken.append(claim)
+
+    room.worker.on_outcome = on_outcome
+    return broken
+
+
+async def test_a_revision_round_then_approval(committed, e2e_settings):
+    room = await Newsroom().start(committed, e2e_settings)
+    broken = _break_each_draft(room, times=1)
+    await room.worker.run_until_idle()
+
+    tasks = await room.tasks()
+    assert [t.state for t in tasks["draft"]] == ["SUCCEEDED", "SUCCEEDED"]
+    assert [t.state for t in tasks["review"]] == ["SUCCEEDED", "SUCCEEDED"]
+    first, second = tasks["review"]
+    assert first.output["verdict"] == "revise" and second.output["verdict"] == "accept"
+    redraft = tasks["draft"][1]
+    assert redraft.display_name == "撰稿：Lumen City microgrid（第 2 輪）"
+    assert redraft.input["params"]["issues"] == first.output["issues"]
+    assert redraft.depends_on == [tasks["analysis"][0].id]
+    assert tasks["approve"][0].depends_on == [second.id]
+    assert tasks["approve"][0].state == "WAITING_APPROVAL"
+    article = await room.article()
+    assert article.revision_count == 1 and article.state == "IN_REVIEW"
+    v2 = await room.get(ArticleVersion, uuid.UUID(redraft.output["versions"]["zh-TW"]))
+    assert v2.version == 2 and broken[0] not in v2.claim_ids
+    [extended] = await room.events("WORKFLOW_RUN_EXTENDED")
+    assert extended.payload["round"] == 2
+    assert extended.payload["task_ids"] == [str(redraft.id), str(second.id)]
+
+
+async def test_too_many_revisions_drop_the_story(committed, e2e_settings):
+    room = await Newsroom().start(committed, e2e_settings)
+    _break_each_draft(room, times=3)
+    await room.worker.run_until_idle()
+
+    tasks = await room.tasks()
+    assert len(tasks["draft"]) == len(tasks["review"]) == 3
+    assert all(t.output["verdict"] == "revise" for t in tasks["review"])
+    for name in ("approve", "publish", "distribute"):
+        assert tasks[name][0].state == "CANCELLED", name
+    assert (await room.get(WorkflowRun, room.run.id)).state == "CANCELLED"
+    assert (await room.article()).state == "REJECTED"
+    assert (await room.get(Story, room.story.id)).state == "DROPPED"
+
+
+async def test_a_person_rejects_the_article(committed, e2e_settings):
+    room = await Newsroom().start(committed, e2e_settings)
+    await room.worker.run_until_idle()
+    await room.decide("reject", reason="not for us")
+    await room.worker.run_until_idle()
+    tasks = await room.tasks()
+    assert tasks["approve"][0].state == "CANCELLED"
+    assert tasks["publish"][0].state == tasks["distribute"][0].state == "CANCELLED"
+    assert (await room.get(WorkflowRun, room.run.id)).state == "CANCELLED"
+    assert (await room.article()).state == "REJECTED"
+    story = await room.get(Story, room.story.id)
+    assert story.state == "DROPPED"
+    [rejected] = await room.events("ARTICLE_REJECTED")
+    assert rejected.payload == {"article_id": str(story_article_id(tasks)), "by": "human",
+                                "reason": "not for us"}  # fmt: skip
+
+
+def story_article_id(tasks):
+    return uuid.UUID(tasks["draft"][-1].output["article_id"])
+
+
+async def test_only_a_selected_story_starts(committed, e2e_settings):
+    room = await Newsroom().start(committed, e2e_settings)
+    runtime = build_runtime()
+    async with committed() as session:
+        story = await session.get(Story, room.story.id)  # IN_PRODUCTION now
+        run = await session.get(WorkflowRun, room.run.id)
+        assert run.template_name == TEMPLATE_NAME
+        assert run.params == {"story_id": str(story.id), "title": "Lumen City microgrid"}
+        try:
+            await start_story(
+                session,
+                policy=runtime.policy,
+                workflows=runtime.workflows,
+                story=story,
+                project_id=run.project_id,
+                actor=OPERATOR,
+            )
+        except Exception as error:  # noqa: BLE001
+            assert "only a selected story is started" in str(error)
+        else:
+            raise AssertionError("a story in production was started again")

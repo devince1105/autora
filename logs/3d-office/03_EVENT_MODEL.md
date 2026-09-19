@@ -93,6 +93,7 @@
 |---|---|---|---|
 | WORKFLOW_RUN_CREATED | P | R | `{template, params, project_id, task_ids[]}` |
 | WORKFLOW_RUN_COMPLETED / FAILED | P | R | `{duration_ms, outcome}` |
+| WORKFLOW_RUN_EXTENDED | P | R | `{reason, round, task_ids[]}`（T-514：迴圈再加一輪任務，例如編輯要求修訂後的撰稿 + 審稿） |
 | TASK_CREATED | P | R | `{name, required_role, depends_on[], workflow_run_id, budget_usd}` |
 | TASK_READY | P | R | `{}` |
 | TASK_STARTED | P | R | `{run_id, agent_id, attempt}` |

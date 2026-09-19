@@ -27,7 +27,7 @@
 | T-511 | Editor 代理（`EditorReview`、`request_revision` / `accept_draft`） | T-509、T-510 | ✅ |
 | T-512 | Publisher（`PublishArticle` command、冪等、Distribution site） | T-508、T-205 | ✅ |
 | T-513 | Marketing 代理（`DistributionPlan`、`create_distribution`：只寫 DB） | T-512 | ✅ |
-| T-514 | `story_to_article_v2` 範本 + `register()` + `activity_links` | T-203、T-506 ～ T-513 | ⏳ |
+| T-514 | `story_to_article_v2` 範本 + `register()` + `activity_links` | T-203、T-506 ～ T-513 | ✅ |
 | T-515 | 公開站（zh-TW / en）+ beacon API | T-512 | ⏳ |
 | T-516 | Analytics collector（每小時 → `analytics_daily`，事件） | T-515、T-212 | ⏳ |
 | T-517 | Newsroom 管理頁（stories、articles、versions、fact-check、distribution、timeline） | T-308、T-311 | ⏳ |
@@ -422,10 +422,45 @@ T-500 → T-501 → T-502 → T-503 → T-504 → T-505 → T-508 → T-510 → 
 - 後端 838 個測試通過；`ruff`、`lint-imports`、`make db-check`、`gen-schema-check` 通過；web 213 個測試與 typecheck、lint 通過。
 ---
 
+## T-514 · 新聞室工作流程範本、`register()` 與活動連結
+
+### 做了什麼
+T-203 的工作流程引擎只會跑固定的 DAG、而且每個節點都由代理執行；新聞室流程還需要不由代理執行的步驟（核准、發布）與「編輯要求修訂 → 再寫一輪」。這些在 runtime 做成通用機制（D-013），新聞室只宣告範本、註冊處理函式。
+
+- **Runtime：服務步驟**（`runtime/services.py`）：範本節點 `NodeSpec(service="名稱")` 建出的任務輸入帶著名稱；工作程序每輪由 `ServiceDispatcher` 取出 READY 的服務任務（`FOR UPDATE SKIP LOCKED`，多個工作程序不會重複執行），在任務的交易裡呼叫註冊的處理函式。處理函式透過 `ServiceContext` 決定：`complete`（成功，引擎解鎖下游）、`request_approval`（等人決定）、`fail`（失敗，下游取消）；拋錯或沒有決定也算失敗，錯誤記在任務輸出。服務步驟沒有 run 與租約，任務狀態機新增 READY → SUCCEEDED / FAILED（`RUNNING` 必須有租約，資料庫有約束，不能繞過去）。
+- **Runtime：迴圈**（`dag.Loop`）：`Loop(check, back_to, again, carry, max_rounds, round_label)`。`check` 成功且 `again(輸出)` 為真 → 新增 `back_to` … `check` 一輪任務（新任務依賴新一輪的上游與迴圈外的原任務；`carry(輸出)` 併入第一個任務的參數），原本等 `check` 的任務改等新一輪的 `check`，發 `WORKFLOW_RUN_EXTENDED`（第幾輪、新任務）；新一輪第一個任務直接 READY，並列在 `TASK_SUCCEEDED.unlocks`（3D 辦公室的交接動畫）。超過 `max_rounds` 還要再一輪 → 取消等待中的任務、工作流程 CANCELLED。範本建立時檢查迴圈的節點存在且 `back_to` 通往 `check`。
+- **Runtime：核准掛鉤**：`ApprovalService.on_decided(action, hook)`，人做決定時在同一交易裡先執行掛鉤再讓任務前進；掛鉤失敗則決定不成立。
+- **Runtime：活動連結**：`TaskManager.link_hooks`（各領域的 `activity_links(task, run)`）；代理思考 / 工作時（runner）與完成時（task manager）寫進 `agent_activity.detail.links`；在 savepoint 裡執行，出錯只記 log、不影響任務。
+- **新聞室範本** `newsroom.story_to_article_v2`（`domains/newsroom/workflow.py`）：研究 → 分析 → 撰稿 → 審稿 → 核准（服務，role `human`）→ 發布（服務，role `system`）→ 推廣；審稿是迴圈的 check（`verdict == "revise"` → 再一輪撰稿 + 審稿，編輯的問題放進 `params.issues`，最多 2 輪，與 `review.MAX_REVISIONS` 一致：第 3 次要求修訂時編輯的工具已駁回文章並放棄題材，引擎再取消等待中的核准、發布、推廣）。任務顯示名稱用繁中（「撰稿：…」、「撰稿：…（第 2 輪）」）。
+  - **核准步驟**：文章必須是 IN_REVIEW（編輯已接受）；先以系統身分呼叫 `approve_article`——公司開啟「查核通過自動核准」時直接核准並完成；否則權限回「需要核准」→ 建立 `approve_article` 核准（種類 article、摘要「核准發布：標題」、payload 有文章、題材、草稿群組）。**人的決定經掛鉤核准或駁回文章**（駁回 → 文章 REJECTED、題材 DROPPED，任務取消、下游跟著取消）。
+  - **發布步驟**：`publish_article`（冪等），輸出網址與語言；失敗記錄原因。
+  - `start_story`：走公司的 `start_workflow`（權限決定並記錄）、參數 `story_id` 與 `title`，題材 SELECTED → IN_PRODUCTION；不是 SELECTED 的題材不能開始。
+  - 量測排程（發布後 +1h / +24h / +7d）留給 T-516。
+- **活動連結**（`activity_links.py`）：研究 → 題材與來源；分析 → 題材的主張；撰稿 → 文章草稿 vN（還沒存稿時 → 題材的主張）；審稿 → 草稿 vN + 事實查核；推廣 → 發布紀錄。網址是 T-517 要做的管理頁面。
+- `newsroom.register(runtime)`：兩個服務處理函式、核准掛鉤、活動連結；`newsroom.register_templates`。`app.build_runtime` 呼叫它，`Runtime` 多了 `services`；`build_worker` 接上 `ServiceDispatcher`（同一組公司篩選）。
+- 前端：`WORKFLOW_RUN_EXTENDED` 顯示「工作流程加一輪・第 N 輪・M 個任務」；事件契約重新產生；`3d-office/03`、`platform/11` 補上新事件。
+
+### 過程中的問題
+- 原本想讓服務步驟經過 RUNNING（READY → RUNNING → SUCCEEDED），但資料庫約束「RUNNING ⇔ 持有租約」；服務步驟沒有租約，改為狀態機直接允許 READY → SUCCEEDED / FAILED，並寫進 lifecycles 的說明。
+- `WORKFLOW_RUN_EXTENDED` 是新的 runtime 事件，事件目錄完整性測試與產生的契約要一起更新。
+
+### 驗證
+- `tests/runtime/test_services.py`（6 個，只用服務步驟、不需代理）：服務步驟跑完整個流程；**迴圈加兩輪**（任務順序、顯示名稱、依賴、`carry` 的參數、下游改等最後一輪、`WORKFLOW_RUN_EXTENDED`）；**超過輪數取消等待中的任務**、流程 CANCELLED；處理函式拋錯 / 沒決定 / 主動失敗 → 任務 FAILED 且錯誤記錄、下游取消、流程 FAILED；**等人核准**（核准掛鉤收到決定、之後下游完成、掛鉤不能重複註冊）；範本檢查迴圈。
+- `tests/newsroom/test_workflow.py`（6 個，真正的工作程序、模擬模型、離線工具）：
+  - **人核准**：研究到審稿成功 → 核准步驟等人（核准內容正確、文章 IN_REVIEW）→ 人核准 → 發布 → 推廣 → 全部成功、流程 SUCCEEDED、文章與題材 PUBLISHED、網站與社群草稿兩筆、交接依範本、**五個代理的活動都有正確連結**；
+  - **自動核准**：沒有人被問，系統核准，文章發布；
+  - **一輪修訂**：第一稿的一則主張失去證據 → 編輯退回 → 引擎加一輪（顯示名稱、編輯的問題帶進寫手參數、依賴分析）→ 第 2 版不再引用被駁回的主張 → 第二次審稿接受 → 核准步驟等的是新的審稿；
+  - **修訂太多次**：每一稿都被退回 → 三輪後核准、發布、推廣取消、流程 CANCELLED、文章 REJECTED、題材 DROPPED；
+  - **人駁回**：文章 REJECTED、題材 DROPPED、下游取消、流程 CANCELLED；
+  - 只有 SELECTED 的題材能開始，流程參數正確。
+- 後端 850 個測試通過；`ruff`、`lint-imports`、`make db-check`、`gen-schema-check`、`gen-api-check` 通過；event-schema 8 個、web 213 個測試與 typecheck、lint 通過。
+---
+
 ## 提交紀錄
 
 | 提交 | 日期 | 內容 | 持續整合 |
 |---|---|---|---|
+| `800d5f9` | 2026-09-19 | T-513 行銷代理 | ✅ 執行編號 `35442758423`（e2e 5 分 10 秒、python 2 分 24 秒、web 1 分 10 秒） |
 | `8df495f` | 2026-09-19 | T-511 編輯代理 | ✅ 執行編號 `35441424337`（e2e 4 分 26 秒、python 2 分 19 秒、web 1 分 2 秒） |
 | `1f8ec8b` | 2026-09-19 | T-509 寫手代理 | ✅ 執行編號 `35440343501`（e2e 5 分 12 秒、python 2 分 6 秒、web 1 分 7 秒） |
 | `26c233f` | 2026-09-19 | T-507 分析師代理 | ✅ 執行編號 `35439199271`（e2e 5 分 23 秒、python 2 分 11 秒、web 1 分 3 秒） |

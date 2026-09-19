@@ -21,6 +21,7 @@ from autora.infra.search.fixture import FixtureSearchProvider
 from autora.runtime.actor import Actor
 from autora.runtime.tools import ToolRegistry
 from tests.conftest import running_agent_run
+from tests.echo_fixtures import e2e_settings  # noqa: F401 (fixture)
 
 FIXTURES = Path(newsroom.__file__).parent / "fixtures"
 PILOT = "https://news.fixtures.autora.test/lumen-city-microgrid-pilot"

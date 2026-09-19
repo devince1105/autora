@@ -27,6 +27,7 @@ through ``on_task_finished`` / ``on_task_failed``.
 
 from __future__ import annotations
 
+import logging
 import uuid
 from collections.abc import Awaitable, Callable, Sequence
 from dataclasses import dataclass, field
@@ -55,12 +56,16 @@ from autora.runtime.events.outbox import emit
 from autora.runtime.events.schema import EventPayload, new_event
 from autora.runtime.lifecycles import AGENT_RUN_FSM, TASK_FSM
 
+log = logging.getLogger("autora.tasks")
+
 AbortReason = Literal["budget", "policy", "human"]
 
 FinishedHook = Callable[[AsyncSession, Task], Awaitable[Sequence[ev.UnlockedTask]]]
 """Called inside ``succeed`` after the task is SUCCEEDED; returns the tasks it unlocked."""
 FailedHook = Callable[[AsyncSession, Task], Awaitable[None]]
 """Called inside ``fail``/``abort``/``cancel`` after the task reached a terminal failure."""
+LinksHook = Callable[[AsyncSession, Task, AgentRun | None], Awaitable[list[dict[str, str]]]]
+"""A domain's ``activity_links(task, run)``: ``[{"label": ..., "href": ...}]``."""
 
 
 class TaskManagerError(Exception):
@@ -93,7 +98,24 @@ class TaskManager:
     clock: Callable[[], datetime] = field(default=lambda: datetime.now(UTC))
     on_task_finished: FinishedHook | None = None
     on_task_failed: FailedHook | None = None
+    link_hooks: list[LinksHook] = field(default_factory=list)
+    """Domains' ``activity_links(task, run)``: deep links written into the agent's activity
+    detail while it works on a task and when it completes it (3d-office/06 §4)."""
     actor: Actor = field(default_factory=lambda: Actor.system("task_manager"))
+
+    async def activity_links(
+        self, session: AsyncSession, task: Task, run: AgentRun | None
+    ) -> list[dict[str, str]]:
+        """Every domain's links for the task. Best-effort: a failing hook adds none (in a
+        savepoint, so it cannot spoil the caller's transaction)."""
+        links: list[dict[str, str]] = []
+        for hook in self.link_hooks:
+            try:
+                async with session.begin_nested():
+                    links.extend(await hook(session, task, run))
+            except Exception:  # noqa: BLE001 - links are a convenience, never a failure
+                log.exception("activity links for task %s failed", task.id)
+        return links
 
     # --- creating tasks --------------------------------------------------------------------
 
@@ -296,6 +318,7 @@ class TaskManager:
             task_id=task.id,
             workflow_run_id=task.workflow_run_id,
             task_name=task.display_name,
+            links=await self.activity_links(session, task, run),
         )
         return unlocked
 
@@ -471,7 +494,8 @@ class TaskManager:
         *,
         output_summary: str | None = None,
     ) -> list[ev.UnlockedTask]:
-        """Finish a human/service node that has no agent run (e.g. an approved approval node)."""
+        """Finish a human/service node that has no agent run (e.g. an approved approval node, a
+        service step done at once): from WAITING_APPROVAL or READY."""
         task.output = output
         await TASK_FSM.transition(session, task, TaskState.SUCCEEDED, actor=self.actor)
         unlocked = list(await self.on_task_finished(session, task)) if self.on_task_finished else []
@@ -481,6 +505,21 @@ class TaskManager:
             ev.TaskSucceeded(run_id=None, output_ref=output_summary, unlocks=unlocked),
         )
         return unlocked
+
+    async def fail_without_run(
+        self, session: AsyncSession, task: Task, *, error_class: str, message: str
+    ) -> None:
+        """A service node cannot be done: READY -> FAILED for good; the error is kept in the
+        task's output; the workflow cancels what depends on it."""
+        task.output = {"error_class": error_class, "message": message}
+        await TASK_FSM.transition(
+            session, task, TaskState.FAILED, actor=self.actor, reason=message[:500]
+        )
+        await self._emit(
+            session, task, ev.TaskFailed(run_id=None, final=True, error_class=error_class)
+        )
+        if self.on_task_failed:
+            await self.on_task_failed(session, task)
 
     # --- maintenance -----------------------------------------------------------------------
 

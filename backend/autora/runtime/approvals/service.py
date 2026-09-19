@@ -16,12 +16,16 @@ Expiry (D-001): an expired approval is marked EXPIRED, but the task keeps waitin
 cancelled. A new approval can then be requested for the same thing.
 
 Only humans decide. Automatic approval (policy flag) is a PolicyEngine decision, not an approval.
+
+A domain can act on a decision in the same transaction (T-514): ``on_decided(action, hook)``
+registers a hook for approvals of that ``action`` (e.g. ``approve_article`` approves or rejects
+the article). It runs before the task moves on; if it raises, the decision is not recorded.
 """
 
 from __future__ import annotations
 
 import uuid
-from collections.abc import Callable
+from collections.abc import Awaitable, Callable
 from dataclasses import dataclass, field
 from datetime import UTC, datetime, timedelta
 from typing import Any, Literal
@@ -40,6 +44,9 @@ from autora.runtime.task_manager import Claim, TaskManager
 DEFAULT_EXPIRY = timedelta(hours=24)  # D-001
 
 DecisionOutcome = Literal["approve", "reject"]
+DecisionHook = Callable[
+    [AsyncSession, Approval, DecisionOutcome, Actor, str | None], Awaitable[None]
+]
 
 
 class ApprovalError(Exception):
@@ -51,6 +58,12 @@ class ApprovalService:
     task_manager: TaskManager
     default_expiry: timedelta = DEFAULT_EXPIRY
     clock: Callable[[], datetime] = field(default=lambda: datetime.now(UTC))
+    hooks: dict[str, DecisionHook] = field(default_factory=dict)
+
+    def on_decided(self, action: str, hook: DecisionHook) -> None:
+        if action in self.hooks:
+            raise ApprovalError(f"a decision hook for {action!r} is already registered")
+        self.hooks[action] = hook
 
     # --- requesting ------------------------------------------------------------------------
 
@@ -179,6 +192,9 @@ class ApprovalService:
             ),
             actor=actor,
         )
+        hook = self.hooks.get(approval.action or "")
+        if hook is not None:
+            await hook(session, approval, outcome, actor, reason)
 
         if approval.task_id is None:
             return approval

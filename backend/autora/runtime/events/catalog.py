@@ -215,6 +215,15 @@ class WorkflowRunCreated(EventPayload):
     task_ids: list[uuid.UUID]
 
 
+@event("WORKFLOW_RUN_EXTENDED")
+class WorkflowRunExtended(EventPayload):
+    """A loop added another round of tasks (T-514), e.g. a revision after the editor's review."""
+
+    reason: str
+    round: int = Field(ge=2)
+    task_ids: list[uuid.UUID]
+
+
 @event("WORKFLOW_RUN_COMPLETED")
 class WorkflowRunCompleted(EventPayload):
     duration_ms: int = Field(ge=0)

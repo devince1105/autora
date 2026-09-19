@@ -11,6 +11,14 @@ LLMs never generate DAGs in the MVP). ``WorkflowEngine.instantiate`` turns it in
 - when no task is left unfinished the workflow run closes: SUCCEEDED if every task succeeded,
   FAILED if any failed, otherwise CANCELLED.
 
+Two additions (T-514):
+- a node may be a **service** node (``NodeSpec.service``): no agent runs it; the worker's service
+  dispatcher (``runtime/services.py``) calls the handler registered under that name;
+- a template may declare **loops** (``Loop``): when the node ``check`` succeeds and its output asks
+  for it, the nodes ``back_to`` .. ``check`` are added again (a revision round), and whatever
+  waited for ``check`` waits for the new round instead. At most ``max_rounds`` extra rounds; one
+  more request cancels what was waiting (the work did not get done).
+
 The engine plugs into the TaskManager's hooks, so all of this happens inside the same
 transaction as the task change that triggered it.
 """
@@ -19,6 +27,7 @@ from __future__ import annotations
 
 import re
 import uuid
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from decimal import Decimal
@@ -61,12 +70,32 @@ class NodeSpec:
     budget_usd: Decimal | None = None
     max_attempts: int = 3
     priority: int = 100
+    service: str | None = None
+    """Run by the service handler of this name instead of an agent (``runtime/services.py``)."""
+
+
+@dataclass(frozen=True)
+class Loop:
+    """Repeat ``back_to`` .. ``check`` while ``again(check's output)`` says so (a revision loop).
+
+    ``carry(check's output)`` is merged into the params of the new ``back_to`` task (e.g. the
+    editor's issues for the writer). The nodes in between are the ones on a path from ``back_to``
+    to ``check``."""
+
+    check: str
+    back_to: str
+    again: Callable[[dict[str, Any]], bool]
+    carry: Callable[[dict[str, Any]], dict[str, Any]] = lambda output: {}
+    max_rounds: int = 2
+    round_label: str = "{name} (round {round})"
+    """Display name of a repeated task: ``name`` is the node's display name, ``round`` from 2."""
 
 
 @dataclass(frozen=True)
 class WorkflowTemplate:
     name: str
     nodes: tuple[NodeSpec, ...]
+    loops: tuple[Loop, ...] = ()
 
     def __post_init__(self) -> None:
         if not _TEMPLATE_NAME.match(self.name):
@@ -84,6 +113,29 @@ class WorkflowTemplate:
             if unknown:
                 raise InvalidTemplate(f"{self.name}.{node.name}: unknown dependencies {unknown}")
         self.topological_order()  # raises on cycles
+        for loop in self.loops:
+            if not {loop.check, loop.back_to} <= set(names):
+                raise InvalidTemplate(f"{self.name}: loop over unknown nodes {loop}")
+            if loop.back_to not in self.upstream(loop.check) and loop.back_to != loop.check:
+                raise InvalidTemplate(f"{self.name}: {loop.back_to} does not lead to {loop.check}")
+
+    def upstream(self, name: str) -> set[str]:
+        """Every node ``name`` depends on, directly or transitively."""
+        seen: set[str] = set()
+        todo = list(self.node(name).depends_on)
+        while todo:
+            dep = todo.pop()
+            if dep not in seen:
+                seen.add(dep)
+                todo.extend(self.node(dep).depends_on)
+        return seen
+
+    def loop_body(self, loop: Loop) -> list[NodeSpec]:
+        """The nodes a loop repeats, in order: on a path from ``back_to`` to ``check``."""
+        inside = {loop.back_to, loop.check} | {
+            n for n in self.upstream(loop.check) if loop.back_to in self.upstream(n)
+        }
+        return [n for n in self.topological_order() if n.name in inside]
 
     def node(self, name: str) -> NodeSpec:
         for node in self.nodes:
@@ -195,7 +247,7 @@ class WorkflowEngine:
                 display_name=display[node.name],
                 required_role=node.required_role,
                 depends_on=[ids[dep] for dep in node.depends_on],
-                input={**node.input, "params": params},
+                input=_input(node, params),
                 output_schema_ref=node.output_schema_ref,
                 budget_usd=node.budget_usd,
                 max_attempts=node.max_attempts,
@@ -220,6 +272,9 @@ class WorkflowEngine:
         if task.workflow_run_id is None:
             return []
         siblings = await self._tasks(session, task.workflow_run_id, lock=True)
+        unlocked = await self._loop(session, task, siblings)
+        if unlocked is not None:
+            return unlocked
         succeeded = {t.id for t in siblings if t.state == TaskState.SUCCEEDED}
         unlocked = []
         for downstream in siblings:
@@ -247,6 +302,89 @@ class WorkflowEngine:
                     session, downstream, reason=f"upstream {task.name} {task.state.lower()}"
                 )
         await self._close_if_done(session, task.workflow_run_id)
+
+    # --- loops -----------------------------------------------------------------------------
+
+    async def _loop(
+        self, session: AsyncSession, task: Task, siblings: list[Task]
+    ) -> list[ev.UnlockedTask] | None:
+        """Start another round if a loop asks for it; None: no loop applies (carry on)."""
+        run = await session.get(WorkflowRun, task.workflow_run_id)
+        if run is None:
+            return None
+        try:
+            template = self.templates.get(run.template_name)
+        except WorkflowError:
+            return None
+        loop = next((lp for lp in template.loops if lp.check == task.name), None)
+        if loop is None or not loop.again(task.output or {}):
+            return None
+        waiting = [t for t in siblings if task.id in t.depends_on]
+        rounds = sum(1 for t in siblings if t.name == loop.check) - 1
+        if rounds >= loop.max_rounds:
+            for downstream in waiting:
+                if not TASK_FSM.is_terminal(downstream.state):
+                    await self.task_manager.cancel(
+                        session,
+                        downstream,
+                        reason=f"{task.name} still asks for another round after "
+                        f"{loop.max_rounds} rounds",
+                    )
+            await self._close_if_done(session, run.id)
+            return []
+
+        # the new round: each repeated node depends on the new copies of its dependencies inside
+        # the loop, and on the latest task of each dependency outside it
+        body = template.loop_body(loop)
+        inside = {n.name for n in body}
+        latest = {t.name: t for t in siblings}  # creation order: the last one wins
+        params = dict(run.params or {})
+        new: dict[str, Task] = {}
+        for node in body:
+            deps = [
+                new[d].id if d in inside else latest[d].id
+                for d in node.depends_on
+                if d in inside or d in latest
+            ]
+            node_params = params | (
+                loop.carry(task.output or {}) if node.name == loop.back_to else {}
+            )
+            new[node.name] = await self.task_manager.add_task(
+                session,
+                company_id=run.company_id,
+                project_id=run.project_id,
+                workflow_run_id=run.id,
+                cycle_id=run.cycle_id,
+                name=node.name,
+                display_name=loop.round_label.format(
+                    name=_render(template, node, params), round=rounds + 2
+                ),
+                required_role=node.required_role,
+                depends_on=deps,
+                input=_input(node, node_params),
+                output_schema_ref=node.output_schema_ref,
+                budget_usd=node.budget_usd,
+                max_attempts=node.max_attempts,
+                priority=node.priority,
+                ready=not any(d in inside for d in node.depends_on),
+            )
+        again = new[loop.check]
+        for downstream in waiting:
+            downstream.depends_on = [again.id if d == task.id else d for d in downstream.depends_on]
+        await self._emit(
+            session,
+            run,
+            ev.WorkflowRunExtended(
+                reason=f"{task.name} asked for another round",
+                round=rounds + 2,
+                task_ids=[t.id for t in new.values()],
+            ),
+        )
+        return [
+            ev.UnlockedTask(task_id=t.id, required_role=t.required_role)
+            for t in new.values()
+            if t.state == TaskState.READY
+        ]
 
     # --- internals -------------------------------------------------------------------------
 
@@ -317,6 +455,11 @@ class WorkflowEngine:
                 correlation_id=run.id,
             ),
         )
+
+
+def _input(node: NodeSpec, params: dict[str, Any]) -> dict[str, Any]:
+    extra = {"service": node.service} if node.service else {}
+    return {**node.input, **extra, "params": params}
 
 
 def _render(template: WorkflowTemplate, node: NodeSpec, params: dict[str, Any]) -> str:

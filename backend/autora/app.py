@@ -27,6 +27,7 @@ if TYPE_CHECKING:
     from autora.runtime.models.types import ModelRequest
     from autora.runtime.policy import PolicyEngine
     from autora.runtime.scheduler import Scheduler
+    from autora.runtime.services import ServiceRegistry
     from autora.runtime.task_manager import TaskManager
     from autora.runtime.tools import ToolRegistry
     from autora.runtime.worker import Worker
@@ -61,11 +62,12 @@ def build_policy_engine() -> PolicyEngine:
 
 
 def build_templates() -> TemplateRegistry:
-    from autora.domains import echo
+    from autora.domains import echo, newsroom
     from autora.runtime.dag import TemplateRegistry
 
     templates = TemplateRegistry()
     echo.register_templates(templates)
+    newsroom.register_templates(templates)
     return templates
 
 
@@ -209,11 +211,14 @@ class Runtime:
     workflows: WorkflowEngine
     approvals: ApprovalService
     policy: PolicyEngine
+    services: ServiceRegistry
 
 
 def build_runtime(settings: Settings | None = None) -> Runtime:
+    from autora.domains import newsroom
     from autora.runtime.approvals import ApprovalService
     from autora.runtime.dag import WorkflowEngine
+    from autora.runtime.services import ServiceRegistry
     from autora.runtime.task_manager import TaskManager
 
     load_event_catalogs()
@@ -224,13 +229,16 @@ def build_runtime(settings: Settings | None = None) -> Runtime:
         task_manager.retry_base = timedelta(seconds=settings.task_retry_base_seconds)
     templates = build_templates()
     workflows = WorkflowEngine(task_manager, templates)
-    return Runtime(
+    runtime = Runtime(
         task_manager=task_manager,
         templates=templates,
         workflows=workflows,
         approvals=ApprovalService(task_manager),
         policy=build_policy_engine(),
+        services=ServiceRegistry(),
     )
+    newsroom.register(runtime)
+    return runtime
 
 
 def build_worker(
@@ -247,10 +255,14 @@ def build_worker(
     from autora.runtime.cost.guard import DbCostGuard
     from autora.runtime.models.factory import gateway_from_settings
     from autora.runtime.progress import ProgressPublisher
+    from autora.runtime.services import ServiceDispatcher
     from autora.runtime.worker import Worker
 
     runtime = build_runtime(settings)
     session_factory = session_factory or get_sessionmaker()
+    companies = (
+        company_ids if company_ids is not None else (frozenset(settings.worker_company_ids) or None)
+    )
     blobs = blobs or LocalFSBlobStore(settings.blob_store_dir)
     gateway = gateway_from_settings(
         settings,
@@ -276,10 +288,16 @@ def build_worker(
         runner=runner,
         approvals=runtime.approvals,
         scheduler=build_scheduler(settings, session_factory, settings.worker_id),
+        services=ServiceDispatcher(
+            session_factory=session_factory,
+            registry=runtime.services,
+            task_manager=runtime.task_manager,
+            approvals=runtime.approvals,
+            policy=runtime.policy,
+            company_ids=companies,
+        ),
         concurrency=settings.worker_concurrency,
         poll_interval=settings.worker_poll_seconds,
         maintenance_interval=settings.worker_maintenance_seconds,
-        company_ids=company_ids
-        if company_ids is not None
-        else (frozenset(settings.worker_company_ids) or None),
+        company_ids=companies,
     )

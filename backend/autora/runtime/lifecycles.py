@@ -10,6 +10,8 @@ Task notes:
   with no attempts left goes BLOCKED_BUDGET -> FAILED when the block is released.
 - Approval releases the worker: RUNNING -> WAITING_APPROVAL -> READY (re-claimed, the run
   resumes). Human/service nodes use READY -> WAITING_APPROVAL -> SUCCEEDED directly.
+- Service nodes (T-514) have no run and no lease: a step done at once goes READY -> SUCCEEDED,
+  one that cannot be done READY -> FAILED.
 
 AgentRun notes:
 - WAITING_APPROVAL -> RUNNING resumes the same run after approval.
@@ -29,7 +31,14 @@ TASK_FSM = StateMachine(
     transitions=transitions(
         {
             T.PENDING: [T.READY, T.CANCELLED],
-            T.READY: [T.RUNNING, T.WAITING_APPROVAL, T.BLOCKED_BUDGET, T.CANCELLED],
+            T.READY: [
+                T.RUNNING,
+                T.WAITING_APPROVAL,
+                T.BLOCKED_BUDGET,
+                T.CANCELLED,
+                T.SUCCEEDED,  # service node (no run)
+                T.FAILED,  # service node (no run)
+            ],
             T.RUNNING: [
                 T.SUCCEEDED,
                 T.FAILED,
