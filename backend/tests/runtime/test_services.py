@@ -175,10 +175,12 @@ async def test_a_loop_adds_rounds_and_the_downstream_waits_for_them(committed):
     async with committed() as session:
         extended = (
             await session.scalars(
-                select(EventRecord.payload).where(
+                select(EventRecord.payload)
+                .where(
                     EventRecord.workflow_run_id == run.id,
                     EventRecord.event_type == "WORKFLOW_RUN_EXTENDED",
                 )
+                .order_by(EventRecord.seq)
             )
         ).all()
     assert [e["round"] for e in extended] == [2, 3]
