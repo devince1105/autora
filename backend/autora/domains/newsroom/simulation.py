@@ -5,7 +5,13 @@ far) and acts through the same tools, so everything a run does is real: searches
 provider, pages become evidence, validators check the result. Only the decisions are scripted.
 
 T-506: the researcher; T-507: the analyst; T-509: the writer; T-511: the editor; T-513:
-marketing, the full demo scripts with T-518.
+marketing.
+
+Demo knobs (T-518), from the workflow's ``params.demo`` (``start_story(..., demo=...)``):
+- ``pace_seconds``: every reply takes at least this long, so people can watch the office work;
+- ``revise_first_review``: the editor sends the first draft back (the lead should say what it
+  means for residents) even when the fact-check passed; the writer's revision adds that lead and
+  the second review accepts. Without it, a draft goes back only when the fact-check fails.
 """
 
 from __future__ import annotations
@@ -22,11 +28,37 @@ TARGET_SOURCES = 3
 _URL = re.compile(r"https?://\S+")
 
 
+MAX_PACE = 60.0
+
+
 def respond(request: ModelRequest) -> FakeTurn | None:
     """A reply for newsroom tasks; None for anything else."""
     key = (request.context.role, request.context.task_name)
     handler = _HANDLERS.get(key)
-    return handler(request) if handler else None
+    if handler is None:
+        return None
+    turn = handler(request)
+    pace = _demo(request).get("pace_seconds")
+    if isinstance(pace, int | float) and pace > 0:
+        turn.delay_s = max(turn.delay_s, min(float(pace), MAX_PACE))
+    return turn
+
+
+def _task_input(request: ModelRequest) -> dict[str, Any]:
+    """The task's input, as the runner wrote it after ``Input:`` in the first message."""
+    text = _first_text(request)
+    if "Input:\n" not in text:
+        return {}
+    try:
+        value, _ = json.JSONDecoder().raw_decode(text.split("Input:\n", 1)[1])
+    except ValueError:
+        return {}
+    return value if isinstance(value, dict) else {}
+
+
+def _demo(request: ModelRequest) -> dict[str, Any]:
+    demo = (_task_input(request).get("params") or {}).get("demo")
+    return demo if isinstance(demo, dict) else {}
 
 
 # --- reading the conversation -----------------------------------------------------------------
@@ -214,6 +246,7 @@ _LANG = re.compile(r"\b[a-z]{2}(?:-[A-Z][A-Za-z]+)?\b")
 _CJK = re.compile(r"[\u4e00-\u9fff]")
 _CLAIM_LINE = re.compile(rf"^- ({_UUID.pattern}) \| (\w+)[^|]*\| (.+)$", re.MULTILINE)
 MAX_PARAGRAPHS = 6
+_LEAD = {True: "對居民來說最重要的是：", False: "What matters most for residents: "}
 
 
 def _in(lang: str, text: str) -> str:
@@ -245,6 +278,8 @@ def _draft(request: ModelRequest) -> FakeTurn:
     ]
     if not written:
         picks = claims[:MAX_PARAGRAPHS]
+        issues = re.findall(r"^- (?:\[[^\]]*\] )?(.+)$", first.split("The editor's issues:", 1)[1],
+                            re.MULTILINE) if revision else []  # fmt: skip
         versions = []
         for lang in langs:
             zh = lang.startswith("zh")
@@ -256,15 +291,20 @@ def _draft(request: ModelRequest) -> FakeTurn:
                     "blocks": [
                         {"type": "heading", "text": "重點" if zh else "Key points"},
                         *(
-                            {"type": "paragraph", "text": _in(lang, text), "claim_ids": [cid]}
-                            for cid, _, text in picks
+                            {
+                                "type": "paragraph",
+                                "text": (_LEAD[zh] if revision and i == 0 else "")
+                                + _in(lang, text),
+                                "claim_ids": [cid],
+                            }
+                            for i, (cid, _, text) in enumerate(picks)
                         ),
                     ],
                 }
             )
         args: dict[str, Any] = {"story_id": story_id, "versions": versions}
         if revision:
-            args["change_summary"] = "依編輯意見修正各段落。"
+            args["change_summary"] = ("依編輯意見修改：" + "；".join(issues))[:500]
         return FakeTurn(
             text="Writing the draft.", tool_uses=[FakeToolUse(name="write_draft", input=args)]
         )
@@ -279,6 +319,14 @@ def _draft(request: ModelRequest) -> FakeTurn:
 
 
 # --- editor (T-511) ---------------------------------------------------------------------------
+
+
+DEMO_ISSUE = {
+    "message": "導言請先交代這件事對居民的意義，再談數字。",
+    "kind": "missing_context",
+    "lang": "zh-TW",
+    "block_ref": "2",
+}
 
 
 def _review(request: ModelRequest) -> FakeTurn:
@@ -310,13 +358,19 @@ def _review(request: ModelRequest) -> FakeTurn:
         if not report["passed"]
         else []
     )
+    if (
+        report["passed"]
+        and _demo(request).get("revise_first_review")
+        and ("Revisions so far: 0 of" in first)
+    ):
+        issues = [DEMO_ISSUE]
     decided = [
         name
         for name, _, result in calls
         if name in ("accept_draft", "request_revision") and _output(result)
     ]
     if not decided:
-        if report["passed"]:
+        if not issues:
             use = FakeToolUse(
                 name="accept_draft",
                 input={"article_id": article_id, "fact_check_report_id": report["report_id"]},
@@ -329,9 +383,9 @@ def _review(request: ModelRequest) -> FakeTurn:
     return FakeTurn(
         structured={
             "article_id": article_id,
-            "verdict": "accept" if report["passed"] else "revise",
+            "verdict": "revise" if decided[-1] == "request_revision" else "accept",
             "fact_check_report_id": report["report_id"],
-            "issues": [] if report["passed"] else issues,
+            "issues": issues if decided[-1] == "request_revision" else [],
         }
     )
 

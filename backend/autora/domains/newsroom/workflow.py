@@ -29,8 +29,9 @@ from typing import Any
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from autora.company.agents import hire_agent
 from autora.company.workflows import StartWorkflowError, start_workflow
-from autora.db.models import Approval, ApprovalKind, WorkflowRun
+from autora.db.models import Agent, AgentStatus, Approval, ApprovalKind, WorkflowRun
 from autora.domains.newsroom.models import Article, ArticleState, Story, StoryState
 from autora.domains.newsroom.publisher import (
     NotAllowed,
@@ -88,6 +89,38 @@ def register_templates(templates: TemplateRegistry) -> None:
     templates.register(TEMPLATE)
 
 
+# --- staffing ---------------------------------------------------------------------------------
+
+DISPLAY_NAMES = {
+    "researcher": "Rae",
+    "analyst": "Ana",
+    "writer": "Wren",
+    "editor": "Eli",
+    "marketing": "Mika",
+}
+"""The newsroom's desks (the echo demo's three share the names)."""
+
+
+async def staff_newsroom(
+    session: AsyncSession, company_id: uuid.UUID, *, actor: Actor
+) -> list[Agent]:
+    """Hire one active agent per newsroom role the company does not have yet."""
+    existing = set(
+        (
+            await session.scalars(
+                select(Agent.role).where(
+                    Agent.company_id == company_id, Agent.status == AgentStatus.ACTIVE
+                )
+            )
+        ).all()
+    )
+    return [
+        await hire_agent(session, company_id=company_id, role=role, display_name=name, actor=actor)
+        for role, name in DISPLAY_NAMES.items()
+        if role not in existing
+    ]
+
+
 async def start_story(
     session: AsyncSession,
     *,
@@ -97,9 +130,11 @@ async def start_story(
     project_id: uuid.UUID,
     actor: Actor,
     role: str | None = None,
+    demo: dict[str, Any] | None = None,
 ) -> WorkflowRun:
     """Start the workflow for a SELECTED story (the ``instantiate_workflow`` command: the policy
-    decides and the decision is recorded); the story goes IN_PRODUCTION."""
+    decides and the decision is recorded); the story goes IN_PRODUCTION. ``demo``: knobs for the
+    simulated model only (``simulation.py``: pace, a revision on the first review)."""
     if story.state != StoryState.SELECTED:
         raise StartWorkflowError(f"the story is {story.state}; only a selected story is started")
     run, _ = await start_workflow(
@@ -109,7 +144,8 @@ async def start_story(
         company_id=story.company_id,
         project_id=project_id,
         template=TEMPLATE_NAME,
-        params={"story_id": str(story.id), "title": story.title[:80]},
+        params={"story_id": str(story.id), "title": story.title[:80]}
+        | ({"demo": demo} if demo else {}),
         actor=actor,
         role=role,
     )

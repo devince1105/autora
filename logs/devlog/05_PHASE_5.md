@@ -31,7 +31,7 @@
 | T-515 | 公開站（zh-TW / en）+ beacon API | T-512 | ⏳ |
 | T-516 | Analytics collector（每小時 → `analytics_daily`，事件） | T-515、T-212 | ⏳ |
 | T-517 | Newsroom 管理頁（stories、articles、versions、fact-check、distribution、timeline） | T-308、T-311 | ⏳ |
-| T-518 | 模擬資料（FakeModelProvider 劇本 + fixture HTML + revise 分支） | T-207、T-514 | ⏳ |
+| T-518 | 模擬資料（FakeModelProvider 劇本 + fixture HTML + revise 分支） | T-207、T-514 | ✅ |
 | T-519 | 真模型 smoke | T-208、T-514 | ⏳ |
 | T-520 | 階段 5 E2E（3D → Writer → 草稿頁） | T-411、T-517、T-518 | ⏳ |
 
@@ -454,6 +454,28 @@ T-203 的工作流程引擎只會跑固定的 DAG、而且每個節點都由代�
   - **人駁回**：文章 REJECTED、題材 DROPPED、下游取消、流程 CANCELLED；
   - 只有 SELECTED 的題材能開始，流程參數正確。
 - 後端 850 個測試通過；`ruff`、`lint-imports`、`make db-check`、`gen-schema-check`、`gen-api-check` 通過；event-schema 8 個、web 213 個測試與 typecheck、lint 通過。
+---
+
+## T-518 · 模擬資料與示範新聞室
+
+### 做了什麼
+五個代理的模擬模型在 T-506 ～ T-513 已經各自完成，T-514 把它們串成工作流程；T-518 補上示範需要的部分，讓整條線在 `MODEL_PROVIDER=fake`、`TOOLS_PROFILE=fixture`（加上 `EMBED_PROVIDER=fake`）下從來源一路跑到發布，完全離線。
+
+- **模擬模型的示範設定**（`simulation.py`，讀工作流程參數 `params.demo`——模擬模型像真的模型一樣從第一則訊息的 `Input:` 讀任務輸入）：
+  - `pace_seconds`：每次回覆至少這麼久（上限 60 秒），在 3D 辦公室看得到代理在工作（3d-office/06 §6「可設定的延遲」）。
+  - `revise_first_review`：**「第一次 review 要求 revise」的劇本分支**——即使查核通過，編輯第一次審稿（「已修訂 0 次」）也退回：「導言請先交代這件事對居民的意義，再談數字。」（missing_context、zh-TW、第 2 段）；寫手的修訂在第一段前加上導言（中文「對居民來說最重要的是：」、英文對應句），`change_summary` 寫明依哪些意見修改；第二次審稿接受。沒有這個設定時，只有查核不通過才會退回。
+  - 編輯回報的決定改為依實際呼叫的工具（`request_revision` / `accept_draft`）。
+- `workflow.start_story(..., demo=...)`：示範設定放進工作流程參數（只給模擬模型用）；`staff_newsroom`：補齊五位代理（Rae、Ana、Wren、Eli、Mika）。
+- **示範新聞室**（`domains/newsroom/demo.py`）：`seed_demo`（公司「流明日報（示範）」、專案「流明市報導」、五位代理、兩個 fixture 來源——英文的 Lumen City News 與中文的流明市政府新聞稿；重複執行沿用）、`gather_stories`（立即讀取所有來源並分群，回傳開放中的題材、分數高的在前）、`pick`（標題含關鍵字的最佳題材）、`start_demo_story`（選定並啟動）。
+- **`backend/scripts/seed_newsroom.py`**：`--start`（讀取、分群、啟動題材）、`--story`（題材關鍵字，預設 microgrid）、`--pace`、`--revise`；不是全離線設定時提醒。已在 e2e 資料庫實際執行一次：建立公司與兩個來源、選出「What a neighbourhood microgrid really costs」並啟動工作流程。
+- RUNBOOK 新增「試跑新聞室（模擬模式）」；模型供應者表格改為 echo 與新聞室都有模擬。
+- fixture 頁面沿用 T-500 ～ T-502 建立的流明市語料（兩個 feed、四個可擷取的頁面、JavaScript 頁與 PDF），沒有新增。
+
+### 驗證
+- `tests/e2e/test_newsroom_sim.py`：**從 fixture feed 到發布**——示範新聞室建立（重複執行沿用）、兩個來源讀到至少 5 個項目、分群成至少兩則題材、選出微電網題材、以修訂分支啟動 → 真正的工作程序跑到核准收件匣（兩輪撰稿與審稿、第一次退回的問題就是示範問題、第二次接受）→ 人核准 → 發布與推廣：流程 SUCCEEDED、題材與文章 PUBLISHED、發布的是第 2 版中英兩語、中文第一段有加上的導言、修改說明寫著編輯的意見、網站與社群草稿兩筆、至少 2 份證據、引用的主張（≥ 3）都通過查核規則、7 次代理執行全部完成、模型呼叫只有 fake、每個工具呼叫都有結束事件、五位代理的活動都有連結。
+- `tests/newsroom/test_simulation.py`：`pace_seconds` 生效、上限 60 秒、格式不對或沒有時不延遲。
+- 後端 852 個測試通過；`ruff`、`lint-imports`、`make db-check`、`gen-schema-check`、`gen-api-check` 通過。
+- 有一次全套測試出現 1 個失敗，之後連續三次全套與六次新測試都通過，無法重現；那次失敗的測試名稱沒有留下（之後的通過清掉了 pytest 的紀錄）。先記錄在這裡，若再出現會記下名稱並處理。
 ---
 
 ## 提交紀錄

@@ -204,6 +204,24 @@ SELECT role, alias, model_id, tokens_in, tokens_out, cost_usd FROM model_calls O
 
    核准後寫手會接著執行（同一次嘗試）；駁回則取消寫手的任務。注意：同時開兩個工作程序也能運作，但日誌會分散在兩邊。
 
+### 試跑新聞室（模擬模式，T-518）
+
+整條新聞線（來源 → 題材 → 研究 → 分析 → 撰稿 → 審稿 → 人核准 → 發布 → 推廣）可以完全離線跑：模型用模擬（`MODEL_PROVIDER=fake`），搜尋與抓網頁用虛構的流明市 fixture（`TOOLS_PROFILE=fixture`），embedding 用確定性的雜湊向量（`EMBED_PROVIDER=fake`）。除了模型的決定，其他全是真的（工具、證據、事實查核、權限、審批、發布、事件）。
+
+1. 在 `.env` 設 `MODEL_PROVIDER=fake`、`TOOLS_PROFILE=fixture`、`EMBED_PROVIDER=fake`（或在指令前加上這三個環境變數；embedding 不設成 fake 的話，分群與證據切段仍會呼叫 NVIDIA），啟動 API、工作程序與前端。
+2. 建立示範新聞室（公司「流明日報（示範）」、專案、五位代理 Rae / Ana / Wren / Eli / Mika、兩個 fixture 來源），並開始一則題材：
+
+   ```bash
+   MODEL_PROVIDER=fake TOOLS_PROFILE=fixture EMBED_PROVIDER=fake .venv/bin/python backend/scripts/seed_newsroom.py --start --pace 4 --revise
+   ```
+
+   - `--start`：立刻讀取來源、把新項目分群成題材、選出標題含 `--story`（預設 `microgrid`）的最佳題材並啟動工作流程；不加就只建立公司與來源（之後排程每 5 分鐘會自動讀取與分群）。
+   - `--pace 4`：模擬模型每次回覆至少 4 秒，方便在 3D 辦公室看代理工作。
+   - `--revise`：編輯第一次審稿時一定退回（要求導言先交代對居民的意義），寫手修改後第二次審稿接受——示範修訂流程。
+   - 重複執行會沿用同一家公司；再加 `--start` 會再開始一則還沒開始的題材（沒有符合的就列出目前的題材）。
+3. 工作程序會依序執行研究、分析、撰稿、審稿，之後停在核准：到前端審批收件匣（`/approvals`）核准，發布與推廣接著完成。駁回則文章被駁回、題材放棄。
+4. 公司政策 `newsroom.auto_approve_if_fact_check_passed` 設為 `true` 時（D-001，預設 `false`），查核通過就由系統自動核准，不經收件匣。
+
 ---
 
 ## 五、前端
@@ -239,7 +257,7 @@ pnpm -F web dev
 
 | `MODEL_PROVIDER` | 行為 | 何時用 |
 |---|---|---|
-| `fake`（預設） | 不呼叫任何真實模型、不產生費用。由各領域的模擬模型回答（目前只有 echo 領域有模擬） | 開發、示範、自動化測試 |
+| `fake`（預設） | 不呼叫任何真實模型、不產生費用。由各領域的模擬模型回答（echo 與新聞室，見「試跑新聞室」） | 開發、示範、自動化測試 |
 | `nvidia` | 呼叫 NVIDIA Build（OpenAI 相容 API）。**主要使用的供應者**，模型 `z-ai/glm-5.3-flash`（決策 D-005、D-006） | 真實運作 |
 | `anthropic` | 呼叫 Claude API，保留作為隨時切換的選項 | 真實運作 |
 
