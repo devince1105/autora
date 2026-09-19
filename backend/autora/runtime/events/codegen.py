@@ -113,6 +113,8 @@ class _Emitter:
                 expr = "z.uuid()"
             elif fmt == "date-time":
                 expr = "z.iso.datetime({ offset: true })"
+            elif fmt == "date":
+                expr = "z.iso.date()"
             elif fmt is None:
                 expr = "z.string()"
             else:

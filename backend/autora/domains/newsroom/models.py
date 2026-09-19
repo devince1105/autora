@@ -451,3 +451,29 @@ class AnalyticsEvent(IdMixin, CreatedAtMixin, Base):
     session_hash: Mapped[str]
     day: Mapped[date] = mapped_column(Date)
     """The UTC day it was received (the dedup window; the session id rotates daily too)."""
+
+
+class AnalyticsDaily(IdMixin, TimestampMixin, Base):
+    """Readers per article, language and UTC day (T-516), recounted from ``analytics_events`` by
+    the hourly collector: it can always be rebuilt from the raw beacons while they are kept.
+
+    ``views``: sessions that opened the article; ``read_complete``: sessions that reached its end;
+    ``uniques``: sessions that did either. (A session counts once per kind and day already, so
+    views are unique views.)"""
+
+    __tablename__ = "analytics_daily"
+    __table_args__ = (
+        UniqueConstraint("article_id", "lang", "day"),
+        Index("ix_analytics_daily_company_day", "company_id", "day"),
+        CheckConstraint(
+            "views >= 0 AND uniques >= 0 AND read_complete >= 0", name="counts_non_negative"
+        ),
+    )
+
+    company_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("companies.id"))
+    article_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("articles.id"))
+    lang: Mapped[str]
+    day: Mapped[date] = mapped_column(Date)
+    views: Mapped[int] = mapped_column(server_default="0")
+    uniques: Mapped[int] = mapped_column(server_default="0")
+    read_complete: Mapped[int] = mapped_column(server_default="0")

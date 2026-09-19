@@ -238,6 +238,22 @@ export const AgentWorkingV1Event = z.object({
   payload: AgentWorkingV1Payload,
 });
 
+export const AnalyticsDailyUpdatedV1Payload = z.object({
+  article_id: z.uuid(),
+  date: z.iso.date(),
+  views: z.number().int(),
+  uniques: z.number().int(),
+  read_complete: z.number().int(),
+  langs: z.record(z.string(), z.unknown()).default(() => ({})),
+});
+export type AnalyticsDailyUpdatedV1Payload = z.infer<typeof AnalyticsDailyUpdatedV1Payload>;
+export const AnalyticsDailyUpdatedV1Event = z.object({
+  ...envelopeFields,
+  event_type: z.literal("ANALYTICS_DAILY_UPDATED"),
+  schema_version: z.literal(1),
+  payload: AnalyticsDailyUpdatedV1Payload,
+});
+
 export const ApprovalApprovedV1Payload = z.object({
   kind: z.enum(["tool_call", "command", "project", "kill", "strategy", "article"]),
   ref_type: z.string(),
@@ -1109,6 +1125,7 @@ export const EventEnvelope = z.discriminatedUnion("event_type", [
   AgentThinkingV1Event,
   AgentWaitingV1Event,
   AgentWorkingV1Event,
+  AnalyticsDailyUpdatedV1Event,
   ApprovalApprovedV1Event,
   ApprovalExpiredV1Event,
   ApprovalRejectedV1Event,
@@ -1193,6 +1210,7 @@ export const EVENT_TYPES = [
   "AGENT_THINKING",
   "AGENT_WAITING",
   "AGENT_WORKING",
+  "ANALYTICS_DAILY_UPDATED",
   "APPROVAL_APPROVED",
   "APPROVAL_EXPIRED",
   "APPROVAL_REJECTED",

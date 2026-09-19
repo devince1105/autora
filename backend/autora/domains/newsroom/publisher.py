@@ -31,6 +31,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from autora.db.models import Agent
 from autora.db.repositories.companies import get_policies
+from autora.domains.newsroom.analytics import ensure_analytics_schedule
 from autora.domains.newsroom.articles import ARTICLE_FSM
 from autora.domains.newsroom.events import (
     ArticleApproved,
@@ -283,6 +284,7 @@ async def publish_article(
         )
         .on_conflict_do_nothing()
     )
+    await ensure_analytics_schedule(session, company_id)  # readers are counted from now on
     await _emit(
         session,
         article,

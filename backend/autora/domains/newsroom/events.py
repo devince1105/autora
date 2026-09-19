@@ -3,11 +3,12 @@
 Added with the task that first emits them; T-501: the source poller's; T-502: evidence;
 T-504: stories; T-505: claims; T-508: articles;
 T-510: fact-check verdicts; T-511: the editor's review; T-512: approval, publication,
-distribution.
+distribution; T-516: daily readers.
 """
 
 from __future__ import annotations
 
+import datetime as dt
 import uuid
 from decimal import Decimal
 
@@ -171,3 +172,16 @@ class DistributionCreated(EventPayload):
     distribution_id: uuid.UUID
     channel: str
     status: str
+
+
+@event("ANALYTICS_DAILY_UPDATED")
+class AnalyticsDailyUpdated(EventPayload):
+    """An article's readers for a day changed (T-516, hourly; the raw beacons are not events)."""
+
+    article_id: uuid.UUID
+    date: dt.date
+    views: int
+    uniques: int
+    read_complete: int
+    langs: dict[str, int] = {}
+    """Views per language."""

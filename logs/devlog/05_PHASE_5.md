@@ -29,7 +29,7 @@
 | T-513 | Marketing 代理（`DistributionPlan`、`create_distribution`：只寫 DB） | T-512 | ✅ |
 | T-514 | `story_to_article_v2` 範本 + `register()` + `activity_links` | T-203、T-506 ～ T-513 | ✅ |
 | T-515 | 公開站（zh-TW / en）+ beacon API | T-512 | ✅ |
-| T-516 | Analytics collector（每小時 → `analytics_daily`，事件） | T-515、T-212 | ⏳ |
+| T-516 | Analytics collector（每小時 → `analytics_daily`，事件） | T-515、T-212 | ✅ |
 | T-517 | Newsroom 管理頁（stories、articles、versions、fact-check、distribution、timeline） | T-308、T-311 | ⏳ |
 | T-518 | 模擬資料（FakeModelProvider 劇本 + fixture HTML + revise 分支） | T-207、T-514 | ✅ |
 | T-519 | 真模型 smoke | T-208、T-514 | ⏳ |
@@ -506,10 +506,29 @@ T-203 的工作流程引擎只會跑固定的 DAG、而且每個節點都由代�
 - 後端 856 個測試通過；`ruff`、`lint-imports`、`make db-check`、`gen-schema-check`、`gen-api-check` 通過；web 223 個測試與 typecheck、lint 通過。
 ---
 
+## T-516 · 讀者統計（每小時彙總到 analytics_daily）
+
+### 做了什麼
+- **`analytics_daily`**（migration `0021`）：每篇文章、每個語言、每個 UTC 日一列——`views`（打開文章的 session 數）、`read_complete`（讀到結尾的 session 數）、`uniques`（做過其中任一件事的 session 數）。因為 beacon 已經讓同一 session 同一天每種只算一次，瀏覽數就是不重複的瀏覽。規格的 `referrers` 沒有做：公開站不收來源網址（不收讀者的任何資料）。
+- **收集器**（`domains/newsroom/analytics.py`，排程 `newsroom.collect_analytics`，每小時第 7 分）：
+  - 從原始 beacon **重算**昨天與今天（UTC）——beacon 記在收到的那一天，所以只有這兩天可能還在變；重算而不是累加，重複執行或延遲執行結果都一樣。
+  - 數字有變的列才 upsert；每篇文章每天有變就發一則 `ANALYTICS_DAILY_UPDATED`（當天跨語言的瀏覽、不重複讀者、讀完，以及各語言瀏覽數）；沒變就什麼都不發。
+  - 刪除 30 天以前的原始 beacon（platform/08：彙總後保留 30 天）。
+  - 更早的日子不再重算：已經是定案的數字。
+- **排程何時建立**：發布服務在公司發布文章時建立（`ensure_analytics_schedule`，已有就沿用）；`app.build_scheduler` 註冊處理函式。
+- **D-014**：流程圖中發布後的 `measure`（+1h / +24h / +7d）不另外排三個工作，由每小時的彙總涵蓋（24 小時、7 天以日計）；之後 CEO 報告若需要「發布後 1 小時」的小時級數字再加。
+- 事件契約產生器支援 `date` 格式（`z.iso.date()`），產生器測試加上一例；前端事件說明「讀者統計更新・日期 瀏覽 N・讀完 M」；`3d-office/03` 更新事件欄位。
+
+### 驗證
+- `tests/newsroom/test_analytics.py`（4 個）：發布後有每小時的排程、工作程序的排程器找得到處理函式；**每篇每語言每天的計數**（三個 session 瀏覽英文、兩個讀完、一個看中文、昨天一個；重複的 beacon 不算）→ 三列正確、兩則事件（今天合計 4 瀏覽 / 4 讀者 / 2 讀完、各語言 3 與 1）；**再算一次沒有變化、沒有事件**；新讀者只改那一列、事件是當天新的合計；三天前的不重算；31 天前的原始資料刪除、30 天的保留；隔天昨天那列不再變；不同公司分開計算。
+- 後端 861 個測試通過；`ruff`、`lint-imports`、`make db-check`、`gen-schema-check`、`gen-api-check` 通過；event-schema 8 個、web 223 個測試與 typecheck、lint 通過。
+---
+
 ## 提交紀錄
 
 | 提交 | 日期 | 內容 | 持續整合 |
 |---|---|---|---|
+| `2fa24c5`、`05f5b3d` | 2026-09-19 | T-515 公開站與讀者計數；移除預覽時 next dev 產生的檔案 | ✅ 執行編號 `35448277955`、`35448298509`（e2e 5 分 37 秒、python 2 分 26 秒、web 59 秒） |
 | `c4ba4ee` | 2026-09-19 | T-518 模擬模式的示範新聞室 | ✅ 執行編號 `35445028213`（e2e 5 分 13 秒、python 2 分 27 秒、web 1 分 7 秒） |
 | `3487cca` | 2026-09-19 | T-514 新聞室工作流程、服務步驟、迴圈與活動連結 | ✅ 執行編號 `35443539975`（e2e 5 分 29 秒、python 2 分 20 秒、web 1 分 1 秒） |
 | `800d5f9` | 2026-09-19 | T-513 行銷代理 | ✅ 執行編號 `35442758423`（e2e 5 分 10 秒、python 2 分 24 秒、web 1 分 10 秒） |

@@ -66,6 +66,7 @@ def test_multiple_versions_become_nested_union():
     [
         ({"type": "string", "format": "uuid"}, "z.uuid()"),
         ({"type": "string", "format": "date-time"}, "z.iso.datetime({ offset: true })"),
+        ({"type": "string", "format": "date"}, "z.iso.date()"),
         ({"type": "integer", "minimum": 0}, "z.number().int().min(0)"),
         ({"type": "number", "exclusiveMinimum": 0}, "z.number().gt(0)"),
         ({"enum": ["a", "b"], "type": "string"}, 'z.enum(["a", "b"])'),

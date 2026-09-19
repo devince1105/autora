@@ -803,6 +803,56 @@
         }
       }
     },
+    "ANALYTICS_DAILY_UPDATED": {
+      "1": {
+        "persistence": "persisted",
+        "payload": {
+          "additionalProperties": false,
+          "description": "An article's readers for a day changed (T-516, hourly; the raw beacons are not events).",
+          "properties": {
+            "article_id": {
+              "format": "uuid",
+              "title": "Article Id",
+              "type": "string"
+            },
+            "date": {
+              "format": "date",
+              "title": "Date",
+              "type": "string"
+            },
+            "views": {
+              "title": "Views",
+              "type": "integer"
+            },
+            "uniques": {
+              "title": "Uniques",
+              "type": "integer"
+            },
+            "read_complete": {
+              "title": "Read Complete",
+              "type": "integer"
+            },
+            "langs": {
+              "additionalProperties": {
+                "type": "integer"
+              },
+              "default": {},
+              "title": "Langs",
+              "type": "object"
+            }
+          },
+          "required": [
+            "article_id",
+            "date",
+            "views",
+            "uniques",
+            "read_complete"
+          ],
+          "title": "AnalyticsDailyUpdated",
+          "type": "object"
+        }
+      }
+    },
     "APPROVAL_APPROVED": {
       "1": {
         "persistence": "persisted",

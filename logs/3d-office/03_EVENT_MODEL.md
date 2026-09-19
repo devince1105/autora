@@ -131,7 +131,7 @@
 | ARTICLE_APPROVED / ARTICLE_REJECTED | P | R | `{article_id, by}` |
 | ARTICLE_PUBLISHED | P | R | `{article_id, slug, langs[], url}` |
 | DISTRIBUTION_CREATED | P | R | `{article_id, channel, status}` |
-| ANALYTICS_DAILY_UPDATED | P | R | `{article_id, date, views}` |（原始 beacon 不是 event）
+| ANALYTICS_DAILY_UPDATED | P | R | `{article_id, date, views, uniques, read_complete, langs}`（T-516：每小時重算，數字有變才發；`langs` 是各語言瀏覽數） |（原始 beacon 不是 event）
 
 ### 2.6 Realtime 控制訊息（不是 Event；只存在於 WS 通道）
 

@@ -127,6 +127,7 @@ const FORMAT: Record<string, (p: Payload) => [string, Tone, string | null]> = {
     "neutral",
     [CHANNEL[s(p.channel) ?? ""] ?? s(p.channel), DISTRIBUTION_STATUS[s(p.status) ?? ""] ?? s(p.status)].filter(Boolean).join("・") || null,
   ],
+  ANALYTICS_DAILY_UPDATED: (p) => ["讀者統計更新", "neutral", `${s(p.date) ?? ""} 瀏覽 ${n(p.views) ?? 0}・讀完 ${n(p.read_complete) ?? 0}`.trim()],
   STORY_DROPPED: (p) => ["放棄題材", "warn", [s(p.title), s(p.reason)].filter(Boolean).join("・") || null],
 };
 

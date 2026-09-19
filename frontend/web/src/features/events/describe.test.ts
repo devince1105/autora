@@ -55,6 +55,7 @@ describe("describeEvent: newsroom sources and evidence (T-501, T-502)", () => {
     expect(describeEvent("ARTICLE_REVIEWED", { verdict: "revise", fact_check_passed: true }).summary).toBe("需要修改");
     expect(describeEvent("ARTICLE_REVISION_REQUESTED", { revision: 1, issues_count: 3 })).toMatchObject({ label: "要求修改", summary: "第 1 次・3 個問題" });
     expect(describeEvent("WORKFLOW_RUN_EXTENDED", { round: 2, task_ids: ["a", "b"] })).toMatchObject({ label: "工作流程加一輪", tone: "warn", summary: "第 2 輪・2 個任務" });
+    expect(describeEvent("ANALYTICS_DAILY_UPDATED", { date: "2026-09-21", views: 5, read_complete: 2 })).toMatchObject({ label: "讀者統計更新", summary: "2026-09-21 瀏覽 5・讀完 2" });
     expect(describeEvent("ARTICLE_APPROVED", { by: "human" }).summary).toBe("人工核准");
     expect(describeEvent("ARTICLE_APPROVED", { by: "system" }).summary).toBe("查核通過後自動核准");
     expect(describeEvent("ARTICLE_PUBLISHED", { url: "/zh-TW/articles/x", langs: ["zh-TW", "en"] })).toMatchObject({
