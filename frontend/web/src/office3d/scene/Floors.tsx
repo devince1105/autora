@@ -1,58 +1,50 @@
-// The floor regions (T-402, D-010): light base, dark glossy work area, yellow corridors, wood in
-// the CEO office, tiles in the pantry, rugs. Planes a few millimetres apart, receiving shadows.
+// The floor regions (T-402, T-413): the theme's base floor, a carpet per department, the lobby's
+// stone, wood in the CEO office, tiles in the pantry, walkways, rugs and the entrance mat. Planes
+// a few millimetres apart, receiving shadows.
 import { useEffect, useMemo } from "react";
 import type { Texture } from "three";
 
-import { PALETTE } from "../palette";
-import { floorRegions, type FloorKind } from "./furniture";
-import { tileTexture, woodTexture } from "./textures";
+import type { FloorKind, Palette } from "../palette";
+import { floorRegions } from "./furniture";
+import { floorTexture } from "./textures";
 
-const LOOK: Record<FloorKind, { color: string; roughness: number; texture?: "wood" | "tile"; metres?: number }> = {
-  base: { color: PALETTE.floorBase, roughness: 0.7 },
-  work: { color: PALETTE.floorWork, roughness: 0.28 },
-  corridor: { color: PALETTE.corridor, roughness: 0.45 },
-  wood: { color: "#ffffff", roughness: 0.55, texture: "wood", metres: 1 },
-  meeting: { color: "#ffffff", roughness: 0.55, texture: "wood", metres: 1 },
-  tile: { color: "#ffffff", roughness: 0.35, texture: "tile", metres: 0.5 },
-  rugLounge: { color: PALETTE.rugLounge, roughness: 0.95 },
-  rugCeo: { color: PALETTE.rugCeo, roughness: 0.95 },
-};
-
-export function Floors() {
-  const textures = useMemo(
-    () => ({
-      wood: woodTexture(PALETTE.woodFloor),
-      meeting: woodTexture(PALETTE.meetingFloor),
-      tile: tileTexture(PALETTE.tileFloor, "#d6d8db"),
-    }),
-    [],
-  );
+export function Floors({ palette }: { palette: Palette }) {
+  const textures = useMemo(() => {
+    const out = new Map<FloorKind, Texture>();
+    for (const [kind, look] of Object.entries(palette.floors) as [FloorKind, Palette["floors"][FloorKind]][]) {
+      const texture = floorTexture(look);
+      if (texture) out.set(kind, texture);
+    }
+    return out;
+  }, [palette]);
   const regions = useMemo(
     () =>
       floorRegions().map((region, i) => {
-        const look = LOOK[region.kind];
+        const look = palette.floors[region.kind];
         const width = region.maxX - region.minX;
         const depth = region.maxZ - region.minZ;
+        const base = textures.get(region.kind);
         let map: Texture | undefined;
-        if (look.texture) {
-          map = (region.kind === "meeting" ? textures.meeting : textures[look.texture]).clone();
-          map.repeat.set(width / look.metres!, depth / look.metres!);
+        if (base && look.metres) {
+          map = base.clone();
+          map.repeat.set(width / look.metres, depth / look.metres);
           map.needsUpdate = true;
         }
-        return { key: `${region.kind}-${i}`, region, look, width, depth, map };
+        // a textured floor is painted in its colour; the material then must not tint it again
+        return { key: `${region.kind}-${i}`, region, color: map ? "#ffffff" : look.color, roughness: look.roughness, emissive: look.emissive ?? "#000000", glowMap: look.glowMap, width, depth, map };
       }),
-    [textures],
+    [palette, textures],
   );
   useEffect(
     () => () => {
       regions.forEach((r) => r.map?.dispose());
-      Object.values(textures).forEach((t) => t.dispose());
+      textures.forEach((t) => t.dispose());
     },
     [regions, textures],
   );
   return (
     <group>
-      {regions.map(({ key, region, look, width, depth, map }) => (
+      {regions.map(({ key, region, color, roughness, emissive, glowMap, width, depth, map }) => (
         <mesh
           key={key}
           rotation-x={-Math.PI / 2}
@@ -60,7 +52,15 @@ export function Floors() {
           receiveShadow
         >
           <planeGeometry args={[width, depth]} />
-          <meshStandardMaterial color={look.color} roughness={look.roughness} map={map} />
+          <meshStandardMaterial
+            color={color}
+            roughness={roughness}
+            map={map}
+            // a glowing texture (grid lines) lights itself; otherwise the look's own faint glow
+            emissive={glowMap && map ? "#ffffff" : emissive}
+            emissiveMap={glowMap && map ? map : undefined}
+            emissiveIntensity={glowMap && map ? glowMap : 1}
+          />
         </mesh>
       ))}
     </group>

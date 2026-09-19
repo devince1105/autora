@@ -12,7 +12,7 @@ import { REQUIRED_CLIPS } from "../assets/characters";
 import { assignSeats } from "../scene/layout";
 import { visualForAgent } from "../visual/mapping";
 import { AgentAvatar, placeFor, type AvatarModel } from "./AgentAvatar";
-import { AvatarController, upperBody } from "./AvatarController";
+import { AvatarController, HEAD_SCALE, upperBody } from "./AvatarController";
 
 // A stand-in for a Kenney character: the same bone names, a 1 s clip per name the office plays.
 function fakeModel(): AvatarModel {
@@ -190,5 +190,15 @@ describe("AvatarController", () => {
     controller.update(0.05);
     expect(arm.quaternion.angleTo(rest)).toBeCloseTo(0);
     expect(Object.keys(upperBody("walk", 0))).toEqual([]);
+  });
+
+  it("heads are drawn smaller than the pack's, whatever the clips do (T-413)", () => {
+    const model = fakeModel();
+    const controller = new AvatarController(model.scene, model.animations);
+    const head = model.scene.getObjectByName("head")!;
+    expect(head.scale.x).toBeCloseTo(HEAD_SCALE);
+    controller.setPose("sit_type");
+    for (let i = 0; i < 5; i++) controller.update(0.1);
+    expect([head.scale.x, head.scale.y, head.scale.z]).toEqual([HEAD_SCALE, HEAD_SCALE, HEAD_SCALE]);
   });
 });

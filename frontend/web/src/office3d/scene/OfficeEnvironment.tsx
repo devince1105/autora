@@ -15,9 +15,14 @@ const PANELS: [number, number, string, number, [number, number, number], [number
   [30, 12, "#fff6ea", 0.8, [0, 6, 24], [0, Math.PI, 0]],
 ];
 
-export function OfficeEnvironment() {
+/** `intensity`: how strongly the panels light the scene (a theme's; changing it does not re-bake). */
+export function OfficeEnvironment({ intensity = 1 }: { intensity?: number }) {
   const gl = useThree((s) => s.gl);
   const scene = useThree((s) => s.scene);
+
+  useEffect(() => {
+    scene.environmentIntensity = intensity;
+  }, [scene, intensity]);
 
   useEffect(() => {
     const panels = new Scene();

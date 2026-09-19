@@ -5,12 +5,17 @@ import {
   APPROVAL_DESK,
   assignSeats,
   CEO_OFFICE,
+  CORRIDORS,
+  DECOR,
+  ENTRANCE,
+  LABELS,
   obstacles,
   ROLES,
   ROOM,
   seatsForRole,
   SLOTS,
   walkPath,
+  ZONES,
   type Rect,
   type Seat,
   type Vec2,
@@ -137,3 +142,56 @@ describe("courier paths", () => {
     expect(walkPath(researcher, "approval").at(-1)).toEqual(APPROVAL_DESK.approach);
   });
 });
+
+describe("zones, entrance and labels (T-413)", () => {
+  const contains = (outer: Omit<Rect, "name">, inner: Omit<Rect, "name">) =>
+    inner.minX >= outer.minX && inner.maxX <= outer.maxX && inner.minZ >= outer.minZ && inner.maxZ <= outer.maxZ;
+  const zones = Object.entries(ZONES);
+
+  it("the zones do not overlap each other, the walkways or the back rooms; each holds its desks", () => {
+    for (let i = 0; i < zones.length; i++) {
+      for (let j = i + 1; j < zones.length; j++) expect(overlaps({ name: "", ...zones[i][1] }, { name: "", ...zones[j][1] }), `${zones[i][0]} / ${zones[j][0]}`).toBe(false);
+    }
+    for (const [name, zone] of zones) {
+      expect(zone.minZ, name).toBeGreaterThanOrEqual(CORRIDORS.back.maxZ);
+      expect(overlaps({ name, ...zone }, { name: "front walkway", minX: ROOM.minX, maxX: ROOM.maxX, ...CORRIDORS.front }), name).toBe(false);
+    }
+    for (const seat of allSeats()) {
+      if (seat.zone === "ceo") continue;
+      const zone = ZONES[seat.zone as keyof typeof ZONES];
+      expect(contains(zone, rectAroundSeat(seat)), seat.key).toBe(true);
+    }
+  });
+
+  it("the entrance opens the right edge onto the front walkway, next to the lobby with the reception and lounge", () => {
+    expect(ENTRANCE.x).toBe(ROOM.maxX);
+    expect([ENTRANCE.minZ, ENTRANCE.maxZ]).toEqual([CORRIDORS.front.minZ, CORRIDORS.front.maxZ]);
+    const desk = { minX: APPROVAL_DESK.center[0] - APPROVAL_DESK.width / 2, maxX: APPROVAL_DESK.center[0] + APPROVAL_DESK.width / 2, minZ: APPROVAL_DESK.center[1] - APPROVAL_DESK.depth / 2, maxZ: APPROVAL_DESK.center[1] + APPROVAL_DESK.depth / 2 };
+    expect(contains(ZONES.lobby, desk)).toBe(true);
+    const lounge = DECOR.find((item) => item.kind === "lounge")!;
+    expect(inside(lounge.at, { name: "lobby", ...ZONES.lobby })).toBe(true);
+    // nothing stands in the doorway
+    const doorway: Rect = { name: "doorway", minX: ROOM.maxX - 1.2, maxX: ROOM.maxX, minZ: ENTRANCE.minZ, maxZ: ENTRANCE.maxZ };
+    for (const rect of obstacles()) expect(overlaps(rect, doorway), rect.name).toBe(false);
+  });
+
+  it("floor labels lie in the open (not under furniture) and signs sit on the fronts", () => {
+    const rects = obstacles();
+    for (const label of LABELS) {
+      const [x, y, z] = label.at;
+      if (label.kind === "floor") {
+        expect(y).toBe(0);
+        const area: Rect = { name: label.text, minX: x - label.width / 2, maxX: x + label.width / 2, minZ: z - label.width / 8, maxZ: z + label.width / 8 };
+        expect(inRoom([area.minX, area.minZ]) && inRoom([area.maxX, area.maxZ]), label.text).toBe(true);
+        for (const rect of rects) expect(overlaps(area, rect), `${label.text} / ${rect.name}`).toBe(false);
+      } else {
+        expect(y - label.width / 8, label.text).toBeGreaterThan(2.2); // above the doors
+      }
+    }
+    expect(new Set(LABELS.map((l) => l.text)).size).toBe(LABELS.length);
+  });
+});
+
+function rectAroundSeat(seat: Seat): Omit<Rect, "name"> {
+  return { minX: Math.min(seat.desk[0], seat.chair[0]) - 0.75, maxX: Math.max(seat.desk[0], seat.chair[0]) + 0.75, minZ: seat.desk[1] - 0.4, maxZ: seat.chair[1] + 0.3 };
+}

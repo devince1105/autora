@@ -6,8 +6,13 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import type { Canvas3DProps } from "./Canvas3D";
 import { chooseMode, detectCapabilities, parseView, type Capabilities } from "./capabilities";
 import { OfficeCanvas } from "./OfficeCanvas";
+import { THEMES } from "./palette";
+import { readTheme, THEME_STORAGE_KEY } from "./theme";
 
-afterEach(cleanup);
+afterEach(() => {
+  cleanup();
+  window.localStorage.clear();
+});
 
 const DESKTOP: Capabilities = { webgl2: true, narrow: false };
 
@@ -122,5 +127,34 @@ describe("OfficeCanvas", () => {
     act(() => seen.props!.onContextRestored());
     expect(screen.queryByRole("alert")).toBeNull();
     expect(seen.mounts).toBe(1);
+  });
+
+  it("the look: a theme picker over the 3D office, remembered in this browser (T-413)", () => {
+    const { Scene, seen } = sceneStub();
+    const { container } = render(<OfficeCanvas detect={() => DESKTOP} Scene={Scene} />);
+    expect(seen.props!.theme).toBe("muji");
+    const picker = screen.getByRole("group", { name: "辦公室風格" });
+    expect(picker.querySelectorAll("button")).toHaveLength(Object.keys(THEMES).length);
+
+    fireEvent.click(screen.getByRole("button", { name: THEMES.industrial.label }));
+    expect(seen.props!.theme).toBe("industrial");
+    expect(container.querySelector("[data-office-theme]")?.getAttribute("data-office-theme")).toBe("industrial");
+    expect(window.localStorage.getItem(THEME_STORAGE_KEY)).toBe("industrial");
+    expect(seen.mounts).toBe(1); // a new look, not a new canvas
+
+    cleanup();
+    const again = sceneStub();
+    render(<OfficeCanvas detect={() => DESKTOP} Scene={again.Scene} />);
+    expect(again.seen.props!.theme).toBe("industrial");
+  });
+
+  it("an unknown or unreadable stored theme falls back to the default", () => {
+    window.localStorage.setItem(THEME_STORAGE_KEY, "neon");
+    expect(readTheme()).toBe("muji");
+    const get = vi.spyOn(Storage.prototype, "getItem").mockImplementation(() => {
+      throw new Error("blocked");
+    });
+    expect(readTheme()).toBe("muji");
+    get.mockRestore();
   });
 });

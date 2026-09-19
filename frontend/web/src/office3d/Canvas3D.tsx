@@ -7,6 +7,7 @@ import { NeutralToneMapping } from "three";
 
 import { uiStore } from "@/stores/ui";
 
+import type { ThemeId } from "./palette";
 import { OfficeScene } from "./scene/OfficeScene";
 
 export const CANVAS_DPR: [number, number] = [1, 1.5];
@@ -17,16 +18,19 @@ export interface Canvas3DProps {
   frameloop: "always" | "never";
   /** Pixels covered on the right while an agent is selected (the detail panel). */
   insetRight?: number;
+  /** The office's look (T-413). */
+  theme?: ThemeId;
   onContextLost: () => void;
   onContextRestored: () => void;
 }
 
-export default function Canvas3D({ frameloop, insetRight, onContextLost, onContextRestored }: Canvas3DProps) {
+export default function Canvas3D({ frameloop, insetRight, theme, onContextLost, onContextRestored }: Canvas3DProps) {
   return (
     <Canvas
       dpr={CANVAS_DPR}
       orthographic
-      shadows
+      // PCF (three removed the soft variant and warned on every shader compile)
+      shadows="percentage"
       frameloop={frameloop}
       camera={{ position: CAMERA_POSITION, zoom: 30, near: 0.1, far: 500 }}
       gl={{ antialias: true, powerPreference: "high-performance" }}
@@ -43,7 +47,7 @@ export default function Canvas3D({ frameloop, insetRight, onContextLost, onConte
         canvas.addEventListener("webglcontextrestored", onContextRestored);
       }}
     >
-      <OfficeScene insetRight={insetRight} />
+      <OfficeScene insetRight={insetRight} theme={theme} />
     </Canvas>
   );
 }

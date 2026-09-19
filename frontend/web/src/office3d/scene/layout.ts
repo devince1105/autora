@@ -12,7 +12,8 @@
 //        │ ═══════════════ back corridor (lane z=-2.25) ══════════ │
 //   z=0  │ [res][res][ana][ana]  spine x=0  [wri][wri][edi][edi]   │  bench desks
 //        │ ═══════════════ front corridor (lane z=2.4) ═══════════ │
-//   z=4.6│ [mkt][mkt][mkt]  [spare][spare][spare]  [approval] lounge│  single desks
+//        │                                                 entrance ◁ (T-413)
+//   z=4.6│ [mkt][mkt][mkt] ▒ [spare][spare][spare]  [reception] lounge│  single desks; lobby
 //   z=8  └──────────────────────────────────────────────────────────┘
 //      x=-12                                                     x=12
 
@@ -39,12 +40,35 @@ export const BACK_ROOMS_Z = -3.2;
 export const CEO_OFFICE = { minX: -12, maxX: -5, minZ: -8, maxZ: BACK_ROOMS_Z, doorX: -7.4, doorWidth: 1.2 } as const;
 export const MEETING_ROOM = { minX: -5, maxX: 4, minZ: -8, maxZ: BACK_ROOMS_Z, doorX: 2.6, doorWidth: 1.2 } as const;
 export const PANTRY = { minX: 4, maxX: 12, minZ: -8, maxZ: BACK_ROOMS_Z } as const;
-/** The floor strips the camera reads as corridors (yellow). */
+/** The walkways between the zones. */
 export const CORRIDORS = {
   back: { minZ: BACK_ROOMS_Z, maxZ: -1.3 },
   front: { minZ: 1.6, maxZ: 3.2 },
 } as const;
 
+/** The way in (T-413): an opening in the right edge where the front corridor meets it. */
+export const ENTRANCE = { x: ROOM.maxX, minZ: CORRIDORS.front.minZ, maxZ: CORRIDORS.front.maxZ } as const;
+
+export interface Area {
+  minX: number;
+  maxX: number;
+  minZ: number;
+  maxZ: number;
+}
+
+/**
+ * The open-plan zones, each with its own floor (T-413): a carpet per department, and the lobby —
+ * reception (the approval desk) and the waiting lounge — by the entrance.
+ */
+export const ZONES: Record<"research" | "editorial" | "growth" | "spare" | "lobby", Area> = {
+  research: { minX: -10.6, maxX: -1.4, minZ: CORRIDORS.back.maxZ, maxZ: CORRIDORS.front.minZ },
+  editorial: { minX: 1.4, maxX: 10.6, minZ: CORRIDORS.back.maxZ, maxZ: CORRIDORS.front.minZ },
+  growth: { minX: -10.4, maxX: -3.2, minZ: CORRIDORS.front.maxZ, maxZ: 6.6 },
+  spare: { minX: -2.6, maxX: 3.9, minZ: CORRIDORS.front.maxZ, maxZ: 6.6 },
+  lobby: { minX: 4.2, maxX: ROOM.maxX, minZ: CORRIDORS.front.maxZ, maxZ: ROOM.maxZ },
+};
+
+/** The approval desk doubles as the reception counter in the lobby. */
 export const APPROVAL_DESK = { center: [6.4, 4.9] as Vec2, width: 2.6, depth: 0.9, approach: [6.4, 3.8] as Vec2 } as const;
 
 interface RoleSlots {
@@ -170,7 +194,8 @@ export type DecorKind =
   | "water_cooler"
   | "cafe_table"
   | "ceo_shelf"
-  | "ceo_sofa";
+  | "ceo_sofa"
+  | "planter";
 
 export interface Decor {
   kind: DecorKind;
@@ -189,12 +214,13 @@ export const DECOR: Decor[] = [
   // work area: low shelves with plants along the left wall, palms and plants at the ends
   d("low_shelf", [-11.6, -0.2], [0.45, 2.2], QUARTER),
   d("palm", [-11.2, 2.4], [0.8, 0.8]),
-  d("palm", [11.2, 2.4], [0.8, 0.8]),
   d("plant", [11.4, -0.4], [0.6, 0.6]),
-  // front area
+  // front area: a planter between marketing and the flex desks; the lobby by the entrance
   d("low_shelf", [-11.6, 6.9], [0.45, 1.8], QUARTER),
   d("plant", [-11.4, 3.7], [0.6, 0.6]),
+  d("planter", [-2.85, 4.9], [0.36, 1.6], QUARTER),
   d("lounge", [10.3, 5.8], [3.2, 3.6]),
+  d("plant", [11.5, 3.6], [0.6, 0.6]),
   // CEO office
   d("ceo_shelf", [-10.6, -7.6], [2.2, 0.5]),
   d("ceo_sofa", [-5.7, -5.8], [0.9, 2.0], -QUARTER),
@@ -210,6 +236,33 @@ export const DECOR: Decor[] = [
   d("water_cooler", [4.45, -5.6], [0.45, 0.45], QUARTER),
   d("cafe_table", [8.6, -5.4], [2.4, 2.4]),
   d("plant", [11.5, -3.7], [0.6, 0.6]),
+];
+
+/** Words on the floor and signs on the glass fronts that name the zones and rooms (T-413). */
+export interface Label {
+  text: string;
+  /** A second, smaller line (English). */
+  sub: string;
+  /** Centre; y is the height of a sign (0: painted on the floor). */
+  at: Vec3;
+  /** Width in metres (height is a quarter of it). */
+  width: number;
+  /** Painted on the floor, or a sign facing +z (the glass fronts) or +x (the entrance). */
+  kind: "floor" | "sign";
+  facing?: "z" | "x";
+}
+
+export const LABELS: Label[] = [
+  { text: "研究部", sub: "RESEARCH", at: [-6.0, 0, 2.0], width: 3.0, kind: "floor" },
+  { text: "編輯部", sub: "EDITORIAL", at: [6.0, 0, 2.0], width: 3.0, kind: "floor" },
+  // behind the front desks' chairs: in front of the desks the desks would hide them
+  { text: "行銷部", sub: "MARKETING", at: [-6.8, 0, 6.3], width: 2.4, kind: "floor" },
+  { text: "彈性座位", sub: "FLEX DESKS", at: [0.6, 0, 6.3], width: 2.4, kind: "floor" },
+  { text: "接待區", sub: "RECEPTION", at: [6.4, 0, 7.05], width: 2.6, kind: "floor" },
+  { text: "茶水間", sub: "PANTRY", at: [8.2, 0, -3.72], width: 2.4, kind: "floor" },
+  { text: "總經理室", sub: "CEO OFFICE", at: [-5.95, 2.5, BACK_ROOMS_Z + 0.08], width: 1.6, kind: "sign" },
+  { text: "會議室", sub: "MEETING ROOM", at: [0.6, 2.5, BACK_ROOMS_Z + 0.08], width: 1.6, kind: "sign" },
+  { text: "AUTORA", sub: "入口 ENTRANCE", at: [ROOM.maxX + 0.21, 2.6, (CORRIDORS.front.minZ + CORRIDORS.front.maxZ) / 2], width: 1.4, kind: "sign", facing: "x" },
 ];
 
 /** The doors in the glass fronts (open, the leaf swung into the room on the hinge side). */

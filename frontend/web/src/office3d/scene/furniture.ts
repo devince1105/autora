@@ -3,7 +3,7 @@
 // placed from layout.ts. Nothing here knows about agents or state.
 import { Matrix4 } from "three";
 
-import { PALETTE, ROLE_COLOR } from "../palette";
+import { DEFAULT_THEME, ROLE_COLOR, THEMES, type FloorKind, type Palette } from "../palette";
 import { block, box, cyl, place, sphere, type Part } from "./kit";
 import {
   allSeats,
@@ -15,15 +15,31 @@ import {
   DESK,
   doorLeaves,
   DOORS,
+  ENTRANCE,
   MEETING_ROOM,
   PANTRY,
   ROOM,
   WALL_HALF,
+  ZONES,
   type Decor,
   type Seat,
 } from "./layout";
 
-const P = PALETTE;
+/**
+ * The palette the builders below paint with. Set by the exported entry points (officeParts and
+ * the glass) for the duration of one build, so the builders need not pass it along.
+ */
+let P: Palette = THEMES[DEFAULT_THEME].palette;
+
+function paintedWith<T>(palette: Palette, build: () => T): T {
+  const previous = P;
+  P = palette;
+  try {
+    return build();
+  } finally {
+    P = previous;
+  }
+}
 const TOP = DESK.height; // desk top surface
 
 /** A deterministic pseudo-random sequence, so the books look the same on every load. */
@@ -80,9 +96,14 @@ function legFrame(x: number, depth: number, height = TOP - 0.03): Part[] {
   ];
 }
 
+/** A lit strip along a desk top's front edge (the sitter's side, +z), in a theme that has one. */
+function deskEdge(length: number, depth: number, top = TOP): Part[] {
+  return P.deskEdge ? [box(length, 0.015, 0.015, [0, top - 0.02, depth / 2 + 0.006], P.deskEdge)] : [];
+}
+
 function benchTable(minX: number, maxX: number, z: number): Part[] {
   const length = maxX - minX;
-  const parts: Part[] = [block(length, 0.05, DESK.depth, [0, TOP - 0.05, 0], P.deskTop)];
+  const parts: Part[] = [block(length, 0.05, DESK.depth, [0, TOP - 0.05, 0], P.deskTop), ...deskEdge(length, DESK.depth)];
   const frames = Math.max(2, Math.round(length / 2.2) + 1);
   for (let i = 0; i < frames; i++) parts.push(...legFrame(-length / 2 + 0.1 + (i * (length - 0.2)) / (frames - 1), DESK.depth));
   return place(parts, (minX + maxX) / 2, z);
@@ -91,6 +112,7 @@ function benchTable(minX: number, maxX: number, z: number): Part[] {
 function singleDesk(): Part[] {
   return [
     block(DESK.width, 0.05, DESK.depth, [0, TOP - 0.05, 0], P.deskTop),
+    ...deskEdge(DESK.width, DESK.depth),
     ...legFrame(-DESK.width / 2 + 0.08, DESK.depth),
     ...legFrame(DESK.width / 2 - 0.08, DESK.depth),
     block(0.4, 0.55, 0.5, [0.42, 0.02, -0.05], P.pedestal),
@@ -100,6 +122,7 @@ function singleDesk(): Part[] {
 function execDesk(): Part[] {
   return [
     block(DESK.width + 0.2, 0.06, DESK.depth + 0.1, [0, TOP - 0.06, 0], P.execWood),
+    ...deskEdge(DESK.width + 0.2, DESK.depth + 0.1),
     block(0.06, TOP - 0.06, DESK.depth, [-DESK.width / 2, 0, 0], P.execWood),
     block(0.06, TOP - 0.06, DESK.depth, [DESK.width / 2, 0, 0], P.execWood),
     block(DESK.width, 0.5, 0.04, [0, 0.15, -DESK.depth / 2 + 0.05], P.execWood),
@@ -349,6 +372,17 @@ function cafeTable(): Part[] {
   ];
 }
 
+/** A long low planter box of greenery: divides two zones without walling them off. */
+function planter(length: number): Part[] {
+  const parts: Part[] = [block(length, 0.45, 0.36, [0, 0, 0], P.shelfWood), block(length - 0.06, 0.02, 0.3, [0, 0.44, 0], P.soil)];
+  const plants = Math.max(2, Math.round(length / 0.4));
+  for (let i = 0; i < plants; i++) {
+    const x = -length / 2 + ((i + 0.5) * length) / plants;
+    parts.push(...place(rosette(7, 0.34, 0.14, (j) => -0.9 + (j % 3) * 0.3, 0, (j) => ((i + j) % 2 ? P.leafLight : P.leaf), i), x, 0, 0, 0.45));
+  }
+  return parts;
+}
+
 function ceoSofa(): Part[] {
   return sofa(1.8, P.armchair, P.cushion);
 }
@@ -368,6 +402,7 @@ function decorParts(item: Decor, index: number): Part[] {
     cafe_table: cafeTable,
     ceo_shelf: () => tallShelf(Math.max(item.size[0], item.size[1]), 41, P.execWood),
     ceo_sofa: ceoSofa,
+    planter: () => planter(Math.max(item.size[0], item.size[1])),
   };
   return place(build[item.kind](), item.at[0], item.at[1], item.rotY);
 }
@@ -439,13 +474,24 @@ function architecture(): Part[] {
     box(width + WALL + 0.04, CAP, WALL + 0.04, [-WALL / 2, ROOM.wallHeight + CAP / 2, ROOM.minZ - WALL / 2], P.wallCap),
     block(WALL, ROOM.wallHeight, depth, [ROOM.minX - WALL / 2, 0, 0], P.wall),
     box(WALL + 0.04, CAP, depth + 0.04, [ROOM.minX - WALL / 2, ROOM.wallHeight + CAP / 2, 0], P.wallCap),
-    // the cut-away front and right edges: a low white rim
+    // the cut-away front and right edges: a low white rim, open at the entrance
     block(width + WALL * 2, 0.14, WALL, [0, 0, ROOM.maxZ + WALL / 2], P.wallCap),
-    block(WALL, 0.14, depth + WALL, [ROOM.maxX + WALL / 2, 0, -WALL / 2], P.wallCap),
+    block(WALL, 0.14, ENTRANCE.minZ - ROOM.minZ + WALL, [ROOM.maxX + WALL / 2, 0, (ROOM.minZ - WALL + ENTRANCE.minZ) / 2], P.wallCap),
+    block(WALL, 0.14, ROOM.maxZ - ENTRANCE.maxZ, [ROOM.maxX + WALL / 2, 0, (ENTRANCE.maxZ + ROOM.maxZ) / 2], P.wallCap),
     // skirting
     block(width, 0.12, 0.02, [0, 0, ROOM.minZ + 0.01], P.frame),
     block(0.02, 0.12, depth, [ROOM.minX + 0.01, 0, 0], P.frame),
   ];
+
+  // the entrance: a slim portal frame on the right edge (its sign is a label) and a threshold
+  {
+    const x = ENTRANCE.x + WALL / 2;
+    const span = ENTRANCE.maxZ - ENTRANCE.minZ;
+    const mid = (ENTRANCE.minZ + ENTRANCE.maxZ) / 2;
+    for (const z of [ENTRANCE.minZ, ENTRANCE.maxZ]) parts.push(block(0.14, 2.3, 0.14, [x, 0, z], P.door));
+    parts.push(box(0.14, 0.12, span + 0.14, [x, 2.36, mid], P.door));
+    parts.push(block(WALL, 0.02, span, [x, 0, mid], P.metal));
+  }
 
   // interior walls between the back rooms, with caps
   const innerDepth = BACK_ROOMS_Z - WALL_HALF - ROOM.minZ;
@@ -454,17 +500,17 @@ function architecture(): Part[] {
     parts.push(box(WALL_HALF * 2 + 0.04, CAP, innerDepth, [x, INNER_WALL_H + CAP / 2, ROOM.minZ + innerDepth / 2], P.wallCap));
   }
 
-  // glass fronts: white mullions and rails (panes are separate), yellow door frames, open leaves
+  // glass fronts: mullions and rails (panes are separate), door frames, open leaves
   const fronts: [number, number][] = [
     [CEO_OFFICE.minX, CEO_OFFICE.maxX],
     [MEETING_ROOM.minX, MEETING_ROOM.maxX],
   ];
   for (const [from, to] of fronts) {
     const len = to - from;
-    parts.push(box(len, 0.08, 0.12, [(from + to) / 2, INNER_WALL_H - 0.04, BACK_ROOMS_Z], P.frame));
-    parts.push(box(len, 0.06, 0.12, [(from + to) / 2, 0.03, BACK_ROOMS_Z], P.frame));
+    parts.push(box(len, 0.08, 0.12, [(from + to) / 2, INNER_WALL_H - 0.04, BACK_ROOMS_Z], P.mullion));
+    parts.push(box(len, 0.06, 0.12, [(from + to) / 2, 0.03, BACK_ROOMS_Z], P.mullion));
     const posts = Math.ceil(len / 1.4);
-    for (let i = 0; i <= posts; i++) parts.push(block(0.06, INNER_WALL_H, 0.12, [from + (i * len) / posts, 0, BACK_ROOMS_Z], P.frame));
+    for (let i = 0; i <= posts; i++) parts.push(block(0.06, INNER_WALL_H, 0.12, [from + (i * len) / posts, 0, BACK_ROOMS_Z], P.mullion));
   }
   for (const door of DOORS) {
     for (const side of [-1, 1]) parts.push(block(0.08, 2.2, 0.16, [door.x + (side * door.width) / 2, 0, BACK_ROOMS_Z], P.door));
@@ -488,22 +534,48 @@ function architecture(): Part[] {
   return parts;
 }
 
+/** Neon outlines around the zones' floors, in a theme that has them. */
+function zoneTrims(): Part[] {
+  const parts: Part[] = [];
+  const areas = { ...ZONES, pantry: PANTRY };
+  const t = 0.05;
+  const y = 0.02;
+  for (const [zone, colour] of Object.entries(P.zoneTrim ?? {})) {
+    if (!colour) continue;
+    const a = areas[zone as keyof typeof areas];
+    const w = a.maxX - a.minX;
+    const d = a.maxZ - a.minZ;
+    const cx = (a.minX + a.maxX) / 2;
+    const cz = (a.minZ + a.maxZ) / 2;
+    parts.push(
+      box(w, 0.01, t, [cx, y, a.minZ + t / 2], colour),
+      box(w, 0.01, t, [cx, y, a.maxZ - t / 2], colour),
+      box(t, 0.01, d - 2 * t, [a.minX + t / 2, y, cz], colour),
+      box(t, 0.01, d - 2 * t, [a.maxX - t / 2, y, cz], colour),
+    );
+  }
+  return parts;
+}
+
 // --- the whole office --------------------------------------------------------------------------
 
+const DEFAULT_PALETTE = THEMES[DEFAULT_THEME].palette;
+
 /** Everything static and opaque, merged into one mesh by the scene. */
-export function officeParts(): Part[] {
-  return [
+export function officeParts(palette: Palette = DEFAULT_PALETTE): Part[] {
+  return paintedWith(palette, () => [
     ...architecture(),
     ...BENCHES.flatMap((b) => benchTable(b.minX, b.maxX, b.z)),
     ...allSeats().flatMap(seatParts),
     ...DECOR.flatMap(decorParts),
     ...approvalDesk(),
-  ];
+    ...zoneTrims(),
+  ]);
 }
 
 /** Window panes (a separate, softly glowing mesh). */
-export function windowGlassParts(): Part[] {
-  const pane = (w: number) => box(w - 0.08, WINDOW.height - 0.08, 0.02, [0, WINDOW.sill + WINDOW.height / 2, 0.03], P.windowGlass);
+export function windowGlassParts(palette: Palette = DEFAULT_PALETTE): Part[] {
+  const pane = (w: number) => box(w - 0.08, WINDOW.height - 0.08, 0.02, [0, WINDOW.sill + WINDOW.height / 2, 0.03], palette.windowGlass);
   return [
     ...BACK_WINDOWS.flatMap(([x, w]) => place([pane(w)], x, ROOM.minZ)),
     ...LEFT_WINDOWS.flatMap(([z, w]) => place([pane(w)], ROOM.minX, z, Math.PI / 2)),
@@ -511,7 +583,8 @@ export function windowGlassParts(): Part[] {
 }
 
 /** The glass of the back rooms' fronts (a separate, transparent mesh), doors left open. */
-export function partitionGlassParts(): Part[] {
+export function partitionGlassParts(palette: Palette = DEFAULT_PALETTE): Part[] {
+  const P = palette;
   const h = INNER_WALL_H - 0.12;
   const segments: [number, number][] = [];
   for (const [room, door] of [
@@ -527,7 +600,7 @@ export function partitionGlassParts(): Part[] {
 }
 
 /** Floor regions, drawn by material (the procedural textures live in scene/textures.ts). */
-export type FloorKind = "base" | "work" | "corridor" | "wood" | "meeting" | "tile" | "rugLounge" | "rugCeo";
+export type { FloorKind };
 
 export interface FloorRegion {
   kind: FloorKind;
@@ -541,16 +614,29 @@ export interface FloorRegion {
 
 export function floorRegions(): FloorRegion[] {
   const full = { minX: ROOM.minX, maxX: ROOM.maxX };
+  const room = (kind: FloorKind, r: { minX: number; maxX: number; minZ: number; maxZ: number }, layer: number): FloorRegion => ({
+    kind,
+    minX: r.minX,
+    maxX: r.maxX,
+    minZ: r.minZ,
+    maxZ: r.maxZ,
+    layer,
+  });
   return [
     { kind: "base", ...full, minZ: ROOM.minZ, maxZ: ROOM.maxZ, layer: 0 },
-    { kind: "work", ...full, minZ: -1.3, maxZ: 1.6, layer: 1 },
-    { kind: "wood", minX: CEO_OFFICE.minX, maxX: CEO_OFFICE.maxX, minZ: CEO_OFFICE.minZ, maxZ: CEO_OFFICE.maxZ, layer: 1 },
-    { kind: "meeting", minX: MEETING_ROOM.minX, maxX: MEETING_ROOM.maxX, minZ: MEETING_ROOM.minZ, maxZ: MEETING_ROOM.maxZ, layer: 1 },
-    { kind: "tile", minX: PANTRY.minX, maxX: PANTRY.maxX, minZ: PANTRY.minZ, maxZ: PANTRY.maxZ, layer: 1 },
+    room("ceo", CEO_OFFICE, 1),
+    room("meeting", MEETING_ROOM, 1),
+    room("pantry", PANTRY, 1),
+    room("research", ZONES.research, 1),
+    room("editorial", ZONES.editorial, 1),
+    room("growth", ZONES.growth, 1),
+    room("spare", ZONES.spare, 1),
+    room("lobby", ZONES.lobby, 1),
     { kind: "corridor", ...full, minZ: -3.2, maxZ: -1.3, layer: 2 },
     { kind: "corridor", ...full, minZ: 1.6, maxZ: 3.2, layer: 2 },
     { kind: "corridor", minX: BENCHES[0].maxX + 0.25, maxX: BENCHES[1].minX - 0.25, minZ: -1.3, maxZ: 1.6, layer: 2 },
     { kind: "rugLounge", minX: 8.8, maxX: 11.8, minZ: 4.1, maxZ: 7.5, layer: 3 },
     { kind: "rugCeo", minX: -10.2, maxX: -6.8, minZ: -7.2, maxZ: -4.2, layer: 3 },
+    { kind: "entranceMat", minX: ROOM.maxX - 1.0, maxX: ROOM.maxX, minZ: ENTRANCE.minZ + 0.2, maxZ: ENTRANCE.maxZ - 0.2, layer: 3 },
   ];
 }
