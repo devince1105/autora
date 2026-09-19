@@ -71,10 +71,12 @@ def build_templates() -> TemplateRegistry:
 
 def build_behaviors() -> BehaviorRegistry:
     from autora.domains import echo
+    from autora.domains.newsroom import agents as newsroom_agents
     from autora.runtime.behaviors import BehaviorRegistry
 
     behaviors = BehaviorRegistry()
     echo.register_behaviors(behaviors)
+    newsroom_agents.register_behaviors(behaviors)
     return behaviors
 
 
@@ -183,9 +185,10 @@ def build_tools(
 def simulated_model(request: ModelRequest) -> FakeTurn:
     """The fake provider's answer to any unscripted request: ask each domain's simulation."""
     from autora.domains.echo import simulation as echo_simulation
+    from autora.domains.newsroom import simulation as newsroom_simulation
     from autora.runtime.models.providers.fake import FakeTurn
 
-    for respond in (echo_simulation.respond,):
+    for respond in (echo_simulation.respond, newsroom_simulation.respond):
         turn = respond(request)
         if turn is not None:
             return turn

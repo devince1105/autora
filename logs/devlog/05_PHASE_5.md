@@ -19,7 +19,7 @@
 | T-503 | `evidence_chunks` + embedding（pgvector） | T-502、T-207 | ✅ |
 | T-504 | Stories + 去重 | T-501、T-503 | ✅ |
 | T-505 | Claims / ClaimEvidence + 工具（`create_claim`、`link_evidence`，引文定位） | T-504 | ✅ |
-| T-506 | Researcher 代理（提示、`ResearchNote` schema、validators） | T-211、T-500、T-502 | ⏳ |
+| T-506 | Researcher 代理（提示、`ResearchNote` schema、validators） | T-211、T-500、T-502 | ✅ |
 | T-507 | Analyst 代理（`AnalysisNote`、claims） | T-505 | ⏳ |
 | T-508 | Articles / ArticleVersions（lang、draft_group）+ `write_draft` 工具；雙語 claim 集合一致 | T-504 | ✅ |
 | T-509 | Writer 代理（雙語草稿） | T-507、T-508 | ⏳ |
@@ -292,6 +292,32 @@ T-500 → T-501 → T-502 → T-503 → T-504 → T-505 → T-508 → T-510 → 
 - 後端 806 個測試通過（KPI 測試改為「今日發布 = 0」）；`ruff`、`lint-imports`、`make db-check`、`gen-api-check`、`gen-schema-check` 通過；event-schema 8 個、web 213 個測試與 typecheck、lint 通過。
 
 - **CI 的 e2e 又失敗一次**（執行編號 `35438255555`）：同一個辦公室測試，這次連 6 秒的分析師忙碌狀態都沒看到（研究員的有看到）。頭頂標籤在每一幀的繪製迴圈裡更新，T-413 之後場景變重，CI 軟體算圖一幀可能要好幾秒；本機一直通過，T-512 也沒有動到 echo 流程或前端。改成 **CI 上分析師忙 15 秒、本機 3 秒**（本機仍要求三人都被看到），CI 多 12 秒。
+---
+
+## T-506 · 研究員代理
+
+### 做了什麼
+- **行為**（`domains/newsroom/agents/researcher.py`，角色 `researcher`、任務 `research`，輸入 `params.story_id`）：工具 `web_search`、`fetch_url`、`read_evidence`、`search_evidence`；最多 12 次模型呼叫、2 次修正。
+  - **提示**：從線索（公司來源已列出的網頁）開始、用搜尋找更多（尤其一手來源）；搜尋結果只是候選，要用 `fetch_url` 擷取才算證據；來自多個網站；不捏造來源、ID、事實或引文；摘要與角度用繁體中文（明確禁止簡體）。
+  - **輸出 `ResearchNote`**：題材 ID、證據 ID、每份證據一段摘要、1～5 個建議角度。
+  - **背景（第一則訊息）**：題材標題、ID、摘要、手動題材的建議搜尋與網址、分群進來的來源項目（最多 8 則）當線索、需要幾個來源。
+  - **驗證（以執行實際發生的事為準，不是以模型說的為準）**：題材必須是任務的題材；**每個證據 ID 都必須是這個任務自己的 `fetch_url` 產生的**（查事件紀錄的 `TOOL_COMPLETED.produced`），模型不能引用沒擷取過的頁面或捏造 ID；至少 `params.min_sources`（預設 2）份、而且不是全部來自同一個網站；每份證據恰好一段摘要。
+- **新聞室的模擬模型**（`domains/newsroom/simulation.py`，`MODEL_PROVIDER=fake` 時使用）：像真的模型一樣讀對話（第一則訊息、到目前為止的工具結果）並透過同樣的工具行動——先搜尋題材、再逐一擷取候選網頁（優先新的網站），擷取到 3 份後用**實際拿到的證據 ID** 回報。搜尋、擷取、證據、驗證全是真的，只有決策是腳本。T-518 會補齊其他角色與示範劇本。
+- 組裝：`app.build_behaviors` 註冊新聞室行為（echo 的研究員仍處理自己的 `echo_research` 任務）；`app.simulated_model` 加入新聞室的模擬。
+
+### 過程中的問題
+- 建立測試專案時忘了「ACTIVE 專案必須有停損條件（kill criteria）」的公司規則，資料庫拒絕；照 echo 測試補上。
+- 驗證失敗時 runner 回報的錯誤類別是 `EvaluationFailed`（訊息就是驗證器的說明），測試改成檢查確切的值；失敗的那次嘗試讓任務回到 READY、等重試延遲，`run_until_idle` 就停在那裡——這是預期行為，測試照實斷言。
+
+### 驗證
+- `tests/newsroom/agents/test_research.py`（5 個）：
+  - **真正的工作程序**（模擬模型、離線工具）跑一個研究任務：成功、題材正確、至少 2 份證據且來自不同網站、證據都有 `EVIDENCE_CAPTURED` 事件、內容與題材相關、每份證據一段繁中摘要；
+  - 背景內容（標題、摘要、建議搜尋、線索、來源數），找不到題材時明說；
+  - 每個驗證器對著真實的證據與事件：合格的通過、題材不對、**捏造的證據 ID**、來源不足、摘要多 / 少 / 不在清單中；`min_sources` 設 1 時單一來源可以；
+  - 工作程序找得到研究員行為（echo 的研究員不受影響）；
+  - **模型捏造證據 ID** 三次（第一次回答 + 兩次修正）→ 這次嘗試以 `EvaluationFailed` 失敗、訊息說明「不是這個任務擷取的」，任務等待重試。
+- 後端 811 個測試通過；`ruff`、`lint-imports`、`make db-check`、`gen-schema-check` 通過。
+
 ---
 
 ## 提交紀錄
