@@ -102,6 +102,9 @@ export function DashboardView({
           <Link href={withCompany("/office", companyId)} className="text-sm text-accent underline">
             辦公室
           </Link>
+          <Link href={withCompany("/newsroom/articles", companyId)} className="text-sm text-accent underline">
+            新聞室
+          </Link>
           <Link href={withCompany("/timeline", companyId)} className="text-sm text-accent underline">
             事件時間軸
           </Link>

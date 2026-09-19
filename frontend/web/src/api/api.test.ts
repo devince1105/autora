@@ -88,8 +88,9 @@ describe("event -> stale queries", () => {
   };
 
   it.each([
-    ["TASK_SUCCEEDED", (e: EventEnvelope) => [queryKeys.trace(e.run_id!), queryKeys.run(e.run_id!), queryKeys.task(e.task_id!)]],
-    ["TASK_CREATED", (e: EventEnvelope) => [queryKeys.task(e.task_id!)]],
+    // a workflow's events also refresh its timeline (the newsroom pages, T-517)
+    ["TASK_SUCCEEDED", (e: EventEnvelope) => [queryKeys.trace(e.run_id!), queryKeys.run(e.run_id!), queryKeys.task(e.task_id!), queryKeys.workflowEvents(e.company_id, e.correlation_id!)]],
+    ["TASK_CREATED", (e: EventEnvelope) => [queryKeys.task(e.task_id!), queryKeys.workflowEvents(e.company_id, e.correlation_id!)]],
     ["AGENT_THINKING", (e: EventEnvelope) => [queryKeys.trace(e.run_id!)]],
     ["AGENT_RUN_COMPLETED", (e: EventEnvelope) => [queryKeys.trace(e.run_id!), queryKeys.run(e.run_id!), queryKeys.kpis(e.company_id)]],
     ["APPROVAL_REQUESTED", (e: EventEnvelope) => [queryKeys.trace(e.run_id!), ["approvals", e.company_id]]],

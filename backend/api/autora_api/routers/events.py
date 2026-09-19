@@ -35,6 +35,10 @@ async def list_events(
     ] = None,
     agent_id: uuid.UUID | None = None,
     run_id: uuid.UUID | None = None,
+    correlation_id: Annotated[
+        uuid.UUID | None,
+        Query(description="One workflow run's story: its events carry its id as correlation"),
+    ] = None,
     limit: Annotated[int, Query(ge=1, le=MAX_LIMIT)] = 200,
 ) -> EventsPage:
     """Events of one company ordered by ``seq``. Used for trace views and realtime gap-fill."""
@@ -48,6 +52,7 @@ async def list_events(
         event_types=type,
         agent_id=agent_id,
         run_id=run_id,
+        correlation_id=correlation_id,
         limit=limit + 1,
     )
     page, has_more = events[:limit], len(events) > limit

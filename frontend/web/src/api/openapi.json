@@ -409,6 +409,304 @@
     "title": "ApprovalState",
     "type": "string"
    },
+   "ArticleDetail": {
+    "properties": {
+     "analytics": {
+      "items": {
+       "$ref": "#/components/schemas/DailyView"
+      },
+      "title": "Analytics",
+      "type": "array"
+     },
+     "claims": {
+      "items": {
+       "$ref": "#/components/schemas/ClaimView"
+      },
+      "title": "Claims",
+      "type": "array"
+     },
+     "company_id": {
+      "format": "uuid",
+      "title": "Company Id",
+      "type": "string"
+     },
+     "distributions": {
+      "items": {
+       "$ref": "#/components/schemas/DistributionView"
+      },
+      "title": "Distributions",
+      "type": "array"
+     },
+     "fact_checks": {
+      "items": {
+       "$ref": "#/components/schemas/FactCheckView"
+      },
+      "title": "Fact Checks",
+      "type": "array"
+     },
+     "id": {
+      "format": "uuid",
+      "title": "Id",
+      "type": "string"
+     },
+     "langs": {
+      "items": {
+       "type": "string"
+      },
+      "title": "Langs",
+      "type": "array"
+     },
+     "languages": {
+      "additionalProperties": {
+       "$ref": "#/components/schemas/LanguageView"
+      },
+      "title": "Languages",
+      "type": "object"
+     },
+     "primary_lang": {
+      "title": "Primary Lang",
+      "type": "string"
+     },
+     "public_urls": {
+      "additionalProperties": {
+       "type": "string"
+      },
+      "title": "Public Urls",
+      "type": "object"
+     },
+     "published_at": {
+      "anyOf": [
+       {
+        "format": "date-time",
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Published At"
+     },
+     "published_langs": {
+      "items": {
+       "type": "string"
+      },
+      "title": "Published Langs",
+      "type": "array"
+     },
+     "revision_count": {
+      "title": "Revision Count",
+      "type": "integer"
+     },
+     "shown": {
+      "anyOf": [
+       {
+        "type": "integer"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Shown"
+     },
+     "slug": {
+      "title": "Slug",
+      "type": "string"
+     },
+     "state": {
+      "title": "State",
+      "type": "string"
+     },
+     "story_id": {
+      "format": "uuid",
+      "title": "Story Id",
+      "type": "string"
+     },
+     "story_title": {
+      "title": "Story Title",
+      "type": "string"
+     },
+     "title": {
+      "title": "Title",
+      "type": "string"
+     },
+     "updated_at": {
+      "format": "date-time",
+      "title": "Updated At",
+      "type": "string"
+     },
+     "version": {
+      "anyOf": [
+       {
+        "type": "integer"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Version"
+     },
+     "versions": {
+      "items": {
+       "$ref": "#/components/schemas/VersionView"
+      },
+      "title": "Versions",
+      "type": "array"
+     },
+     "views": {
+      "title": "Views",
+      "type": "integer"
+     },
+     "workflow_run_ids": {
+      "items": {
+       "format": "uuid",
+       "type": "string"
+      },
+      "title": "Workflow Run Ids",
+      "type": "array"
+     }
+    },
+    "required": [
+     "id",
+     "story_id",
+     "title",
+     "state",
+     "slug",
+     "version",
+     "langs",
+     "revision_count",
+     "published_at",
+     "updated_at",
+     "views",
+     "story_title",
+     "company_id",
+     "primary_lang",
+     "published_langs",
+     "public_urls",
+     "versions",
+     "shown",
+     "languages",
+     "claims",
+     "fact_checks",
+     "distributions",
+     "analytics",
+     "workflow_run_ids"
+    ],
+    "title": "ArticleDetail",
+    "type": "object"
+   },
+   "ArticleRef": {
+    "properties": {
+     "id": {
+      "format": "uuid",
+      "title": "Id",
+      "type": "string"
+     },
+     "slug": {
+      "title": "Slug",
+      "type": "string"
+     },
+     "state": {
+      "title": "State",
+      "type": "string"
+     },
+     "title": {
+      "title": "Title",
+      "type": "string"
+     }
+    },
+    "required": [
+     "id",
+     "state",
+     "slug",
+     "title"
+    ],
+    "title": "ArticleRef",
+    "type": "object"
+   },
+   "ArticleSummary": {
+    "properties": {
+     "id": {
+      "format": "uuid",
+      "title": "Id",
+      "type": "string"
+     },
+     "langs": {
+      "items": {
+       "type": "string"
+      },
+      "title": "Langs",
+      "type": "array"
+     },
+     "published_at": {
+      "anyOf": [
+       {
+        "format": "date-time",
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Published At"
+     },
+     "revision_count": {
+      "title": "Revision Count",
+      "type": "integer"
+     },
+     "slug": {
+      "title": "Slug",
+      "type": "string"
+     },
+     "state": {
+      "title": "State",
+      "type": "string"
+     },
+     "story_id": {
+      "format": "uuid",
+      "title": "Story Id",
+      "type": "string"
+     },
+     "title": {
+      "title": "Title",
+      "type": "string"
+     },
+     "updated_at": {
+      "format": "date-time",
+      "title": "Updated At",
+      "type": "string"
+     },
+     "version": {
+      "anyOf": [
+       {
+        "type": "integer"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Version"
+     },
+     "views": {
+      "title": "Views",
+      "type": "integer"
+     }
+    },
+    "required": [
+     "id",
+     "story_id",
+     "title",
+     "state",
+     "slug",
+     "version",
+     "langs",
+     "revision_count",
+     "published_at",
+     "updated_at",
+     "views"
+    ],
+    "title": "ArticleSummary",
+    "type": "object"
+   },
    "Beacon": {
     "properties": {
      "article_id": {
@@ -439,6 +737,70 @@
      "session_hash"
     ],
     "title": "Beacon",
+    "type": "object"
+   },
+   "BlockView": {
+    "properties": {
+     "claim_ids": {
+      "items": {
+       "format": "uuid",
+       "type": "string"
+      },
+      "title": "Claim Ids",
+      "type": "array"
+     },
+     "text": {
+      "title": "Text",
+      "type": "string"
+     },
+     "type": {
+      "title": "Type",
+      "type": "string"
+     }
+    },
+    "required": [
+     "type",
+     "text",
+     "claim_ids"
+    ],
+    "title": "BlockView",
+    "type": "object"
+   },
+   "ClaimView": {
+    "properties": {
+     "claim_type": {
+      "title": "Claim Type",
+      "type": "string"
+     },
+     "id": {
+      "format": "uuid",
+      "title": "Id",
+      "type": "string"
+     },
+     "quotes": {
+      "items": {
+       "$ref": "#/components/schemas/QuoteView"
+      },
+      "title": "Quotes",
+      "type": "array"
+     },
+     "status": {
+      "title": "Status",
+      "type": "string"
+     },
+     "text": {
+      "title": "Text",
+      "type": "string"
+     }
+    },
+    "required": [
+     "id",
+     "text",
+     "claim_type",
+     "status",
+     "quotes"
+    ],
+    "title": "ClaimView",
     "type": "object"
    },
    "CompanyCreate": {
@@ -540,6 +902,40 @@
     "title": "CompanyType",
     "type": "string"
    },
+   "DailyView": {
+    "properties": {
+     "day": {
+      "format": "date",
+      "title": "Day",
+      "type": "string"
+     },
+     "lang": {
+      "title": "Lang",
+      "type": "string"
+     },
+     "read_complete": {
+      "title": "Read Complete",
+      "type": "integer"
+     },
+     "uniques": {
+      "title": "Uniques",
+      "type": "integer"
+     },
+     "views": {
+      "title": "Views",
+      "type": "integer"
+     }
+    },
+    "required": [
+     "day",
+     "lang",
+     "views",
+     "uniques",
+     "read_complete"
+    ],
+    "title": "DailyView",
+    "type": "object"
+   },
    "DecisionIn": {
     "properties": {
      "decision": {
@@ -567,6 +963,54 @@
      "decision"
     ],
     "title": "DecisionIn",
+    "type": "object"
+   },
+   "DistributionView": {
+    "properties": {
+     "channel": {
+      "title": "Channel",
+      "type": "string"
+     },
+     "content": {
+      "additionalProperties": true,
+      "title": "Content",
+      "type": "object"
+     },
+     "created_at": {
+      "format": "date-time",
+      "title": "Created At",
+      "type": "string"
+     },
+     "external_ref": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "External Ref"
+     },
+     "id": {
+      "format": "uuid",
+      "title": "Id",
+      "type": "string"
+     },
+     "status": {
+      "title": "Status",
+      "type": "string"
+     }
+    },
+    "required": [
+     "id",
+     "channel",
+     "status",
+     "external_ref",
+     "content",
+     "created_at"
+    ],
+    "title": "DistributionView",
     "type": "object"
    },
    "EventEnvelope": {
@@ -754,6 +1198,140 @@
     "title": "EventsPage",
     "type": "object"
    },
+   "EvidenceView": {
+    "properties": {
+     "chars": {
+      "title": "Chars",
+      "type": "integer"
+     },
+     "id": {
+      "format": "uuid",
+      "title": "Id",
+      "type": "string"
+     },
+     "retrieved_at": {
+      "format": "date-time",
+      "title": "Retrieved At",
+      "type": "string"
+     },
+     "run_id": {
+      "anyOf": [
+       {
+        "format": "uuid",
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Run Id"
+     },
+     "site": {
+      "title": "Site",
+      "type": "string"
+     },
+     "title": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Title"
+     },
+     "truncated": {
+      "title": "Truncated",
+      "type": "boolean"
+     },
+     "trust_level": {
+      "anyOf": [
+       {
+        "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Trust Level"
+     },
+     "url": {
+      "title": "Url",
+      "type": "string"
+     }
+    },
+    "required": [
+     "id",
+     "title",
+     "url",
+     "site",
+     "retrieved_at",
+     "chars",
+     "truncated",
+     "trust_level",
+     "run_id"
+    ],
+    "title": "EvidenceView",
+    "type": "object"
+   },
+   "FactCheckView": {
+    "properties": {
+     "checked": {
+      "title": "Checked",
+      "type": "integer"
+     },
+     "created_at": {
+      "format": "date-time",
+      "title": "Created At",
+      "type": "string"
+     },
+     "failed": {
+      "title": "Failed",
+      "type": "integer"
+     },
+     "id": {
+      "format": "uuid",
+      "title": "Id",
+      "type": "string"
+     },
+     "passed": {
+      "title": "Passed",
+      "type": "boolean"
+     },
+     "results": {
+      "items": {
+       "additionalProperties": true,
+       "type": "object"
+      },
+      "title": "Results",
+      "type": "array"
+     },
+     "version": {
+      "anyOf": [
+       {
+        "type": "integer"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Version"
+     }
+    },
+    "required": [
+     "id",
+     "version",
+     "passed",
+     "created_at",
+     "checked",
+     "failed",
+     "results"
+    ],
+    "title": "FactCheckView",
+    "type": "object"
+   },
    "GoalView": {
     "properties": {
      "current": {
@@ -885,6 +1463,152 @@
      "model_cost_today"
     ],
     "title": "Kpis",
+    "type": "object"
+   },
+   "LanguageView": {
+    "properties": {
+     "blocks": {
+      "items": {
+       "$ref": "#/components/schemas/BlockView"
+      },
+      "title": "Blocks",
+      "type": "array"
+     },
+     "summary": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Summary"
+     },
+     "title": {
+      "title": "Title",
+      "type": "string"
+     },
+     "version_id": {
+      "format": "uuid",
+      "title": "Version Id",
+      "type": "string"
+     }
+    },
+    "required": [
+     "version_id",
+     "title",
+     "summary",
+     "blocks"
+    ],
+    "title": "LanguageView",
+    "type": "object"
+   },
+   "Lead": {
+    "properties": {
+     "published_at": {
+      "anyOf": [
+       {
+        "format": "date-time",
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Published At"
+     },
+     "source": {
+      "title": "Source",
+      "type": "string"
+     },
+     "title": {
+      "title": "Title",
+      "type": "string"
+     },
+     "url": {
+      "title": "Url",
+      "type": "string"
+     }
+    },
+    "required": [
+     "title",
+     "url",
+     "source",
+     "published_at"
+    ],
+    "title": "Lead",
+    "type": "object"
+   },
+   "NewSource": {
+    "properties": {
+     "config": {
+      "additionalProperties": true,
+      "default": {},
+      "title": "Config",
+      "type": "object"
+     },
+     "kind": {
+      "$ref": "#/components/schemas/SourceKind"
+     },
+     "language": {
+      "anyOf": [
+       {
+        "maxLength": 10,
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Language"
+     },
+     "name": {
+      "maxLength": 200,
+      "minLength": 1,
+      "title": "Name",
+      "type": "string"
+     },
+     "poll_interval_seconds": {
+      "default": 3600,
+      "maximum": 604800.0,
+      "minimum": 300.0,
+      "title": "Poll Interval Seconds",
+      "type": "integer"
+     },
+     "trust_level": {
+      "anyOf": [
+       {
+        "maximum": 1.0,
+        "minimum": 0.0,
+        "type": "number"
+       },
+       {
+        "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+        "type": "string"
+       }
+      ],
+      "default": "0.5",
+      "title": "Trust Level"
+     },
+     "url": {
+      "anyOf": [
+       {
+        "maxLength": 2000,
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Url"
+     }
+    },
+    "required": [
+     "name",
+     "kind"
+    ],
+    "title": "NewSource",
     "type": "object"
    },
    "PublicArticle": {
@@ -1059,6 +1783,57 @@
      "url"
     ],
     "title": "PublicSource",
+    "type": "object"
+   },
+   "QuoteView": {
+    "properties": {
+     "after": {
+      "title": "After",
+      "type": "string"
+     },
+     "before": {
+      "title": "Before",
+      "type": "string"
+     },
+     "evidence_id": {
+      "format": "uuid",
+      "title": "Evidence Id",
+      "type": "string"
+     },
+     "evidence_title": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Evidence Title"
+     },
+     "quote": {
+      "title": "Quote",
+      "type": "string"
+     },
+     "support_type": {
+      "title": "Support Type",
+      "type": "string"
+     },
+     "url": {
+      "title": "Url",
+      "type": "string"
+     }
+    },
+    "required": [
+     "evidence_id",
+     "evidence_title",
+     "url",
+     "support_type",
+     "quote",
+     "before",
+     "after"
+    ],
+    "title": "QuoteView",
     "type": "object"
    },
    "RealtimeSnapshot": {
@@ -1291,6 +2066,148 @@
     "title": "RunOut",
     "type": "object"
    },
+   "SourceKind": {
+    "enum": [
+     "rss",
+     "url_list",
+     "search_query"
+    ],
+    "title": "SourceKind",
+    "type": "string"
+   },
+   "SourceView": {
+    "properties": {
+     "config": {
+      "additionalProperties": true,
+      "title": "Config",
+      "type": "object"
+     },
+     "id": {
+      "format": "uuid",
+      "title": "Id",
+      "type": "string"
+     },
+     "items": {
+      "title": "Items",
+      "type": "integer"
+     },
+     "kind": {
+      "title": "Kind",
+      "type": "string"
+     },
+     "language": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Language"
+     },
+     "last_polled_at": {
+      "anyOf": [
+       {
+        "format": "date-time",
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Last Polled At"
+     },
+     "name": {
+      "title": "Name",
+      "type": "string"
+     },
+     "next_poll_at": {
+      "format": "date-time",
+      "title": "Next Poll At",
+      "type": "string"
+     },
+     "poll_interval_seconds": {
+      "title": "Poll Interval Seconds",
+      "type": "integer"
+     },
+     "status": {
+      "title": "Status",
+      "type": "string"
+     },
+     "trust_level": {
+      "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+      "title": "Trust Level",
+      "type": "string"
+     },
+     "url": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Url"
+     }
+    },
+    "required": [
+     "id",
+     "name",
+     "kind",
+     "url",
+     "config",
+     "trust_level",
+     "language",
+     "status",
+     "poll_interval_seconds",
+     "last_polled_at",
+     "next_poll_at",
+     "items"
+    ],
+    "title": "SourceView",
+    "type": "object"
+   },
+   "StartStory": {
+    "properties": {
+     "project_id": {
+      "anyOf": [
+       {
+        "format": "uuid",
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "description": "Default: the story's project, else the first active one.",
+      "title": "Project Id"
+     }
+    },
+    "title": "StartStory",
+    "type": "object"
+   },
+   "StartedStory": {
+    "properties": {
+     "story_id": {
+      "format": "uuid",
+      "title": "Story Id",
+      "type": "string"
+     },
+     "workflow_run_id": {
+      "format": "uuid",
+      "title": "Workflow Run Id",
+      "type": "string"
+     }
+    },
+    "required": [
+     "story_id",
+     "workflow_run_id"
+    ],
+    "title": "StartedStory",
+    "type": "object"
+   },
    "StepView": {
     "properties": {
      "cost_usd": {
@@ -1352,6 +2269,222 @@
      "created_at"
     ],
     "title": "StepView",
+    "type": "object"
+   },
+   "StoryDetail": {
+    "properties": {
+     "angle": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Angle"
+     },
+     "article": {
+      "anyOf": [
+       {
+        "$ref": "#/components/schemas/ArticleRef"
+       },
+       {
+        "type": "null"
+       }
+      ]
+     },
+     "claim_list": {
+      "items": {
+       "$ref": "#/components/schemas/ClaimView"
+      },
+      "title": "Claim List",
+      "type": "array"
+     },
+     "claims": {
+      "title": "Claims",
+      "type": "integer"
+     },
+     "company_id": {
+      "format": "uuid",
+      "title": "Company Id",
+      "type": "string"
+     },
+     "evidence": {
+      "title": "Evidence",
+      "type": "integer"
+     },
+     "evidence_list": {
+      "items": {
+       "$ref": "#/components/schemas/EvidenceView"
+      },
+      "title": "Evidence List",
+      "type": "array"
+     },
+     "first_seen_at": {
+      "format": "date-time",
+      "title": "First Seen At",
+      "type": "string"
+     },
+     "id": {
+      "format": "uuid",
+      "title": "Id",
+      "type": "string"
+     },
+     "items": {
+      "title": "Items",
+      "type": "integer"
+     },
+     "leads": {
+      "items": {
+       "$ref": "#/components/schemas/Lead"
+      },
+      "title": "Leads",
+      "type": "array"
+     },
+     "score": {
+      "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+      "title": "Score",
+      "type": "string"
+     },
+     "seed": {
+      "additionalProperties": true,
+      "title": "Seed",
+      "type": "object"
+     },
+     "sources": {
+      "title": "Sources",
+      "type": "integer"
+     },
+     "state": {
+      "title": "State",
+      "type": "string"
+     },
+     "summary": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Summary"
+     },
+     "title": {
+      "title": "Title",
+      "type": "string"
+     },
+     "workflow_run_ids": {
+      "items": {
+       "format": "uuid",
+       "type": "string"
+      },
+      "title": "Workflow Run Ids",
+      "type": "array"
+     }
+    },
+    "required": [
+     "id",
+     "title",
+     "state",
+     "score",
+     "items",
+     "sources",
+     "evidence",
+     "claims",
+     "first_seen_at",
+     "article",
+     "company_id",
+     "summary",
+     "angle",
+     "seed",
+     "leads",
+     "evidence_list",
+     "claim_list",
+     "workflow_run_ids"
+    ],
+    "title": "StoryDetail",
+    "type": "object"
+   },
+   "StoryState": {
+    "description": "platform/02 §6: DISCOVERED -> SELECTED -> IN_PRODUCTION -> PUBLISHED | DROPPED;\nDISCOVERED -> IGNORED.",
+    "enum": [
+     "DISCOVERED",
+     "SELECTED",
+     "IN_PRODUCTION",
+     "PUBLISHED",
+     "DROPPED",
+     "IGNORED"
+    ],
+    "title": "StoryState",
+    "type": "string"
+   },
+   "StorySummary": {
+    "properties": {
+     "article": {
+      "anyOf": [
+       {
+        "$ref": "#/components/schemas/ArticleRef"
+       },
+       {
+        "type": "null"
+       }
+      ]
+     },
+     "claims": {
+      "title": "Claims",
+      "type": "integer"
+     },
+     "evidence": {
+      "title": "Evidence",
+      "type": "integer"
+     },
+     "first_seen_at": {
+      "format": "date-time",
+      "title": "First Seen At",
+      "type": "string"
+     },
+     "id": {
+      "format": "uuid",
+      "title": "Id",
+      "type": "string"
+     },
+     "items": {
+      "title": "Items",
+      "type": "integer"
+     },
+     "score": {
+      "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+      "title": "Score",
+      "type": "string"
+     },
+     "sources": {
+      "title": "Sources",
+      "type": "integer"
+     },
+     "state": {
+      "title": "State",
+      "type": "string"
+     },
+     "title": {
+      "title": "Title",
+      "type": "string"
+     }
+    },
+    "required": [
+     "id",
+     "title",
+     "state",
+     "score",
+     "items",
+     "sources",
+     "evidence",
+     "claims",
+     "first_seen_at",
+     "article"
+    ],
+    "title": "StorySummary",
     "type": "object"
    },
    "TaskDetailOut": {
@@ -1800,6 +2933,61 @@
     "title": "ValidationError",
     "type": "object"
    },
+   "VersionView": {
+    "properties": {
+     "change_summary": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Change Summary"
+     },
+     "created_at": {
+      "format": "date-time",
+      "title": "Created At",
+      "type": "string"
+     },
+     "current": {
+      "title": "Current",
+      "type": "boolean"
+     },
+     "draft_group_id": {
+      "format": "uuid",
+      "title": "Draft Group Id",
+      "type": "string"
+     },
+     "langs": {
+      "items": {
+       "type": "string"
+      },
+      "title": "Langs",
+      "type": "array"
+     },
+     "published": {
+      "title": "Published",
+      "type": "boolean"
+     },
+     "version": {
+      "title": "Version",
+      "type": "integer"
+     }
+    },
+    "required": [
+     "version",
+     "draft_group_id",
+     "langs",
+     "created_at",
+     "change_summary",
+     "current",
+     "published"
+    ],
+    "title": "VersionView",
+    "type": "object"
+   },
    "WorkflowRunOut": {
     "properties": {
      "company_id": {
@@ -2102,6 +3290,71 @@
     ]
    }
   },
+  "/api/articles/{article_id}": {
+   "get": {
+    "operationId": "get_article_api_articles__article_id__get",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "article_id",
+      "required": true,
+      "schema": {
+       "format": "uuid",
+       "title": "Article Id",
+       "type": "string"
+      }
+     },
+     {
+      "in": "query",
+      "name": "version",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "minimum": 1,
+         "type": "integer"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Version"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ArticleDetail"
+        }
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "security": [
+     {
+      "HTTPBearer": []
+     }
+    ],
+    "summary": "Get Article",
+    "tags": [
+     "newsroom"
+    ]
+   }
+  },
   "/api/companies": {
    "get": {
     "operationId": "list_companies_api_companies_get",
@@ -2276,6 +3529,70 @@
     ]
    }
   },
+  "/api/companies/{company_id}/articles": {
+   "get": {
+    "operationId": "list_articles_api_companies__company_id__articles_get",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "company_id",
+      "required": true,
+      "schema": {
+       "format": "uuid",
+       "title": "Company Id",
+       "type": "string"
+      }
+     },
+     {
+      "in": "query",
+      "name": "limit",
+      "required": false,
+      "schema": {
+       "default": 50,
+       "maximum": 100,
+       "minimum": 1,
+       "title": "Limit",
+       "type": "integer"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "items": {
+          "$ref": "#/components/schemas/ArticleSummary"
+         },
+         "title": "Response List Articles Api Companies  Company Id  Articles Get",
+         "type": "array"
+        }
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "security": [
+     {
+      "HTTPBearer": []
+     }
+    ],
+    "summary": "List Articles",
+    "tags": [
+     "newsroom"
+    ]
+   }
+  },
   "/api/companies/{company_id}/kpis": {
    "get": {
     "description": "Cash, today's revenue and expenses (model calls included), today's goal.",
@@ -2371,6 +3688,194 @@
     "summary": "Get Snapshot",
     "tags": [
      "realtime"
+    ]
+   }
+  },
+  "/api/companies/{company_id}/sources": {
+   "get": {
+    "operationId": "list_sources_api_companies__company_id__sources_get",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "company_id",
+      "required": true,
+      "schema": {
+       "format": "uuid",
+       "title": "Company Id",
+       "type": "string"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "items": {
+          "$ref": "#/components/schemas/SourceView"
+         },
+         "title": "Response List Sources Api Companies  Company Id  Sources Get",
+         "type": "array"
+        }
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "security": [
+     {
+      "HTTPBearer": []
+     }
+    ],
+    "summary": "List Sources",
+    "tags": [
+     "newsroom"
+    ]
+   },
+   "post": {
+    "operationId": "create_source_api_companies__company_id__sources_post",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "company_id",
+      "required": true,
+      "schema": {
+       "format": "uuid",
+       "title": "Company Id",
+       "type": "string"
+      }
+     }
+    ],
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/NewSource"
+       }
+      }
+     },
+     "required": true
+    },
+    "responses": {
+     "201": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/SourceView"
+        }
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "security": [
+     {
+      "HTTPBearer": []
+     }
+    ],
+    "summary": "Create Source",
+    "tags": [
+     "newsroom"
+    ]
+   }
+  },
+  "/api/companies/{company_id}/stories": {
+   "get": {
+    "operationId": "list_stories_api_companies__company_id__stories_get",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "company_id",
+      "required": true,
+      "schema": {
+       "format": "uuid",
+       "title": "Company Id",
+       "type": "string"
+      }
+     },
+     {
+      "in": "query",
+      "name": "state",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "$ref": "#/components/schemas/StoryState"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "State"
+      }
+     },
+     {
+      "in": "query",
+      "name": "limit",
+      "required": false,
+      "schema": {
+       "default": 50,
+       "maximum": 100,
+       "minimum": 1,
+       "title": "Limit",
+       "type": "integer"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "items": {
+          "$ref": "#/components/schemas/StorySummary"
+         },
+         "title": "Response List Stories Api Companies  Company Id  Stories Get",
+         "type": "array"
+        }
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "security": [
+     {
+      "HTTPBearer": []
+     }
+    ],
+    "summary": "List Stories",
+    "tags": [
+     "newsroom"
     ]
    }
   },
@@ -2532,6 +4037,25 @@
         }
        ],
        "title": "Run Id"
+      }
+     },
+     {
+      "description": "One workflow run's story: its events carry its id as correlation",
+      "in": "query",
+      "name": "correlation_id",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "format": "uuid",
+         "type": "string"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "description": "One workflow run's story: its events carry its id as correlation",
+       "title": "Correlation Id"
       }
      },
      {
@@ -2858,6 +4382,113 @@
     "summary": "Run Trace",
     "tags": [
      "runs"
+    ]
+   }
+  },
+  "/api/stories/{story_id}": {
+   "get": {
+    "operationId": "get_story_api_stories__story_id__get",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "story_id",
+      "required": true,
+      "schema": {
+       "format": "uuid",
+       "title": "Story Id",
+       "type": "string"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/StoryDetail"
+        }
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "security": [
+     {
+      "HTTPBearer": []
+     }
+    ],
+    "summary": "Get Story",
+    "tags": [
+     "newsroom"
+    ]
+   }
+  },
+  "/api/stories/{story_id}/start": {
+   "post": {
+    "description": "Select the story (if it was only discovered) and start its workflow.",
+    "operationId": "start_api_stories__story_id__start_post",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "story_id",
+      "required": true,
+      "schema": {
+       "format": "uuid",
+       "title": "Story Id",
+       "type": "string"
+      }
+     }
+    ],
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/StartStory"
+       }
+      }
+     },
+     "required": true
+    },
+    "responses": {
+     "201": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/StartedStory"
+        }
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "security": [
+     {
+      "HTTPBearer": []
+     }
+    ],
+    "summary": "Start",
+    "tags": [
+     "newsroom"
     ]
    }
   },

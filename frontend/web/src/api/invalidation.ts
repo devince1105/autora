@@ -34,6 +34,9 @@ const KPI_CHANGES = new Set([
   "KPI_SNAPSHOT_CREATED",
 ]);
 
+/** Newsroom events change what the newsroom pages show (T-517). */
+const NEWSROOM_PREFIXES = ["SOURCE_", "EVIDENCE_", "STORY_", "CLAIM_", "ARTICLE_", "DISTRIBUTION_", "ANALYTICS_"];
+
 /** Query keys an event makes stale. Keys are prefixes: ["approvals", c] covers every state. */
 export function eventToQueryKeys(event: EventEnvelope): QueryKey[] {
   const keys: QueryKey[] = [];
@@ -52,6 +55,11 @@ export function eventToQueryKeys(event: EventEnvelope): QueryKey[] {
   }
   if (KPI_CHANGES.has(event.event_type)) {
     keys.push(queryKeys.kpis(event.company_id));
+  }
+  if (NEWSROOM_PREFIXES.some((prefix) => event.event_type.startsWith(prefix))) {
+    keys.push(["newsroom"]);
+  } else if (event.correlation_id) {
+    keys.push(queryKeys.workflowEvents(event.company_id, event.correlation_id)); // its timeline
   }
   return keys;
 }

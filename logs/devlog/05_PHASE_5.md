@@ -30,7 +30,7 @@
 | T-514 | `story_to_article_v2` 範本 + `register()` + `activity_links` | T-203、T-506 ～ T-513 | ✅ |
 | T-515 | 公開站（zh-TW / en）+ beacon API | T-512 | ✅ |
 | T-516 | Analytics collector（每小時 → `analytics_daily`，事件） | T-515、T-212 | ✅ |
-| T-517 | Newsroom 管理頁（stories、articles、versions、fact-check、distribution、timeline） | T-308、T-311 | ⏳ |
+| T-517 | Newsroom 管理頁（stories、articles、versions、fact-check、distribution、timeline） | T-308、T-311 | ✅ |
 | T-518 | 模擬資料（FakeModelProvider 劇本 + fixture HTML + revise 分支） | T-207、T-514 | ✅ |
 | T-519 | 真模型 smoke | T-208、T-514 | ⏳ |
 | T-520 | 階段 5 E2E（3D → Writer → 草稿頁） | T-411、T-517、T-518 | ⏳ |
@@ -524,6 +524,29 @@ T-203 的工作流程引擎只會跑固定的 DAG、而且每個節點都由代�
 - 後端 861 個測試通過；`ruff`、`lint-imports`、`make db-check`、`gen-schema-check`、`gen-api-check` 通過；event-schema 8 個、web 223 個測試與 typecheck、lint 通過。
 
 - **CI 的 python 失敗**（執行編號 `35448830986`）：不是 T-516 的程式，是 T-514 的 `tests/runtime/test_services.py` 讀 `WORKFLOW_RUN_EXTENDED` 事件時沒有排序，資料庫偶爾以相反順序回傳（`[3, 2]`）。加上 `ORDER BY seq`。T-518 記錄的那次無法重現的失敗，很可能就是這個（同一個測試檔在那次的全套測試裡）。
+---
+
+## T-517 · 新聞室管理頁面
+
+### 做了什麼
+- **後端讀取**（`domains/newsroom/admin.py`，只讀，給操作者；公開站用的是只給已發布內容的 `site.py`）：
+  - 題材列表（依最近的來源項目排序、可依狀態篩選；分數、項目數、來源數、主張數、證據數、文章）；題材詳情：線索（來源項目與來源名稱）、**證據**（主張引用的，加上這則題材工作流程中擷取的；網站、字數、是否截斷、來源信任度）、**主張與每段引文——引文從證據原文依位置切出，附前後各 80 字**，看得出引文確實在原文裡（AC-7）、工作流程 ID。
+  - 文章列表（目前版本與語言、修訂次數、總瀏覽）；文章詳情：所有版本（目前 / 已發布 / 修改說明）、**指定版本（預設最新）的各語言內容與每段引用的主張**、這一版引用的主張與引文、所有查核報告（對應版本、通過數、未通過的原因）、發布紀錄（網站與社群草稿的內容）、每日讀者、公開頁網址、工作流程 ID。
+  - 來源列表（帶來的項目數、上次讀取）。
+- **API**（`api/routers/newsroom.py`，需要權杖）：`GET /api/companies/{id}/stories`、`GET /api/stories/{id}`、`POST /api/stories/{id}/start`（新發現的先選定，再以操作者身分啟動工作流程，走權限；專案預設為題材的或公司第一個進行中的；已在製作或已放棄 → 409）、`GET /api/companies/{id}/articles`、`GET /api/articles/{id}?version=`、`GET /api/companies/{id}/sources`、`POST /api/companies/{id}/sources`（設定不對 → 422；會建立讀取與分群排程）。`GET /api/events` 加上 `correlation_id` 篩選（一個工作流程的所有事件，已有索引）——題材與文章頁的時間軸。
+- **前端**（`app/(admin)/newsroom/*`、`features/newsroom/`）：
+  - 三個分頁（題材、文章、來源）與 Dashboard、辦公室的連結；Dashboard 右上角加「新聞室」。
+  - **題材頁**：狀態、分數、來源數、文章連結、「開始製作」（新發現 / 已選定才有；錯誤顯示原因）、線索、證據、主張（`#claims`；展開看引文，引文在前後文中標出）、時間軸（最新一次工作流程的事件，用既有的事件說明）。
+  - **文章頁**：版本切換（`?version=N`，標出目前與已發布）、語言分頁（主要語言在前）、這一版的修改說明、內文（段落後的 [1][2] 連到對應主張，編號依第一次引用）、引用的主張、**事實查核**（`#fact-check`）、**發布紀錄**（`#distribution`，社群貼文標明是未發出的草稿）、讀者、時間軸、公開頁連結。
+  - 3D 辦公室代理面板的連結（T-514 的 `activity_links`：題材與來源、題材的主張、文章草稿 vN、事實查核、發布紀錄）都有頁面了。
+  - 資料：查詢都以 `newsroom` 開頭；新聞室事件（來源、證據、題材、主張、文章、發布、讀者）讓這些頁面重新載入，工作流程的其他事件只讓那個流程的時間軸重新載入（代理工作時不會一直重抓整頁）。時間軸的事件用事件契約解析，讀不懂的新類型略過。
+- 主張清單與發布紀錄的欄位名避開 pydantic 的 `copy`（改叫 `content`）。
+
+### 驗證
+- `tests/api/test_newsroom_api.py`（5 個）：題材列表與篩選、題材詳情（證據、主張、**引文與原文前後文**）、404；文章列表與詳情（版本、兩語言內容與每段主張、主張已查核通過、查核報告、網站發布紀錄、公開網址、指定不存在的版本時顯示最新）；新增來源（排程建立、設定錯誤 422、不存在的公司 404）；**從頁面開始製作**（新發現 → 選定並啟動、題材進入製作中、再按 409、已放棄 409）與該流程的事件篩選；沒有權杖 401。
+- `src/features/newsroom/newsroom-pages.test.tsx`（15 個）：主張編號與排序、查核問題；文章頁（內文與主張標記、語言與版本切換、修改說明、主張的引文與前後文、查核、發布紀錄、讀者、公開頁、時間軸、題材連結）；題材頁（線索、證據、主張、開始製作、已在製作時沒有按鈕、錯誤訊息）；列表（篩選、連結、欄位）；來源（列表、三種新增的內容、錯誤訊息）；查詢參數（版本、狀態、流程事件）與事件失效。既有的失效測試加上「工作流程事件更新時間軸」。
+- 後端 866 個測試通過；`ruff`、`lint-imports`、`make db-check`、`gen-schema-check`、`gen-api-check` 通過；web 238 個測試與 typecheck、lint 通過。
+- 這次沒有在瀏覽器實際操作：管理頁面要先輸入操作者權杖，我不在網頁欄位輸入權杖（即使是本機暫用的）；畫面由元件測試涵蓋，資料由 API 測試涵蓋。
 ---
 
 ## 提交紀錄

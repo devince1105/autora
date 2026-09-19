@@ -116,6 +116,7 @@ async def load_events(
     event_types: Sequence[str] | None = None,
     agent_id: uuid.UUID | None = None,
     run_id: uuid.UUID | None = None,
+    correlation_id: uuid.UUID | None = None,
     limit: int = 200,
 ) -> list[EventEnvelope]:
     """Events of one company with ``after_seq < seq <= until_seq``, ordered by seq."""
@@ -130,5 +131,7 @@ async def load_events(
         stmt = stmt.where(EventRecord.agent_id == agent_id)
     if run_id is not None:
         stmt = stmt.where(EventRecord.run_id == run_id)
+    if correlation_id is not None:
+        stmt = stmt.where(EventRecord.correlation_id == correlation_id)
     rows = await session.scalars(stmt.order_by(EventRecord.seq).limit(limit))
     return [to_envelope(row) for row in rows]

@@ -62,6 +62,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/articles/{article_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Article */
+        get: operations["get_article_api_articles__article_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/companies": {
         parameters: {
             query?: never;
@@ -114,6 +131,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/companies/{company_id}/articles": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Articles */
+        get: operations["list_articles_api_companies__company_id__articles_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/companies/{company_id}/kpis": {
         parameters: {
             query?: never;
@@ -147,6 +181,41 @@ export interface paths {
          *     Connect the WebSocket with ``since=last_seq`` and apply newer events on top.
          */
         get: operations["get_snapshot_api_companies__company_id__realtime_snapshot_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/companies/{company_id}/sources": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Sources */
+        get: operations["list_sources_api_companies__company_id__sources_get"];
+        put?: never;
+        /** Create Source */
+        post: operations["create_source_api_companies__company_id__sources_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/companies/{company_id}/stories": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Stories */
+        get: operations["list_stories_api_companies__company_id__stories_get"];
         put?: never;
         post?: never;
         delete?: never;
@@ -277,6 +346,43 @@ export interface paths {
         get: operations["run_trace_api_runs__run_id__trace_get"];
         put?: never;
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/stories/{story_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Story */
+        get: operations["get_story_api_stories__story_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/stories/{story_id}/start": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Start
+         * @description Select the story (if it was only discovered) and start its workflow.
+         */
+        post: operations["start_api_stories__story_id__start_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -475,6 +581,121 @@ export interface components {
          * @enum {string}
          */
         ApprovalState: "PENDING" | "APPROVED" | "REJECTED" | "EXPIRED";
+        /** ArticleDetail */
+        ArticleDetail: {
+            /** Analytics */
+            analytics: components["schemas"]["DailyView"][];
+            /** Claims */
+            claims: components["schemas"]["ClaimView"][];
+            /**
+             * Company Id
+             * Format: uuid
+             */
+            company_id: string;
+            /** Distributions */
+            distributions: components["schemas"]["DistributionView"][];
+            /** Fact Checks */
+            fact_checks: components["schemas"]["FactCheckView"][];
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Langs */
+            langs: string[];
+            /** Languages */
+            languages: {
+                [key: string]: components["schemas"]["LanguageView"];
+            };
+            /** Primary Lang */
+            primary_lang: string;
+            /** Public Urls */
+            public_urls: {
+                [key: string]: string;
+            };
+            /** Published At */
+            published_at: string | null;
+            /** Published Langs */
+            published_langs: string[];
+            /** Revision Count */
+            revision_count: number;
+            /** Shown */
+            shown: number | null;
+            /** Slug */
+            slug: string;
+            /** State */
+            state: string;
+            /**
+             * Story Id
+             * Format: uuid
+             */
+            story_id: string;
+            /** Story Title */
+            story_title: string;
+            /** Title */
+            title: string;
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
+            /** Version */
+            version: number | null;
+            /** Versions */
+            versions: components["schemas"]["VersionView"][];
+            /** Views */
+            views: number;
+            /** Workflow Run Ids */
+            workflow_run_ids: string[];
+        };
+        /** ArticleRef */
+        ArticleRef: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Slug */
+            slug: string;
+            /** State */
+            state: string;
+            /** Title */
+            title: string;
+        };
+        /** ArticleSummary */
+        ArticleSummary: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Langs */
+            langs: string[];
+            /** Published At */
+            published_at: string | null;
+            /** Revision Count */
+            revision_count: number;
+            /** Slug */
+            slug: string;
+            /** State */
+            state: string;
+            /**
+             * Story Id
+             * Format: uuid
+             */
+            story_id: string;
+            /** Title */
+            title: string;
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
+            /** Version */
+            version: number | null;
+            /** Views */
+            views: number;
+        };
         /** Beacon */
         Beacon: {
             /**
@@ -490,6 +711,31 @@ export interface components {
              * @description A random id the reader's browser makes each day; nothing about the reader.
              */
             session_hash: string;
+        };
+        /** BlockView */
+        BlockView: {
+            /** Claim Ids */
+            claim_ids: string[];
+            /** Text */
+            text: string;
+            /** Type */
+            type: string;
+        };
+        /** ClaimView */
+        ClaimView: {
+            /** Claim Type */
+            claim_type: string;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Quotes */
+            quotes: components["schemas"]["QuoteView"][];
+            /** Status */
+            status: string;
+            /** Text */
+            text: string;
         };
         /** CompanyCreate */
         CompanyCreate: {
@@ -529,6 +775,22 @@ export interface components {
          * @enum {string}
          */
         CompanyType: "newsroom" | "saas" | "research" | "ecommerce" | "software_studio";
+        /** DailyView */
+        DailyView: {
+            /**
+             * Day
+             * Format: date
+             */
+            day: string;
+            /** Lang */
+            lang: string;
+            /** Read Complete */
+            read_complete: number;
+            /** Uniques */
+            uniques: number;
+            /** Views */
+            views: number;
+        };
         /** DecisionIn */
         DecisionIn: {
             /**
@@ -538,6 +800,29 @@ export interface components {
             decision: "approve" | "reject";
             /** Reason */
             reason?: string | null;
+        };
+        /** DistributionView */
+        DistributionView: {
+            /** Channel */
+            channel: string;
+            /** Content */
+            content: {
+                [key: string]: unknown;
+            };
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /** External Ref */
+            external_ref: string | null;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Status */
+            status: string;
         };
         /** EventEnvelope */
         EventEnvelope: {
@@ -605,6 +890,58 @@ export interface components {
             /** Next After */
             next_after: number;
         };
+        /** EvidenceView */
+        EvidenceView: {
+            /** Chars */
+            chars: number;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /**
+             * Retrieved At
+             * Format: date-time
+             */
+            retrieved_at: string;
+            /** Run Id */
+            run_id: string | null;
+            /** Site */
+            site: string;
+            /** Title */
+            title: string | null;
+            /** Truncated */
+            truncated: boolean;
+            /** Trust Level */
+            trust_level: string | null;
+            /** Url */
+            url: string;
+        };
+        /** FactCheckView */
+        FactCheckView: {
+            /** Checked */
+            checked: number;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /** Failed */
+            failed: number;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Passed */
+            passed: boolean;
+            /** Results */
+            results: {
+                [key: string]: unknown;
+            }[];
+            /** Version */
+            version: number | null;
+        };
         /** GoalView */
         GoalView: {
             /** Current */
@@ -651,6 +988,58 @@ export interface components {
             published_today?: number | null;
             /** Revenue Today */
             revenue_today: string;
+        };
+        /** LanguageView */
+        LanguageView: {
+            /** Blocks */
+            blocks: components["schemas"]["BlockView"][];
+            /** Summary */
+            summary: string | null;
+            /** Title */
+            title: string;
+            /**
+             * Version Id
+             * Format: uuid
+             */
+            version_id: string;
+        };
+        /** Lead */
+        Lead: {
+            /** Published At */
+            published_at: string | null;
+            /** Source */
+            source: string;
+            /** Title */
+            title: string;
+            /** Url */
+            url: string;
+        };
+        /** NewSource */
+        NewSource: {
+            /**
+             * Config
+             * @default {}
+             */
+            config: {
+                [key: string]: unknown;
+            };
+            kind: components["schemas"]["SourceKind"];
+            /** Language */
+            language?: string | null;
+            /** Name */
+            name: string;
+            /**
+             * Poll Interval Seconds
+             * @default 3600
+             */
+            poll_interval_seconds: number;
+            /**
+             * Trust Level
+             * @default 0.5
+             */
+            trust_level: number | string;
+            /** Url */
+            url?: string | null;
         };
         /** PublicArticle */
         PublicArticle: {
@@ -721,6 +1110,26 @@ export interface components {
             site: string;
             /** Title */
             title: string;
+            /** Url */
+            url: string;
+        };
+        /** QuoteView */
+        QuoteView: {
+            /** After */
+            after: string;
+            /** Before */
+            before: string;
+            /**
+             * Evidence Id
+             * Format: uuid
+             */
+            evidence_id: string;
+            /** Evidence Title */
+            evidence_title: string | null;
+            /** Quote */
+            quote: string;
+            /** Support Type */
+            support_type: string;
             /** Url */
             url: string;
         };
@@ -820,6 +1229,67 @@ export interface components {
             /** Tokens Out */
             tokens_out: number;
         };
+        /**
+         * SourceKind
+         * @enum {string}
+         */
+        SourceKind: "rss" | "url_list" | "search_query";
+        /** SourceView */
+        SourceView: {
+            /** Config */
+            config: {
+                [key: string]: unknown;
+            };
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Items */
+            items: number;
+            /** Kind */
+            kind: string;
+            /** Language */
+            language: string | null;
+            /** Last Polled At */
+            last_polled_at: string | null;
+            /** Name */
+            name: string;
+            /**
+             * Next Poll At
+             * Format: date-time
+             */
+            next_poll_at: string;
+            /** Poll Interval Seconds */
+            poll_interval_seconds: number;
+            /** Status */
+            status: string;
+            /** Trust Level */
+            trust_level: string;
+            /** Url */
+            url: string | null;
+        };
+        /** StartStory */
+        StartStory: {
+            /**
+             * Project Id
+             * @description Default: the story's project, else the first active one.
+             */
+            project_id?: string | null;
+        };
+        /** StartedStory */
+        StartedStory: {
+            /**
+             * Story Id
+             * Format: uuid
+             */
+            story_id: string;
+            /**
+             * Workflow Run Id
+             * Format: uuid
+             */
+            workflow_run_id: string;
+        };
         /** StepView */
         StepView: {
             /** Cost Usd */
@@ -841,6 +1311,90 @@ export interface components {
             tool_calls: {
                 [key: string]: unknown;
             }[] | null;
+        };
+        /** StoryDetail */
+        StoryDetail: {
+            /** Angle */
+            angle: string | null;
+            article: components["schemas"]["ArticleRef"] | null;
+            /** Claim List */
+            claim_list: components["schemas"]["ClaimView"][];
+            /** Claims */
+            claims: number;
+            /**
+             * Company Id
+             * Format: uuid
+             */
+            company_id: string;
+            /** Evidence */
+            evidence: number;
+            /** Evidence List */
+            evidence_list: components["schemas"]["EvidenceView"][];
+            /**
+             * First Seen At
+             * Format: date-time
+             */
+            first_seen_at: string;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Items */
+            items: number;
+            /** Leads */
+            leads: components["schemas"]["Lead"][];
+            /** Score */
+            score: string;
+            /** Seed */
+            seed: {
+                [key: string]: unknown;
+            };
+            /** Sources */
+            sources: number;
+            /** State */
+            state: string;
+            /** Summary */
+            summary: string | null;
+            /** Title */
+            title: string;
+            /** Workflow Run Ids */
+            workflow_run_ids: string[];
+        };
+        /**
+         * StoryState
+         * @description platform/02 §6: DISCOVERED -> SELECTED -> IN_PRODUCTION -> PUBLISHED | DROPPED;
+         *     DISCOVERED -> IGNORED.
+         * @enum {string}
+         */
+        StoryState: "DISCOVERED" | "SELECTED" | "IN_PRODUCTION" | "PUBLISHED" | "DROPPED" | "IGNORED";
+        /** StorySummary */
+        StorySummary: {
+            article: components["schemas"]["ArticleRef"] | null;
+            /** Claims */
+            claims: number;
+            /** Evidence */
+            evidence: number;
+            /**
+             * First Seen At
+             * Format: date-time
+             */
+            first_seen_at: string;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Items */
+            items: number;
+            /** Score */
+            score: string;
+            /** Sources */
+            sources: number;
+            /** State */
+            state: string;
+            /** Title */
+            title: string;
         };
         /** TaskDetailOut */
         TaskDetailOut: {
@@ -1023,6 +1577,29 @@ export interface components {
             /** Error Type */
             type: string;
         };
+        /** VersionView */
+        VersionView: {
+            /** Change Summary */
+            change_summary: string | null;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /** Current */
+            current: boolean;
+            /**
+             * Draft Group Id
+             * Format: uuid
+             */
+            draft_group_id: string;
+            /** Langs */
+            langs: string[];
+            /** Published */
+            published: boolean;
+            /** Version */
+            version: number;
+        };
         /** WorkflowRunOut */
         WorkflowRunOut: {
             /**
@@ -1198,6 +1775,39 @@ export interface operations {
             };
         };
     };
+    get_article_api_articles__article_id__get: {
+        parameters: {
+            query?: {
+                version?: number | null;
+            };
+            header?: never;
+            path: {
+                article_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ArticleDetail"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     list_companies_api_companies_get: {
         parameters: {
             query?: never;
@@ -1313,6 +1923,39 @@ export interface operations {
             };
         };
     };
+    list_articles_api_companies__company_id__articles_get: {
+        parameters: {
+            query?: {
+                limit?: number;
+            };
+            header?: never;
+            path: {
+                company_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ArticleSummary"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     get_kpis_api_companies__company_id__kpis_get: {
         parameters: {
             query?: never;
@@ -1375,6 +2018,106 @@ export interface operations {
             };
         };
     };
+    list_sources_api_companies__company_id__sources_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                company_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SourceView"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    create_source_api_companies__company_id__sources_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                company_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["NewSource"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SourceView"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_stories_api_companies__company_id__stories_get: {
+        parameters: {
+            query?: {
+                state?: components["schemas"]["StoryState"] | null;
+                limit?: number;
+            };
+            header?: never;
+            path: {
+                company_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StorySummary"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     post_workflow_api_companies__company_id__workflows_post: {
         parameters: {
             query?: never;
@@ -1422,6 +2165,8 @@ export interface operations {
                 type?: string[] | null;
                 agent_id?: string | null;
                 run_id?: string | null;
+                /** @description One workflow run's story: its events carry its id as correlation */
+                correlation_id?: string | null;
                 limit?: number;
             };
             header?: never;
@@ -1596,6 +2341,72 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Trace"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_story_api_stories__story_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                story_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StoryDetail"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    start_api_stories__story_id__start_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                story_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["StartStory"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StartedStory"];
                 };
             };
             /** @description Validation Error */

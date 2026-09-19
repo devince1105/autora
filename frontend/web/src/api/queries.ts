@@ -4,7 +4,7 @@
 // Freshness comes from events: src/api/invalidation.ts invalidates the matching keys.
 import { QueryClient, queryOptions } from "@tanstack/react-query";
 
-import { api as defaultApi, unwrap, type ApiClient } from "./client";
+import { api as defaultApi, unwrap, type ApiClient, type Schemas } from "./client";
 
 export const queryKeys = {
   companies: () => ["companies"] as const,
@@ -14,6 +14,13 @@ export const queryKeys = {
   task: (taskId: string) => ["task", taskId] as const,
   approvals: (companyId: string, state = "PENDING") => ["approvals", companyId, state] as const,
   kpis: (companyId: string) => ["kpis", companyId] as const,
+  /** Newsroom pages (T-517): every key starts with "newsroom", so one invalidation covers them. */
+  stories: (companyId: string, state: string | null) => ["newsroom", "stories", companyId, state] as const,
+  story: (storyId: string) => ["newsroom", "story", storyId] as const,
+  articles: (companyId: string) => ["newsroom", "articles", companyId] as const,
+  article: (articleId: string, version: number | null) => ["newsroom", "article", articleId, version] as const,
+  sources: (companyId: string) => ["newsroom", "sources", companyId] as const,
+  workflowEvents: (companyId: string, runId: string) => ["newsroom", "events", companyId, runId] as const,
 };
 
 export function companiesQuery(api: ApiClient = defaultApi) {
@@ -88,6 +95,79 @@ export function kpisQuery(companyId: string, api: ApiClient = defaultApi) {
   });
 }
 
+// --- newsroom (T-517) -------------------------------------------------------------------------
+
+export type StoryState = "DISCOVERED" | "SELECTED" | "IN_PRODUCTION" | "PUBLISHED" | "DROPPED" | "IGNORED";
+
+export function storiesQuery(companyId: string, state: StoryState | null = null, api: ApiClient = defaultApi) {
+  return queryOptions({
+    queryKey: queryKeys.stories(companyId, state),
+    queryFn: async () =>
+      unwrap(
+        await api.GET("/api/companies/{company_id}/stories", {
+          params: { path: { company_id: companyId }, query: state ? { state } : {} },
+        }),
+      ),
+  });
+}
+
+export function storyQuery(storyId: string, api: ApiClient = defaultApi) {
+  return queryOptions({
+    queryKey: queryKeys.story(storyId),
+    queryFn: async () =>
+      unwrap(await api.GET("/api/stories/{story_id}", { params: { path: { story_id: storyId } } })),
+  });
+}
+
+export function articlesQuery(companyId: string, api: ApiClient = defaultApi) {
+  return queryOptions({
+    queryKey: queryKeys.articles(companyId),
+    queryFn: async () =>
+      unwrap(
+        await api.GET("/api/companies/{company_id}/articles", {
+          params: { path: { company_id: companyId } },
+        }),
+      ),
+  });
+}
+
+export function articleQuery(articleId: string, version: number | null = null, api: ApiClient = defaultApi) {
+  return queryOptions({
+    queryKey: queryKeys.article(articleId, version),
+    queryFn: async () =>
+      unwrap(
+        await api.GET("/api/articles/{article_id}", {
+          params: { path: { article_id: articleId }, query: version ? { version } : {} },
+        }),
+      ),
+  });
+}
+
+export function sourcesQuery(companyId: string, api: ApiClient = defaultApi) {
+  return queryOptions({
+    queryKey: queryKeys.sources(companyId),
+    queryFn: async () =>
+      unwrap(
+        await api.GET("/api/companies/{company_id}/sources", {
+          params: { path: { company_id: companyId } },
+        }),
+      ),
+  });
+}
+
+/** One workflow run's events (its timeline): they carry the run's id as correlation. */
+export function workflowEventsQuery(companyId: string, runId: string, api: ApiClient = defaultApi) {
+  return queryOptions({
+    queryKey: queryKeys.workflowEvents(companyId, runId),
+    queryFn: async () =>
+      unwrap(
+        await api.GET("/api/events", {
+          params: { query: { company_id: companyId, correlation_id: runId, limit: 500 } },
+        }),
+      ),
+  });
+}
+
 // --- commands (REST only; the WebSocket carries no commands, 05 §2) --------------------------
 
 export async function decideApproval(
@@ -113,6 +193,26 @@ export async function startWorkflow(
     await api.POST("/api/companies/{company_id}/workflows", {
       params: { path: { company_id: companyId } },
       body: { ...body, params: body.params ?? {} },
+    }),
+  );
+}
+
+export async function startStory(storyId: string, projectId: string | null = null, api: ApiClient = defaultApi) {
+  return unwrap(
+    await api.POST("/api/stories/{story_id}/start", {
+      params: { path: { story_id: storyId } },
+      body: { project_id: projectId },
+    }),
+  );
+}
+
+export type NewSource = Schemas["NewSource"];
+
+export async function addSource(companyId: string, body: NewSource, api: ApiClient = defaultApi) {
+  return unwrap(
+    await api.POST("/api/companies/{company_id}/sources", {
+      params: { path: { company_id: companyId } },
+      body,
     }),
   );
 }
