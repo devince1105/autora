@@ -180,8 +180,11 @@ test("a run in the office: badges move in order, hand-offs are walked, the strip
   // rendering a frame can outlast a quick step, so there the analyst's 3 s spell must show.
   const worked = ["Rae", "Ana", "Wren"].filter((name) => first(name, busy) < first(name, ["已完成"]));
   expect(worked).toEqual(process.env.CI ? expect.arrayContaining(["Ana"]) : ["Rae", "Ana", "Wren"]);
-  expect(first("Rae", ["已完成"])).toBeLessThan(first("Ana", ["已完成"]));
-  expect(first("Ana", ["已完成"])).toBeLessThan(first("Wren", ["已完成"]));
+  // done in order (never out of it; two can land in the same slow frame)
+  const done = ["Rae", "Ana", "Wren"].map((name) => first(name, ["已完成"]));
+  expect(done.every(Number.isFinite)).toBe(true);
+  expect(done[0]).toBeLessThanOrEqual(done[1]);
+  expect(done[1]).toBeLessThanOrEqual(done[2]);
   // two hand-offs (researcher -> analyst, analyst -> writer), each walked
   await expect.poll(() => page.evaluate(() => window.__autoraOfficeCues?.walks ?? 0), { timeout: 15_000 }).toBeGreaterThanOrEqual(2);
   // the strip follows the store and the API
