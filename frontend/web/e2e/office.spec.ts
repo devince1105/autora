@@ -135,7 +135,8 @@ test("click an avatar: its panel shows the live state within 300 ms (Phase 4 AC)
   await expect(tag).toContainText("閒置", { timeout: 40_000 });
   const name = (await tag.locator("span").first().textContent())!.replace(/閒置$/, "");
   const box = (await tag.boundingBox())!;
-  await page.mouse.click(box.x + box.width / 2, box.y + box.height + 30);
+  // the figure's middle (its click box spans from the tag down to the seat, ~40 px at 1280 x 720)
+  await page.mouse.click(box.x + box.width / 2, box.y + box.height + 15);
   await expect(panel(page)).toBeVisible();
   const { down, shown } = await page.evaluate(() => (window as unknown as { __panelTiming: { down: number; shown: number } }).__panelTiming);
   info.annotations.push({ type: "panel ms", description: String(Math.round(shown - down)) });

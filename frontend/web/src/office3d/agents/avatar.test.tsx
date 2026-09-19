@@ -3,13 +3,13 @@ import ReactThreeTestRenderer from "@react-three/test-renderer";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { Profiler, type ReactNode } from "react";
-import { AnimationClip, Bone, Group, Quaternion, VectorKeyframeTrack, type Object3D } from "three";
+import { AnimationClip, Bone, Box3, Group, Quaternion, VectorKeyframeTrack, type Mesh, type Object3D } from "three";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { realtimeStore, serverNow } from "@/stores/realtime";
 
 import { REQUIRED_CLIPS } from "../assets/characters";
-import { assignSeats } from "../scene/layout";
+import { assignSeats, seatsForRole } from "../scene/layout";
 import { visualForAgent } from "../visual/mapping";
 import { AgentAvatar, placeFor, type AvatarModel } from "./AgentAvatar";
 import { AvatarController, HEAD_SCALE, upperBody } from "./AvatarController";
@@ -102,6 +102,16 @@ describe("AgentAvatar: store changes do not re-render React (T-405 AC)", () => {
     expect(fixture.events.length).toBeGreaterThan(100);
     expect(transitions).toBeGreaterThan(5); // poses really changed along the way
     expect(commits).toBe(afterMount); // …and React never rendered again
+    await renderer.unmount();
+  });
+
+  it("a click target larger than the figure, never drawn (T-413)", async () => {
+    const renderer = await ReactThreeTestRenderer.create(<AgentAvatar agentId="a1" seat={seatsForRole("researcher", 1)[0]} model={fakeModel()} />);
+    const group = renderer.scene.findAll((n) => n.instance.userData?.agentId === "a1")[0].instance as Group;
+    const hit = group.getObjectByName("hit-box") as Mesh;
+    expect(hit.visible).toBe(false);
+    const box = new Box3().setFromObject(hit, true);
+    expect(box.max.y - box.min.y).toBeGreaterThan(0.9);
     await renderer.unmount();
   });
 

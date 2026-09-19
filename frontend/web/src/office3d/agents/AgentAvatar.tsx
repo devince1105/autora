@@ -20,6 +20,8 @@ import { useRoster } from "./roster";
 
 /** Kenney's characters are 0.67 units tall; 2 makes a 1.35 m chibi whose head clears the chair back. */
 export const AVATAR_SCALE = 2;
+/** The click target around a figure, in model units (the group is scaled by AVATAR_SCALE). */
+const HIT_BOX: [number, number, number] = [0.5, 0.95, 0.5];
 /** Seated, the body is lifted so the hips rest on the chair (seat top 0.46 m). */
 export const SEAT_LIFT = 0.41;
 /** Standing up (done), the avatar steps behind its chair. */
@@ -110,8 +112,16 @@ export function AgentAvatar({ agentId, seat, model }: { agentId: string; seat: S
       {...handlers}
     >
       <primitive object={body} />
+      {/*
+        What a click hits: a box a bit larger than the figure (and its chair), never drawn. At the
+        overview a figure is a few dozen pixels tall; its mesh alone is a small target (T-413:
+        with the smaller head, clicks just under the tag fell on the chair).
+      */}
+      <mesh name="hit-box" visible={false} position={[0, HIT_BOX[1] / 2, 0]}>
+        <boxGeometry args={HIT_BOX} />
+      </mesh>
       {/* the document a courier carries, held at the chest (model units: the group is scaled) */}
-      <mesh ref={paper} visible={false} position={[0, 0.3, 0.17]} rotation-x={-0.35}>
+      <mesh ref={paper} name="paper" visible={false} position={[0, 0.3, 0.17]} rotation-x={-0.35}>
         <boxGeometry args={[0.11, 0.15, 0.01]} />
         <meshStandardMaterial color="#fbfbf7" />
       </mesh>

@@ -44,6 +44,9 @@ function instanced(geometry: ConstructorParameters<typeof InstancedMesh>[0], mat
 }
 
 /** A soft round spot for the lamp glow (none where there is no 2D canvas, e.g. tests). */
+/** Head tags float just over a seated figure's head (lowered with the smaller heads, T-413). */
+const TAG_Y = 1.9;
+
 function glowTexture(): CanvasTexture | null {
   if (typeof document === "undefined") return null;
   const canvas = document.createElement("canvas");
@@ -152,7 +155,7 @@ function HeadTag({ member, seat }: { member: Member; seat: Seat }) {
     applyTag({ badge: el, bubble: bubble.current }, tracker.get(member.id));
   });
   return (
-    <Html position={[seat.chair[0], 2.05, seat.chair[1]]} center zIndexRange={[20, 0]} style={{ pointerEvents: "none" }}>
+    <Html position={[seat.chair[0], TAG_Y, seat.chair[1]]} center zIndexRange={[20, 0]} style={{ pointerEvents: "none" }}>
       <div className="flex flex-col items-center gap-0.5" data-testid={`head-tag-${member.id}`}>
         <span className="flex items-center gap-1 rounded-full bg-surface/90 py-0.5 pr-1 pl-2 text-xs font-medium whitespace-nowrap text-ink shadow">
           <span aria-hidden className="size-2 rounded-full" style={{ backgroundColor: ROLE_COLOR[member.role] ?? ROLE_COLOR.spare }} />

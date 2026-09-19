@@ -100,7 +100,7 @@ describe("Courier in the scene (store -> director -> avatar)", () => {
     );
     const avatar = () => renderer.scene.findAll((n) => n.instance.userData?.agentId === agentId)[0].instance as Group;
     const pose = () => avatar().children[0].userData.pose as string;
-    const paper = () => avatar().children.find((c) => (c as Mesh).isMesh) as Mesh;
+    const paper = () => avatar().getObjectByName("paper") as Mesh;
     const frame = async (ms: number) => {
       clock += ms;
       await ReactThreeTestRenderer.act(async () => renderer.advanceFrames(1, ms / 1000));
