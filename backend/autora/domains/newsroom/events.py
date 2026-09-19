@@ -2,7 +2,7 @@
 
 Added with the task that first emits them; T-501: the source poller's; T-502: evidence;
 T-504: stories; T-505: claims; T-508: articles;
-T-510: fact-check verdicts.
+T-510: fact-check verdicts; T-512: approval, publication, distribution.
 """
 
 from __future__ import annotations
@@ -116,3 +116,34 @@ class ClaimRejected(EventPayload):
     claim_type: str
     evidence_ids: list[uuid.UUID] = []
     problems: list[str] = []
+
+
+@event("ARTICLE_APPROVED")
+class ArticleApproved(EventPayload):
+    article_id: uuid.UUID
+    by: str
+    """"human" or "system" (automatic approval after a passed fact-check, when policy allows)."""
+
+
+@event("ARTICLE_REJECTED")
+class ArticleRejected(EventPayload):
+    article_id: uuid.UUID
+    by: str
+    reason: str
+
+
+@event("ARTICLE_PUBLISHED")
+class ArticlePublished(EventPayload):
+    article_id: uuid.UUID
+    slug: str
+    langs: list[str]
+    url: str
+    """The primary language's page on the site (a path: /{lang}/articles/{slug})."""
+
+
+@event("DISTRIBUTION_CREATED")
+class DistributionCreated(EventPayload):
+    article_id: uuid.UUID
+    distribution_id: uuid.UUID
+    channel: str
+    status: str

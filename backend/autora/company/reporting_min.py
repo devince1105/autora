@@ -7,7 +7,8 @@ Computed on read with plain SQL, never by an LLM (platform/02). "Today" is the U
 - **expenses_today** = today's expense transactions + today's model call costs.
 - **model_cost_today** = today's model call costs (included in expenses_today).
 - **revenue_today** = today's revenue transactions.
-- **published_today**: None until articles exist (Phase 5).
+- **published_today** = today's ARTICLE_PUBLISHED events (T-512); counted from events, so the
+  company layer needs nothing from the newsroom domain.
 - **goal**: the active cycle goal due soonest (or the latest active one without a deadline).
 
 Model costs are counted once, from ``model_calls``, the source of truth for model spend
@@ -27,6 +28,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from autora.db.models import (
     CompanyGoal,
+    EventRecord,
     GoalLevel,
     GoalStatus,
     ModelCall,
@@ -35,6 +37,7 @@ from autora.db.models import (
 )
 
 MODEL_COST_CATEGORY = "model_cost"
+PUBLISHED_EVENT = "ARTICLE_PUBLISHED"
 ZERO = Decimal(0)
 
 
@@ -55,7 +58,7 @@ class Kpis(BaseModel):
     expenses_today: Decimal
     model_cost_today: Decimal
     published_today: int | None = None
-    """None: not measured yet (articles arrive in Phase 5)."""
+    """Articles published today (None only from older API versions)."""
     goal: GoalView | None = None
 
 
@@ -127,6 +130,17 @@ async def load_kpis(
         )
     ).one()
 
+    published_today = await session.scalar(
+        select(func.count())
+        .select_from(EventRecord)
+        .where(
+            EventRecord.company_id == company_id,
+            EventRecord.event_type == PUBLISHED_EVENT,
+            EventRecord.occurred_at >= today,
+            EventRecord.occurred_at <= now,
+        )
+    )
+
     goal = await session.scalar(
         select(CompanyGoal)
         .where(
@@ -144,5 +158,6 @@ async def load_kpis(
         revenue_today=revenue,
         expenses_today=expenses + model_today,
         model_cost_today=model_today,
+        published_today=int(published_today or 0),
         goal=GoalView.model_validate(goal, from_attributes=True) if goal else None,
     )

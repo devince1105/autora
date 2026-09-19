@@ -111,6 +111,10 @@ const FORMAT: Record<string, (p: Payload) => [string, Tone, string | null]> = {
     Array.isArray(p.problems) && p.problems.length ? String(p.problems[0]) : (CLAIM_TYPE[s(p.claim_type) ?? ""] ?? s(p.claim_type)),
   ],
   ARTICLE_CREATED: (p) => ["文章初稿", "work", Array.isArray(p.langs) ? p.langs.join(" / ") : null],
+  ARTICLE_APPROVED: (p) => ["文章核准", "ok", s(p.by) === "system" ? "查核通過後自動核准" : "人工核准"],
+  ARTICLE_REJECTED: (p) => ["文章駁回", "danger", s(p.reason)],
+  ARTICLE_PUBLISHED: (p) => ["文章發布", "ok", [s(p.url), Array.isArray(p.langs) ? p.langs.join(" / ") : null].filter(Boolean).join("・") || null],
+  DISTRIBUTION_CREATED: (p) => ["發布紀錄", "neutral", [s(p.channel), s(p.status)].filter(Boolean).join("・") || null],
   STORY_DROPPED: (p) => ["放棄題材", "warn", [s(p.title), s(p.reason)].filter(Boolean).join("・") || null],
 };
 

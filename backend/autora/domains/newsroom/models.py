@@ -2,7 +2,7 @@
 
 Phase 5 adds them task by task: sources and polled items (T-501), evidence (T-502) and its
 chunks (T-503), stories (T-504), claims and their evidence (T-505), articles and versions (T-508),
-fact-check reports (T-510).
+fact-check reports (T-510), distributions (T-512).
 """
 
 from __future__ import annotations
@@ -18,7 +18,7 @@ from sqlalchemy.dialects.postgresql import ARRAY, JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column
 from sqlalchemy.types import Text
 
-from autora.db.base import Base, CreatedAtMixin, IdMixin, TimestampMixin, check_in
+from autora.db.base import Base, CreatedAtMixin, IdMixin, TimestampMixin, check_in, check_regex
 from autora.db.vector import HalfVector
 
 EMBED_DIM = 2048
@@ -325,6 +325,8 @@ class Article(IdMixin, TimestampMixin, Base):
     revision_count: Mapped[int] = mapped_column(server_default="0")
     """Revisions the editor asked for (at most two, then the story is dropped)."""
     published_at: Mapped[datetime | None]
+    published_group_id: Mapped[uuid.UUID | None]
+    """The draft group that was published: what the public site shows (T-512)."""
 
 
 class ArticleVersion(IdMixin, CreatedAtMixin, Base):
@@ -378,4 +380,42 @@ class FactCheckReport(IdMixin, CreatedAtMixin, Base):
     """For the editor (layer 3): each passing claim with its supporting quotes."""
     idempotency_key: Mapped[str | None] = mapped_column(unique=True)
     task_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("tasks.id"))
+    run_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("agent_runs.id"))
+
+
+class DistributionStatus(StrEnum):
+    DRAFT = "draft"
+    """Prepared, not sent (MVP social copy: only written to the database)."""
+    PUBLISHED = "published"
+    FAILED = "failed"
+
+
+class Distribution(IdMixin, CreatedAtMixin, Base):
+    """Where a published article went (T-512): the company's own site, and later the channels
+    marketing prepares copy for (T-513). An article is on the site once."""
+
+    __tablename__ = "distributions"
+    __table_args__ = (
+        check_in("status", DistributionStatus),
+        check_regex("channel", "^[a-z][a-z0-9_]*$"),
+        Index("ix_distributions_article", "article_id"),
+        Index(
+            "uq_distributions_site_once",
+            "article_id",
+            unique=True,
+            postgresql_where=text("channel = 'site'"),
+        ),
+    )
+
+    company_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("companies.id"))
+    article_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("articles.id"))
+    channel: Mapped[str]
+    """site | social_draft | ..."""
+    status: Mapped[str]
+    external_ref: Mapped[str | None]
+    """For the site: the primary language's path."""
+    copy: Mapped[dict[str, Any]] = mapped_column(server_default=text("'{}'::jsonb"))
+    """Per language: the site's {url, title}; for social drafts, the text."""
+    created_by: Mapped[dict[str, Any]]
+    """Actor JSON."""
     run_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("agent_runs.id"))

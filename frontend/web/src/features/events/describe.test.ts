@@ -49,6 +49,18 @@ describe("describeEvent: newsroom sources and evidence (T-501, T-502)", () => {
     });
   });
 
+  it("approval and publication (T-512)", () => {
+    expect(describeEvent("ARTICLE_APPROVED", { by: "human" }).summary).toBe("人工核准");
+    expect(describeEvent("ARTICLE_APPROVED", { by: "system" }).summary).toBe("查核通過後自動核准");
+    expect(describeEvent("ARTICLE_PUBLISHED", { url: "/zh-TW/articles/x", langs: ["zh-TW", "en"] })).toMatchObject({
+      label: "文章發布",
+      tone: "ok",
+      summary: "/zh-TW/articles/x・zh-TW / en",
+    });
+    expect(describeEvent("DISTRIBUTION_CREATED", { channel: "site", status: "published" }).summary).toBe("site・published");
+    expect(describeEvent("ARTICLE_REJECTED", { reason: "off brand" }).tone).toBe("danger");
+  });
+
   it("an unknown type is shown as itself", () => {
     expect(describeEvent("SOMETHING_NEW", {})).toEqual({ label: "SOMETHING_NEW", tone: "neutral", summary: null, known: false });
   });

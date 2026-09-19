@@ -294,6 +294,18 @@ export const ApprovalRequestedV1Event = z.object({
   payload: ApprovalRequestedV1Payload,
 });
 
+export const ArticleApprovedV1Payload = z.object({
+  article_id: z.uuid(),
+  by: z.string(),
+});
+export type ArticleApprovedV1Payload = z.infer<typeof ArticleApprovedV1Payload>;
+export const ArticleApprovedV1Event = z.object({
+  ...envelopeFields,
+  event_type: z.literal("ARTICLE_APPROVED"),
+  schema_version: z.literal(1),
+  payload: ArticleApprovedV1Payload,
+});
+
 export const ArticleCreatedV1Payload = z.object({
   article_id: z.uuid(),
   story_id: z.uuid(),
@@ -307,6 +319,33 @@ export const ArticleCreatedV1Event = z.object({
   event_type: z.literal("ARTICLE_CREATED"),
   schema_version: z.literal(1),
   payload: ArticleCreatedV1Payload,
+});
+
+export const ArticlePublishedV1Payload = z.object({
+  article_id: z.uuid(),
+  slug: z.string(),
+  langs: z.array(z.string()),
+  url: z.string(),
+});
+export type ArticlePublishedV1Payload = z.infer<typeof ArticlePublishedV1Payload>;
+export const ArticlePublishedV1Event = z.object({
+  ...envelopeFields,
+  event_type: z.literal("ARTICLE_PUBLISHED"),
+  schema_version: z.literal(1),
+  payload: ArticlePublishedV1Payload,
+});
+
+export const ArticleRejectedV1Payload = z.object({
+  article_id: z.uuid(),
+  by: z.string(),
+  reason: z.string(),
+});
+export type ArticleRejectedV1Payload = z.infer<typeof ArticleRejectedV1Payload>;
+export const ArticleRejectedV1Event = z.object({
+  ...envelopeFields,
+  event_type: z.literal("ARTICLE_REJECTED"),
+  schema_version: z.literal(1),
+  payload: ArticleRejectedV1Payload,
 });
 
 export const BudgetAllocatedV1Payload = z.object({
@@ -466,6 +505,20 @@ export const CycleStartedV1Event = z.object({
   event_type: z.literal("CYCLE_STARTED"),
   schema_version: z.literal(1),
   payload: CycleStartedV1Payload,
+});
+
+export const DistributionCreatedV1Payload = z.object({
+  article_id: z.uuid(),
+  distribution_id: z.uuid(),
+  channel: z.string(),
+  status: z.string(),
+});
+export type DistributionCreatedV1Payload = z.infer<typeof DistributionCreatedV1Payload>;
+export const DistributionCreatedV1Event = z.object({
+  ...envelopeFields,
+  event_type: z.literal("DISTRIBUTION_CREATED"),
+  schema_version: z.literal(1),
+  payload: DistributionCreatedV1Payload,
 });
 
 export const EvidenceCapturedV1Payload = z.object({
@@ -1017,7 +1070,10 @@ export const EventEnvelope = z.discriminatedUnion("event_type", [
   ApprovalExpiredV1Event,
   ApprovalRejectedV1Event,
   ApprovalRequestedV1Event,
+  ArticleApprovedV1Event,
   ArticleCreatedV1Event,
+  ArticlePublishedV1Event,
+  ArticleRejectedV1Event,
   BudgetAllocatedV1Event,
   BudgetExhaustedV1Event,
   ClaimCreatedV1Event,
@@ -1030,6 +1086,7 @@ export const EventEnvelope = z.discriminatedUnion("event_type", [
   CycleStageChangedV1Event,
   CycleStageTimeoutV1Event,
   CycleStartedV1Event,
+  DistributionCreatedV1Event,
   EvidenceCapturedV1Event,
   ExpenseRecordedV1Event,
   GoalCreatedV1Event,
@@ -1094,7 +1151,10 @@ export const EVENT_TYPES = [
   "APPROVAL_EXPIRED",
   "APPROVAL_REJECTED",
   "APPROVAL_REQUESTED",
+  "ARTICLE_APPROVED",
   "ARTICLE_CREATED",
+  "ARTICLE_PUBLISHED",
+  "ARTICLE_REJECTED",
   "BUDGET_ALLOCATED",
   "BUDGET_EXHAUSTED",
   "CLAIM_CREATED",
@@ -1107,6 +1167,7 @@ export const EVENT_TYPES = [
   "CYCLE_STAGE_CHANGED",
   "CYCLE_STAGE_TIMEOUT",
   "CYCLE_STARTED",
+  "DISTRIBUTION_CREATED",
   "EVIDENCE_CAPTURED",
   "EXPENSE_RECORDED",
   "GOAL_CREATED",

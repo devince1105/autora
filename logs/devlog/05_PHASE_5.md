@@ -25,7 +25,7 @@
 | T-509 | Writer 代理（雙語草稿） | T-507、T-508 | ⏳ |
 | T-510 | 確定性 fact-check validators + `run_fact_check` 工具 | T-505、T-508 | ✅ |
 | T-511 | Editor 代理（`EditorReview`、`request_revision` / `accept_draft`） | T-509、T-510 | ⏳ |
-| T-512 | Publisher（`PublishArticle` command、冪等、Distribution site） | T-508、T-205 | ⏳ |
+| T-512 | Publisher（`PublishArticle` command、冪等、Distribution site） | T-508、T-205 | ✅ |
 | T-513 | Marketing 代理（`DistributionPlan`、`create_distribution`：只寫 DB） | T-512 | ⏳ |
 | T-514 | `story_to_article_v2` 範本 + `register()` + `activity_links` | T-203、T-506 ～ T-513 | ⏳ |
 | T-515 | 公開站（zh-TW / en）+ beacon API | T-512 | ⏳ |
@@ -266,6 +266,30 @@ T-500 → T-501 → T-502 → T-503 → T-504 → T-505 → T-508 → T-510 → 
   - **端到端**：一份草稿引用 5 個主張（2 個數字、1 個被分析報告矛盾的事實、1 個歸屬、1 個意見）→ 查核不通過、只有那個有爭議的事實被駁回、其他 4 個標為已查核、事件數正確、第三層清單只有 3 個（不含意見與被駁回的）且附中英句子；重試回傳同一份報告、再跑一次沒有新事件；**帶著被駁回的主張重寫會被拒**，拿掉後的第 2 版查核通過。
   - 公司政策把預設信任度降到 0.2 → 單一網站支持的主張不通過；別家公司不能查、已核准的文章不能查、只有編輯能查。
 - 後端 799 個測試通過；`ruff`、`lint-imports`、`make db-check` 通過；event-schema 8 個、web 212 個測試與 typecheck、lint 通過。（有一次整套跑了 3 分鐘：當時機器負載約 21，單獨重跑新聞室測試 6 秒，每個測試都在 1 秒內，不是程式變慢。）
+
+---
+
+## T-512 · 核准與發布（Publisher）
+
+### 做了什麼
+- **指令，不是工具**（`domains/newsroom/publisher.py`）：之後由流程的 `approve` / `publish` 節點（T-514）與人（API）呼叫；每個都先問權限引擎並記錄決定（與 `start_workflow` 相同的做法）。代理身分會從資料庫查出角色再判斷，不認得的代理直接拒絕。
+  - `approve_article`（審稿中 → 已核准）：**目前草稿最新一次查核必須通過**。人一律可以核准；系統只有在公司開啟「查核通過自動核准」（`newsroom.auto_approve_if_fact_check_passed`，D-001 預設關）時可以，否則權限引擎回「需要人核准」。已核准 / 已發布的再核准一次什麼都不做。發 `ARTICLE_APPROVED`（`by`：human / system）。
+  - `reject_article`（審稿中 → 駁回）：只有人可以；題材一併放棄（`STORY_DROPPED`），發 `ARTICLE_REJECTED`（含原因）。
+  - `publish_article`（已核准 → 已發布）：
+    - 被核准的草稿群組成為**公開站要顯示的版本**（`articles.published_group_id`，新欄位）；
+    - 語言再依公司政策檢查一次（`require_all_langs` 時全部語言都要有，否則整個不發布、什麼都不改）；
+    - 題材推進到已發布（從 SELECTED 會經過 IN_PRODUCTION，每一步都有稽核）；
+    - 建立網站的發布紀錄（`distributions`，每篇文章在 `site` 通路只有一筆）：各語言的路徑 `/{lang}/articles/{slug}` 與標題；
+    - 發 `ARTICLE_PUBLISHED`（slug、語言、主語言路徑）與 `DISTRIBUTION_CREATED`。
+    - **冪等**：已發布的文章再發布一次，回傳當初的結果、不發任何事件（流程節點重試、重複點擊）；文章資料列在整個指令期間鎖住，兩個同時發布只有一個真的發布。
+- **資料表**（migration `0019`）：`distributions`（通路、狀態 draft / published / failed、外部參照、各語言文案、建立者、執行；`site` 通路每篇一筆的部分唯一索引）、`articles.published_group_id`。
+- **Dashboard 的「今日發布」**：原本標示「階段 5 才有」而回傳空值；現在由公司層直接數今天的 `ARTICLE_PUBLISHED` 事件（不需要依賴新聞室模組，分層不變）。
+- 時間軸：「文章核准：人工核准 / 查核通過後自動核准」「文章駁回」「文章發布：/zh-TW/articles/…・zh-TW / en」「發布紀錄：site・published」。
+- 測試整理：新聞室測試共用的準備（代理執行、選定的題材、兩份證據、兩個有支持引文的主張、以該執行呼叫工具）抽成 `tests/newsroom/conftest.py` 的 `newsroom_room`。
+
+### 驗證
+- `tests/newsroom/test_publisher.py`（7 個）：人核准（權限紀錄、事件、重複核准不重發）；系統核准預設需要人、開啟自動核准後可以，編輯代理與不認得的代理都被拒；沒通過查核、不在審稿中都不能核准；**發布**（狀態、語言、路徑、公開版本、題材經 IN_PRODUCTION 到 PUBLISHED、發布紀錄、事件、Dashboard 今日發布 = 1）與**重複發布不重發**；**兩個同時發布只發布一次**；未核准不能發布、核准後政策改成要求全部語言而缺英文 → 不發布且狀態不變；人駁回（題材放棄、事件）、系統不能駁回。
+- 後端 806 個測試通過（KPI 測試改為「今日發布 = 0」）；`ruff`、`lint-imports`、`make db-check`、`gen-api-check`、`gen-schema-check` 通過；event-schema 8 個、web 213 個測試與 typecheck、lint 通過。
 
 ---
 

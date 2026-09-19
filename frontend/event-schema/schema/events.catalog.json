@@ -997,6 +997,31 @@
         }
       }
     },
+    "ARTICLE_APPROVED": {
+      "1": {
+        "persistence": "persisted",
+        "payload": {
+          "additionalProperties": false,
+          "properties": {
+            "article_id": {
+              "format": "uuid",
+              "title": "Article Id",
+              "type": "string"
+            },
+            "by": {
+              "title": "By",
+              "type": "string"
+            }
+          },
+          "required": [
+            "article_id",
+            "by"
+          ],
+          "title": "ArticleApproved",
+          "type": "object"
+        }
+      }
+    },
     "ARTICLE_CREATED": {
       "1": {
         "persistence": "persisted",
@@ -1039,6 +1064,74 @@
             "slug"
           ],
           "title": "ArticleCreated",
+          "type": "object"
+        }
+      }
+    },
+    "ARTICLE_PUBLISHED": {
+      "1": {
+        "persistence": "persisted",
+        "payload": {
+          "additionalProperties": false,
+          "properties": {
+            "article_id": {
+              "format": "uuid",
+              "title": "Article Id",
+              "type": "string"
+            },
+            "slug": {
+              "title": "Slug",
+              "type": "string"
+            },
+            "langs": {
+              "items": {
+                "type": "string"
+              },
+              "title": "Langs",
+              "type": "array"
+            },
+            "url": {
+              "title": "Url",
+              "type": "string"
+            }
+          },
+          "required": [
+            "article_id",
+            "slug",
+            "langs",
+            "url"
+          ],
+          "title": "ArticlePublished",
+          "type": "object"
+        }
+      }
+    },
+    "ARTICLE_REJECTED": {
+      "1": {
+        "persistence": "persisted",
+        "payload": {
+          "additionalProperties": false,
+          "properties": {
+            "article_id": {
+              "format": "uuid",
+              "title": "Article Id",
+              "type": "string"
+            },
+            "by": {
+              "title": "By",
+              "type": "string"
+            },
+            "reason": {
+              "title": "Reason",
+              "type": "string"
+            }
+          },
+          "required": [
+            "article_id",
+            "by",
+            "reason"
+          ],
+          "title": "ArticleRejected",
           "type": "object"
         }
       }
@@ -1515,6 +1608,42 @@
             "stage"
           ],
           "title": "CycleStarted",
+          "type": "object"
+        }
+      }
+    },
+    "DISTRIBUTION_CREATED": {
+      "1": {
+        "persistence": "persisted",
+        "payload": {
+          "additionalProperties": false,
+          "properties": {
+            "article_id": {
+              "format": "uuid",
+              "title": "Article Id",
+              "type": "string"
+            },
+            "distribution_id": {
+              "format": "uuid",
+              "title": "Distribution Id",
+              "type": "string"
+            },
+            "channel": {
+              "title": "Channel",
+              "type": "string"
+            },
+            "status": {
+              "title": "Status",
+              "type": "string"
+            }
+          },
+          "required": [
+            "article_id",
+            "distribution_id",
+            "channel",
+            "status"
+          ],
+          "title": "DistributionCreated",
           "type": "object"
         }
       }

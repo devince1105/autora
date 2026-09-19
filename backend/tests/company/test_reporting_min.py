@@ -49,7 +49,7 @@ async def test_kpis_count_each_cost_once(db_session):
     assert kpis.revenue_today == Decimal("12.5")
     assert kpis.model_cost_today == Decimal("0.40")
     assert kpis.expenses_today == Decimal("2.40")
-    assert kpis.published_today is None, "not measured until articles exist"
+    assert kpis.published_today == 0  # counted from ARTICLE_PUBLISHED events (T-512)
     assert kpis.goal is None and kpis.currency == "USD" and kpis.as_of == NOW
 
 
@@ -90,5 +90,5 @@ async def test_kpis_endpoint(api, db_session):
     body = (await api.get(f"/api/companies/{company.id}/kpis")).json()
     assert isinstance(body["revenue_today"], str), "money stays a decimal string"
     assert Decimal(body["revenue_today"]) == Decimal("4.5") and body["currency"] == "USD"
-    assert body["published_today"] is None and body["goal"] is None
+    assert body["published_today"] == 0 and body["goal"] is None
     assert (await api.get(f"/api/companies/{uuid.uuid4()}/kpis")).status_code == 404
