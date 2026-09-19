@@ -166,7 +166,8 @@ test("a run in the office: badges move in order, hand-offs are walked, the strip
   });
   const res = await request.post(`${API_URL}/api/companies/${stack.companyId}/workflows`, {
     headers: { Authorization: `Bearer ${TOKEN}` },
-    data: { template: "echo.chain_v1", project_id: stack.projectId, params: { topic: "office e2e" } },
+    // the analyst's reply takes 3 s: one busy spell long enough to be seen at any frame rate
+    data: { template: "echo.chain_v1", project_id: stack.projectId, params: { topic: "office e2e", pause: { task: "echo_analyze", attempt: 1, seconds: 3 } } },
   });
   expect(res.status()).toBe(201);
 
@@ -176,9 +177,9 @@ test("a run in the office: badges move in order, hand-offs are walked, the strip
   const first = (name: string, states: string[]) => log.find((e) => e.text.startsWith(name) && states.some((s) => e.text.endsWith(s)))?.t ?? Infinity;
   const busy = ["思考中", "工作中", "檢查中"];
   // Tags update in the frame loop. On real hardware every busy spell shows; under CI's software
-  // rendering a frame can outlast a quick step, so there at least one busy spell must show.
+  // rendering a frame can outlast a quick step, so there the analyst's 3 s spell must show.
   const worked = ["Rae", "Ana", "Wren"].filter((name) => first(name, busy) < first(name, ["已完成"]));
-  expect(worked.length).toBeGreaterThanOrEqual(process.env.CI ? 1 : 3);
+  expect(worked).toEqual(process.env.CI ? expect.arrayContaining(["Ana"]) : ["Rae", "Ana", "Wren"]);
   expect(first("Rae", ["已完成"])).toBeLessThan(first("Ana", ["已完成"]));
   expect(first("Ana", ["已完成"])).toBeLessThan(first("Wren", ["已完成"]));
   // two hand-offs (researcher -> analyst, analyst -> writer), each walked
