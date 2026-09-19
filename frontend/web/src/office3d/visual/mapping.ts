@@ -48,6 +48,9 @@ export const ROLE_LABEL: Record<string, string> = {
   ceo: "執行長",
 };
 
+/** Workflow steps no agent runs (T-514) that an agent can be waiting on. */
+const STEP_LABEL: Record<string, string> = { human: "人工審批", system: "系統" };
+
 const TOOL_LABEL: Record<string, string> = {
   web_search: "搜尋",
   fetch_url: "讀取網頁",
@@ -89,7 +92,7 @@ function waiting(detail: Record<string, unknown>): VisualState {
   }
   if (reason === "upstream") {
     const roles = Array.isArray(detail.waiting_on_roles) ? (detail.waiting_on_roles as unknown[]).filter((r) => typeof r === "string") : [];
-    const who = roles.map((r) => ROLE_LABEL[r as string] ?? (r as string)).join("、");
+    const who = roles.map((r) => ROLE_LABEL[r as string] ?? STEP_LABEL[r as string] ?? (r as string)).join("、");
     return { pose: "sit_idle", screen: "dim", deskLight: "on", badge: { text: who ? `等待${who}` : "等待上游", tone: "info" } };
   }
   if (reason === "rate_limit") {

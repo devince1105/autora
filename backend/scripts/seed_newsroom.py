@@ -1,6 +1,7 @@
 """Seed the demo newsroom and (optionally) start a story through the whole line (T-518).
 
     python backend/scripts/seed_newsroom.py                      # company, project, desks, sources
+    python backend/scripts/seed_newsroom.py --gather             # + poll and cluster (no start)
     python backend/scripts/seed_newsroom.py --start              # + poll, cluster, start a story
     python backend/scripts/seed_newsroom.py --start --pace 4 --revise
 
@@ -37,7 +38,9 @@ from autora.runtime.actor import Actor
 ACTOR = Actor.human("seed_newsroom")
 
 
-async def seed(start: bool, story_keyword: str, pace: float, revise: bool) -> dict[str, object]:
+async def seed(
+    start: bool, story_keyword: str, pace: float, revise: bool, gather: bool = False
+) -> dict[str, object]:
     settings = load_settings()
     now = (settings.model_provider, settings.tools_profile, settings.embed_provider)
     if now != ("fake", "fixture", "fake"):
@@ -55,12 +58,14 @@ async def seed(start: bool, story_keyword: str, pace: float, revise: bool) -> di
             "project_id": str(demo.project.id),
             "sources": [s.name for s in demo.sources],
         }
-        if start:
+        if start or gather:
             poller = SourcePoller(
                 fetcher=build_page_fetcher(settings), search=build_search_provider(settings)
             )
             desk = StoryDesk(build_embedder(settings), threshold=settings.story_match_threshold)
             stories = await gather_stories(session, demo.company.id, poller=poller, desk=desk)
+            out["stories"] = [s.title for s in stories]
+        if start:
             story = pick(stories, story_keyword)
             if story is None:
                 titles = [s.title for s in stories]
@@ -83,14 +88,15 @@ async def seed(start: bool, story_keyword: str, pace: float, revise: bool) -> di
 
 async def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
+    parser.add_argument("--gather", action="store_true", help="poll and cluster now (no start)")
     parser.add_argument("--start", action="store_true", help="poll, cluster and start a story")
     parser.add_argument("--story", default="microgrid", help="a word of the story's title")
     parser.add_argument("--pace", type=float, default=0, help="seconds per simulated reply")
     parser.add_argument("--revise", action="store_true", help="the first review asks a revision")
     args = parser.parse_args()
     try:
-        print(json.dumps(await seed(args.start, args.story, args.pace, args.revise), indent=2,
-                         ensure_ascii=False))  # fmt: skip
+        out = await seed(args.start, args.story, args.pace, args.revise, args.gather)
+        print(json.dumps(out, indent=2, ensure_ascii=False))
     finally:
         await dispose_engine()
 

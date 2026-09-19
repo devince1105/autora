@@ -177,6 +177,9 @@ async def _write(
 
     if isinstance(payload, ev.AgentRunCompleted) and payload.display_until is None:
         payload = payload.model_copy(update={"display_until": now + COMPLETED_DISPLAY})
+    if links and "links" in type(payload).model_fields:
+        # in the event too: the office's store builds the agent's detail from the events
+        payload = payload.model_copy(update={"links": [ev.Link(**link) for link in links]})
 
     envelope = await emit(
         session,

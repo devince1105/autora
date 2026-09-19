@@ -61,18 +61,19 @@
 | AGENT_CREATED | P | R | `{role, name, capabilities[]}` | Command |
 | AGENT_PAUSED / AGENT_RESUMED | P | R | `{by, reason}` | Command / Governance |
 | AGENT_RUN_STARTED | P | R | `{attempt, task_name, required_role, input_summary}` | AgentRunner |
-| AGENT_THINKING | P | R | `{phase, step_seq}` | AgentRunner（think 步驟開始） |
-| AGENT_WORKING | P | R | `{tool, tool_call_id, step_seq, progress?}` | AgentRunner（第一個 tool call 時；與 TOOL_CALLED 同 TX） |
+| AGENT_THINKING | P | R | `{phase, step_seq, links[]}` | AgentRunner（think 步驟開始） |
+| AGENT_WORKING | P | R | `{tool, tool_call_id, step_seq, progress?, links[]}` | AgentRunner（第一個 tool call 時；與 TOOL_CALLED 同 TX） |
 | AGENT_WAITING | P | R | `{reason, approval_id?, blocked_task_id?, waiting_on_roles?}` | AgentRunner / TaskManager |
 | AGENT_REVIEWING | P | R | `{phase, attempt, issues_count}` | AgentRunner（evaluate/repair） |
 | AGENT_IDLE | P | R | `{reason: failure_acknowledged\|waiting_cleared\|initialized}` | ActivityService（明確回到 IDLE；COMPLETED 顯示期滿不發此事件） |
-| AGENT_RUN_COMPLETED | P | R | `{output_summary, cost_usd, steps, duration_ms, handoff[], display_until?}` | AgentRunner |
+| AGENT_RUN_COMPLETED | P | R | `{output_summary, cost_usd, steps, duration_ms, handoff[], display_until?, links[]}` | AgentRunner |
 | AGENT_RUN_FAILED | P | R | `{error_class, message, attempt, final: bool}` | AgentRunner |
 | AGENT_RUN_ABORTED | P | R | `{reason: "budget"|"policy"|"timeout"|"human"}` | AgentRunner / CostGuard |
 | AGENT_STEP_PROGRESS | **E** | — | `{step_seq, tokens_so_far, progress?}` | AgentRunner（streaming 進度；最多 1/秒） |
 | AGENT_HEARTBEAT | **E** | — | `{run_id, alive_at}` | Worker |
 
 > `AGENT_THINKING / WORKING / WAITING / REVIEWING` 就是 `agent_activity` 的轉換事件。
+> `links[]`（`{label, href}`，T-520）：領域的 `activity_links` 給的產物連結，THINKING / WORKING / REVIEWING / RUN_COMPLETED 帶著，前端的即時狀態才有連結（`agent_activity.detail.links` 也有）。
 > 為什麼持久化：它們是 Trace 的骨幹（「14:22 開始搜尋」），也是重連 replay 的依據。每個 run 約 10–40 筆，成本可接受。
 
 ### 2.2 Tool

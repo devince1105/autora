@@ -267,8 +267,8 @@ async def test_think_act_evaluate_complete(world, blobs):
     ]
     assert events[1][1]["phase"] == "plan" and events[3][1]["phase"] == "reason"
     assert events[2][1] == {"tool": "web_search", "tool_call_id": events[2][1]["tool_call_id"],
-                            "step_seq": 1, "progress": None}  # fmt: skip
-    assert events[4][1] == {"phase": "evaluate", "attempt": 1, "issues_count": 0}
+                            "step_seq": 1, "progress": None, "links": []}  # fmt: skip
+    assert events[4][1] == {"phase": "evaluate", "attempt": 1, "issues_count": 0, "links": []}
     completed = events[5][1]
     assert Decimal(completed["cost_usd"]) == CALL_COST * 2 + Decimal("0.01")
     assert completed["steps"] == 4 and completed["output_summary"].startswith("{")
@@ -340,9 +340,9 @@ async def test_validator_issues_are_repaired_once(world):
     events = await _activity_events(world, claim.run.id)
     reviewing = [p for e, p in events if e == "AGENT_REVIEWING"]
     assert reviewing == [
-        {"phase": "evaluate", "attempt": 1, "issues_count": 1},
-        {"phase": "repair", "attempt": 1, "issues_count": 1},
-        {"phase": "evaluate", "attempt": 2, "issues_count": 0},
+        {"phase": "evaluate", "attempt": 1, "issues_count": 1, "links": []},
+        {"phase": "repair", "attempt": 1, "issues_count": 1, "links": []},
+        {"phase": "evaluate", "attempt": 2, "issues_count": 0, "links": []},
     ]
     assert [e for e, _ in events].count("AGENT_THINKING") == 1, "a repair call is not a think"
     repair_request = world["fake"].requests[1]

@@ -30,6 +30,8 @@ describe("the 02 §7 table", () => {
     ["WORKING", { tool: "web_search" }, ["sit_type", "active", "on", "工作中", "active", "搜尋…"]],
     ["WAITING", { reason: "approval" }, ["sit_idle", "alert", "blink_amber", "等待審批", "warn", "等待審批…"]],
     ["WAITING", { reason: "upstream", waiting_on_roles: ["researcher"] }, ["sit_idle", "dim", "on", "等待研究員", "info", null]],
+    ["WAITING", { reason: "upstream", waiting_on_roles: ["system"] }, ["sit_idle", "dim", "on", "等待系統", "info", null]],
+    ["WAITING", { reason: "upstream", waiting_on_roles: ["human"] }, ["sit_idle", "dim", "on", "等待人工審批", "info", null]],
     ["WAITING", { reason: "budget" }, ["sit_idle", "alert", "blink_amber", "預算不足", "warn", null]],
     ["REVIEWING", { phase: "evaluate" }, ["sit_read", "active", "on", "檢查中", "info", "檢查輸出…"]],
     ["COMPLETED", { output_summary: "wrote note" }, ["stand", "active", "on", "已完成", "success", "wrote note"]],

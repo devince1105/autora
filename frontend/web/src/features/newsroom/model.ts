@@ -77,8 +77,12 @@ export function orderedClaims(claims: readonly ClaimView[], numbers: Map<string,
 
 export function formatTime(iso: string): string {
   return new Intl.DateTimeFormat("zh-TW", {
-    dateStyle: "short",
-    timeStyle: "short",
+    year: "numeric",
+    month: "numeric",
+    day: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+    hourCycle: "h23",
     timeZone: "Asia/Taipei",
   }).format(new Date(iso));
 }

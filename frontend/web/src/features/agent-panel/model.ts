@@ -45,6 +45,7 @@ export const ROLE_LABEL: Record<string, string> = {
   marketing: "行銷",
   ceo: "執行長",
   human: "人工審批",
+  system: "系統",
 };
 
 export interface Progress {

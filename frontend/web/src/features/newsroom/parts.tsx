@@ -126,7 +126,7 @@ export function EventList({ events }: { events: readonly EventEnvelope[] }) {
         const described = describeEvent(event.event_type, event.payload);
         return (
           <li key={event.event_id} className="flex gap-3">
-            <time className="w-28 shrink-0 text-muted" dateTime={event.occurred_at}>
+            <time className="w-36 shrink-0 whitespace-nowrap text-muted tabular-nums" dateTime={event.occurred_at}>
               {formatTime(event.occurred_at)}
             </time>
             <span className={`mt-1.5 size-2 shrink-0 rounded-full ${TONE_DOT[described.tone]}`} aria-hidden="true" />

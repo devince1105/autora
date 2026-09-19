@@ -31,6 +31,13 @@ class Handoff(_Part):
     task_id: uuid.UUID
 
 
+class Link(_Part):
+    """Where an agent's work can be seen (a domain's ``activity_links``, T-514), e.g. a draft."""
+
+    label: str
+    href: str
+
+
 class ProducedRef(_Part):
     """A domain artifact created by a tool call, e.g. {type: "evidence", id: ...}."""
 
@@ -98,6 +105,7 @@ class AgentRunStarted(EventPayload):
 class AgentThinking(EventPayload):
     phase: ThinkPhase
     step_seq: int = Field(ge=0)
+    links: list[Link] = []
 
 
 @event("AGENT_WORKING")
@@ -106,6 +114,7 @@ class AgentWorking(EventPayload):
     tool_call_id: str
     step_seq: int = Field(ge=0)
     progress: Progress | None = None
+    links: list[Link] = []
 
 
 @event("AGENT_WAITING")
@@ -121,6 +130,7 @@ class AgentReviewing(EventPayload):
     phase: ReviewPhase
     attempt: int = Field(ge=1)
     issues_count: int = Field(ge=0)
+    links: list[Link] = []
 
 
 @event("AGENT_RUN_COMPLETED")
@@ -131,6 +141,7 @@ class AgentRunCompleted(EventPayload):
     duration_ms: int = Field(ge=0)
     handoff: list[Handoff] = []
     display_until: datetime | None = None
+    links: list[Link] = []
 
 
 @event("AGENT_RUN_FAILED")

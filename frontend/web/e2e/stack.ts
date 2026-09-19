@@ -19,6 +19,9 @@ interface Seeded {
   database_url: string;
   company_id: string;
   project_id: string;
+  /** The demo newsroom (T-520): its fixture feeds read and clustered into stories. */
+  newsroom_company_id: string;
+  newsroom_project_id: string;
 }
 
 /** A backend process whose output is kept, so tests can wait for log lines. */
@@ -82,11 +85,13 @@ export class Stack {
       AUTORA_ENV_FILE: "/dev/null",
       DATABASE_URL: seeded.database_url,
       MODEL_PROVIDER: "fake",
+      TOOLS_PROFILE: "fixture",
+      EMBED_PROVIDER: "fake",
       API_BEARER_TOKEN: TOKEN,
       CORS_ORIGINS: JSON.stringify([`http://localhost:${WEB_PORT}`]),
       BLOB_STORE_DIR: mkdtempSync(join(tmpdir(), "autora-e2e-blobs-")),
       WORKER_ID: "e2e-worker",
-      WORKER_COMPANY_IDS: JSON.stringify([seeded.company_id]),
+      WORKER_COMPANY_IDS: JSON.stringify([seeded.company_id, seeded.newsroom_company_id]),
       WORKER_POLL_SECONDS: "0.2",
       PYTHONUNBUFFERED: "1",
     };
@@ -100,6 +105,10 @@ export class Stack {
 
   get projectId(): string {
     return this.seeded.project_id;
+  }
+
+  get newsroomCompanyId(): string {
+    return this.seeded.newsroom_company_id;
   }
 
   static async start(): Promise<Stack> {

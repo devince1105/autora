@@ -3,9 +3,10 @@
     .venv/bin/python backend/scripts/e2e_prepare.py
 
 Uses ``<dev database>_e2e`` (never the dev database): creates it if missing, empties it, applies
-the migrations, seeds the echo company (``seed_echo.py``), and prints one JSON line:
-``{"database_url": ..., "company_id": ..., "project_id": ...}``. The browser tests then start
-their own API and worker against that database.
+the migrations, seeds the echo company (``seed_echo.py``) and the demo newsroom with its stories
+(``seed_newsroom.py --gather``), and prints one JSON line: ``{"database_url": ...,
+"company_id": ..., "project_id": ..., "newsroom_company_id": ..., "newsroom_project_id": ...}``.
+The browser tests then start their own API and worker against that database.
 """
 
 import asyncio
@@ -68,12 +69,24 @@ def main() -> None:
         text=True,
     )
     company = json.loads(seeded.stdout)
+    # the demo newsroom (T-520): its sources read and clustered into stories, none started
+    newsroom = json.loads(
+        subprocess.run(
+            [sys.executable, str(BACKEND / "scripts" / "seed_newsroom.py"), "--gather"],
+            env=env | {"TOOLS_PROFILE": "fixture", "EMBED_PROVIDER": "fake"},
+            check=True,
+            capture_output=True,
+            text=True,
+        ).stdout
+    )
     print(
         json.dumps(
             {
                 "database_url": url,
                 "company_id": company["company_id"],
                 "project_id": company["project_id"],
+                "newsroom_company_id": newsroom["company_id"],
+                "newsroom_project_id": newsroom["project_id"],
             }
         )
     )

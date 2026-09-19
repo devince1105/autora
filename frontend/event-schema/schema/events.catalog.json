@@ -329,6 +329,28 @@
       "1": {
         "persistence": "persisted",
         "payload": {
+          "$defs": {
+            "Link": {
+              "additionalProperties": false,
+              "description": "Where an agent's work can be seen (a domain's ``activity_links``, T-514), e.g. a draft.",
+              "properties": {
+                "label": {
+                  "title": "Label",
+                  "type": "string"
+                },
+                "href": {
+                  "title": "Href",
+                  "type": "string"
+                }
+              },
+              "required": [
+                "label",
+                "href"
+              ],
+              "title": "Link",
+              "type": "object"
+            }
+          },
           "additionalProperties": false,
           "properties": {
             "phase": {
@@ -348,6 +370,14 @@
               "minimum": 0,
               "title": "Issues Count",
               "type": "integer"
+            },
+            "links": {
+              "default": [],
+              "items": {
+                "$ref": "#/$defs/Link"
+              },
+              "title": "Links",
+              "type": "array"
             }
           },
           "required": [
@@ -426,6 +456,26 @@
               ],
               "title": "Handoff",
               "type": "object"
+            },
+            "Link": {
+              "additionalProperties": false,
+              "description": "Where an agent's work can be seen (a domain's ``activity_links``, T-514), e.g. a draft.",
+              "properties": {
+                "label": {
+                  "title": "Label",
+                  "type": "string"
+                },
+                "href": {
+                  "title": "Href",
+                  "type": "string"
+                }
+              },
+              "required": [
+                "label",
+                "href"
+              ],
+              "title": "Link",
+              "type": "object"
             }
           },
           "additionalProperties": false,
@@ -477,6 +527,14 @@
               ],
               "default": null,
               "title": "Display Until"
+            },
+            "links": {
+              "default": [],
+              "items": {
+                "$ref": "#/$defs/Link"
+              },
+              "title": "Links",
+              "type": "array"
             }
           },
           "required": [
@@ -642,6 +700,28 @@
       "1": {
         "persistence": "persisted",
         "payload": {
+          "$defs": {
+            "Link": {
+              "additionalProperties": false,
+              "description": "Where an agent's work can be seen (a domain's ``activity_links``, T-514), e.g. a draft.",
+              "properties": {
+                "label": {
+                  "title": "Label",
+                  "type": "string"
+                },
+                "href": {
+                  "title": "Href",
+                  "type": "string"
+                }
+              },
+              "required": [
+                "label",
+                "href"
+              ],
+              "title": "Link",
+              "type": "object"
+            }
+          },
           "additionalProperties": false,
           "properties": {
             "phase": {
@@ -657,6 +737,14 @@
               "minimum": 0,
               "title": "Step Seq",
               "type": "integer"
+            },
+            "links": {
+              "default": [],
+              "items": {
+                "$ref": "#/$defs/Link"
+              },
+              "title": "Links",
+              "type": "array"
             }
           },
           "required": [
@@ -732,6 +820,26 @@
         "persistence": "persisted",
         "payload": {
           "$defs": {
+            "Link": {
+              "additionalProperties": false,
+              "description": "Where an agent's work can be seen (a domain's ``activity_links``, T-514), e.g. a draft.",
+              "properties": {
+                "label": {
+                  "title": "Label",
+                  "type": "string"
+                },
+                "href": {
+                  "title": "Href",
+                  "type": "string"
+                }
+              },
+              "required": [
+                "label",
+                "href"
+              ],
+              "title": "Link",
+              "type": "object"
+            },
             "Progress": {
               "additionalProperties": false,
               "properties": {
@@ -791,6 +899,14 @@
                 }
               ],
               "default": null
+            },
+            "links": {
+              "default": [],
+              "items": {
+                "$ref": "#/$defs/Link"
+              },
+              "title": "Links",
+              "type": "array"
             }
           },
           "required": [

@@ -17,6 +17,12 @@ export const Handoff = z.object({
 });
 export type Handoff = z.infer<typeof Handoff>;
 
+export const Link = z.object({
+  label: z.string(),
+  href: z.string(),
+});
+export type Link = z.infer<typeof Link>;
+
 export const ProducedRef = z.object({
   type: z.string(),
   id: z.uuid(),
@@ -119,6 +125,7 @@ export const AgentReviewingV1Payload = z.object({
   phase: z.enum(["evaluate", "repair"]),
   attempt: z.number().int().min(1),
   issues_count: z.number().int().min(0),
+  links: z.array(Link).default(() => ([])),
 });
 export type AgentReviewingV1Payload = z.infer<typeof AgentReviewingV1Payload>;
 export const AgentReviewingV1Event = z.object({
@@ -148,6 +155,7 @@ export const AgentRunCompletedV1Payload = z.object({
   duration_ms: z.number().int().min(0),
   handoff: z.array(Handoff).default(() => ([])),
   display_until: z.iso.datetime({ offset: true }).nullable().default(null),
+  links: z.array(Link).default(() => ([])),
 });
 export type AgentRunCompletedV1Payload = z.infer<typeof AgentRunCompletedV1Payload>;
 export const AgentRunCompletedV1Event = z.object({
@@ -201,6 +209,7 @@ export const AgentStepProgressV1Event = z.object({
 export const AgentThinkingV1Payload = z.object({
   phase: z.enum(["plan", "reason", "finalize"]),
   step_seq: z.number().int().min(0),
+  links: z.array(Link).default(() => ([])),
 });
 export type AgentThinkingV1Payload = z.infer<typeof AgentThinkingV1Payload>;
 export const AgentThinkingV1Event = z.object({
@@ -229,6 +238,7 @@ export const AgentWorkingV1Payload = z.object({
   tool_call_id: z.string(),
   step_seq: z.number().int().min(0),
   progress: Progress.nullable().default(null),
+  links: z.array(Link).default(() => ([])),
 });
 export type AgentWorkingV1Payload = z.infer<typeof AgentWorkingV1Payload>;
 export const AgentWorkingV1Event = z.object({
