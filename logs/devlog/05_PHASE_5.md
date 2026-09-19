@@ -21,7 +21,7 @@
 | T-505 | Claims / ClaimEvidence + 工具（`create_claim`、`link_evidence`，引文定位） | T-504 | ✅ |
 | T-506 | Researcher 代理（提示、`ResearchNote` schema、validators） | T-211、T-500、T-502 | ⏳ |
 | T-507 | Analyst 代理（`AnalysisNote`、claims） | T-505 | ⏳ |
-| T-508 | Articles / ArticleVersions（lang、draft_group）+ `write_draft` 工具；雙語 claim 集合一致 | T-504 | ⏳ |
+| T-508 | Articles / ArticleVersions（lang、draft_group）+ `write_draft` 工具；雙語 claim 集合一致 | T-504 | ✅ |
 | T-509 | Writer 代理（雙語草稿） | T-507、T-508 | ⏳ |
 | T-510 | 確定性 fact-check validators + `run_fact_check` 工具 | T-505、T-508 | ⏳ |
 | T-511 | Editor 代理（`EditorReview`、`request_revision` / `accept_draft`） | T-509、T-510 | ⏳ |
@@ -214,6 +214,33 @@ T-500 → T-501 → T-502 → T-503 → T-504 → T-505 → T-508 → T-510 → 
 ### 驗證
 - `tests/newsroom/test_claims.py`（13 個）：引文定位（原文位置、空白 / 引號 / 破折號差異、拼字 / 大小寫 / 數字 / 內容不同都找不到、中文與中文空白、第一次出現、長度限制）；`create_claim` 附兩段引文（中英各一，存的是原文、位置正確、事件帶證據、run 正確）；重試回傳同一個主張；一段找不到就整個不寫；太長的引文、別家公司的題材與證據；之後補引文、重複連結只存一次、背景引文、意見不需證據、`list_claims`；權限。
 - 後端 754 個測試通過（含權限矩陣）；`ruff`、`lint-imports`、`make db-check` 通過；event-schema 8 個、web 210 個測試與 typecheck、lint 通過。
+
+---
+
+## T-508 · 文章、雙語版本與 `write_draft`
+
+### 做了什麼
+- **資料表**（migration `0017`）：
+  - `articles`：一個題材一篇；全域唯一的網址代稱（`slug`，公開站 `/{lang}/articles/{slug}` 用；取英文標題的英數字 + 文章 ID 的末 6 碼，沒有英文就是 `article-xxxxxx`）、主語言標題、狀態、主語言、已發布語言、目前的草稿群組、被要求修改的次數、發布時間。
+  - `article_versions`：每個版本 × 語言一筆；**同一次寫稿的各語言共用 `draft_group_id` 與版本號**；本文是區塊清單（`heading` / `paragraph` / `quote`，各帶 `claim_ids`）；記錄引用的主張、次要語言是哪個主語言版本的翻譯、修改說明、寫作的任務與執行。
+- **狀態機** `ARTICLE_FSM`（照 platform/02 §6）：DRAFT → IN_REVIEW → APPROVED → PUBLISHED → ARCHIVED；IN_REVIEW → DRAFT（退回修改）或 REJECTED。審稿、核准、發布由 T-511、T-512 推進。
+- **語言政策**（D-002，`domains/newsroom/policy.py` 的 `language_policy`）：讀公司政策 `newsroom.primary_lang`、`newsroom.langs`、`newsroom.require_all_langs`，沒設就用預設（zh-TW；zh-TW 與 en；兩語都要）；主語言一定在語言清單內。
+- **寫稿檢查**（`domains/newsroom/articles.py` 的 `check_draft`，純函式，**一次列出所有問題**讓模型一次改完）：
+  - 語言：主語言必須有、只能用政策內的語言、每種一次、`require_all_langs` 時全部都要；
+  - 段落與引述區塊必須引用主張，標題不引用；引述區塊最多 500 字；
+  - 引用的主張必須屬於這個題材、沒有被查核駁回；
+  - **各語言引用的主張集合必須相同**（雙語規則：翻譯共用同一組事實基礎，查核只需驗一次），不同時列出各自多出的主張；
+  - 題材已放棄 / 忽略 / 發布時不能寫；文章不在 DRAFT（例如編輯審稿中）時不能寫。
+- **工具**（`domains/newsroom/tools/drafts.py`）：
+  - `write_draft`（write，寫手）：一次寫所有語言；主語言先寫、次要語言標為它的翻譯；第一份草稿建立文章並發 `ARTICLE_CREATED`，之後（退回修改）是同一篇的新版本；重試回傳同一份草稿；每個語言版本都是 `produced`（AC-7 的草稿連結）。檢查不過就不寫，錯誤訊息列出全部問題。
+  - `read_draft`（read，寫手 / 編輯 / 行銷 / CEO）：讀最新草稿或指定版本，附上引用的主張（本文、類型、狀態）；用文章 ID 或題材 ID 找；只能讀自己公司的。
+- 時間軸：「文章初稿：zh-TW / en」。
+
+### 驗證
+- `tests/newsroom/test_articles.py`（17 個）：
+  - 規則（純函式）：合格的雙語稿；缺英文、缺主語言、政策外語言、重複語言、段落沒引用、標題有引用、別的題材的主張、中英引用不同（訊息列出差異）；一次回報全部問題（題材已放棄、審稿中、引述過長、別題材的主張、被駁回的主張、中英不一致）；語言政策的預設與覆寫；slug；狀態機。
+  - 工具：雙語初稿（文章、版本、群組、翻譯關係、主張集合、事件）、修改後的第 2 版（只有一次 `ARTICLE_CREATED`）、`read_draft` 最新與指定版本；重試回傳同一份、不合格的稿什麼都不寫；審稿中不能寫；公司政策改為不要求全部語言後只寫中文可以；別家公司不能寫也不能讀、`read_draft` 參數檢查；權限（寫手可寫、分析師不可、編輯可讀）。
+- 後端 779 個測試通過；`ruff`、`lint-imports`、`make db-check` 通過；event-schema 8 個、web 211 個測試與 typecheck、lint 通過。
 
 ---
 

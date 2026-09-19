@@ -37,6 +37,10 @@ describe("describeEvent: newsroom sources and evidence (T-501, T-502)", () => {
     expect(describeEvent("CLAIM_CREATED", { claim_type: "opinion", evidence_ids: [] }).summary).toBe("意見・尚無證據");
   });
 
+  it("an article's first draft lists its languages (T-508)", () => {
+    expect(describeEvent("ARTICLE_CREATED", { langs: ["zh-TW", "en"] })).toMatchObject({ label: "文章初稿", summary: "zh-TW / en" });
+  });
+
   it("an unknown type is shown as itself", () => {
     expect(describeEvent("SOMETHING_NEW", {})).toEqual({ label: "SOMETHING_NEW", tone: "neutral", summary: null, known: false });
   });

@@ -1,7 +1,7 @@
 """Newsroom tables (logs/platform/05_NEWSROOM_DOMAIN.md §1, 10_DATABASE_SCHEMA.md).
 
-Phase 5 adds them task by task; T-501: sources and the items polled from them; T-502: evidence;
-T-503: evidence chunks with embeddings; T-504: stories; T-505: claims and their evidence.
+Phase 5 adds them task by task: sources and polled items (T-501), evidence (T-502) and its
+chunks (T-503), stories (T-504), claims and their evidence (T-505), articles and versions (T-508).
 """
 
 from __future__ import annotations
@@ -13,7 +13,9 @@ from enum import StrEnum
 from typing import Any
 
 from sqlalchemy import CheckConstraint, Date, ForeignKey, Index, Numeric, UniqueConstraint, text
+from sqlalchemy.dialects.postgresql import ARRAY, JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy.types import Text
 
 from autora.db.base import Base, CreatedAtMixin, IdMixin, TimestampMixin, check_in
 from autora.db.vector import HalfVector
@@ -283,3 +285,74 @@ class ClaimEvidence(IdMixin, CreatedAtMixin, Base):
     quote_end: Mapped[int]
     support_type: Mapped[str]
     run_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("agent_runs.id"))
+
+
+class ArticleState(StrEnum):
+    """platform/02 §6: DRAFT -> IN_REVIEW -> APPROVED -> PUBLISHED -> ARCHIVED;
+    IN_REVIEW -> DRAFT (revise, at most twice) | REJECTED."""
+
+    DRAFT = "DRAFT"
+    IN_REVIEW = "IN_REVIEW"
+    APPROVED = "APPROVED"
+    PUBLISHED = "PUBLISHED"
+    ARCHIVED = "ARCHIVED"
+    REJECTED = "REJECTED"
+
+
+class Article(IdMixin, TimestampMixin, Base):
+    """What gets published for a story (T-508): one per story, in several languages. Its text
+    lives in versions; ``current_draft_group_id`` is the latest draft (one version per language)."""
+
+    __tablename__ = "articles"
+    __table_args__ = (
+        check_in("state", ArticleState),
+        UniqueConstraint("story_id"),
+        UniqueConstraint("slug"),
+        CheckConstraint("revision_count >= 0", name="revision_count_non_negative"),
+    )
+
+    company_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("companies.id"))
+    story_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("stories.id"))
+    slug: Mapped[str]
+    """The public URL's name: /{lang}/articles/{slug}."""
+    title: Mapped[str]
+    """In the primary language (each version has its own title)."""
+    state: Mapped[str] = mapped_column(server_default=ArticleState.DRAFT.value)
+    primary_lang: Mapped[str]
+    published_langs: Mapped[list[str]] = mapped_column(ARRAY(Text), server_default="{}")
+    current_draft_group_id: Mapped[uuid.UUID | None]
+    revision_count: Mapped[int] = mapped_column(server_default="0")
+    """Revisions the editor asked for (at most two, then the story is dropped)."""
+    published_at: Mapped[datetime | None]
+
+
+class ArticleVersion(IdMixin, CreatedAtMixin, Base):
+    """One language of one draft. The versions written together share ``draft_group_id`` and
+    ``version`` and cite the same claims (checked when written). ``body`` is a list of blocks:
+    ``{"type": "heading" | "paragraph" | "quote", "text": ..., "claim_ids": [...]}``."""
+
+    __tablename__ = "article_versions"
+    __table_args__ = (
+        UniqueConstraint("article_id", "version", "lang"),
+        Index("ix_article_versions_group", "draft_group_id"),
+    )
+
+    company_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("companies.id"))
+    article_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("articles.id"))
+    version: Mapped[int]
+    lang: Mapped[str]
+    draft_group_id: Mapped[uuid.UUID]
+    title: Mapped[str]
+    summary: Mapped[str | None]
+    body: Mapped[list[dict[str, Any]]] = mapped_column(JSONB)
+    claim_ids: Mapped[list[uuid.UUID]] = mapped_column(ARRAY(UUID(as_uuid=True)))
+    """Every claim the version cites (the same set in every language of the group)."""
+    translation_of_version_id: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey("article_versions.id")
+    )
+    """For a secondary language: the primary-language version of the same draft."""
+    change_summary: Mapped[str | None]
+    idempotency_key: Mapped[str | None] = mapped_column(unique=True)
+    """On the primary-language row: the writing call's key (a retry returns the same draft)."""
+    task_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("tasks.id"))
+    author_run_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("agent_runs.id"))

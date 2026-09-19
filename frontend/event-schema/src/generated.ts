@@ -294,6 +294,21 @@ export const ApprovalRequestedV1Event = z.object({
   payload: ApprovalRequestedV1Payload,
 });
 
+export const ArticleCreatedV1Payload = z.object({
+  article_id: z.uuid(),
+  story_id: z.uuid(),
+  version_id: z.uuid(),
+  langs: z.array(z.string()),
+  slug: z.string(),
+});
+export type ArticleCreatedV1Payload = z.infer<typeof ArticleCreatedV1Payload>;
+export const ArticleCreatedV1Event = z.object({
+  ...envelopeFields,
+  event_type: z.literal("ARTICLE_CREATED"),
+  schema_version: z.literal(1),
+  payload: ArticleCreatedV1Payload,
+});
+
 export const BudgetAllocatedV1Payload = z.object({
   budget_id: z.uuid(),
   project_id: z.uuid().nullable().default(null),
@@ -973,6 +988,7 @@ export const EventEnvelope = z.discriminatedUnion("event_type", [
   ApprovalExpiredV1Event,
   ApprovalRejectedV1Event,
   ApprovalRequestedV1Event,
+  ArticleCreatedV1Event,
   BudgetAllocatedV1Event,
   BudgetExhaustedV1Event,
   ClaimCreatedV1Event,
@@ -1047,6 +1063,7 @@ export const EVENT_TYPES = [
   "APPROVAL_EXPIRED",
   "APPROVAL_REJECTED",
   "APPROVAL_REQUESTED",
+  "ARTICLE_CREATED",
   "BUDGET_ALLOCATED",
   "BUDGET_EXHAUSTED",
   "CLAIM_CREATED",

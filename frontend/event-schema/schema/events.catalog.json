@@ -997,6 +997,52 @@
         }
       }
     },
+    "ARTICLE_CREATED": {
+      "1": {
+        "persistence": "persisted",
+        "payload": {
+          "additionalProperties": false,
+          "description": "The first draft of a story's article (later drafts are new versions of it).",
+          "properties": {
+            "article_id": {
+              "format": "uuid",
+              "title": "Article Id",
+              "type": "string"
+            },
+            "story_id": {
+              "format": "uuid",
+              "title": "Story Id",
+              "type": "string"
+            },
+            "version_id": {
+              "format": "uuid",
+              "title": "Version Id",
+              "type": "string"
+            },
+            "langs": {
+              "items": {
+                "type": "string"
+              },
+              "title": "Langs",
+              "type": "array"
+            },
+            "slug": {
+              "title": "Slug",
+              "type": "string"
+            }
+          },
+          "required": [
+            "article_id",
+            "story_id",
+            "version_id",
+            "langs",
+            "slug"
+          ],
+          "title": "ArticleCreated",
+          "type": "object"
+        }
+      }
+    },
     "BUDGET_ALLOCATED": {
       "1": {
         "persistence": "persisted",

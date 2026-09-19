@@ -1,7 +1,7 @@
 """Newsroom events (logs/3d-office/03_EVENT_MODEL.md §2.5, platform/11_EVENT_CATALOG.md).
 
 Added with the task that first emits them; T-501: the source poller's; T-502: evidence;
-T-504: stories; T-505: claims.
+T-504: stories; T-505: claims; T-508: articles.
 """
 
 from __future__ import annotations
@@ -84,3 +84,15 @@ class ClaimCreated(EventPayload):
     claim_type: str
     evidence_ids: list[uuid.UUID] = []
     """Evidence quoted when the claim was made (more can be linked later)."""
+
+
+@event("ARTICLE_CREATED")
+class ArticleCreated(EventPayload):
+    """The first draft of a story's article (later drafts are new versions of it)."""
+
+    article_id: uuid.UUID
+    story_id: uuid.UUID
+    version_id: uuid.UUID
+    """The primary-language version of the first draft."""
+    langs: list[str]
+    slug: str

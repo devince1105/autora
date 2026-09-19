@@ -8,11 +8,47 @@ approval after a passed fact-check) is only allowed when the company policy
 from __future__ import annotations
 
 from collections.abc import Mapping
+from dataclasses import dataclass
 from typing import Any
 
 from autora.runtime.policy import Limit, PolicyEngine, Rule, allow
 
 AUTO_APPROVE_KEY = "newsroom.auto_approve_if_fact_check_passed"
+
+# D-002: which languages articles are written and published in (company policy, not code)
+PRIMARY_LANG_KEY = "newsroom.primary_lang"
+LANGS_KEY = "newsroom.langs"
+REQUIRE_ALL_LANGS_KEY = "newsroom.require_all_langs"
+LANGUAGE_DEFAULTS = {
+    PRIMARY_LANG_KEY: "zh-TW",
+    LANGS_KEY: ["zh-TW", "en"],
+    REQUIRE_ALL_LANGS_KEY: True,
+}
+
+
+@dataclass(frozen=True)
+class LanguagePolicy:
+    primary: str
+    langs: tuple[str, ...]
+    require_all: bool
+
+
+def language_policy(policies: Mapping[str, Any]) -> LanguagePolicy:
+    """The company's language rules (D-002), defaults filled in; the primary is always a
+    language."""
+    primary = policies.get(PRIMARY_LANG_KEY) or LANGUAGE_DEFAULTS[PRIMARY_LANG_KEY]
+    langs = list(policies.get(LANGS_KEY) or LANGUAGE_DEFAULTS[LANGS_KEY])
+    if primary not in langs:
+        langs.insert(0, primary)
+    require_all = policies.get(REQUIRE_ALL_LANGS_KEY)
+    return LanguagePolicy(
+        primary=primary,
+        langs=tuple(langs),
+        require_all=LANGUAGE_DEFAULTS[REQUIRE_ALL_LANGS_KEY]
+        if require_all is None
+        else bool(require_all),
+    )
+
 
 WRITERS_AND_READERS = ("researcher", "analyst", "writer", "editor", "marketing", "ceo")
 
