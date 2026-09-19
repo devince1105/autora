@@ -181,8 +181,9 @@ async def test_add_source_validates_and_creates_one_schedule(db_session):
     schedules = (
         await db_session.scalars(select(Schedule).where(Schedule.company_id == company.id))
     ).all()
-    assert [(s.name, s.handler, s.cron) for s in schedules] == [
-        (POLL_SCHEDULE, POLL_SCHEDULE, "*/5 * * * *")
+    assert sorted((s.name, s.handler, s.cron) for s in schedules) == [
+        ("newsroom.cluster_stories", "newsroom.cluster_stories", "2-59/5 * * * *"),
+        (POLL_SCHEDULE, POLL_SCHEDULE, "*/5 * * * *"),
     ]
 
     bad = [

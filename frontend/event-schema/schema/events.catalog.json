@@ -2161,6 +2161,110 @@
         }
       }
     },
+    "STORY_DISCOVERED": {
+      "1": {
+        "persistence": "persisted",
+        "payload": {
+          "additionalProperties": false,
+          "properties": {
+            "story_id": {
+              "format": "uuid",
+              "title": "Story Id",
+              "type": "string"
+            },
+            "title": {
+              "title": "Title",
+              "type": "string"
+            },
+            "score": {
+              "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+              "title": "Score",
+              "type": "string"
+            }
+          },
+          "required": [
+            "story_id",
+            "title",
+            "score"
+          ],
+          "title": "StoryDiscovered",
+          "type": "object"
+        }
+      }
+    },
+    "STORY_DROPPED": {
+      "1": {
+        "persistence": "persisted",
+        "payload": {
+          "additionalProperties": false,
+          "properties": {
+            "story_id": {
+              "format": "uuid",
+              "title": "Story Id",
+              "type": "string"
+            },
+            "title": {
+              "title": "Title",
+              "type": "string"
+            },
+            "score": {
+              "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+              "title": "Score",
+              "type": "string"
+            },
+            "reason": {
+              "title": "Reason",
+              "type": "string"
+            }
+          },
+          "required": [
+            "story_id",
+            "title",
+            "score",
+            "reason"
+          ],
+          "title": "StoryDropped",
+          "type": "object"
+        }
+      }
+    },
+    "STORY_SELECTED": {
+      "1": {
+        "persistence": "persisted",
+        "payload": {
+          "additionalProperties": false,
+          "properties": {
+            "story_id": {
+              "format": "uuid",
+              "title": "Story Id",
+              "type": "string"
+            },
+            "title": {
+              "title": "Title",
+              "type": "string"
+            },
+            "score": {
+              "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+              "title": "Score",
+              "type": "string"
+            },
+            "project_id": {
+              "format": "uuid",
+              "title": "Project Id",
+              "type": "string"
+            }
+          },
+          "required": [
+            "story_id",
+            "title",
+            "score",
+            "project_id"
+          ],
+          "title": "StorySelected",
+          "type": "object"
+        }
+      }
+    },
     "STRATEGY_UPDATED": {
       "1": {
         "persistence": "persisted",

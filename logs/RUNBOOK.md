@@ -404,6 +404,8 @@ WHERE company_id = (SELECT id FROM companies WHERE slug = 'echo-demo') AND role 
 - `TOOLS_PROFILE=fixture` 時只讀 `backend/autora/domains/newsroom/fixtures/feeds/` 裡的虛構 feed；`live` 才連網。連網時只會抓公開網址，`localhost`、內網、雲端 metadata 位址一律拒絕。可調：`FETCH_TIMEOUT_SECONDS`（15）、`FETCH_MAX_BYTES`（5000000）。
 - 新增來源的頁面與 API 在 T-517 才會加入；目前只能從程式呼叫 `autora.domains.newsroom.sources.add_source`。
 
+**題材（Story，T-504）**：輪詢到的項目每 5 分鐘（比輪詢晚 2 分鐘）自動分群成「題材」：同一網址、或內容夠像（`STORY_MATCH_THRESHOLD`，預設 0.65）的項目歸到同一個題材，不像的開新題材，時間軸顯示「發現題材：標題・分數」。分數看幾個不同來源報導、多新、來源信任度。已經寫過、被忽略或放棄的題材也會吸收同一件事的新報導，不會重複出現。目前中英文報導同一件事時會是兩個題材（跨語言合併會誤併相關報導）。換 embedding 模型時要重新確認門檻（`tests/newsroom/test_embed_live.py` 會檢查）。
+
 **證據（`fetch_url`，T-502）**：代理要用某個網頁，必須用 `fetch_url` 把它存成證據——原始網頁存進 BlobStore（`BLOB_STORE_DIR`，私有，不會公開），抽出的本文存進資料庫，之後的主張（claim）只能引用這些文字。同一網址同一天內容沒變就重用同一份證據。PDF、圖片與需要執行 JavaScript 才有內容的頁面目前無法成為證據。
 
 **證據搜尋（T-503、D-012）**：證據存進來時會切成段落並算出向量，代理可以用 `search_evidence` 依「意思」找段落（中英文可以互相找到）。向量由 `EMBED_PROVIDER` / `EMBED_MODEL_ID` 決定：`fake` 是離線的雜湊向量（測試與模擬用，只看字詞重疊）；`nvidia` 用 `nvidia/nemotron-3-embed-1b`（沿用 `NVIDIA_API_KEY`，免費端點）。每次 embedding 呼叫記在 `model_calls`（alias `embed`）。**換 embedding 模型時，新模型的向量維度必須是 2048**；舊段落的向量不會被新模型的搜尋用到（每段記錄了是哪個模型算的），只能用關鍵字找到。embedding 服務暫時失敗時，證據照樣存下，只是那些段落只能用關鍵字搜尋。

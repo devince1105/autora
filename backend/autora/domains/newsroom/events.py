@@ -1,6 +1,7 @@
 """Newsroom events (logs/3d-office/03_EVENT_MODEL.md §2.5, platform/11_EVENT_CATALOG.md).
 
-Added with the task that first emits them; T-501: the source poller's; T-502: evidence.
+Added with the task that first emits them; T-501: the source poller's; T-502: evidence;
+T-504: stories.
 """
 
 from __future__ import annotations
@@ -51,3 +52,26 @@ class EvidenceCaptured(EventPayload):
     source_id: uuid.UUID | None = None
     story_id: uuid.UUID | None = None
     """Filled once stories exist (T-504) and the fetch was for one."""
+
+
+@event("STORY_DISCOVERED")
+class StoryDiscovered(EventPayload):
+    story_id: uuid.UUID
+    title: str
+    score: Decimal
+
+
+@event("STORY_SELECTED")
+class StorySelected(EventPayload):
+    story_id: uuid.UUID
+    title: str
+    score: Decimal
+    project_id: uuid.UUID
+
+
+@event("STORY_DROPPED")
+class StoryDropped(EventPayload):
+    story_id: uuid.UUID
+    title: str
+    score: Decimal
+    reason: str

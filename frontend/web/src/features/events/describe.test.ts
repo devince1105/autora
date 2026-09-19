@@ -23,6 +23,15 @@ describe("describeEvent: newsroom sources and evidence (T-501, T-502)", () => {
     });
   });
 
+  it("stories read with their score as a percentage (T-504)", () => {
+    expect(describeEvent("STORY_DISCOVERED", { title: "微電網啟用", score: "0.567" })).toMatchObject({
+      label: "發現題材",
+      summary: "微電網啟用・分數 57",
+    });
+    expect(describeEvent("STORY_SELECTED", { title: "A", score: 1 }).tone).toBe("ok");
+    expect(describeEvent("STORY_DROPPED", { title: "B", score: 0, reason: "no sources" }).summary).toBe("B・no sources");
+  });
+
   it("an unknown type is shown as itself", () => {
     expect(describeEvent("SOMETHING_NEW", {})).toEqual({ label: "SOMETHING_NEW", tone: "neutral", summary: null, known: false });
   });

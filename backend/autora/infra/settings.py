@@ -87,6 +87,10 @@ class Settings(BaseSettings):
     embed_model_id: str | None = None
     """Required unless fake. Its vectors must have the dimension the database stores (2048)."""
 
+    story_match_threshold: float = Field(default=0.65, gt=0, le=1)
+    """Cosine similarity at which a source item joins an existing story (T-504); tuned for
+    EMBED_MODEL_ID (see domains/newsroom/stories.py for how 0.65 was chosen)."""
+
     fetch_timeout_seconds: float = Field(default=15.0, gt=0)
     """Live page and feed fetches (T-501, T-502)."""
     fetch_max_bytes: int = Field(default=5_000_000, ge=1)

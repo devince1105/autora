@@ -111,22 +111,24 @@ def _validate(kind: SourceKind, url: str | None, config: dict[str, Any]) -> None
             raise SourceConfigError("config.k must be 1-10")
 
 
-async def ensure_poll_schedule(
+async def ensure_newsroom_schedules(
     session: AsyncSession, company_id: uuid.UUID, *, now: datetime | None = None
-) -> Schedule:
-    existing = await session.scalar(
-        select(Schedule).where(Schedule.company_id == company_id, Schedule.name == POLL_SCHEDULE)
-    )
-    if existing is not None:
-        return existing
-    return await create_schedule(
-        session,
-        company_id=company_id,
-        name=POLL_SCHEDULE,
-        cron=POLL_CRON,
-        handler=POLL_SCHEDULE,
-        now=now,
-    )
+) -> list[Schedule]:
+    """The company's poll schedule and, two minutes behind it, the story clustering (T-504)."""
+    from autora.domains.newsroom.stories import CLUSTER_CRON, CLUSTER_SCHEDULE
+
+    schedules = []
+    for name, cron in ((POLL_SCHEDULE, POLL_CRON), (CLUSTER_SCHEDULE, CLUSTER_CRON)):
+        existing = await session.scalar(
+            select(Schedule).where(Schedule.company_id == company_id, Schedule.name == name)
+        )
+        schedules.append(
+            existing
+            or await create_schedule(
+                session, company_id=company_id, name=name, cron=cron, handler=name, now=now
+            )
+        )
+    return schedules
 
 
 async def add_source(
@@ -142,7 +144,8 @@ async def add_source(
     poll_interval_seconds: int = 3600,
     now: datetime | None = None,
 ) -> Source:
-    """Add a source (polled from ``now`` on) and make sure the company's poll schedule exists."""
+    """Add a source (polled from ``now`` on) and make sure the company's newsroom schedules
+    exist (polling, story clustering)."""
     kind = SourceKind(kind)
     config = dict(config or {})
     _validate(kind, url, config)
@@ -159,7 +162,7 @@ async def add_source(
     )
     session.add(source)
     await session.flush()
-    await ensure_poll_schedule(session, company_id, now=now)
+    await ensure_newsroom_schedules(session, company_id, now=now)
     return source
 
 

@@ -21,6 +21,13 @@ const n = (value: unknown) => (typeof value === "number" ? value : null);
 const duration = (value: unknown) => (n(value) === null ? null : `${Math.round((value as number) / 1000)} 秒`);
 const money = (p: Payload) => (s(p.amount) ? `${s(p.currency) ?? "USD"} ${p.amount}` : null);
 
+const storyLine = (p: Payload) => {
+  const score = Number(p.score);
+  return [s(p.title), Number.isFinite(score) && p.score !== null && p.score !== undefined ? `分數 ${Math.round(score * 100)}` : null]
+    .filter(Boolean)
+    .join("・") || null;
+};
+
 /** Readable line per event type: [label, tone, summary]. Anything else is shown as its type. */
 const FORMAT: Record<string, (p: Payload) => [string, Tone, string | null]> = {
   TASK_CREATED: (p) => ["任務建立", "neutral", s(p.display_name)],
@@ -87,6 +94,10 @@ const FORMAT: Record<string, (p: Payload) => [string, Tone, string | null]> = {
   SOURCE_ITEM_DISCOVERED: (p) => ["新來源項目", "neutral", s(p.title)],
   SOURCE_PAUSED: (p) => ["來源暫停", "danger", s(p.reason)],
   EVIDENCE_CAPTURED: (p) => ["擷取證據", "work", s(p.title) ?? s(p.url)],
+  // stories (T-504): a score is 0-1, shown as a percentage
+  STORY_DISCOVERED: (p) => ["發現題材", "neutral", storyLine(p)],
+  STORY_SELECTED: (p) => ["選定題材", "ok", storyLine(p)],
+  STORY_DROPPED: (p) => ["放棄題材", "warn", [s(p.title), s(p.reason)].filter(Boolean).join("・") || null],
 };
 
 export interface Described {

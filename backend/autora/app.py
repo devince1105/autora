@@ -123,8 +123,10 @@ def build_scheduler(
     session_factory: async_sessionmaker[AsyncSession],
     worker_id: str,
 ) -> Scheduler:
-    """The scheduler with every domain's handlers (newsroom: the source poller, T-501)."""
+    """The scheduler with every domain's handlers (newsroom: the source poller T-501, story
+    clustering T-504)."""
     from autora.domains.newsroom.sources import POLL_SCHEDULE, SourcePoller
+    from autora.domains.newsroom.stories import CLUSTER_SCHEDULE, StoryDesk
     from autora.runtime.scheduler import Scheduler
 
     scheduler = Scheduler(session_factory, worker_id)
@@ -132,6 +134,11 @@ def build_scheduler(
         fetcher=build_page_fetcher(settings), search=build_search_provider(settings)
     )
     scheduler.register(POLL_SCHEDULE, poller.schedule_handler())
+    desk = StoryDesk(
+        build_embedder(settings),
+        threshold=settings.story_match_threshold if settings else 0.65,
+    )
+    scheduler.register(CLUSTER_SCHEDULE, desk.schedule_handler())
     return scheduler
 
 

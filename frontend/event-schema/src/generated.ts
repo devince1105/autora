@@ -676,6 +676,47 @@ export const SourcePolledV1Event = z.object({
   payload: SourcePolledV1Payload,
 });
 
+export const StoryDiscoveredV1Payload = z.object({
+  story_id: z.uuid(),
+  title: z.string(),
+  score: z.string().regex(new RegExp("^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$")),
+});
+export type StoryDiscoveredV1Payload = z.infer<typeof StoryDiscoveredV1Payload>;
+export const StoryDiscoveredV1Event = z.object({
+  ...envelopeFields,
+  event_type: z.literal("STORY_DISCOVERED"),
+  schema_version: z.literal(1),
+  payload: StoryDiscoveredV1Payload,
+});
+
+export const StoryDroppedV1Payload = z.object({
+  story_id: z.uuid(),
+  title: z.string(),
+  score: z.string().regex(new RegExp("^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$")),
+  reason: z.string(),
+});
+export type StoryDroppedV1Payload = z.infer<typeof StoryDroppedV1Payload>;
+export const StoryDroppedV1Event = z.object({
+  ...envelopeFields,
+  event_type: z.literal("STORY_DROPPED"),
+  schema_version: z.literal(1),
+  payload: StoryDroppedV1Payload,
+});
+
+export const StorySelectedV1Payload = z.object({
+  story_id: z.uuid(),
+  title: z.string(),
+  score: z.string().regex(new RegExp("^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$")),
+  project_id: z.uuid(),
+});
+export type StorySelectedV1Payload = z.infer<typeof StorySelectedV1Payload>;
+export const StorySelectedV1Event = z.object({
+  ...envelopeFields,
+  event_type: z.literal("STORY_SELECTED"),
+  schema_version: z.literal(1),
+  payload: StorySelectedV1Payload,
+});
+
 export const StrategyUpdatedV1Payload = z.object({
   summary: z.string(),
   approval_id: z.uuid().nullable().default(null),
@@ -947,6 +988,9 @@ export const EventEnvelope = z.discriminatedUnion("event_type", [
   SourceItemDiscoveredV1Event,
   SourcePausedV1Event,
   SourcePolledV1Event,
+  StoryDiscoveredV1Event,
+  StoryDroppedV1Event,
+  StorySelectedV1Event,
   StrategyUpdatedV1Event,
   TaskBlockedV1Event,
   TaskCancelledV1Event,
@@ -1017,6 +1061,9 @@ export const EVENT_TYPES = [
   "SOURCE_ITEM_DISCOVERED",
   "SOURCE_PAUSED",
   "SOURCE_POLLED",
+  "STORY_DISCOVERED",
+  "STORY_DROPPED",
+  "STORY_SELECTED",
   "STRATEGY_UPDATED",
   "TASK_BLOCKED",
   "TASK_CANCELLED",

@@ -62,3 +62,30 @@ async def test_real_embeddings(db_session):
     assert [(c.alias, c.status, c.model_id) for c in calls] == [
         ("embed", "ok", SETTINGS.embed_model_id)
     ] * 2
+
+
+async def test_the_story_threshold_fits_the_model(db_session):
+    """T-504 chose 0.65 from this model's similarities: the same event in two English headlines
+    must reach it; a related but different story must not."""
+    from autora.infra.settings import load_settings as _load
+
+    run = await running_agent_run(db_session, "embed-threshold")
+    embedder = embedder_from_settings(SETTINGS, dim=EMBED_DIM)
+    caller = EmbedCaller(company_id=run.company_id, role="system")
+    pilot, same_event, related, unrelated = await embedder.embed(
+        db_session,
+        [
+            "Lumen City switches on its first neighbourhood solar microgrid. The pilot in Harbor "
+            "District links 1,200 rooftop panels and a 4 MWh battery.",
+            "Harbor District gets a solar microgrid with a 4 MWh battery, city says homes stay "
+            "powered in outages",
+            "What a neighbourhood microgrid really costs. An independent review puts the "
+            "microgrid at NT$4.6 billion over ten years.",
+            "Coffee bean prices hit a three-year high.",
+        ],
+        purpose="passage",
+        caller=caller,
+    )
+    threshold = _load().story_match_threshold
+    assert _cos(pilot, same_event) >= threshold
+    assert _cos(pilot, related) < threshold and _cos(pilot, unrelated) < threshold
