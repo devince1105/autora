@@ -138,6 +138,51 @@ async def _related(
     return out
 
 
+def _facts(
+    link: ClaimEvidence,
+    evidence_text: str,
+    url: str,
+    source_id: uuid.UUID | None,
+    trust: Decimal | None,
+    default_trust: Decimal,
+) -> QuoteFacts:
+    return QuoteFacts(
+        evidence_id=str(link.evidence_id),
+        quote=link.quote,
+        support_type=link.support_type,
+        intact=evidence_text[link.quote_start : link.quote_end] == link.quote,
+        trust=Decimal(trust) if trust is not None else default_trust,
+        source_key=source_key(source_id, url),
+    )
+
+
+def _quote_rows(claim_ids):
+    return (
+        select(
+            ClaimEvidence,
+            Evidence.extracted_text,
+            Evidence.url,
+            Evidence.source_id,
+            Source.trust_level,
+        )
+        .join(Evidence, Evidence.id == ClaimEvidence.evidence_id)
+        .outerjoin(Source, Source.id == Evidence.source_id)
+        .where(ClaimEvidence.claim_id.in_(claim_ids))
+        .order_by(ClaimEvidence.id)
+    )
+
+
+async def claim_quotes(
+    session: AsyncSession, claim_ids: list[uuid.UUID], default_trust: Decimal
+) -> dict[uuid.UUID, list[QuoteFacts]]:
+    """What the deterministic check needs about each claim's quotes (also used by the analyst's
+    validator, T-507, so claims are checked the same way before they reach a draft)."""
+    quotes: dict[uuid.UUID, list[QuoteFacts]] = {c: [] for c in claim_ids}
+    for link, text_, url, source_id, trust in (await session.execute(_quote_rows(claim_ids))).all():
+        quotes[link.claim_id].append(_facts(link, text_, url, source_id, trust, default_trust))
+    return quotes
+
+
 def fact_check_tool(embedder: Embedder) -> ToolFn:
     async def run_fact_check(args: RunFactCheckArgs, ctx: ToolContext) -> ToolResult:
         session = ctx.session
@@ -173,21 +218,7 @@ def fact_check_tool(embedder: Embedder) -> ToolFn:
             await session.scalars(select(Claim).where(Claim.id.in_(cited)).order_by(Claim.id))
         ).all()
         story_claims = select(Claim.id).where(Claim.story_id == article.story_id)
-        rows = (
-            await session.execute(
-                select(
-                    ClaimEvidence,
-                    Evidence.extracted_text,
-                    Evidence.url,
-                    Evidence.source_id,
-                    Source.trust_level,
-                )
-                .join(Evidence, Evidence.id == ClaimEvidence.evidence_id)
-                .outerjoin(Source, Source.id == Evidence.source_id)
-                .where(ClaimEvidence.claim_id.in_(story_claims))
-                .order_by(ClaimEvidence.id)
-            )
-        ).all()
+        rows = (await session.execute(_quote_rows(story_claims))).all()
         quotes: dict[uuid.UUID, list[QuoteFacts]] = {c.id: [] for c in claims}
         linked: dict[uuid.UUID, set[uuid.UUID]] = {}
         pool: set[uuid.UUID] = set()
@@ -196,14 +227,7 @@ def fact_check_tool(embedder: Embedder) -> ToolFn:
             linked.setdefault(link.claim_id, set()).add(link.evidence_id)
             if link.claim_id in quotes:
                 quotes[link.claim_id].append(
-                    QuoteFacts(
-                        evidence_id=str(link.evidence_id),
-                        quote=link.quote,
-                        support_type=link.support_type,
-                        intact=evidence_text[link.quote_start : link.quote_end] == link.quote,
-                        trust=Decimal(trust) if trust is not None else default_trust,
-                        source_key=source_key(source_id, url),
-                    )
+                    _facts(link, evidence_text, url, source_id, trust, default_trust)
                 )
 
         checked = [c for c in claims if ClaimType(c.claim_type) in CHECKED]

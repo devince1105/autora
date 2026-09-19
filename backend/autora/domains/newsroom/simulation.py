@@ -4,8 +4,8 @@ It reads its conversation like a real model would (the task's first message, the
 far) and acts through the same tools, so everything a run does is real: searches hit the search
 provider, pages become evidence, validators check the result. Only the decisions are scripted.
 
-T-506: the researcher. The other newsroom roles are added with their behaviors (T-507 ...), the
-full demo scripts with T-518.
+T-506: the researcher; T-507: the analyst. The other newsroom roles are added with their
+behaviors (T-509 ...), the full demo scripts with T-518.
 """
 
 from __future__ import annotations
@@ -125,4 +125,87 @@ def _research(request: ModelRequest) -> FakeTurn:
     )
 
 
-_HANDLERS = {("researcher", "research"): _research}
+# --- analyst (T-507) --------------------------------------------------------------------------
+
+_UUID = re.compile(r"[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}")
+# a period ends a sentence only before whitespace or the end ("NT$4.6 billion" is one number)
+_SENTENCE = re.compile(r"(?:[^。！？!?\n.]|\.(?=\S))+[。！？!?.]")
+_DIGIT = re.compile(r"\d")
+MAX_CLAIMS = 4
+
+
+def _sentences(text: str) -> list[str]:
+    """Sentences with a number in them, short enough to quote (the analyst's pick)."""
+    out = []
+    for match in _SENTENCE.finditer(text):
+        sentence = match.group(0).strip()
+        if _DIGIT.search(sentence) and 20 <= len(sentence) <= 300:
+            out.append(sentence)
+    return out
+
+
+def _analysis(request: ModelRequest) -> FakeTurn:
+    first = _first_text(request)
+    story_id = _field(first, "Story id")
+    title = _field(first, "Story") or "the story"
+    block = first.split("Evidence (from the researcher):", 1)[1] if "Evidence" in first else ""
+    evidence_ids = list(dict.fromkeys(_UUID.findall(block.split("Suggested angles:", 1)[0])))
+    calls = _calls(request)
+
+    read = {c[1].get("evidence_id") for c in calls if c[0] == "read_evidence"}
+    unread = [e for e in evidence_ids if e not in read]
+    if unread:
+        return FakeTurn(
+            text="Reading the evidence.",
+            tool_uses=[
+                FakeToolUse(name="read_evidence", input={"evidence_id": e, "limit": 8000})
+                for e in unread
+            ],
+        )
+
+    made = [
+        out["claim_id"]
+        for name, _, result in calls
+        if name == "create_claim" and (out := _output(result)) and out.get("claim_id")
+    ]
+    tried = any(name == "create_claim" for name, _, _ in calls)
+    if not tried:
+        # one number claim per sentence with a number, the sentence itself as its quote
+        texts = [
+            (args["evidence_id"], out["text"])
+            for name, args, result in calls
+            if name == "read_evidence" and (out := _output(result))
+        ]
+        picks: list[tuple[str, str]] = []
+        for evidence_id, text in texts:
+            for sentence in _sentences(text)[:2]:
+                picks.append((evidence_id, sentence))
+        picks = picks[:MAX_CLAIMS]
+        if picks:
+            return FakeTurn(
+                text="Recording claims.",
+                tool_uses=[
+                    FakeToolUse(
+                        name="create_claim",
+                        input={
+                            "story_id": story_id,
+                            "text": sentence,
+                            "claim_type": "number",
+                            "evidence": [{"evidence_id": evidence_id, "quote": sentence}],
+                        },
+                    )
+                    for evidence_id, sentence in picks
+                ],
+            )
+    return FakeTurn(
+        structured={
+            "story_id": story_id,
+            "claim_ids": made,
+            "angle": f"{title}：以數據看成本與效益",
+            "key_numbers": [],
+            "contradictions": [],
+        }
+    )
+
+
+_HANDLERS = {("researcher", "research"): _research, ("analyst", "analysis"): _analysis}
