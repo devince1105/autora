@@ -4,8 +4,8 @@ It reads its conversation like a real model would (the task's first message, the
 far) and acts through the same tools, so everything a run does is real: searches hit the search
 provider, pages become evidence, validators check the result. Only the decisions are scripted.
 
-T-506: the researcher; T-507: the analyst; T-509: the writer; T-511: the editor. Marketing is
-added with its behavior (T-513), the full demo scripts with T-518.
+T-506: the researcher; T-507: the analyst; T-509: the writer; T-511: the editor; T-513:
+marketing, the full demo scripts with T-518.
 """
 
 from __future__ import annotations
@@ -336,9 +336,57 @@ def _review(request: ModelRequest) -> FakeTurn:
     )
 
 
+# --- marketing (T-513) ------------------------------------------------------------------------
+
+_VERSION = re.compile(r"^\[([\w-]+)\] Title: (.+)$", re.MULTILINE)
+
+
+def _distribute(request: ModelRequest) -> FakeTurn:
+    first = _first_text(request)
+    article_id = _field(first, "Article id")
+    site_id = _field(first, "Site distribution id")
+    titles = dict(_VERSION.findall(first))
+    calls = _calls(request)
+    made = [
+        out
+        for name, _, result in calls
+        if name == "create_distribution" and (out := _output(result))
+    ]
+    if not made:
+        copy = {
+            lang: f"新報導：{title}。完整數據與來源都在網站上。"
+            if lang.startswith("zh")
+            else f"New: {title}. The numbers and the sources are on our site."
+            for lang, title in titles.items()
+        }
+        return FakeTurn(
+            text="Writing the social post.",
+            tool_uses=[
+                FakeToolUse(
+                    name="create_distribution", input={"article_id": article_id, "posts": copy}
+                )
+            ],
+        )
+    social = made[-1]
+    return FakeTurn(
+        structured={
+            "article_id": article_id,
+            "channels": [
+                {"channel": "site", "distribution_id": site_id},
+                {
+                    "channel": "social_draft",
+                    "distribution_id": social["distribution_id"],
+                    "posts": {lang: v["text"] for lang, v in social["copy"].items()},
+                },
+            ],
+        }
+    )
+
+
 _HANDLERS = {
     ("researcher", "research"): _research,
     ("analyst", "analysis"): _analysis,
     ("writer", "draft"): _draft,
     ("editor", "review"): _review,
+    ("marketing", "distribute"): _distribute,
 }

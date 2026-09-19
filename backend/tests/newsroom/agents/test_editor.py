@@ -22,7 +22,7 @@ from tests.newsroom.agents.conftest import add_task, run_line
 async def _done(committed, task_id) -> Task:
     async with committed() as session:
         task = await session.get(Task, task_id)
-        assert task.state == "SUCCEEDED", task.last_error
+        assert task.state == "SUCCEEDED", task.state
         return task
 
 

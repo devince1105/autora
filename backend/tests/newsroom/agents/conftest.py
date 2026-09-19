@@ -15,6 +15,7 @@ LINE = (
     ("analysis", "analyst"),
     ("draft", "writer"),
     ("review", "editor"),
+    ("distribute", "marketing"),  # after publication: run_line stops before it
 )
 ROLES = dict(LINE)
 

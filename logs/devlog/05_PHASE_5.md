@@ -26,7 +26,7 @@
 | T-510 | 確定性 fact-check validators + `run_fact_check` 工具 | T-505、T-508 | ✅ |
 | T-511 | Editor 代理（`EditorReview`、`request_revision` / `accept_draft`） | T-509、T-510 | ✅ |
 | T-512 | Publisher（`PublishArticle` command、冪等、Distribution site） | T-508、T-205 | ✅ |
-| T-513 | Marketing 代理（`DistributionPlan`、`create_distribution`：只寫 DB） | T-512 | ⏳ |
+| T-513 | Marketing 代理（`DistributionPlan`、`create_distribution`：只寫 DB） | T-512 | ✅ |
 | T-514 | `story_to_article_v2` 範本 + `register()` + `activity_links` | T-203、T-506 ～ T-513 | ⏳ |
 | T-515 | 公開站（zh-TW / en）+ beacon API | T-512 | ⏳ |
 | T-516 | Analytics collector（每小時 → `analytics_daily`，事件） | T-515、T-212 | ⏳ |
@@ -391,6 +391,35 @@ T-500 → T-501 → T-502 → T-503 → T-504 → T-505 → T-508 → T-510 → 
   - **修訂來回**：撰稿後讓一則被引用的主張失去證據 → 審稿查核沒過、要求修訂（問題類型 unsupported、繁中說明）→ 帶著問題的寫手修訂任務寫出第 2 版、**不再引用被駁回的主張** → 第二次審稿接受；
   - 背景（還沒有稿、版本與語言、修訂次數用完的提醒）；驗證器（還沒決定、決定不一致、文章不存在、別的題材、別的任務、報告不存在或不是本任務的、接受卻列問題、修訂沒問題、報告沒過卻接受、問題數量與送出的不同）；工作程序找得到編輯行為。
 - 後端 830 個測試通過；`ruff`、`lint-imports`、`make db-check`、`gen-schema-check` 通過；event-schema 8 個、web 213 個測試與 typecheck、lint 通過。
+---
+
+## T-513 · 行銷代理
+
+### 做了什麼
+- **`create_distribution` 工具**（`tools/distribution.py`，MVP，Q-channel：自有網站是唯一通路）：行銷寫的社群貼文**只存進資料庫當草稿**（`channel = social_draft`、`status = draft`），不對外發出。
+  - 只接受**已發布**的文章（權限也這樣限制，工具本身再檢查一次）；網站那一筆是出版服務建立的（T-512），行銷不能建立 `site`。
+  - 每個發布語言都要一則貼文、不能有沒發布的語言、每則最多 500 字；有問題一次列出全部、不存。
+  - 每則貼文的連結由工具依語言加上（`/{lang}/articles/{slug}`），模型不會寫錯網址。
+  - 每篇文章每個通路一筆：重試（內容相同，空白差異忽略）回傳原本那筆，不同內容拒絕；以文章列鎖避免同時寫兩筆，不需要新的索引。
+  - 記 `DISTRIBUTION_CREATED`（通路、狀態）與 `produced`（`distribution`）。
+- **行銷代理**（`agents/marketing.py`，角色 `marketing`、任務 `distribute`，發布之後）：工具 `create_distribution`、`read_draft`；能力 `drafting`。
+  - **提示**：只根據文章寫（不加文章沒有的事實、數字、引述）、一兩句說明是什麼事與為什麼重要、不標題黨、繁體中文、各語言彼此忠實；存成草稿、不會發出。
+  - **輸出 `DistributionPlan`**：文章 ID、通路清單（網站那筆、社群草稿那筆與各語言貼文）。貼文欄位叫 `posts`（`copy` 會蓋掉 pydantic `BaseModel.copy`，會有警告；資料庫欄位仍是 `copy`）。
+  - **權限事實**（`policy_facts`）：`create_distribution` 呼叫前查文章狀態交給權限引擎，所以「只限已發布」的規則（`platform/07`）真的生效——未發布的文章，工具還沒執行，run 就因權限拒絕而中止。
+  - **背景**：文章 ID、發布的語言、網站那筆的 ID，每個語言的標題、網址、摘要、第一段開頭；文章還沒發布時明說。
+  - **驗證**：文章是本題材的；每個通路 ID 都屬於這篇文章、通路類型相符；網站那筆是出版服務的；社群那筆**是本任務建立的**、回報的貼文**就是存下的內容**；網站與社群各列一次。
+  - 規格的 `max_steps` 是 4；實作用 6（寫一次、回報一次，還能各修正一次；工具被拒後再寫一次）。
+- **模擬模型**：每個發布語言一則貼文（「新報導：…」/「New: …」）→ 用工具回傳的內容回報。
+- 前端「發布紀錄」顯示中文的通路與狀態（網站・已發布、社群貼文・草稿（未發出））。
+- 測試整理：`tests/newsroom/conftest.py` 加上 `approve_and_publish` 與 `Newsroom.publish()`（寫稿 → 查核 → 接受 → 人核准 → 發布）；核准與發布改用 `build_policy_engine()`（完整規則）。修正幾個代理測試裡斷言訊息用到不存在的 `Task.last_error`（只在失敗時才會被讀到）。
+
+### 驗證
+- `tests/newsroom/test_distribution.py`（3 個）：未發布不能寫；發布後寫成草稿、兩語言連結、事件（網站已發布、社群草稿）、`produced`；重試回傳原筆、不同內容拒絕、仍只有兩筆；缺語言、多語言、太長一次列出；不能建立 `site`。
+- `tests/newsroom/agents/test_marketing.py`（5 個）：
+  - **真正的工作程序**跑研究 → 分析 → 撰稿 → 審稿 → 人核准與發布 → 行銷：成功、網站那筆就是出版服務的、社群草稿存在且狀態為草稿、兩語言貼文、連結與發布網址一致、事件；
+  - **未發布的文章**：模型要寫貼文 → 權限引擎以「文章是 IN_REVIEW、不是 PUBLISHED」拒絕並記錄、run 中止、沒有任何社群草稿；
+  - 背景與權限事實；驗證器（別的文章、通路類型對調、不存在的 ID、貼文與存下的不同、別的任務建立的、少了社群那筆）；工作程序找得到行銷行為。
+- 後端 838 個測試通過；`ruff`、`lint-imports`、`make db-check`、`gen-schema-check` 通過；web 213 個測試與 typecheck、lint 通過。
 ---
 
 ## 提交紀錄

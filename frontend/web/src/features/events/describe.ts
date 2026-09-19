@@ -22,6 +22,8 @@ const duration = (value: unknown) => (n(value) === null ? null : `${Math.round((
 const money = (p: Payload) => (s(p.amount) ? `${s(p.currency) ?? "USD"} ${p.amount}` : null);
 
 const CLAIM_TYPE: Record<string, string> = { fact: "事實", number: "數字", quote: "引述", attribution: "歸屬", opinion: "意見" };
+const CHANNEL: Record<string, string> = { site: "網站", social_draft: "社群貼文" };
+const DISTRIBUTION_STATUS: Record<string, string> = { published: "已發布", draft: "草稿（未發出）", failed: "失敗" };
 
 const storyLine = (p: Payload) => {
   const score = Number(p.score);
@@ -119,7 +121,11 @@ const FORMAT: Record<string, (p: Payload) => [string, Tone, string | null]> = {
   ARTICLE_APPROVED: (p) => ["文章核准", "ok", s(p.by) === "system" ? "查核通過後自動核准" : "人工核准"],
   ARTICLE_REJECTED: (p) => ["文章駁回", "danger", s(p.reason)],
   ARTICLE_PUBLISHED: (p) => ["文章發布", "ok", [s(p.url), Array.isArray(p.langs) ? p.langs.join(" / ") : null].filter(Boolean).join("・") || null],
-  DISTRIBUTION_CREATED: (p) => ["發布紀錄", "neutral", [s(p.channel), s(p.status)].filter(Boolean).join("・") || null],
+  DISTRIBUTION_CREATED: (p) => [
+    "發布紀錄",
+    "neutral",
+    [CHANNEL[s(p.channel) ?? ""] ?? s(p.channel), DISTRIBUTION_STATUS[s(p.status) ?? ""] ?? s(p.status)].filter(Boolean).join("・") || null,
+  ],
   STORY_DROPPED: (p) => ["放棄題材", "warn", [s(p.title), s(p.reason)].filter(Boolean).join("・") || null],
 };
 

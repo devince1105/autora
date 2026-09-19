@@ -31,7 +31,7 @@ async def test_an_analyst_run_makes_claims_that_would_pass(committed, e2e_settin
     company, story, research, analysis = await research_then_analysis(committed, e2e_settings)
     async with committed() as session:
         done = await session.get(Task, analysis.id)
-        assert done.state == "SUCCEEDED", done.last_error
+        assert done.state == "SUCCEEDED", done.state
         note = AnalysisNote.model_validate(done.output)
         claims = (await session.scalars(select(Claim).where(Claim.id.in_(note.claim_ids)))).all()
         min_trust, default = trust_policy({})

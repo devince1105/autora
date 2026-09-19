@@ -65,7 +65,7 @@ async def test_a_researcher_run_captures_real_evidence(committed, e2e_settings):
 
     async with committed() as session:
         done = await session.get(Task, task.id)
-        assert done.state == "SUCCEEDED", done.last_error
+        assert done.state == "SUCCEEDED", done.state
         note = ResearchNote.model_validate(done.output)
         evidence = (
             await session.scalars(select(Evidence).where(Evidence.id.in_(note.evidence_ids)))

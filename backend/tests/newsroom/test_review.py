@@ -4,11 +4,11 @@ import uuid
 
 from sqlalchemy import select
 
+from autora.app import build_policy_engine
 from autora.db.models import EventRecord
 from autora.domains.newsroom.models import Article, Claim, Story
 from autora.domains.newsroom.publisher import approve_article
 from autora.runtime.actor import Actor
-from autora.runtime.policy import PolicyEngine
 
 ISSUE = {"message": "第二段請說明是誰統計的。", "kind": "missing_context", "lang": "en"}
 
@@ -74,7 +74,7 @@ async def test_accepting_a_checked_draft_sends_it_to_approval(newsroom_room):
     async with room.committed() as session:
         approved = await approve_article(
             session,
-            policy=PolicyEngine(),
+            policy=build_policy_engine(),
             company_id=room.company.id,
             article_id=article.id,
             actor=Actor.human("editor-in-chief"),

@@ -2,7 +2,15 @@
 
 from __future__ import annotations
 
-from autora.domains.newsroom.tools import claims, drafts, evidence, factcheck, review, search
+from autora.domains.newsroom.tools import (
+    claims,
+    distribution,
+    drafts,
+    evidence,
+    factcheck,
+    review,
+    search,
+)
 from autora.infra.blobstore import BlobStore
 from autora.infra.http import PageFetcher
 from autora.infra.search import SearchProvider
@@ -24,6 +32,7 @@ def register_tools(
     drafts.register(registry)
     factcheck.register(registry, embedder)
     review.register(registry)
+    distribution.register(registry)
 
 
 __all__ = ["register_tools"]

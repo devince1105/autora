@@ -61,7 +61,9 @@ describe("describeEvent: newsroom sources and evidence (T-501, T-502)", () => {
       tone: "ok",
       summary: "/zh-TW/articles/x・zh-TW / en",
     });
-    expect(describeEvent("DISTRIBUTION_CREATED", { channel: "site", status: "published" }).summary).toBe("site・published");
+    expect(describeEvent("DISTRIBUTION_CREATED", { channel: "site", status: "published" }).summary).toBe("網站・已發布");
+    expect(describeEvent("DISTRIBUTION_CREATED", { channel: "social_draft", status: "draft" }).summary).toBe("社群貼文・草稿（未發出）");
+    expect(describeEvent("DISTRIBUTION_CREATED", { channel: "newsletter", status: "draft" }).summary).toBe("newsletter・草稿（未發出）");
     expect(describeEvent("ARTICLE_REJECTED", { reason: "off brand" }).tone).toBe("danger");
   });
 

@@ -31,7 +31,7 @@ async def test_a_writer_run_drafts_both_languages_from_the_claims(committed, e2e
     line = await run_line(committed, e2e_settings, until="draft")
     async with committed() as session:
         done = await session.get(Task, line.tasks["draft"].id)
-        assert done.state == "SUCCEEDED", done.last_error
+        assert done.state == "SUCCEEDED", done.state
         note = ArticleDraft.model_validate(done.output)
         analysis = (await session.get(Task, line.tasks["analysis"].id)).output
         article = await session.get(Article, note.article_id)
@@ -79,7 +79,7 @@ async def test_a_revision_writes_the_next_version(committed, e2e_settings):
     await line.worker.run_until_idle()
     async with committed() as session:
         done = await session.get(Task, revise.id)
-        assert done.state == "SUCCEEDED", done.last_error
+        assert done.state == "SUCCEEDED", done.state
         note = ArticleDraft.model_validate(done.output)
         article = await session.get(Article, note.article_id)
         versions = await _versions(session, note.draft_group_id)

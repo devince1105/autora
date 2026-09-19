@@ -27,6 +27,30 @@ PILOT = "https://news.fixtures.autora.test/lumen-city-microgrid-pilot"
 PRESS = "https://city.fixtures.autora.test/press/2026-09-14-microgrid"
 
 
+async def approve_and_publish(committed, company_id, article_id):
+    """A person approves the reviewed article and the publisher publishes it (T-512)."""
+    from autora.app import build_policy_engine
+    from autora.domains.newsroom.publisher import approve_article, publish_article
+
+    async with committed() as session:
+        await approve_article(
+            session,
+            policy=build_policy_engine(),
+            company_id=company_id,
+            article_id=article_id,
+            actor=Actor.human("editor-in-chief"),
+        )
+        published = await publish_article(
+            session,
+            policy=build_policy_engine(),
+            company_id=company_id,
+            article_id=article_id,
+            actor=Actor.system("publisher"),
+        )
+        await session.commit()
+    return published
+
+
 @dataclass
 class Newsroom:
     company: Company
@@ -35,6 +59,19 @@ class Newsroom:
     evidence: dict[str, str]
     committed: object
     call: object
+
+    async def publish(self) -> str:
+        """Draft, check, accept, approve and publish the article on the two claims; its id."""
+        drafted = await self.call("write_draft", self.draft(list(self.claims.values())))
+        article_id = drafted.output["article_id"]
+        report = await self.call("run_fact_check", {"article_id": article_id})
+        accepted = await self.call(
+            "accept_draft",
+            {"article_id": article_id, "fact_check_report_id": report.output["report_id"]},
+        )
+        assert accepted.ok, accepted.message
+        await approve_and_publish(self.committed, self.company.id, uuid.UUID(article_id))
+        return article_id
 
     def draft(self, claim_ids: list[str], langs=("zh-TW", "en")) -> dict:
         titles = {
