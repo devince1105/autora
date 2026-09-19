@@ -37,7 +37,6 @@ from autora.domains.newsroom.events import (
     ArticlePublished,
     ArticleRejected,
     DistributionCreated,
-    StoryDropped,
 )
 from autora.domains.newsroom.models import (
     Article,
@@ -50,7 +49,7 @@ from autora.domains.newsroom.models import (
     StoryState,
 )
 from autora.domains.newsroom.policy import language_policy
-from autora.domains.newsroom.stories import STORY_FSM
+from autora.domains.newsroom.stories import STORY_FSM, drop_story
 from autora.infra.ids import uuid7
 from autora.runtime.actor import Actor
 from autora.runtime.events.outbox import emit
@@ -202,23 +201,8 @@ async def reject_article(
         session, article, ArticleState.REJECTED, actor=actor, reason=reason
     )
     story = await session.get(Story, article.story_id, with_for_update=True)
-    if story is not None and STORY_FSM.can(story.state, StoryState.DROPPED):
-        await STORY_FSM.transition(session, story, StoryState.DROPPED, actor=actor, reason=reason)
-        await emit(
-            session,
-            new_event(
-                StoryDropped(
-                    story_id=story.id,
-                    title=story.title[:300],
-                    score=story.score,
-                    reason=reason[:500],
-                ),
-                company_id=company_id,
-                actor=actor,
-                aggregate_type="story",
-                aggregate_id=story.id,
-            ),
-        )
+    if story is not None:
+        await drop_story(session, story, actor=actor, reason=reason)
     await _emit(
         session,
         article,

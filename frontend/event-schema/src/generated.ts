@@ -348,6 +348,36 @@ export const ArticleRejectedV1Event = z.object({
   payload: ArticleRejectedV1Payload,
 });
 
+export const ArticleReviewedV1Payload = z.object({
+  article_id: z.uuid(),
+  version_id: z.uuid(),
+  verdict: z.string(),
+  fact_check_passed: z.boolean(),
+  by_role: z.string(),
+});
+export type ArticleReviewedV1Payload = z.infer<typeof ArticleReviewedV1Payload>;
+export const ArticleReviewedV1Event = z.object({
+  ...envelopeFields,
+  event_type: z.literal("ARTICLE_REVIEWED"),
+  schema_version: z.literal(1),
+  payload: ArticleReviewedV1Payload,
+});
+
+export const ArticleRevisionRequestedV1Payload = z.object({
+  article_id: z.uuid(),
+  version_id: z.uuid(),
+  issues_count: z.number().int(),
+  by_role: z.string(),
+  revision: z.number().int(),
+});
+export type ArticleRevisionRequestedV1Payload = z.infer<typeof ArticleRevisionRequestedV1Payload>;
+export const ArticleRevisionRequestedV1Event = z.object({
+  ...envelopeFields,
+  event_type: z.literal("ARTICLE_REVISION_REQUESTED"),
+  schema_version: z.literal(1),
+  payload: ArticleRevisionRequestedV1Payload,
+});
+
 export const BudgetAllocatedV1Payload = z.object({
   budget_id: z.uuid(),
   project_id: z.uuid().nullable().default(null),
@@ -1074,6 +1104,8 @@ export const EventEnvelope = z.discriminatedUnion("event_type", [
   ArticleCreatedV1Event,
   ArticlePublishedV1Event,
   ArticleRejectedV1Event,
+  ArticleReviewedV1Event,
+  ArticleRevisionRequestedV1Event,
   BudgetAllocatedV1Event,
   BudgetExhaustedV1Event,
   ClaimCreatedV1Event,
@@ -1155,6 +1187,8 @@ export const EVENT_TYPES = [
   "ARTICLE_CREATED",
   "ARTICLE_PUBLISHED",
   "ARTICLE_REJECTED",
+  "ARTICLE_REVIEWED",
+  "ARTICLE_REVISION_REQUESTED",
   "BUDGET_ALLOCATED",
   "BUDGET_EXHAUSTED",
   "CLAIM_CREATED",

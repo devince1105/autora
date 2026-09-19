@@ -1136,6 +1136,89 @@
         }
       }
     },
+    "ARTICLE_REVIEWED": {
+      "1": {
+        "persistence": "persisted",
+        "payload": {
+          "additionalProperties": false,
+          "description": "The editor's decision on a draft (T-511): ``accept`` sends it on to approval.",
+          "properties": {
+            "article_id": {
+              "format": "uuid",
+              "title": "Article Id",
+              "type": "string"
+            },
+            "version_id": {
+              "format": "uuid",
+              "title": "Version Id",
+              "type": "string"
+            },
+            "verdict": {
+              "title": "Verdict",
+              "type": "string"
+            },
+            "fact_check_passed": {
+              "title": "Fact Check Passed",
+              "type": "boolean"
+            },
+            "by_role": {
+              "title": "By Role",
+              "type": "string"
+            }
+          },
+          "required": [
+            "article_id",
+            "version_id",
+            "verdict",
+            "fact_check_passed",
+            "by_role"
+          ],
+          "title": "ArticleReviewed",
+          "type": "object"
+        }
+      }
+    },
+    "ARTICLE_REVISION_REQUESTED": {
+      "1": {
+        "persistence": "persisted",
+        "payload": {
+          "additionalProperties": false,
+          "properties": {
+            "article_id": {
+              "format": "uuid",
+              "title": "Article Id",
+              "type": "string"
+            },
+            "version_id": {
+              "format": "uuid",
+              "title": "Version Id",
+              "type": "string"
+            },
+            "issues_count": {
+              "title": "Issues Count",
+              "type": "integer"
+            },
+            "by_role": {
+              "title": "By Role",
+              "type": "string"
+            },
+            "revision": {
+              "title": "Revision",
+              "type": "integer"
+            }
+          },
+          "required": [
+            "article_id",
+            "version_id",
+            "issues_count",
+            "by_role",
+            "revision"
+          ],
+          "title": "ArticleRevisionRequested",
+          "type": "object"
+        }
+      }
+    },
     "BUDGET_ALLOCATED": {
       "1": {
         "persistence": "persisted",

@@ -319,15 +319,7 @@ class StoryDesk:
         await STORY_FSM.transition(session, story, S.IGNORED, actor=actor, reason=reason)
 
     async def drop(self, session: AsyncSession, story: Story, *, actor: Actor, reason: str) -> None:
-        await STORY_FSM.transition(session, story, S.DROPPED, actor=actor, reason=reason)
-        await self._emit(
-            session,
-            story,
-            StoryDropped(
-                story_id=story.id, title=story.title[:300], score=story.score, reason=reason[:500]
-            ),
-            actor=actor,
-        )
+        await drop_story(session, story, actor=actor, reason=reason)
 
     async def _emit(
         self, session: AsyncSession, story: Story, payload: EventPayload, actor: Actor | None = None
@@ -350,3 +342,23 @@ class StoryDesk:
             await self.cluster_pending(session, schedule.company_id)
 
         return handler
+
+
+async def drop_story(session: AsyncSession, story: Story, *, actor: Actor, reason: str) -> bool:
+    """Drop a story (STORY_DROPPED); False when it is past dropping (published, already closed)."""
+    if not STORY_FSM.can(story.state, S.DROPPED):
+        return False
+    await STORY_FSM.transition(session, story, S.DROPPED, actor=actor, reason=reason)
+    await emit(
+        session,
+        new_event(
+            StoryDropped(
+                story_id=story.id, title=story.title[:300], score=story.score, reason=reason[:500]
+            ),
+            company_id=story.company_id,
+            actor=actor,
+            aggregate_type="story",
+            aggregate_id=story.id,
+        ),
+    )
+    return True

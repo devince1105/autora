@@ -2,7 +2,8 @@
 
 Added with the task that first emits them; T-501: the source poller's; T-502: evidence;
 T-504: stories; T-505: claims; T-508: articles;
-T-510: fact-check verdicts; T-512: approval, publication, distribution.
+T-510: fact-check verdicts; T-511: the editor's review; T-512: approval, publication,
+distribution.
 """
 
 from __future__ import annotations
@@ -116,6 +117,29 @@ class ClaimRejected(EventPayload):
     claim_type: str
     evidence_ids: list[uuid.UUID] = []
     problems: list[str] = []
+
+
+@event("ARTICLE_REVIEWED")
+class ArticleReviewed(EventPayload):
+    """The editor's decision on a draft (T-511): ``accept`` sends it on to approval."""
+
+    article_id: uuid.UUID
+    version_id: uuid.UUID
+    """The primary-language version of the draft reviewed."""
+    verdict: str
+    """"accept" or "revise"."""
+    fact_check_passed: bool
+    by_role: str
+
+
+@event("ARTICLE_REVISION_REQUESTED")
+class ArticleRevisionRequested(EventPayload):
+    article_id: uuid.UUID
+    version_id: uuid.UUID
+    issues_count: int
+    by_role: str
+    revision: int
+    """How many revisions the article has had asked for, this one included (at most two)."""
 
 
 @event("ARTICLE_APPROVED")

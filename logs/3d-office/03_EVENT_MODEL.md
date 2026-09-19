@@ -125,8 +125,8 @@
 | STORY_DISCOVERED / STORY_SELECTED / STORY_DROPPED | P | R | `{story_id, title, score}` |
 | CLAIM_CREATED / CLAIM_VERIFIED / CLAIM_REJECTED | P | R | `{claim_id, story_id, claim_type, evidence_ids[]}` |
 | ARTICLE_CREATED (draft v1) | P | R | `{article_id, story_id, version_id, lang[]}` |
-| ARTICLE_REVISION_REQUESTED | P | R | `{article_id, version_id, issues_count, by_role}` |
-| ARTICLE_REVIEWED | P | R | `{article_id, version_id, verdict, fact_check_passed}` |
+| ARTICLE_REVISION_REQUESTED | P | R | `{article_id, version_id, issues_count, by_role, revision}`（T-511：第幾次修訂，最多 2 次） |
+| ARTICLE_REVIEWED | P | R | `{article_id, version_id, verdict, fact_check_passed, by_role}`（T-511：`verdict` = accept / revise） |
 | ARTICLE_APPROVED / ARTICLE_REJECTED | P | R | `{article_id, by}` |
 | ARTICLE_PUBLISHED | P | R | `{article_id, slug, langs[], url}` |
 | DISTRIBUTION_CREATED | P | R | `{article_id, channel, status}` |

@@ -4,8 +4,8 @@ It reads its conversation like a real model would (the task's first message, the
 far) and acts through the same tools, so everything a run does is real: searches hit the search
 provider, pages become evidence, validators check the result. Only the decisions are scripted.
 
-T-506: the researcher; T-507: the analyst; T-509: the writer. The other newsroom roles are
-added with their behaviors (T-511 ...), the full demo scripts with T-518.
+T-506: the researcher; T-507: the analyst; T-509: the writer; T-511: the editor. Marketing is
+added with its behavior (T-513), the full demo scripts with T-518.
 """
 
 from __future__ import annotations
@@ -278,8 +278,67 @@ def _draft(request: ModelRequest) -> FakeTurn:
     )
 
 
+# --- editor (T-511) ---------------------------------------------------------------------------
+
+
+def _review(request: ModelRequest) -> FakeTurn:
+    first = _first_text(request)
+    article_id = _field(first, "Article id")
+    calls = _calls(request)
+    checked = [
+        out for name, _, result in calls if name == "run_fact_check" and (out := _output(result))
+    ]
+    if not checked:
+        return FakeTurn(
+            text="Reading the draft and checking the facts.",
+            tool_uses=[
+                FakeToolUse(name="read_draft", input={"article_id": article_id}),
+                FakeToolUse(name="run_fact_check", input={"article_id": article_id}),
+            ],
+        )
+    report = checked[-1]
+    issues = [
+        {
+            "message": f"主張「{r['text'][:80]}」沒有通過事實查核"
+            f"（{'；'.join(r['problems'])[:200]}），請刪除或改寫這段。",
+            "kind": "unsupported",
+        }
+        for r in report["results"]
+        if r.get("verdict") == "fail"
+    ] or (
+        [{"message": "兩種語言引用的主張不一致，請對齊。", "kind": "translation"}]
+        if not report["passed"]
+        else []
+    )
+    decided = [
+        name
+        for name, _, result in calls
+        if name in ("accept_draft", "request_revision") and _output(result)
+    ]
+    if not decided:
+        if report["passed"]:
+            use = FakeToolUse(
+                name="accept_draft",
+                input={"article_id": article_id, "fact_check_report_id": report["report_id"]},
+            )
+        else:
+            use = FakeToolUse(
+                name="request_revision", input={"article_id": article_id, "issues": issues}
+            )
+        return FakeTurn(text="Deciding.", tool_uses=[use])
+    return FakeTurn(
+        structured={
+            "article_id": article_id,
+            "verdict": "accept" if report["passed"] else "revise",
+            "fact_check_report_id": report["report_id"],
+            "issues": [] if report["passed"] else issues,
+        }
+    )
+
+
 _HANDLERS = {
     ("researcher", "research"): _research,
     ("analyst", "analysis"): _analysis,
     ("writer", "draft"): _draft,
+    ("editor", "review"): _review,
 }

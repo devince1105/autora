@@ -24,7 +24,7 @@
 | T-508 | Articles / ArticleVersions（lang、draft_group）+ `write_draft` 工具；雙語 claim 集合一致 | T-504 | ✅ |
 | T-509 | Writer 代理（雙語草稿） | T-507、T-508 | ✅ |
 | T-510 | 確定性 fact-check validators + `run_fact_check` 工具 | T-505、T-508 | ✅ |
-| T-511 | Editor 代理（`EditorReview`、`request_revision` / `accept_draft`） | T-509、T-510 | ⏳ |
+| T-511 | Editor 代理（`EditorReview`、`request_revision` / `accept_draft`） | T-509、T-510 | ✅ |
 | T-512 | Publisher（`PublishArticle` command、冪等、Distribution site） | T-508、T-205 | ✅ |
 | T-513 | Marketing 代理（`DistributionPlan`、`create_distribution`：只寫 DB） | T-512 | ⏳ |
 | T-514 | `story_to_article_v2` 範本 + `register()` + `activity_links` | T-203、T-506 ～ T-513 | ⏳ |
@@ -364,6 +364,33 @@ T-500 → T-501 → T-502 → T-503 → T-504 → T-505 → T-508 → T-510 → 
   - 驗證器對著真實寫入的草稿：合格通過；捏造的草稿群組、文章 ID 與版本 ID 不符、**別的任務寫的草稿**、回報舊的草稿；漏掉關鍵數字；關鍵數字的主張被駁回後不再要求；修訂沒寫 / 有寫 `change_summary`；
   - 工作程序找得到寫手行為（echo 的寫手仍處理自己的 `echo_write`）。
 - 後端 820 個測試通過；`ruff`、`lint-imports`、`make db-check`、`gen-schema-check` 通過。
+---
+
+## T-511 · 編輯代理
+
+### 做了什麼
+- **編輯的決定**（`domains/newsroom/review.py`，指令，與發布服務同一種寫法）：每個決定都記 `ARTICLE_REVIEWED`（決定、查核是否通過、角色）。
+  - `accept_draft`（DRAFT → IN_REVIEW，交給核准）：必須用**這份草稿最新的**查核報告、而且通過；沒查核、拿舊報告、查核沒過都拒絕並說明該怎麼做。
+  - `request_revision`（維持 DRAFT，寫手可以再寫下一版）：至少一個問題；`revision_count` + 1，記 `ARTICLE_REVISION_REQUESTED`（第幾次、幾個問題）。**每篇最多修訂 2 次**（platform/05 §3），第 3 次要求修訂 → 文章 REJECTED、題材 DROPPED（`ARTICLE_REJECTED`、`STORY_DROPPED`），之後不能再寫稿。
+  - **每份草稿只決定一次**：同樣的決定重做（重試）回傳原本的結果、不重發事件；不同的決定拒絕（「這份草稿已經審過」）。以事件紀錄判斷，不需要新的資料表。
+  - 狀態的解讀：DRAFT 是寫手與編輯之間的來回，IN_REVIEW 是編輯接受、等待核准（核准只接受 IN_REVIEW，T-512）；因此修訂不經過 IN_REVIEW，第 3 次修訂時沿 DRAFT → IN_REVIEW → REJECTED 駁回。
+- **工具**（`tools/review.py`）：`accept_draft`、`request_revision`（問題 `{message, kind, lang?, block_ref?}`，kind：fact / unsupported / missing_context / translation / style / other）；回傳決定、第幾次修訂、剩幾次、是否已放棄題材，修訂會把送出的問題回傳給模型。
+- **編輯代理**（`agents/editor.py`，角色 `editor`、任務 `review`）：工具 `read_draft`、`run_fact_check`、`accept_draft`、`request_revision`、`read_evidence`、`list_claims`；能力 `editing`，最多 12 次模型呼叫。
+  - **提示**：先讀稿、跑查核（第 1～2 層），再自己做**第 3 層**——每則主張在每個語言裡是否真的說了引文說的事、沒有誇大或漏掉會改變意思的脈絡、各語言事實一致、中文是繁體、沒有沒主張的事實、爭議寫成誰說了什麼；只有查核通過且沒有要修的才接受，否則逐項列出問題（語言、段落）；查核沒過的主張不能再引用，要說明沒有它怎麼寫；最多修訂 2 次。
+  - **輸出 `EditorReview`**：文章 ID、決定（accept / revise）、查核報告 ID、問題（platform/04 §5）。工作流程（T-514）會把問題交給寫手的修訂任務（T-509 的 `params.issues`）。
+  - **背景**：題材、文章 ID、目前草稿的版本與語言與狀態、需要的語言、**已修訂幾次（沒有次數時明說再要求修訂會放棄題材）**、寫手在這一版寫的修改說明。
+  - **驗證**：這個任務**確實做了決定**（本任務的 `ARTICLE_REVIEWED`），回報的決定與實際一致、是本題材的文章；查核報告存在、**是本任務的 `run_fact_check` 產生的**、屬於這篇文章；accept 需要報告通過且不列問題；revise 至少一個問題，且與 `request_revision` 送出的問題數量相同。
+- `stories.drop_story`：放棄題材的共用函式（題材台、發布服務的駁回、編輯的第 3 次修訂都用它）。
+- **模擬模型**：讀稿與查核同一回合 → 查核通過就 `accept_draft`，否則每個沒通過的主張一個問題（繁中說明）送 `request_revision` → 回報。
+- 前端事件說明：`ARTICLE_REVIEWED`（編輯通過・送交核准 / 編輯退回・事實查核未過或需要修改）、`ARTICLE_REVISION_REQUESTED`（要求修改・第 N 次・M 個問題）；事件契約重新產生；`3d-office/03` 補上兩個事件的新欄位（`by_role`、`revision`）。
+
+### 驗證
+- `tests/newsroom/test_review.py`（4 個）：接受 → IN_REVIEW、事件內容、重試不重發、不同決定被拒、**之後人可以核准**；沒查核 / 舊報告 / 查核沒過都不能接受；修訂兩次（次數、剩餘、事件）→ **第 3 次放棄題材**（文章 REJECTED、題材 DROPPED、事件各一、之後不能寫稿）；修訂沒有問題、文章不存在。
+- `tests/newsroom/agents/test_editor.py`（6 個）：
+  - **真正的工作程序**跑研究 → 分析 → 撰稿 → 審稿：查核通過、接受、文章 IN_REVIEW、報告與事件屬於審稿任務、角色是 editor；
+  - **修訂來回**：撰稿後讓一則被引用的主張失去證據 → 審稿查核沒過、要求修訂（問題類型 unsupported、繁中說明）→ 帶著問題的寫手修訂任務寫出第 2 版、**不再引用被駁回的主張** → 第二次審稿接受；
+  - 背景（還沒有稿、版本與語言、修訂次數用完的提醒）；驗證器（還沒決定、決定不一致、文章不存在、別的題材、別的任務、報告不存在或不是本任務的、接受卻列問題、修訂沒問題、報告沒過卻接受、問題數量與送出的不同）；工作程序找得到編輯行為。
+- 後端 830 個測試通過；`ruff`、`lint-imports`、`make db-check`、`gen-schema-check` 通過；event-schema 8 個、web 213 個測試與 typecheck、lint 通過。
 ---
 
 ## 提交紀錄

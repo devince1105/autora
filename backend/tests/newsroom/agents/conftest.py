@@ -10,7 +10,13 @@ from tests.conftest import unique_company
 from tests.echo_fixtures import e2e_settings  # noqa: F401 (fixture)
 
 # the newsroom line, in order: (task, role)
-LINE = (("research", "researcher"), ("analysis", "analyst"), ("draft", "writer"))
+LINE = (
+    ("research", "researcher"),
+    ("analysis", "analyst"),
+    ("draft", "writer"),
+    ("review", "editor"),
+)
+ROLES = dict(LINE)
 
 
 @dataclass
@@ -50,22 +56,34 @@ async def run_line(committed, settings, *, until: str, params=None) -> Line:
     worker = build_worker(settings, session_factory=committed, company_ids=frozenset({company.id}))
     line = Line(company=company, project=project, story=story, worker=worker)
     previous = None
-    for name, role in LINE:
-        async with committed() as session:
-            line.tasks[name] = await TaskManager().add_task(
-                session,
-                company_id=company.id,
-                project_id=project.id,
-                name=name,
-                display_name=name.title(),
-                required_role=role,
-                input={"params": {"story_id": str(story.id), **((params or {}).get(name) or {})}},
-                depends_on=[previous.id] if previous else [],
-                ready=True,
-            )
-            await session.commit()
+    for name, _ in LINE:
+        line.tasks[name] = await add_task(
+            committed,
+            line,
+            name,
+            params=(params or {}).get(name),
+            depends_on=[previous.id] if previous else [],
+        )
         await worker.run_until_idle()
         previous = line.tasks[name]
         if name == until:
             break
     return line
+
+
+async def add_task(committed, line: Line, name: str, *, params=None, depends_on=()) -> Task:
+    """Add a ready newsroom task for the line's story (a revision, a second review ...)."""
+    async with committed() as session:
+        task = await TaskManager().add_task(
+            session,
+            company_id=line.company.id,
+            project_id=line.project.id,
+            name=name,
+            display_name=name.title(),
+            required_role=ROLES[name],
+            input={"params": {"story_id": str(line.story.id), **(params or {})}},
+            depends_on=list(depends_on),
+            ready=True,
+        )
+        await session.commit()
+    return task
