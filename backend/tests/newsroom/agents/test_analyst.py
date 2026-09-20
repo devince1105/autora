@@ -149,6 +149,14 @@ async def test_the_validators(newsroom_room):
             session, ctx, note(ids, key_numbers=[KeyNumber(claim_id=invented, value="x")])
         )
         assert "is not listed" in wrong_kind[0]
+        # a key number must be a number claim, and the model is told how to fix it
+        not_a_number = await session.get(Claim, ids[0])
+        not_a_number.claim_type = "fact"
+        await session.flush()
+        [typed] = await claims_would_pass(
+            session, ctx, note(ids, key_numbers=[KeyNumber(claim_id=ids[0], value="4.2 億元")])
+        )
+        assert "is a fact claim" in typed and 'claim_type="number"' in typed
 
 
 def test_the_worker_knows_the_analyst():

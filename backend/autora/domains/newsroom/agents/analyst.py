@@ -43,7 +43,8 @@ each claim against its quotes, so:
    number, quote (someone's words), attribution (who said or did something) or opinion. Give it
    the evidence quotes that support it, copied exactly from the evidence text (a sentence or
    two; whitespace and quotation marks may differ, nothing else).
-3. Numbers: every number in a number claim must appear in a supporting quote.
+3. Numbers: every number in a number claim must appear in a supporting quote. A figure you list
+   under key_numbers must be a claim you typed "number" (that is what gets the number check).
 4. Low-trust sources cannot support a claim alone: add a trusted or a second independent source.
 5. When sources disagree, do not pick a side as fact: record who says what (attribution claims,
    each with its quote), link the disagreeing quote as "contradicts" where it applies, and list
@@ -186,7 +187,12 @@ async def claims_would_pass(session: AsyncSession, ctx: RunContext, note: BaseMo
         if number.claim_id not in types:
             issues.append(f"key number {number.value!r}: claim {number.claim_id} is not listed")
         elif types[number.claim_id] != ClaimType.NUMBER:
-            issues.append(f"key number {number.value!r}: claim {number.claim_id} is not a number")
+            issues.append(
+                f"key number {number.value!r}: claim {number.claim_id} is a "
+                f"{types[number.claim_id]} claim. A figure the article will feature must be "
+                'checkable as a number: record it again with create_claim as claim_type="number" '
+                "(same quote) and list that claim here, or leave it out of key_numbers"
+            )
     return issues
 
 
