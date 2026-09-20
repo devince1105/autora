@@ -242,10 +242,12 @@ async def test_an_editor_that_never_decides_fails_visibly(committed, e2e_setting
         activity = await session.get(AgentActivity, editor.id)
         failed = (
             await session.scalars(
-                select(EventRecord).where(
+                select(EventRecord)
+                .where(
                     EventRecord.task_id == tasks["review"].id,
                     EventRecord.event_type == "AGENT_RUN_FAILED",
                 )
+                .order_by(EventRecord.seq)  # "the last one is final" needs an order to be last
             )
         ).all()
 
