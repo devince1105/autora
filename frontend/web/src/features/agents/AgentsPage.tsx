@@ -3,7 +3,7 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import Link from "next/link";
 
-import { agentsQuery, hireAgent, rolesQuery } from "@/api/queries";
+import { agentsQuery, decideAgent, hireAgent, rolesQuery, type AgentAction } from "@/api/queries";
 import { CompanyScope, withCompany, type Company } from "@/features/company/CompanyScope";
 import { useCompanyStream } from "@/features/company/useCompanyStream";
 
@@ -37,7 +37,13 @@ function CompanyAgents({ company }: { company: Company }) {
         </div>
       </header>
       {agents.error ? <p className="mb-3 text-danger">{agents.error.message}</p> : null}
-      <AgentsView agents={agents.data} />
+      <AgentsView
+        agents={agents.data}
+        onDecide={async (agentId: string, action: AgentAction) => {
+          await decideAgent(company.id, agentId, action);
+          await queryClient.invalidateQueries({ queryKey: ["agents", company.id] });
+        }}
+      />
       <h2 className="mt-8 mb-3 text-lg font-semibold">雇用代理</h2>
       <HireForm
         roles={roles.data?.roles}

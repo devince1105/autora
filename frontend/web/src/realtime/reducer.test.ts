@@ -187,3 +187,20 @@ describe("finished tasks leave the state (T-412)", () => {
   });
 });
 
+describe("leaving the roster", () => {
+  it("AGENT_RETIRED removes the agent (the office stops drawing it)", () => {
+    const state = replay();
+    const [agentId] = Object.keys(state.agents);
+    const retired = {
+      ...events[events.length - 1]!,
+      event_id: "11111111-1111-7111-8111-111111111111",
+      seq: state.lastSeq + 1,
+      event_type: "AGENT_RETIRED",
+      agent_id: agentId,
+      payload: { role: "researcher", display_name: "Rae", reason: null },
+    } as unknown as EventEnvelope;
+    const after = applyEvent(state, retired);
+    expect(Object.keys(after.agents)).toEqual(Object.keys(state.agents).filter((id) => id !== agentId));
+    expect(after.lastSeq).toBe(state.lastSeq + 1);
+  });
+});

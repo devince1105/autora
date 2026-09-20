@@ -7,7 +7,7 @@
 // - Events with seq <= lastSeq, without seq, or of another company are ignored (duplicates at
 //   the backlog/live boundary). The gateway guarantees order and completeness per connection
 //   (05 §4 as amended in T-303), so no gap detection happens here.
-// - AGENT_CREATED adds an agent. Activity events set stored_state from the event type, detail
+// - AGENT_CREATED adds an agent, AGENT_RETIRED removes one. Activity events set stored_state from the event type, detail
 //   = payload + run/task/workflow context (none for IDLE and PAUSED; task_name is the task's
 //   display name), since changes only when the state does. A non-final AGENT_RUN_FAILED or
 //   AGENT_RUN_ABORTED is trace data and changes nothing.
@@ -150,6 +150,13 @@ function applyOne(state: RealtimeState, event: EventEnvelope): RealtimeState {
         liveProgress: null,
       },
     };
+    return next;
+  }
+
+  if (event.event_type === "AGENT_RETIRED" && event.agent_id) {
+    const { [event.agent_id]: gone, ...rest } = state.agents; // off the roster
+    void gone;
+    next.agents = rest;
     return next;
   }
 

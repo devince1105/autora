@@ -325,6 +325,43 @@
         }
       }
     },
+    "AGENT_RETIRED": {
+      "1": {
+        "persistence": "persisted",
+        "payload": {
+          "additionalProperties": false,
+          "description": "The agent left the roster: no new work, and the office stops drawing it.",
+          "properties": {
+            "role": {
+              "title": "Role",
+              "type": "string"
+            },
+            "display_name": {
+              "title": "Display Name",
+              "type": "string"
+            },
+            "reason": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Reason"
+            }
+          },
+          "required": [
+            "role",
+            "display_name"
+          ],
+          "title": "AgentRetired",
+          "type": "object"
+        }
+      }
+    },
     "AGENT_REVIEWING": {
       "1": {
         "persistence": "persisted",

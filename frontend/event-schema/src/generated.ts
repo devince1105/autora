@@ -121,6 +121,19 @@ export const AgentResumedV1Event = z.object({
   payload: AgentResumedV1Payload,
 });
 
+export const AgentRetiredV1Payload = z.object({
+  role: z.string(),
+  display_name: z.string(),
+  reason: z.string().nullable().default(null),
+});
+export type AgentRetiredV1Payload = z.infer<typeof AgentRetiredV1Payload>;
+export const AgentRetiredV1Event = z.object({
+  ...envelopeFields,
+  event_type: z.literal("AGENT_RETIRED"),
+  schema_version: z.literal(1),
+  payload: AgentRetiredV1Payload,
+});
+
 export const AgentReviewingV1Payload = z.object({
   phase: z.enum(["evaluate", "repair"]),
   attempt: z.number().int().min(1),
@@ -1126,6 +1139,7 @@ export const EventEnvelope = z.discriminatedUnion("event_type", [
   AgentIdleV1Event,
   AgentPausedV1Event,
   AgentResumedV1Event,
+  AgentRetiredV1Event,
   AgentReviewingV1Event,
   AgentRunAbortedV1Event,
   AgentRunCompletedV1Event,
@@ -1211,6 +1225,7 @@ export const EVENT_TYPES = [
   "AGENT_IDLE",
   "AGENT_PAUSED",
   "AGENT_RESUMED",
+  "AGENT_RETIRED",
   "AGENT_REVIEWING",
   "AGENT_RUN_ABORTED",
   "AGENT_RUN_COMPLETED",

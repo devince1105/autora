@@ -76,6 +76,15 @@ class AgentResumed(EventPayload):
     reason: str | None = None
 
 
+@event("AGENT_RETIRED")
+class AgentRetired(EventPayload):
+    """The agent left the roster: no new work, and the office stops drawing it."""
+
+    role: str
+    display_name: str
+    reason: str | None = None
+
+
 @event("AGENT_IDLE")
 class AgentIdle(EventPayload):
     """Explicit return to IDLE.

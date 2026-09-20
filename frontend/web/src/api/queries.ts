@@ -218,6 +218,29 @@ export async function hireAgent(companyId: string, body: NewAgent, api: ApiClien
   );
 }
 
+export type AgentAction = "pause" | "resume" | "retire";
+
+/** Stop an agent taking work, put it back, or let it go (T-517 follow-up). */
+export async function decideAgent(
+  companyId: string,
+  agentId: string,
+  action: AgentAction,
+  reason: string | null = null,
+  api: ApiClient = defaultApi,
+) {
+  const paths = {
+    pause: "/api/companies/{company_id}/agents/{agent_id}/pause",
+    resume: "/api/companies/{company_id}/agents/{agent_id}/resume",
+    retire: "/api/companies/{company_id}/agents/{agent_id}/retire",
+  } as const;
+  return unwrap(
+    await api.POST(paths[action], {
+      params: { path: { company_id: companyId, agent_id: agentId } },
+      body: { reason },
+    }),
+  );
+}
+
 export async function startStory(storyId: string, projectId: string | null = null, api: ApiClient = defaultApi) {
   return unwrap(
     await api.POST("/api/stories/{story_id}/start", {

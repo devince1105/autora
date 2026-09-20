@@ -5,29 +5,91 @@
 import { useState, type FormEvent } from "react";
 
 import type { Schemas } from "@/api/client";
-import type { NewAgent } from "@/api/queries";
+import type { AgentAction, NewAgent } from "@/api/queries";
 import { ROLE_LABEL, STATE_LABEL } from "@/features/agent-panel/model";
 import type { ActivityState } from "@/realtime/snapshot";
 
 export type Agent = Schemas["AgentOut"];
 
-export function AgentsView({ agents }: { agents: readonly Agent[] | undefined }) {
+const STATUS_LABEL: Record<string, string> = { active: "在職", paused: "暫停中", retired: "已離職" };
+
+export function AgentsView({
+  agents,
+  onDecide,
+}: {
+  agents: readonly Agent[] | undefined;
+  onDecide: (agentId: string, action: AgentAction) => Promise<unknown>;
+}) {
+  const [confirming, setConfirming] = useState<string | null>(null);
+  const [busy, setBusy] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  async function decide(agentId: string, action: AgentAction) {
+    setBusy(agentId);
+    setError(null);
+    try {
+      await onDecide(agentId, action);
+      setConfirming(null);
+    } catch (failure) {
+      setError(failure instanceof Error ? failure.message : String(failure));
+    } finally {
+      setBusy(null);
+    }
+  }
+
   if (!agents) return <p className="text-sm text-muted">載入中…</p>;
   if (agents.length === 0) return <p className="text-sm text-muted">這間公司還沒有代理。</p>;
   return (
-    <ul className="divide-y divide-line rounded border border-line bg-surface text-sm">
-      {agents.map((agent) => (
-        <li key={agent.id} className="flex flex-wrap items-center gap-3 px-4 py-3">
-          <span className="font-medium">{agent.display_name}</span>
-          <span className="text-muted">{ROLE_LABEL[agent.role] ?? agent.role}</span>
-          <span className="grow" />
-          <span className="text-xs text-muted">
-            {agent.status === "active" ? "在職" : agent.status}
-            {agent.activity ? `・${STATE_LABEL[agent.activity.state as ActivityState] ?? agent.activity.state}` : ""}
-          </span>
-        </li>
-      ))}
-    </ul>
+    <>
+      {error ? <p className="mb-2 text-sm text-danger">{error}</p> : null}
+      <ul className="divide-y divide-line rounded border border-line bg-surface text-sm">
+        {agents.map((agent) => (
+          <li key={agent.id} className="flex flex-wrap items-center gap-3 px-4 py-3">
+            <span className="font-medium">{agent.display_name}</span>
+            <span className="text-muted">{ROLE_LABEL[agent.role] ?? agent.role}</span>
+            <span className="grow" />
+            <span className="text-xs text-muted">
+              {STATUS_LABEL[agent.status] ?? agent.status}
+              {agent.activity ? `・${STATE_LABEL[agent.activity.state as ActivityState] ?? agent.activity.state}` : ""}
+            </span>
+            {confirming === agent.id ? (
+              <>
+                <span className="text-xs">確定讓 {agent.display_name} 離職？不能復職。</span>
+                <button
+                  type="button"
+                  disabled={busy === agent.id}
+                  onClick={() => decide(agent.id, "retire")}
+                  className="rounded border border-danger-line bg-danger-soft px-2 py-0.5 text-xs text-danger disabled:opacity-50"
+                >
+                  確定解雇
+                </button>
+                <button type="button" onClick={() => setConfirming(null)} className="text-xs text-muted underline">
+                  取消
+                </button>
+              </>
+            ) : (
+              <>
+                <button
+                  type="button"
+                  disabled={busy === agent.id}
+                  onClick={() => decide(agent.id, agent.status === "paused" ? "resume" : "pause")}
+                  className="rounded border border-line px-2 py-0.5 text-xs disabled:opacity-50"
+                >
+                  {agent.status === "paused" ? "恢復工作" : "暫停"}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setConfirming(agent.id)}
+                  className="rounded border border-line px-2 py-0.5 text-xs text-muted"
+                >
+                  解雇
+                </button>
+              </>
+            )}
+          </li>
+        ))}
+      </ul>
+    </>
   );
 }
 

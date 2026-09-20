@@ -118,6 +118,8 @@ class RealtimeState:
             self.agents[event.agent_id] = _Agent(
                 event.agent_id, payload.role, payload.display_name, payload.avatar_key
             )
+        elif isinstance(payload, ev.AgentRetired) and event.agent_id is not None:
+            self.agents.pop(event.agent_id, None)  # off the roster: the office stops drawing it
         elif type(payload) in _ACTIVITY and event.agent_id in self.agents:
             if not (
                 isinstance(payload, ev.AgentRunFailed | ev.AgentRunAborted) and not payload.final

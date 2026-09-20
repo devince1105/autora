@@ -9,7 +9,10 @@ from fastapi import APIRouter, HTTPException, Query, status
 from pydantic import BaseModel, Field
 
 from autora.app import build_behaviors
-from autora.company.agents import hire_agent
+from autora.company.agents import AgentBusy, hire_agent
+from autora.company.agents import pause_agent as agent_pause
+from autora.company.agents import resume_agent as agent_resume
+from autora.company.agents import retire_agent as agent_retire
 from autora.company.companies import CompanyAlreadyExists, create_company
 from autora.db.models import Agent, Company, CompanyType
 from autora.db.repositories import agents as agent_repo
@@ -133,6 +136,64 @@ async def list_company_agents(
 ) -> list[AgentOut]:
     await _company_or_404(session, company_id)
     return [await _agent_out(session, a) for a in await agent_repo.list_agents(session, company_id)]
+
+
+async def _agent_or_404(session: Session, company_id: uuid.UUID, agent_id: uuid.UUID) -> Agent:
+    agent = await session.get(Agent, agent_id)
+    if agent is None or agent.company_id != company_id:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, f"agent {agent_id} not found")
+    return agent
+
+
+class AgentDecision(BaseModel):
+    reason: str | None = Field(default=None, max_length=500)
+
+
+@router.post("/{company_id}/agents/{agent_id}/pause")
+async def pause(
+    company_id: uuid.UUID,
+    agent_id: uuid.UUID,
+    body: AgentDecision,
+    session: Session,
+    operator: Operator,
+) -> AgentOut:
+    """No new tasks for this agent; the run it is on still finishes."""
+    agent = await _agent_or_404(session, company_id, agent_id)
+    return await _decide(session, agent_pause, agent, operator, body.reason)
+
+
+@router.post("/{company_id}/agents/{agent_id}/resume")
+async def resume(
+    company_id: uuid.UUID,
+    agent_id: uuid.UUID,
+    body: AgentDecision,
+    session: Session,
+    operator: Operator,
+) -> AgentOut:
+    agent = await _agent_or_404(session, company_id, agent_id)
+    return await _decide(session, agent_resume, agent, operator, body.reason)
+
+
+@router.post("/{company_id}/agents/{agent_id}/retire")
+async def retire(
+    company_id: uuid.UUID,
+    agent_id: uuid.UUID,
+    body: AgentDecision,
+    session: Session,
+    operator: Operator,
+) -> AgentOut:
+    """The agent leaves the roster. Its runs, events and outputs stay; it cannot be brought back."""
+    agent = await _agent_or_404(session, company_id, agent_id)
+    return await _decide(session, agent_retire, agent, operator, body.reason)
+
+
+async def _decide(session: Session, command, agent: Agent, operator: Operator, reason) -> AgentOut:
+    try:
+        agent = await command(session, agent, actor=operator, reason=reason)
+    except AgentBusy as busy:
+        raise HTTPException(status.HTTP_409_CONFLICT, str(busy)) from None
+    await session.commit()
+    return await _agent_out(session, agent)
 
 
 class NewAgent(BaseModel):

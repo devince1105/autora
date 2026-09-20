@@ -235,3 +235,72 @@ async def test_hiring_an_agent(api):
         f"/api/companies/{uuid.uuid4()}/agents", json={"role": "editor", "display_name": "E"}
     )
     assert missing.status_code == 404
+
+
+async def test_pausing_resuming_and_retiring_an_agent(api, db_session):
+    """An operator can stop an agent taking work, put it back, or let it go (T-517 follow-up)."""
+    from datetime import UTC, datetime
+
+    from autora.db.models import AgentRun, Project, Task
+
+    company = (await _create(api, slug="roster-co", name="有人事的公司")).json()
+    hired = (
+        await api.post(
+            f"/api/companies/{company['id']}/agents",
+            json={"role": "researcher", "display_name": "Rae"},
+        )
+    ).json()
+    path = f"/api/companies/{company['id']}/agents/{hired['id']}"
+
+    paused = await api.post(f"{path}/pause", json={"reason": "太吵"})
+    assert paused.status_code == 200 and paused.json()["status"] == "paused"
+    assert paused.json()["activity"]["state"] == "PAUSED"
+    assert (await api.post(f"{path}/pause", json={})).json()["status"] == "paused"  # again: same
+
+    resumed = await api.post(f"{path}/resume", json={})
+    assert resumed.json()["status"] == "active" and resumed.json()["activity"]["state"] == "IDLE"
+
+    # while it is working, it cannot be let go
+    project = Project(company_id=uuid.UUID(company["id"]), name="p")
+    db_session.add(project)
+    await db_session.flush()
+    task = Task(
+        company_id=uuid.UUID(company["id"]),
+        project_id=project.id,
+        name="research",
+        display_name="Research",
+        required_role="researcher",
+        state="RUNNING",
+        lease_owner="w",
+        lease_token=uuid.uuid4(),
+        lease_until=datetime.now(UTC),
+    )
+    db_session.add(task)
+    await db_session.flush()
+    run = AgentRun(
+        company_id=uuid.UUID(company["id"]),
+        task_id=task.id,
+        agent_id=uuid.UUID(hired["id"]),
+        attempt=1,
+        state="RUNNING",
+    )
+    db_session.add(run)
+    await db_session.flush()
+    busy = await api.post(f"{path}/retire", json={})
+    assert busy.status_code == 409 and "is working on run" in busy.text
+
+    run.state = "COMPLETED"
+    run.finished_at = datetime.now(UTC)  # the table insists a finished run has a time
+    await db_session.flush()
+    retired = await api.post(f"{path}/retire", json={"reason": "示範結束"})
+    assert retired.status_code == 200 and retired.json()["status"] == "retired"
+    assert (await api.get(f"/api/companies/{company['id']}/agents")).json() == []  # off the roster
+    assert (await api.post(f"{path}/resume", json={})).status_code == 409  # gone for good
+    events = [
+        e["event_type"]
+        for e in (await api.get("/api/events", params={"company_id": company["id"]})).json()[
+            "items"
+        ]
+    ]
+    assert events.count("AGENT_PAUSED") == 1 and events.count("AGENT_RESUMED") == 1
+    assert events.count("AGENT_RETIRED") == 1

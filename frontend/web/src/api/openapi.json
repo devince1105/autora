@@ -160,6 +160,24 @@
     "title": "Actor",
     "type": "object"
    },
+   "AgentDecision": {
+    "properties": {
+     "reason": {
+      "anyOf": [
+       {
+        "maxLength": 500,
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Reason"
+     }
+    },
+    "title": "AgentDecision",
+    "type": "object"
+   },
    "AgentOut": {
     "properties": {
      "activity": {
@@ -3692,6 +3710,212 @@
      }
     ],
     "summary": "Hire",
+    "tags": [
+     "companies"
+    ]
+   }
+  },
+  "/api/companies/{company_id}/agents/{agent_id}/pause": {
+   "post": {
+    "description": "No new tasks for this agent; the run it is on still finishes.",
+    "operationId": "pause_api_companies__company_id__agents__agent_id__pause_post",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "company_id",
+      "required": true,
+      "schema": {
+       "format": "uuid",
+       "title": "Company Id",
+       "type": "string"
+      }
+     },
+     {
+      "in": "path",
+      "name": "agent_id",
+      "required": true,
+      "schema": {
+       "format": "uuid",
+       "title": "Agent Id",
+       "type": "string"
+      }
+     }
+    ],
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/AgentDecision"
+       }
+      }
+     },
+     "required": true
+    },
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/AgentOut"
+        }
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "security": [
+     {
+      "HTTPBearer": []
+     }
+    ],
+    "summary": "Pause",
+    "tags": [
+     "companies"
+    ]
+   }
+  },
+  "/api/companies/{company_id}/agents/{agent_id}/resume": {
+   "post": {
+    "operationId": "resume_api_companies__company_id__agents__agent_id__resume_post",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "company_id",
+      "required": true,
+      "schema": {
+       "format": "uuid",
+       "title": "Company Id",
+       "type": "string"
+      }
+     },
+     {
+      "in": "path",
+      "name": "agent_id",
+      "required": true,
+      "schema": {
+       "format": "uuid",
+       "title": "Agent Id",
+       "type": "string"
+      }
+     }
+    ],
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/AgentDecision"
+       }
+      }
+     },
+     "required": true
+    },
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/AgentOut"
+        }
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "security": [
+     {
+      "HTTPBearer": []
+     }
+    ],
+    "summary": "Resume",
+    "tags": [
+     "companies"
+    ]
+   }
+  },
+  "/api/companies/{company_id}/agents/{agent_id}/retire": {
+   "post": {
+    "description": "The agent leaves the roster. Its runs, events and outputs stay; it cannot be brought back.",
+    "operationId": "retire_api_companies__company_id__agents__agent_id__retire_post",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "company_id",
+      "required": true,
+      "schema": {
+       "format": "uuid",
+       "title": "Company Id",
+       "type": "string"
+      }
+     },
+     {
+      "in": "path",
+      "name": "agent_id",
+      "required": true,
+      "schema": {
+       "format": "uuid",
+       "title": "Agent Id",
+       "type": "string"
+      }
+     }
+    ],
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/AgentDecision"
+       }
+      }
+     },
+     "required": true
+    },
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/AgentOut"
+        }
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "security": [
+     {
+      "HTTPBearer": []
+     }
+    ],
+    "summary": "Retire",
     "tags": [
      "companies"
     ]

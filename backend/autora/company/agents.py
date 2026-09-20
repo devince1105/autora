@@ -1,7 +1,12 @@
-"""Company roster: hiring agents (logs/platform/02_COMPANY_MODEL.md).
+"""Company roster: hiring agents, pausing them and letting them go (platform/02).
 
 An agent is created with its activity row (IDLE) and an AGENT_CREATED event in the caller's
 transaction, so the office never shows an agent without a state.
+
+- ``pause_agent``: the worker gives it no new task (the run it is on finishes); the office shows
+  it paused. ``resume_agent`` puts it back to work.
+- ``retire_agent``: it leaves the roster for good (RETIRED is not listed, and the office stops
+  drawing it). Refused while a run of its is still open, so nothing is dropped half-done.
 """
 
 from __future__ import annotations
@@ -10,15 +15,16 @@ import uuid
 from collections.abc import Sequence
 from typing import Any
 
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from autora.db.models import Agent
+from autora.db.models import AGENT_RUN_TERMINAL, Agent, AgentRun, AgentStatus
 from autora.db.repositories import agents as agent_repo
-from autora.runtime.activity import initialize_activity
+from autora.runtime.activity import initialize_activity, set_activity
 from autora.runtime.actor import Actor
 from autora.runtime.events import catalog as ev
 from autora.runtime.events.outbox import emit
-from autora.runtime.events.schema import new_event
+from autora.runtime.events.schema import EventPayload, new_event
 
 
 async def hire_agent(
@@ -64,4 +70,76 @@ async def hire_agent(
         ),
     )
     await initialize_activity(session, agent, actor=actor)
+    return agent
+
+
+class AgentBusy(Exception):
+    """The agent is in the middle of a run; wait for it, or pause it first."""
+
+
+async def _set_status(
+    session: AsyncSession,
+    agent: Agent,
+    status: AgentStatus,
+    payload: EventPayload | None,
+    *,
+    actor: Actor,
+) -> Agent:
+    agent.status = status.value
+    if payload is not None:
+        await set_activity(session, agent, payload, actor=actor)
+    await session.flush()
+    return agent
+
+
+async def pause_agent(
+    session: AsyncSession, agent: Agent, *, actor: Actor, reason: str | None = None
+) -> Agent:
+    """No new work for this agent (AGENT_PAUSED). Its current run, if any, still finishes."""
+    if agent.status == AgentStatus.PAUSED:
+        return agent
+    if agent.status == AgentStatus.RETIRED:
+        raise AgentBusy(f"{agent.display_name} has left the company")
+    return await _set_status(
+        session, agent, AgentStatus.PAUSED, ev.AgentPaused(reason=reason), actor=actor
+    )
+
+
+async def resume_agent(
+    session: AsyncSession, agent: Agent, *, actor: Actor, reason: str | None = None
+) -> Agent:
+    if agent.status == AgentStatus.ACTIVE:
+        return agent
+    if agent.status == AgentStatus.RETIRED:
+        raise AgentBusy(f"{agent.display_name} has left the company")
+    return await _set_status(
+        session, agent, AgentStatus.ACTIVE, ev.AgentResumed(reason=reason), actor=actor
+    )
+
+
+async def retire_agent(
+    session: AsyncSession, agent: Agent, *, actor: Actor, reason: str | None = None
+) -> Agent:
+    """The agent leaves the roster (AGENT_RETIRED). Its runs, events and outputs stay."""
+    if agent.status == AgentStatus.RETIRED:
+        return agent
+    open_run = await session.scalar(
+        select(AgentRun.id).where(
+            AgentRun.agent_id == agent.id, AgentRun.state.notin_(AGENT_RUN_TERMINAL)
+        )
+    )
+    if open_run is not None:
+        raise AgentBusy(f"{agent.display_name} is working on run {open_run}")
+    agent = await _set_status(session, agent, AgentStatus.RETIRED, None, actor=actor)
+    await emit(
+        session,
+        new_event(
+            ev.AgentRetired(role=agent.role, display_name=agent.display_name, reason=reason),
+            company_id=agent.company_id,
+            actor=actor,
+            aggregate_type="agent",
+            aggregate_id=agent.id,
+            agent_id=agent.id,
+        ),
+    )
     return agent
