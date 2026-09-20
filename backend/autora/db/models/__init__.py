@@ -21,6 +21,14 @@ from autora.db.models.finance import (
     TransactionSource,
 )
 from autora.db.models.model_calls import CostReservation, ModelCall, ModelCallStatus
+from autora.db.models.organization import (
+    BusinessUnit,
+    BusinessUnitState,
+    Department,
+    Product,
+    ProductState,
+    Role,
+)
 from autora.db.models.projects import Project, ProjectState
 from autora.db.models.runtime import (
     Approval,
@@ -56,6 +64,8 @@ __all__ = [
     "ApprovalKind",
     "ApprovalState",
     "Budget",
+    "BusinessUnit",
+    "BusinessUnitState",
     "BudgetPeriod",
     "Company",
     "CompanyGoal",
@@ -63,6 +73,7 @@ __all__ = [
     "CompanyStatus",
     "CompanyType",
     "CostReservation",
+    "Department",
     "Cycle",
     "CycleStage",
     "EventRecord",
@@ -71,8 +82,11 @@ __all__ = [
     "ModelCall",
     "ModelCallStatus",
     "PolicyDecision",
+    "Product",
+    "ProductState",
     "Project",
     "ProjectState",
+    "Role",
     "Schedule",
     "StateTransition",
     "StepKind",

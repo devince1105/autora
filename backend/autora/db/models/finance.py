@@ -50,13 +50,22 @@ class Budget(IdMixin, TimestampMixin, Base):
 
     __tablename__ = "budgets"
     __table_args__ = (
-        UniqueConstraint("company_id", "project_id", "period", postgresql_nulls_not_distinct=True),
+        UniqueConstraint(
+            "company_id",
+            "business_unit_id",
+            "project_id",
+            "period",
+            postgresql_nulls_not_distinct=True,
+        ),
         check_in("period", BudgetPeriod),
         check_regex("currency", "^[A-Z]{3}$"),
         CheckConstraint("amount >= 0", name="amount_non_negative"),
     )
 
     company_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("companies.id"))
+    business_unit_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("business_units.id"))
+    """The envelope's owner, between the company and a project: company (both NULL) -> business
+    unit -> project. Four layers of cap, all checked by the same guard (T-600)."""
     project_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("projects.id"))
     period: Mapped[str]
     amount: Mapped[Decimal]
@@ -79,6 +88,11 @@ class Transaction(IdMixin, CreatedAtMixin, Base):
     )
 
     company_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("companies.id"))
+    business_unit_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("business_units.id"))
+    """Which business earned or spent it. Denormalised on purpose: a project implies its unit,
+    but revenue from a product has no project, and a unit's P&L must be one query (T-600)."""
+    product_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("products.id"))
+    """Which offering earned it. Set on revenue, usually NULL on costs."""
     project_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("projects.id"))
     kind: Mapped[str]
     category: Mapped[str]

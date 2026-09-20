@@ -33,6 +33,9 @@ export const AgentView = z.object({
   role: z.string(),
   display_name: z.string(),
   avatar_key: z.string(),
+  /** Which room of the office draws it (T-600); null for an agent not yet on the org chart. */
+  department_id: z.uuid().nullable().default(null),
+  department_key: z.string().nullable().default(null),
   activity: ActivityView,
 });
 export type AgentView = z.infer<typeof AgentView>;

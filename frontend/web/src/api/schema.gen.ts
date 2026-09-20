@@ -589,6 +589,10 @@ export interface components {
             activity: components["schemas"]["ActivityView"];
             /** Avatar Key */
             avatar_key: string;
+            /** Department Id */
+            department_id?: string | null;
+            /** Department Key */
+            department_key?: string | null;
             /** Display Name */
             display_name: string;
             /**

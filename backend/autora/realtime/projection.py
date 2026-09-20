@@ -36,6 +36,7 @@ from autora.db.models import (
     AgentActivity,
     AgentRun,
     AgentStatus,
+    Department,
     EventRecord,
     Task,
     TaskState,
@@ -65,6 +66,10 @@ class AgentView(BaseModel):
     role: str
     display_name: str
     avatar_key: str
+    department_id: uuid.UUID | None = None
+    department_key: str | None = None
+    """Which room of the office draws it (T-600). None for an agent with no place on the
+    org chart — it works, it is simply not in a department yet."""
     activity: ActivityView
 
 
@@ -125,8 +130,9 @@ async def load_snapshot(
 async def _agents(session: AsyncSession, company_id: uuid.UUID, now: datetime) -> list[AgentView]:
     rows = (
         await session.execute(
-            select(Agent, AgentActivity)
+            select(Agent, AgentActivity, Department.key)
             .join(AgentActivity, AgentActivity.agent_id == Agent.id)
+            .outerjoin(Department, Department.id == Agent.department_id)
             .where(Agent.company_id == company_id, Agent.status != AgentStatus.RETIRED)
             .order_by(Agent.created_at, Agent.id)
         )
@@ -137,6 +143,8 @@ async def _agents(session: AsyncSession, company_id: uuid.UUID, now: datetime) -
             role=agent.role,
             display_name=agent.display_name,
             avatar_key=agent.avatar_key,
+            department_id=agent.department_id,
+            department_key=department_key,
             activity=ActivityView(
                 state=effective_state(activity, now),
                 stored_state=ActivityState(activity.state),
@@ -147,7 +155,7 @@ async def _agents(session: AsyncSession, company_id: uuid.UUID, now: datetime) -
                 last_event_seq=activity.last_event_seq,
             ),
         )
-        for agent, activity in rows
+        for agent, activity, department_key in rows
     ]
 
 

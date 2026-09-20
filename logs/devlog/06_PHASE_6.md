@@ -32,6 +32,7 @@
 
 | 任務 | 內容 | 依賴 | 狀態 |
 |---|---|---|---|
+| T-600 | **組織模型（v2）**：`business_units`、`departments`、`roles`、`products` 四張表；代理歸屬部門與職務；事業歸屬；種子資料與 API | `ARCHITECTURE_V2.md` | 🚧 |
 | T-601 | Cycle FSM + stage runner + deadlines（`cycles` 表、五階段、逾時強制推進） | T-212、T-104 | ✅ |
 | T-602 | Ledger：`model_calls` → expense 結算、餘額與已花額度 | T-209、T-103 | ✅ |
 | T-603 | Reporting + CompanySnapshot（token 上限）、`kpi_snapshots` | T-602、T-516 | ⬜ |
@@ -53,8 +54,8 @@
 | 補-4 | CEO 代理讓辦公室有第 6 個 avatar（AC-1） | T-605 |
 | 補-5 | AC-S4 的崩潰恢復改測寫手；AC-S6 的靜態掃描；AC-S7 的 WS p95 | T-610 |
 
-建議順序（先有資料與帳，再有命令，最後才讓 CEO 動手）：
-T-601 → T-602 → T-603 → T-604 → T-609 → T-605 → T-606 → T-607 → T-608 → T-610。
+建議順序（2026-09-20 依 `ARCHITECTURE_V2.md` 修訂，插入 T-600、T-605 拆成兩個）：
+T-601 → T-602 → **T-600** → T-603 → T-604 → T-609 → T-605a（CEO）→ T-605b（總編輯）→ T-606 → T-607 → T-608 → T-610。
 理由：CEO 的輸入是 CompanySnapshot（T-603），輸出是命令（T-604），兩邊都到齊之前寫 CEO 只能寫假的；T-609 先做，CEO 的 context 才有「最近幾次做了什麼」可放。
 
 ---
@@ -114,6 +115,47 @@ T-601 → T-602 → T-603 → T-604 → T-609 → T-605 → T-606 → T-607 → 
 
 ### 還沒做的
 工具的花費還沒進帳本（工具目前不記錄自己的成本）；`settle_cycle` 已經按類別分組，等工具開始記錄就能一起結算。
+
+---
+
+## T-600 · 組織模型（第一批：表、服務、即時契約）
+
+依 `ARCHITECTURE_V2.md` 實作。這一批做「組織存在，而且代理住在裡面」，事業歸屬的欄位一起建好但還沒有人填。
+
+### 四張表（migration 0024）
+`business_units`、`departments`、`roles`、`products`。每張表只回答一個問題：做哪門生意 / 用哪類職能 / 職務是什麼 / 賣什麼給市場。
+
+兩個設計照 v2 執行：
+- **`departments.business_unit_id` 可空**——同一張表同時容納公司層級共用職能（Executive、Finance）與事業自有職能（Newsroom 屬於 AI Media）。
+- **團隊不是第五張表**——`parent_department_id` 自我參照，深度由資料決定。Newsroom 底下的 Research 就是子部門。
+
+**`agents.role` 一個字都沒動**。新增的 `role_id` 只是把那個字串解析到組織位置；`department_id` 說它住哪。兩個都可空，所以在組織出現之前就存在的代理照常工作，只是不在組織圖上。
+
+事業歸屬欄位（全部可空）：`projects.business_unit_id`、`budgets.business_unit_id`、`transactions.business_unit_id` 與 `product_id`、`company_goals.business_unit_id`。`budgets` 的唯一鍵跟著從 `(company, project, period)` 變成 `(company, business_unit, project, period)`——預算層級從三層變四層。
+
+### `company/organization.py`：跨列的規則住在這裡
+資料庫約束管不到的事，由這個模組負責，而且每一條都有測試：
+- 子部門**繼承**母部門的事業，而且不能牴觸（Newsroom 底下的團隊就是替 AI Media 工作，傳別的事業進來會被拒絕）；
+- key 在公司內唯一，跨公司可重複；
+- 部門不能是自己的母部門（這條由資料庫 CHECK 擋）；
+- key 的格式與 `agents.role` 相同（小寫、**不能有點**——model router 的路由鍵是 `role.capability`，多一個點就是設定錯誤）；
+- **代理的三種說法必須一致**：執行層認的 `role` 字串、它的職務、它的部門。`hire_agent(position=...)` 與 `assign()` 是唯二能設定它們的地方，而且一起設定。角色字串與職務不符會被拒絕。
+
+`org_chart()` 把整張組織圖組起來：共用職能、各事業與其部門與產品、以及**沒有歸屬的代理**（不是丟掉，是照實列出來）。四個查詢，不用遞迴 SQL——組織圖是幾十列，在 Python 組裝反而看得懂。
+
+### 即時契約：一個必需品
+`ARCHITECTURE_V2` §16.1 指出的那件事做掉了：reducer 重建代理的唯一來源是 `AGENT_CREATED`，所以
+1. `AGENT_CREATED` 現在**帶部門**（`department_id`、`department_key`）；
+2. 新增 **`AGENT_ASSIGNED`** 事件——代理調部門時發出。沒有它，畫面上的 avatar 永遠不會換房間，只會在下次整份快照重載時跳過去。
+
+Python 與 TypeScript 兩個 reducer 同步改，投影契約 fixture 重新產生，契約測試通過。另外新增三個組織事件：`BUSINESS_UNIT_CREATED`、`DEPARTMENT_CREATED`、`PRODUCT_CREATED`。
+
+### 驗證
+- `pytest tests/company/test_organization.py`：26 個測試。涵蓋兩種部門、團隊繼承事業、跨事業的團隊被拒、key 的唯一性與格式、職務與部門的歸屬、**雇用時三種說法一致**（不一致就拒絕）、沒有職務也能雇用（向後相容）、`AGENT_CREATED` 帶部門、調動同時改三者並發事件、調到同一個職務不發事件、產品歸事業、組織圖的完整形狀（含未歸屬與已退休的代理）。
+- 後端 940 個測試通過；web 254 個通過；事件契約 8 個通過；`ruff`、`lint-imports`、`db-check`、`gen-schema-check`、`gen-api-check` 通過。
+
+### 這一批還沒做
+種子資料還沒建立組織（示範公司目前仍然是 6 個沒有部門的代理）、`/api/org` 還沒開、3D 辦公室還沒改成可進入的部門。下一批做。
 
 ---
 

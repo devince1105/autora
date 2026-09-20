@@ -47,6 +47,12 @@ class Agent(IdMixin, TimestampMixin, Base):
 
     company_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("companies.id"))
     role: Mapped[str]
+    """The runtime's key: a behavior is registered for it and tasks ask for it by name."""
+    role_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("roles.id"))
+    """The same key, resolved to a position in the organisation (T-600). Nullable: agents hired
+    before the organisation existed keep working, they simply have no place on the org chart."""
+    department_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("departments.id"))
+    """Where this agent works. The 3D office puts it in that department's room."""
     display_name: Mapped[str]
     description: Mapped[str | None]
     avatar_key: Mapped[str] = mapped_column(server_default="default")

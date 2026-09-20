@@ -194,6 +194,75 @@
     "type": "object"
   },
   "events": {
+    "AGENT_ASSIGNED": {
+      "1": {
+        "persistence": "persisted",
+        "payload": {
+          "additionalProperties": false,
+          "description": "An agent took up a position: its role, and the department that comes with it.\n\nThe realtime reducer rebuilds an agent from ``AGENT_CREATED`` alone, so this is the only\nthing that can move a drawn agent to another room without a full snapshot reload.",
+          "properties": {
+            "role": {
+              "title": "Role",
+              "type": "string"
+            },
+            "role_id": {
+              "format": "uuid",
+              "title": "Role Id",
+              "type": "string"
+            },
+            "department_id": {
+              "format": "uuid",
+              "title": "Department Id",
+              "type": "string"
+            },
+            "department_key": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Department Key"
+            },
+            "previous_role": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Previous Role"
+            },
+            "previous_department_id": {
+              "anyOf": [
+                {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Previous Department Id"
+            }
+          },
+          "required": [
+            "role",
+            "role_id",
+            "department_id"
+          ],
+          "title": "AgentAssigned",
+          "type": "object"
+        }
+      }
+    },
     "AGENT_CREATED": {
       "1": {
         "persistence": "persisted",
@@ -220,6 +289,31 @@
               "default": "default",
               "title": "Avatar Key",
               "type": "string"
+            },
+            "department_id": {
+              "anyOf": [
+                {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Department Id"
+            },
+            "department_key": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Department Key"
             }
           },
           "required": [
@@ -1551,6 +1645,35 @@
         }
       }
     },
+    "BUSINESS_UNIT_CREATED": {
+      "1": {
+        "persistence": "persisted",
+        "payload": {
+          "additionalProperties": false,
+          "properties": {
+            "key": {
+              "title": "Key",
+              "type": "string"
+            },
+            "name": {
+              "title": "Name",
+              "type": "string"
+            },
+            "state": {
+              "title": "State",
+              "type": "string"
+            }
+          },
+          "required": [
+            "key",
+            "name",
+            "state"
+          ],
+          "title": "BusinessUnitCreated",
+          "type": "object"
+        }
+      }
+    },
     "CLAIM_CREATED": {
       "1": {
         "persistence": "persisted",
@@ -1894,6 +2017,56 @@
             "stage"
           ],
           "title": "CycleStarted",
+          "type": "object"
+        }
+      }
+    },
+    "DEPARTMENT_CREATED": {
+      "1": {
+        "persistence": "persisted",
+        "payload": {
+          "additionalProperties": false,
+          "properties": {
+            "key": {
+              "title": "Key",
+              "type": "string"
+            },
+            "name": {
+              "title": "Name",
+              "type": "string"
+            },
+            "business_unit_id": {
+              "anyOf": [
+                {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Business Unit Id"
+            },
+            "parent_department_id": {
+              "anyOf": [
+                {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Parent Department Id"
+            }
+          },
+          "required": [
+            "key",
+            "name"
+          ],
+          "title": "DepartmentCreated",
           "type": "object"
         }
       }
@@ -2280,6 +2453,41 @@
             "value"
           ],
           "title": "PolicyUpdated",
+          "type": "object"
+        }
+      }
+    },
+    "PRODUCT_CREATED": {
+      "1": {
+        "persistence": "persisted",
+        "payload": {
+          "additionalProperties": false,
+          "properties": {
+            "key": {
+              "title": "Key",
+              "type": "string"
+            },
+            "name": {
+              "title": "Name",
+              "type": "string"
+            },
+            "business_unit_id": {
+              "format": "uuid",
+              "title": "Business Unit Id",
+              "type": "string"
+            },
+            "state": {
+              "title": "State",
+              "type": "string"
+            }
+          },
+          "required": [
+            "key",
+            "name",
+            "business_unit_id",
+            "state"
+          ],
+          "title": "ProductCreated",
           "type": "object"
         }
       }

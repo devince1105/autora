@@ -226,13 +226,13 @@ async def test_budget_unique_per_scope_including_company_wide(db_session):
     await projects.add_budget(
         db_session, Budget(company_id=company.id, period="day", amount=Decimal("10"))
     )
-    # NULL project_id means company-wide; a second company-wide daily budget must collide.
+    # NULL business unit and NULL project mean company-wide; a second one must collide.
     await _expect_integrity_error(
         db_session,
         projects.add_budget(
             db_session, Budget(company_id=company.id, period="day", amount=Decimal("20"))
         ),
-        "uq_budgets_company_id_project_id_period",
+        "uq_budgets_company_id_business_unit_id_project_id_period",
     )
 
 

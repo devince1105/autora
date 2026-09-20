@@ -67,6 +67,8 @@ class CompanyGoal(IdMixin, TimestampMixin, Base):
     )
 
     company_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("companies.id"), index=True)
+    business_unit_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("business_units.id"))
+    """Whose goal it is. NULL = the company's own (T-600)."""
     parent_goal_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("company_goals.id"))
     level: Mapped[str]
     title: Mapped[str]

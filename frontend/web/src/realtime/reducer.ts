@@ -7,7 +7,8 @@
 // - Events with seq <= lastSeq, without seq, or of another company are ignored (duplicates at
 //   the backlog/live boundary). The gateway guarantees order and completeness per connection
 //   (05 §4 as amended in T-303), so no gap detection happens here.
-// - AGENT_CREATED adds an agent, AGENT_RETIRED removes one. Activity events set stored_state from the event type, detail
+// - AGENT_CREATED adds an agent (with the department it was hired into), AGENT_ASSIGNED moves
+//   it to another role and room, AGENT_RETIRED removes one. Activity events set stored_state from the event type, detail
 //   = payload + run/task/workflow context (none for IDLE and PAUSED; task_name is the task's
 //   display name), since changes only when the state does. A non-final AGENT_RUN_FAILED or
 //   AGENT_RUN_ABORTED is trace data and changes nothing.
@@ -20,7 +21,12 @@
 // No visual state lives here (05 §5): poses, bubbles and animation are derived elsewhere.
 import { parseEvent, type EventEnvelope } from "@autora/event-schema";
 
-import type { ActivityState, ActivityView, RealtimeSnapshot, TaskView } from "./snapshot";
+import type {
+  ActivityState,
+  ActivityView,
+  RealtimeSnapshot,
+  TaskView,
+} from "./snapshot";
 
 export const FINISHED_TASK_WINDOW_MS = 10 * 60 * 1000;
 export const RECENT_EVENTS_VIEW = 100;
@@ -39,6 +45,8 @@ export interface AgentState {
   role: string;
   display_name: string;
   avatar_key: string;
+  department_id: string | null;
+  department_key: string | null;
   /** null until the agent's first activity event (right after AGENT_CREATED). */
   activity: ActivityView | null;
   /** Latest ephemeral AGENT_STEP_PROGRESS of the agent's current run; never persisted. */
@@ -57,12 +65,16 @@ export interface RealtimeState {
 export interface Projection {
   company_id: string;
   last_seq: number;
-  agents: (Omit<AgentState, "liveProgress" | "activity"> & { activity: ActivityView })[];
+  agents: (Omit<AgentState, "liveProgress" | "activity"> & {
+    activity: ActivityView;
+  })[];
   tasks: TaskView[];
   recent_events: EventEnvelope[];
 }
 
-const ACTIVITY_BY_TYPE: Partial<Record<EventEnvelope["event_type"], ActivityState>> = {
+const ACTIVITY_BY_TYPE: Partial<
+  Record<EventEnvelope["event_type"], ActivityState>
+> = {
   AGENT_IDLE: "IDLE",
   AGENT_RESUMED: "IDLE",
   AGENT_THINKING: "THINKING",
@@ -75,22 +87,31 @@ const ACTIVITY_BY_TYPE: Partial<Record<EventEnvelope["event_type"], ActivityStat
   AGENT_PAUSED: "PAUSED",
 };
 const RUNLESS: ReadonlySet<ActivityState> = new Set(["IDLE", "PAUSED"]);
-const TASK_STATE_BY_TYPE: Partial<Record<EventEnvelope["event_type"], string>> = {
-  TASK_READY: "READY",
-  TASK_STARTED: "RUNNING",
-  TASK_WAITING: "WAITING_APPROVAL",
-  TASK_SUCCEEDED: "SUCCEEDED",
-  TASK_CANCELLED: "CANCELLED",
-  TASK_BLOCKED: "BLOCKED_BUDGET",
-};
-const FINISHED: ReadonlySet<string> = new Set(["SUCCEEDED", "FAILED", "CANCELLED"]);
+const TASK_STATE_BY_TYPE: Partial<Record<EventEnvelope["event_type"], string>> =
+  {
+    TASK_READY: "READY",
+    TASK_STARTED: "RUNNING",
+    TASK_WAITING: "WAITING_APPROVAL",
+    TASK_SUCCEEDED: "SUCCEEDED",
+    TASK_CANCELLED: "CANCELLED",
+    TASK_BLOCKED: "BLOCKED_BUDGET",
+  };
+const FINISHED: ReadonlySet<string> = new Set([
+  "SUCCEEDED",
+  "FAILED",
+  "CANCELLED",
+]);
 
 // --- hydrate --------------------------------------------------------------------------------
 
 export function hydrate(snapshot: RealtimeSnapshot): RealtimeState {
   const agents: Record<string, AgentState> = {};
   for (const agent of snapshot.agents) {
-    agents[agent.id] = { ...agent, activity: { ...agent.activity }, liveProgress: null };
+    agents[agent.id] = {
+      ...agent,
+      activity: { ...agent.activity },
+      liveProgress: null,
+    };
   }
   const tasks: Record<string, TaskView> = {};
   for (const task of snapshot.tasks) tasks[task.id] = { ...task };
@@ -99,7 +120,13 @@ export function hydrate(snapshot: RealtimeSnapshot): RealtimeState {
     const parsed = parseEvent(raw);
     if (parsed.ok) recentEvents.push(parsed.event);
   }
-  return { companyId: snapshot.company_id, lastSeq: snapshot.last_seq, agents, tasks, recentEvents };
+  return {
+    companyId: snapshot.company_id,
+    lastSeq: snapshot.last_seq,
+    agents,
+    tasks,
+    recentEvents,
+  };
 }
 
 // --- apply ----------------------------------------------------------------------------------
@@ -112,15 +139,23 @@ export function hydrate(snapshot: RealtimeSnapshot): RealtimeState {
  * projection is unchanged). Measured from the event's time, not the local clock, so replaying
  * the same events gives the same state.
  */
-export function applyEvent(state: RealtimeState, event: EventEnvelope): RealtimeState {
+export function applyEvent(
+  state: RealtimeState,
+  event: EventEnvelope,
+): RealtimeState {
   const next = applyOne(state, event);
-  return next === state ? state : pruneFinishedTasks(next, Date.parse(event.occurred_at));
+  return next === state
+    ? state
+    : pruneFinishedTasks(next, Date.parse(event.occurred_at));
 }
 
 function pruneFinishedTasks(state: RealtimeState, at: number): RealtimeState {
   let tasks: Record<string, TaskView> | null = null;
   for (const [id, task] of Object.entries(state.tasks)) {
-    if (FINISHED.has(task.state) && Date.parse(task.since) <= at - FINISHED_TASK_WINDOW_MS) {
+    if (
+      FINISHED.has(task.state) &&
+      Date.parse(task.since) <= at - FINISHED_TASK_WINDOW_MS
+    ) {
       tasks ??= { ...state.tasks };
       delete tasks[id];
     }
@@ -129,7 +164,11 @@ function pruneFinishedTasks(state: RealtimeState, at: number): RealtimeState {
 }
 
 function applyOne(state: RealtimeState, event: EventEnvelope): RealtimeState {
-  if (event.seq === null || event.seq <= state.lastSeq || event.company_id !== state.companyId) {
+  if (
+    event.seq === null ||
+    event.seq <= state.lastSeq ||
+    event.company_id !== state.companyId
+  ) {
     return state;
   }
   const next: RealtimeState = {
@@ -146,8 +185,28 @@ function applyOne(state: RealtimeState, event: EventEnvelope): RealtimeState {
         role: event.payload.role,
         display_name: event.payload.display_name,
         avatar_key: event.payload.avatar_key,
+        department_id: event.payload.department_id ?? null,
+        department_key: event.payload.department_key ?? null,
         activity: null,
         liveProgress: null,
+      },
+    };
+    return next;
+  }
+
+  if (
+    event.event_type === "AGENT_ASSIGNED" &&
+    event.agent_id &&
+    state.agents[event.agent_id]
+  ) {
+    // the only event that moves a drawn agent to another room without a full reload
+    next.agents = {
+      ...state.agents,
+      [event.agent_id]: {
+        ...state.agents[event.agent_id],
+        role: event.payload.role,
+        department_id: event.payload.department_id,
+        department_key: event.payload.department_key ?? null,
       },
     };
     return next;
@@ -164,11 +223,15 @@ function applyOne(state: RealtimeState, event: EventEnvelope): RealtimeState {
   if (activityState && event.agent_id && state.agents[event.agent_id]) {
     const payload = event.payload as { final?: boolean };
     const traceOnly =
-      (event.event_type === "AGENT_RUN_FAILED" || event.event_type === "AGENT_RUN_ABORTED") &&
+      (event.event_type === "AGENT_RUN_FAILED" ||
+        event.event_type === "AGENT_RUN_ABORTED") &&
       payload.final === false;
     if (!traceOnly) {
       const agent = state.agents[event.agent_id];
-      next.agents = { ...state.agents, [agent.id]: withActivity(agent, activityState, event, state) };
+      next.agents = {
+        ...state.agents,
+        [agent.id]: withActivity(agent, activityState, event, state),
+      };
     }
     return next;
   }
@@ -194,8 +257,15 @@ function applyOne(state: RealtimeState, event: EventEnvelope): RealtimeState {
     return next;
   }
 
-  if (event.event_type.startsWith("TASK_") && event.task_id && state.tasks[event.task_id]) {
-    next.tasks = { ...state.tasks, [event.task_id]: withTaskEvent(state.tasks[event.task_id], event) };
+  if (
+    event.event_type.startsWith("TASK_") &&
+    event.task_id &&
+    state.tasks[event.task_id]
+  ) {
+    next.tasks = {
+      ...state.tasks,
+      [event.task_id]: withTaskEvent(state.tasks[event.task_id], event),
+    };
   }
   return next;
 }
@@ -208,33 +278,47 @@ function withActivity(
 ): AgentState {
   const runless = RUNLESS.has(state);
   const taskName =
-    runless || !event.task_id ? null : (current.tasks[event.task_id]?.display_name ?? null);
+    runless || !event.task_id
+      ? null
+      : (current.tasks[event.task_id]?.display_name ?? null);
   const context: Record<string, string | null> = {
     run_id: runless ? null : event.run_id,
     task_id: runless ? null : event.task_id,
     workflow_run_id: runless ? null : event.workflow_run_id,
     task_name: taskName,
   };
-  const detail: Record<string, unknown> = { ...(event.payload as Record<string, unknown>) };
-  for (const [key, value] of Object.entries(context)) if (value) detail[key] = value;
+  const detail: Record<string, unknown> = {
+    ...(event.payload as Record<string, unknown>),
+  };
+  for (const [key, value] of Object.entries(context))
+    if (value) detail[key] = value;
 
   const previous = agent.activity;
   const activity: ActivityView = {
     state,
     stored_state: state,
     detail,
-    since: previous && previous.stored_state === state ? previous.since : event.occurred_at,
+    since:
+      previous && previous.stored_state === state
+        ? previous.since
+        : event.occurred_at,
     run_id: context.run_id,
     task_id: context.task_id,
     last_event_seq: event.seq as number,
   };
   const liveProgress =
-    agent.liveProgress && agent.liveProgress.runId === activity.run_id ? agent.liveProgress : null;
+    agent.liveProgress && agent.liveProgress.runId === activity.run_id
+      ? agent.liveProgress
+      : null;
   return { ...agent, activity, liveProgress };
 }
 
 function withTaskEvent(task: TaskView, event: EventEnvelope): TaskView {
-  const next: TaskView = { ...task, since: event.occurred_at, last_event_seq: event.seq as number };
+  const next: TaskView = {
+    ...task,
+    since: event.occurred_at,
+    last_event_seq: event.seq as number,
+  };
   if (event.event_type === "TASK_FAILED") {
     if (event.payload.final) next.state = "FAILED";
     return next; // a retried failure is followed by TASK_READY in the same transaction
@@ -260,8 +344,12 @@ export interface EphemeralMessage {
 }
 
 /** Live progress (no seq, never part of the projection). Unknown kinds are ignored. */
-export function applyEphemeral(state: RealtimeState, message: EphemeralMessage): RealtimeState {
-  if (message.event_type !== "AGENT_STEP_PROGRESS" || !message.agent_id) return state;
+export function applyEphemeral(
+  state: RealtimeState,
+  message: EphemeralMessage,
+): RealtimeState {
+  if (message.event_type !== "AGENT_STEP_PROGRESS" || !message.agent_id)
+    return state;
   const agent = state.agents[message.agent_id];
   if (!agent) return state;
   const payload = message.payload as {
@@ -276,21 +364,31 @@ export function applyEphemeral(state: RealtimeState, message: EphemeralMessage):
     progress: payload.progress ?? null,
     at: message.occurred_at ?? new Date().toISOString(),
   };
-  return { ...state, agents: { ...state.agents, [agent.id]: { ...agent, liveProgress } } };
+  return {
+    ...state,
+    agents: { ...state.agents, [agent.id]: { ...agent, liveProgress } },
+  };
 }
 
 // --- view -----------------------------------------------------------------------------------
 
-export function effectiveState(activity: ActivityView, now: Date): ActivityState {
+export function effectiveState(
+  activity: ActivityView,
+  now: Date,
+): ActivityState {
   if (activity.stored_state === "COMPLETED") {
     const until = activity.detail.display_until;
-    if (typeof until === "string" && Date.parse(until) <= now.getTime()) return "IDLE";
+    if (typeof until === "string" && Date.parse(until) <= now.getTime())
+      return "IDLE";
   }
   return activity.stored_state;
 }
 
 export function isTaskVisible(task: TaskView, now: Date): boolean {
-  return !FINISHED.has(task.state) || Date.parse(task.since) > now.getTime() - FINISHED_TASK_WINDOW_MS;
+  return (
+    !FINISHED.has(task.state) ||
+    Date.parse(task.since) > now.getTime() - FINISHED_TASK_WINDOW_MS
+  );
 }
 
 /** The projection at `now`: what the snapshot endpoint would return at that moment. */
@@ -303,14 +401,21 @@ export function view(state: RealtimeState, now: Date): Projection {
       role: agent.role,
       display_name: agent.display_name,
       avatar_key: agent.avatar_key,
-      activity: { ...agent.activity, state: effectiveState(agent.activity, now) },
+      department_id: agent.department_id,
+      department_key: agent.department_key,
+      activity: {
+        ...agent.activity,
+        state: effectiveState(agent.activity, now),
+      },
     });
   }
   return {
     company_id: state.companyId,
     last_seq: state.lastSeq,
     agents,
-    tasks: Object.values(state.tasks).filter((task) => isTaskVisible(task, now)),
+    tasks: Object.values(state.tasks).filter((task) =>
+      isTaskVisible(task, now),
+    ),
     recent_events: state.recentEvents.slice(-RECENT_EVENTS_VIEW),
   };
 }

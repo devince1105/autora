@@ -64,6 +64,10 @@ class AgentCreated(EventPayload):
     capabilities: list[str] = []
     avatar_key: str = "default"
     """Which figure the office draws; lets a reducer add the agent from this event alone."""
+    department_id: uuid.UUID | None = None
+    department_key: str | None = None
+    """Where it works (T-600). Here for the same reason as ``avatar_key``: an agent is rebuilt
+    from this event alone, so anything the office needs to draw it has to travel with it."""
 
 
 @event("AGENT_PAUSED")

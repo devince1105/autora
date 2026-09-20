@@ -63,11 +63,29 @@ const envelopeFields = {
 
 // --- events -----------------------------------------------------------------------------
 
+export const AgentAssignedV1Payload = z.object({
+  role: z.string(),
+  role_id: z.uuid(),
+  department_id: z.uuid(),
+  department_key: z.string().nullable().default(null),
+  previous_role: z.string().nullable().default(null),
+  previous_department_id: z.uuid().nullable().default(null),
+});
+export type AgentAssignedV1Payload = z.infer<typeof AgentAssignedV1Payload>;
+export const AgentAssignedV1Event = z.object({
+  ...envelopeFields,
+  event_type: z.literal("AGENT_ASSIGNED"),
+  schema_version: z.literal(1),
+  payload: AgentAssignedV1Payload,
+});
+
 export const AgentCreatedV1Payload = z.object({
   role: z.string(),
   display_name: z.string(),
   capabilities: z.array(z.string()).default(() => ([])),
   avatar_key: z.string().default("default"),
+  department_id: z.uuid().nullable().default(null),
+  department_key: z.string().nullable().default(null),
 });
 export type AgentCreatedV1Payload = z.infer<typeof AgentCreatedV1Payload>;
 export const AgentCreatedV1Event = z.object({
@@ -449,6 +467,19 @@ export const BudgetExhaustedV1Event = z.object({
   payload: BudgetExhaustedV1Payload,
 });
 
+export const BusinessUnitCreatedV1Payload = z.object({
+  key: z.string(),
+  name: z.string(),
+  state: z.string(),
+});
+export type BusinessUnitCreatedV1Payload = z.infer<typeof BusinessUnitCreatedV1Payload>;
+export const BusinessUnitCreatedV1Event = z.object({
+  ...envelopeFields,
+  event_type: z.literal("BUSINESS_UNIT_CREATED"),
+  schema_version: z.literal(1),
+  payload: BusinessUnitCreatedV1Payload,
+});
+
 export const ClaimCreatedV1Payload = z.object({
   claim_id: z.uuid(),
   story_id: z.uuid(),
@@ -576,6 +607,20 @@ export const CycleStartedV1Event = z.object({
   payload: CycleStartedV1Payload,
 });
 
+export const DepartmentCreatedV1Payload = z.object({
+  key: z.string(),
+  name: z.string(),
+  business_unit_id: z.uuid().nullable().default(null),
+  parent_department_id: z.uuid().nullable().default(null),
+});
+export type DepartmentCreatedV1Payload = z.infer<typeof DepartmentCreatedV1Payload>;
+export const DepartmentCreatedV1Event = z.object({
+  ...envelopeFields,
+  event_type: z.literal("DEPARTMENT_CREATED"),
+  schema_version: z.literal(1),
+  payload: DepartmentCreatedV1Payload,
+});
+
 export const DistributionCreatedV1Payload = z.object({
   article_id: z.uuid(),
   distribution_id: z.uuid(),
@@ -687,6 +732,20 @@ export const PolicyUpdatedV1Event = z.object({
   event_type: z.literal("POLICY_UPDATED"),
   schema_version: z.literal(1),
   payload: PolicyUpdatedV1Payload,
+});
+
+export const ProductCreatedV1Payload = z.object({
+  key: z.string(),
+  name: z.string(),
+  business_unit_id: z.uuid(),
+  state: z.string(),
+});
+export type ProductCreatedV1Payload = z.infer<typeof ProductCreatedV1Payload>;
+export const ProductCreatedV1Event = z.object({
+  ...envelopeFields,
+  event_type: z.literal("PRODUCT_CREATED"),
+  schema_version: z.literal(1),
+  payload: ProductCreatedV1Payload,
 });
 
 export const ProjectApprovedV1Payload = z.object({
@@ -1134,6 +1193,7 @@ export const WorkflowRunFailedV1Event = z.object({
 });
 
 export const EventEnvelope = z.discriminatedUnion("event_type", [
+  AgentAssignedV1Event,
   AgentCreatedV1Event,
   AgentHeartbeatV1Event,
   AgentIdleV1Event,
@@ -1162,6 +1222,7 @@ export const EventEnvelope = z.discriminatedUnion("event_type", [
   ArticleRevisionRequestedV1Event,
   BudgetAllocatedV1Event,
   BudgetExhaustedV1Event,
+  BusinessUnitCreatedV1Event,
   ClaimCreatedV1Event,
   ClaimRejectedV1Event,
   ClaimVerifiedV1Event,
@@ -1172,6 +1233,7 @@ export const EventEnvelope = z.discriminatedUnion("event_type", [
   CycleStageChangedV1Event,
   CycleStageTimeoutV1Event,
   CycleStartedV1Event,
+  DepartmentCreatedV1Event,
   DistributionCreatedV1Event,
   EvidenceCapturedV1Event,
   ExpenseRecordedV1Event,
@@ -1180,6 +1242,7 @@ export const EventEnvelope = z.discriminatedUnion("event_type", [
   KpiSnapshotCreatedV1Event,
   PolicyDeniedV1Event,
   PolicyUpdatedV1Event,
+  ProductCreatedV1Event,
   ProjectApprovedV1Event,
   ProjectCompletedV1Event,
   ProjectKilledV1Event,
@@ -1220,6 +1283,7 @@ export type EventType = EventEnvelope["event_type"];
 export type EventOf<T extends EventType> = Extract<EventEnvelope, { event_type: T }>;
 
 export const EVENT_TYPES = [
+  "AGENT_ASSIGNED",
   "AGENT_CREATED",
   "AGENT_HEARTBEAT",
   "AGENT_IDLE",
@@ -1248,6 +1312,7 @@ export const EVENT_TYPES = [
   "ARTICLE_REVISION_REQUESTED",
   "BUDGET_ALLOCATED",
   "BUDGET_EXHAUSTED",
+  "BUSINESS_UNIT_CREATED",
   "CLAIM_CREATED",
   "CLAIM_REJECTED",
   "CLAIM_VERIFIED",
@@ -1258,6 +1323,7 @@ export const EVENT_TYPES = [
   "CYCLE_STAGE_CHANGED",
   "CYCLE_STAGE_TIMEOUT",
   "CYCLE_STARTED",
+  "DEPARTMENT_CREATED",
   "DISTRIBUTION_CREATED",
   "EVIDENCE_CAPTURED",
   "EXPENSE_RECORDED",
@@ -1266,6 +1332,7 @@ export const EVENT_TYPES = [
   "KPI_SNAPSHOT_CREATED",
   "POLICY_DENIED",
   "POLICY_UPDATED",
+  "PRODUCT_CREATED",
   "PROJECT_APPROVED",
   "PROJECT_COMPLETED",
   "PROJECT_KILLED",

@@ -34,6 +34,8 @@ class Project(IdMixin, TimestampMixin, Base):
     )
 
     company_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("companies.id"), index=True)
+    business_unit_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("business_units.id"))
+    """Which business this work is for. NULL for company-level work (T-600)."""
     name: Mapped[str]
     description: Mapped[str | None]
     state: Mapped[str] = mapped_column(server_default=ProjectState.PROPOSED.value)

@@ -38,6 +38,7 @@ from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Any
 
+from autora.company import events as company_ev
 from autora.db.models import ActivityState, TaskState
 from autora.realtime.projection import (
     FINISHED_TASK_WINDOW,
@@ -80,6 +81,8 @@ class _Agent:
     role: str
     display_name: str
     avatar_key: str
+    department_id: uuid.UUID | None = None
+    department_key: str | None = None
     activity: ActivityView | None = None
 
 
@@ -97,7 +100,7 @@ class RealtimeState:
         for agent in snapshot.agents:
             state.agents[agent.id] = _Agent(
                 agent.id, agent.role, agent.display_name, agent.avatar_key,
-                agent.activity.model_copy(),
+                agent.department_id, agent.department_key, agent.activity.model_copy(),
             )  # fmt: skip
         state.tasks = {task.id: task.model_copy() for task in snapshot.tasks}
         state.recent.extend(snapshot.recent_events)
@@ -116,8 +119,19 @@ class RealtimeState:
 
         if isinstance(payload, ev.AgentCreated) and event.agent_id is not None:
             self.agents[event.agent_id] = _Agent(
-                event.agent_id, payload.role, payload.display_name, payload.avatar_key
+                event.agent_id,
+                payload.role,
+                payload.display_name,
+                payload.avatar_key,
+                payload.department_id,
+                payload.department_key,
             )
+        elif isinstance(payload, company_ev.AgentAssigned) and event.agent_id in self.agents:
+            # the only thing that moves a drawn agent to another room without a reload
+            agent = self.agents[event.agent_id]
+            agent.role = payload.role
+            agent.department_id = payload.department_id
+            agent.department_key = payload.department_key
         elif isinstance(payload, ev.AgentRetired) and event.agent_id is not None:
             self.agents.pop(event.agent_id, None)  # off the roster: the office stops drawing it
         elif type(payload) in _ACTIVITY and event.agent_id in self.agents:
@@ -203,6 +217,8 @@ class RealtimeState:
                     role=agent.role,
                     display_name=agent.display_name,
                     avatar_key=agent.avatar_key,
+                    department_id=agent.department_id,
+                    department_key=agent.department_key,
                     activity=activity,
                 )  # fmt: skip
             )

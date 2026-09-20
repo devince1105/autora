@@ -232,6 +232,29 @@
       "title": "Avatar Key",
       "type": "string"
      },
+     "department_id": {
+      "anyOf": [
+       {
+        "format": "uuid",
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Department Id"
+     },
+     "department_key": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Department Key"
+     },
      "display_name": {
       "title": "Display Name",
       "type": "string"

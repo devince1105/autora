@@ -1,4 +1,4 @@
-"""Company-owned events: identity, goals, policy, strategy, projects, cycles, budgets, ledger, KPIs.
+"""Company events: identity, organisation, goals, policy, projects, cycles, budgets, ledger, KPIs.
 
 Payload shapes follow logs/platform/11_EVENT_CATALOG.md. The acting human/agent/system is
 carried on the envelope (``actor``), so payloads do not repeat it.
@@ -142,6 +142,48 @@ class CycleReviewed(EventPayload):
 @event("CYCLE_COMPLETED")
 class CycleCompleted(EventPayload):
     seq: int = Field(ge=1)
+
+
+# --- Organisation (T-600) ------------------------------------------------------------------
+
+
+@event("BUSINESS_UNIT_CREATED")
+class BusinessUnitCreated(EventPayload):
+    key: str
+    name: str
+    state: str
+
+
+@event("DEPARTMENT_CREATED")
+class DepartmentCreated(EventPayload):
+    key: str
+    name: str
+    business_unit_id: uuid.UUID | None = None
+    parent_department_id: uuid.UUID | None = None
+
+
+@event("AGENT_ASSIGNED")
+class AgentAssigned(EventPayload):
+    """An agent took up a position: its role, and the department that comes with it.
+
+    The realtime reducer rebuilds an agent from ``AGENT_CREATED`` alone, so this is the only
+    thing that can move a drawn agent to another room without a full snapshot reload.
+    """
+
+    role: str
+    role_id: uuid.UUID
+    department_id: uuid.UUID
+    department_key: str | None = None
+    previous_role: str | None = None
+    previous_department_id: uuid.UUID | None = None
+
+
+@event("PRODUCT_CREATED")
+class ProductCreated(EventPayload):
+    key: str
+    name: str
+    business_unit_id: uuid.UUID
+    state: str
 
 
 # --- Budget / ledger / KPI -----------------------------------------------------------------
