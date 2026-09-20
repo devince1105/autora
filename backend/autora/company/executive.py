@@ -18,6 +18,17 @@ that stops because its executive is thinking is worse than one that has an unpla
 
 **A company with no CEO still cycles.** When nobody holds the role, no task is created and the
 stage finishes at once — the honest shape of a company that has not hired one.
+
+**And when the CEO fails, the day still has a plan** (T-607). A failed or timed-out planning
+task is not silence: the fallback runs, ``CYCLE_PLAN_FALLBACK`` says so with the reason, and the
+company carries on doing what it was doing yesterday. The fallback is deliberately the dullest
+possible decision — *keep the last cycle's allocations, set no new goals* — because a day nobody
+planned is a day to hold position, not a day to improvise. A company may write its own in the
+policy ``company.fallback_plan``.
+
+What the CEO decided is copied onto the cycle itself (``cycles.plan``, ``cycles.review``) as
+each stage ends, so the day's decision outlives the run that made it and the next snapshot can
+say whether there was one.
 """
 
 from __future__ import annotations
@@ -28,6 +39,7 @@ import uuid
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from autora.company import events as company_events
 from autora.company.agents.ceo import PLAN, REVIEW, ROLE
 from autora.db.models import (
     Agent,
@@ -37,16 +49,21 @@ from autora.db.models import (
     Project,
     ProjectState,
     Task,
+    TaskState,
     WorkflowRun,
 )
+from autora.db.repositories import companies as company_repo
 from autora.runtime.actor import Actor
 from autora.runtime.dag import NodeSpec, TemplateRegistry, WorkflowEngine, WorkflowTemplate
+from autora.runtime.events.outbox import emit
+from autora.runtime.events.schema import new_event
 from autora.runtime.lifecycles import TASK_FSM
 
 log = logging.getLogger(__name__)
 
 PLAN_TEMPLATE = "company.cycle_plan_v1"
 REVIEW_TEMPLATE = "company.cycle_review_v1"
+FALLBACK_POLICY = "company.fallback_plan"
 OPERATIONS = "Company operations"
 """The project the company's own work belongs to. The CEO's runs cost money like anything
 else, and money has to land somewhere that can be reported on."""
@@ -125,12 +142,125 @@ class Executive:
         return done
 
     def install(self, cycles) -> None:
-        """Wire both stages. The plan hook runs before any business's own planner, so a unit
-        head decides inside the budget the CEO just set, not beside it."""
+        """Wire both stages.
+
+        The settling hook runs on entering EXECUTING — after PLANNING has ended, before any
+        business's own planner — so a desk head decides inside a budget that exists, whether the
+        CEO set it or the fallback did.
+        """
         cycles.when_entering(CycleStage.PLANNING, self.plan_hook())
+        cycles.when_entering(CycleStage.EXECUTING, self.settle_plan_hook())
         cycles.when_entering(CycleStage.REVIEWING, self.review_hook())
+        cycles.when_entering(CycleStage.DONE, self.settle_review_hook())
         cycles.finishes_when(CycleStage.PLANNING, self.planning_is_done())
         cycles.finishes_when(CycleStage.REVIEWING, self.reviewing_is_done())
+
+    # --- what the CEO decided, kept ----------------------------------------------------------
+
+    def settle_plan_hook(self):
+        """Record the plan on the cycle, or run the fallback when there is none."""
+
+        async def settle(session: AsyncSession, cycle: Cycle) -> None:
+            if cycle.plan is not None:
+                return  # already settled: the stage was entered twice
+            output = await self._output(session, cycle, PLAN_TEMPLATE)
+            if output is not None:
+                cycle.plan = {"by": "ceo", **output}
+                await session.flush()
+                return
+            await self._fallback(session, cycle)
+
+        return settle
+
+    def settle_review_hook(self):
+        """Record the review, or record that there was not one."""
+
+        async def settle(session: AsyncSession, cycle: Cycle) -> None:
+            if cycle.review is not None:
+                return
+            output = await self._output(session, cycle, REVIEW_TEMPLATE)
+            if output is not None:
+                cycle.review = {"by": "ceo", **output}
+            else:
+                # the cycle still reaches DONE; the next snapshot says the review is missing
+                cycle.review = {
+                    "by": None,
+                    "missing": True,
+                    "reason": await self._why(session, cycle, REVIEW_TEMPLATE),
+                }
+            await session.flush()
+
+        return settle
+
+    async def _fallback(self, session: AsyncSession, cycle: Cycle) -> None:
+        """No plan: hold position and say so.
+
+        Repeating yesterday is the dullest decision available, and that is the point — a day
+        nobody planned is not a day to improvise. A company that wants something else writes it
+        in ``company.fallback_plan``.
+        """
+        reason = await self._why(session, cycle, PLAN_TEMPLATE)
+        policies = await company_repo.get_policies(session, cycle.company_id)
+        written = policies.get(FALLBACK_POLICY)
+        if isinstance(written, dict):
+            plan = {"by": "fallback", "source": "policy", **written}
+        else:
+            previous = await session.scalar(
+                select(Cycle.plan)
+                .where(
+                    Cycle.company_id == cycle.company_id,
+                    Cycle.seq < cycle.seq,
+                    Cycle.plan.is_not(None),
+                )
+                .order_by(Cycle.seq.desc())
+                .limit(1)
+            )
+            plan = {
+                "by": "fallback",
+                "source": "last_cycle" if previous else "nothing",
+                "goals": [],
+                "allocations": (previous or {}).get("allocations", []),
+                "rationale": (
+                    "No plan was made this cycle, so the company holds the position it was "
+                    "already in."
+                ),
+            }
+        cycle.plan = plan
+        await session.flush()
+        await emit(
+            session,
+            new_event(
+                company_events.CyclePlanFallback(reason=reason),
+                company_id=cycle.company_id,
+                actor=self.actor,
+                aggregate_type="cycle",
+                aggregate_id=cycle.id,
+                cycle_id=cycle.id,
+            ),
+        )
+
+    async def _output(self, session: AsyncSession, cycle: Cycle, template: str) -> dict | None:
+        """What the CEO produced, if it did."""
+        run = await self._run_for(session, cycle, template)
+        if run is None:
+            return None
+        return await session.scalar(
+            select(Task.output).where(
+                Task.workflow_run_id == run.id, Task.state == TaskState.SUCCEEDED.value
+            )
+        )
+
+    async def _why(self, session: AsyncSession, cycle: Cycle, template: str) -> str:
+        """Why there is nothing: nobody was asked, it failed, or it ran out of time."""
+        run = await self._run_for(session, cycle, template)
+        if run is None:
+            return "no CEO was asked"
+        task = await session.scalar(select(Task).where(Task.workflow_run_id == run.id).limit(1))
+        if task is None:
+            return "the planning task is missing"
+        if task.state == TaskState.FAILED.value:
+            return f"the CEO's run failed after {task.attempt} attempt(s)"
+        return f"the stage ended with the CEO's task still {task.state}"
 
     # --- doing it --------------------------------------------------------------------------
 

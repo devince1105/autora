@@ -132,6 +132,13 @@ class LastCycle(BaseModel):
     kpis: dict[str, Any] = {}
     failed_tasks: list[str] = []
     approvals_pending: int = 0
+    planned_by: str | None = None
+    """Who decided the last cycle's plan: the CEO, or the fallback when it did not (T-607)."""
+    review: str | None = None
+    """What the last review concluded."""
+    review_missing: str | None = None
+    """Why there was no review, when there was none. The CEO is told it is missing rather than
+    left to assume the silence means everything went well (platform/02 §2)."""
 
 
 class CompanySnapshot(BaseModel):
@@ -392,12 +399,16 @@ class SnapshotBuilder:
                 )
             )
         ).all()
+        review = done.review or {}
         return LastCycle(
             seq=done.seq,
             stage=done.stage,
             kpis=dict(measured.metrics) if measured and measured.cycle_id == done.id else {},
             failed_tasks=list(failed),
             approvals_pending=pending_count,
+            planned_by=(done.plan or {}).get("by"),
+            review=review.get("summary"),
+            review_missing=review.get("reason") if review.get("missing") else None,
         )
 
     async def _domains(self, session: AsyncSession, company_id: uuid.UUID) -> dict[str, Any]:

@@ -2033,6 +2033,39 @@
       "title": "Kpis",
       "type": "object"
      },
+     "planned_by": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Planned By"
+     },
+     "review": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Review"
+     },
+     "review_missing": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Review Missing"
+     },
      "seq": {
       "anyOf": [
        {

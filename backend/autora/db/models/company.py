@@ -240,3 +240,35 @@ class CommandRecord(IdMixin, CreatedAtMixin, Base):
     """Which run asked. Completes the audit chain — cycle -> plan -> command -> work — and lets
     an agent's written plan be checked against what it actually asked for."""
     idempotency_key: Mapped[str]
+
+
+class DocumentKind(StrEnum):
+    DAILY_SUMMARY = "daily_summary"
+    """One cycle, in a few lines a person can read."""
+    NOTE = "note"
+
+
+class Document(IdMixin, TimestampMixin, Base):
+    """Something written down for people to read later (platform/10, T-607).
+
+    Not a log and not a report anyone has to assemble: a short piece of text, written when the
+    thing it describes finished, with a reference back to it. The daily summary is the first
+    kind — a cycle explained in ten lines, produced by arithmetic rather than by a model, so it
+    costs nothing and cannot be wrong about what happened.
+
+    No embedding column yet: nothing searches these. It joins when something does (platform/08).
+    """
+
+    __tablename__ = "documents"
+    __table_args__ = (
+        UniqueConstraint("company_id", "kind", "ref_type", "ref_id"),
+        check_in("kind", DocumentKind),
+    )
+
+    company_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("companies.id"), index=True)
+    kind: Mapped[str]
+    title: Mapped[str]
+    body: Mapped[str]
+    ref_type: Mapped[str | None]
+    """What it is about ("cycle"), with ``ref_id``. Unique per kind, so a rewrite replaces."""
+    ref_id: Mapped[uuid.UUID | None]

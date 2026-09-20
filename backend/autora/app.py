@@ -259,6 +259,7 @@ class Runtime:
 
 def build_runtime(settings: Settings | None = None) -> Runtime:
     from autora.company import executive as company_executive
+    from autora.company import summary as daily_summary
     from autora.company import verbs as company_verbs
     from autora.company.commands import CommandBus
     from autora.company.cycle import CycleRunner, work_is_finished
@@ -302,6 +303,8 @@ def build_runtime(settings: Settings | None = None) -> Runtime:
     cycles.when_entering(CycleStage.REVIEWING, Governance(commands).stage_hook())
     executive = company_executive.Executive(workflows)
     executive.install(cycles)
+    # last, so the day it describes is fully settled: the review is recorded by then (T-607)
+    cycles.when_entering(CycleStage.DONE, daily_summary.stage_hook())
     runtime = Runtime(
         task_manager=task_manager,
         templates=templates,

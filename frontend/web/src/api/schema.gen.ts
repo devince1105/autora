@@ -1343,6 +1343,12 @@ export interface components {
             kpis: {
                 [key: string]: unknown;
             };
+            /** Planned By */
+            planned_by?: string | null;
+            /** Review */
+            review?: string | null;
+            /** Review Missing */
+            review_missing?: string | null;
             /** Seq */
             seq?: number | null;
             /** Stage */
