@@ -6,8 +6,10 @@ index), so they never step on each other.
 
 Each tick:
 - **maintenance** (every ``maintenance_interval``): reclaim expired leases (crashed or stalled
-  workers), expire overdue approvals, fire due schedules. Each job commits on its own; one
-  failing does not stop the others or the loop.
+  workers), expire overdue approvals, fire due schedules, plus whatever ``maintenance_jobs``
+  the composition root added (Phase 6 moves the company's cycle along there — the runtime does
+  not know what a cycle is). Each job commits on its own; one failing does not stop the others
+  or the loop.
 - **services** (T-514): run the READY service tasks (workflow steps no agent runs, e.g. approve
   and publish an article) through their handlers, each in its own transaction.
 - **dispatch**: for every active agent whose role has a behavior and that this worker is not
@@ -42,6 +44,9 @@ from autora.runtime.task_manager import AgentBusy, Claim, TaskManager
 
 log = logging.getLogger("autora.worker")
 
+MaintenanceJob = Callable[[AsyncSession], Awaitable[None]]
+"""A periodic job the worker runs in its own transaction and commits (see ``maintenance_jobs``)."""
+
 
 @dataclass
 class Worker:
@@ -58,6 +63,10 @@ class Worker:
     grace: float = 30.0
     company_ids: frozenset[uuid.UUID] | None = None
     """Only run agents of these companies (None: all). Lets tests and shards share a database."""
+    maintenance_jobs: list[tuple[str, MaintenanceJob]] = field(default_factory=list)
+    """Extra periodic jobs, ``(name, job)``, registered by ``app.py``: anything a higher layer
+    needs done on a schedule the runtime cannot name. Each runs in its own transaction and its
+    failure is logged, never raised."""
     clock: Callable[[], datetime] = field(default=lambda: datetime.now(UTC))
     on_outcome: Callable[[RunOutcome], Awaitable[None]] | None = None
     _running: dict[uuid.UUID, asyncio.Task[RunOutcome | None]] = field(default_factory=dict)
@@ -129,7 +138,11 @@ class Worker:
             if expired:
                 log.info("expired %d approval(s)", len(expired))
 
-        for name, job in (("reap_leases", reap), ("expire_approvals", expire)):
+        for name, job in [
+            ("reap_leases", reap),
+            ("expire_approvals", expire),
+            *self.maintenance_jobs,
+        ]:
             try:
                 async with self.session_factory() as session:
                     await job(session)

@@ -8,7 +8,7 @@ from decimal import Decimal
 from enum import StrEnum
 from typing import Any
 
-from sqlalchemy import ForeignKey, UniqueConstraint, text
+from sqlalchemy import CheckConstraint, ForeignKey, UniqueConstraint, func, text
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -98,3 +98,44 @@ class CompanyPolicy(IdMixin, TimestampMixin, Base):
     """Any JSON value: string, number, bool, list or object."""
     updated_by: Mapped[dict[str, Any] | None]
     """Actor JSON ({kind, id}) of the last writer."""
+
+
+class CycleStage(StrEnum):
+    PLANNING = "PLANNING"
+    EXECUTING = "EXECUTING"
+    MEASURING = "MEASURING"
+    REVIEWING = "REVIEWING"
+    DONE = "DONE"
+
+
+class Cycle(IdMixin, TimestampMixin, Base):
+    """One day of the company's operating loop (logs/platform/02_COMPANY_MODEL.md §2).
+
+    The cycle is the **only root that may trigger an LLM**: nothing else creates agent work on
+    its own (anti-runaway gate 1). ``plan`` is what the CEO decided in PLANNING (a ``CyclePlan``)
+    and ``review`` what it concluded in REVIEWING (a ``CycleReview``); both stay null while the
+    CEO agent does not exist yet, and a fallback plan is recorded in ``plan`` like any other.
+
+    ``stage_deadline`` is what makes the loop unable to hang: a stage that is still running when
+    its deadline passes is advanced anyway (gate 6), and what was left behind is recorded in
+    ``CYCLE_STAGE_TIMEOUT``.
+    """
+
+    __tablename__ = "cycles"
+    __table_args__ = (
+        UniqueConstraint("company_id", "seq"),
+        check_in("stage", CycleStage),
+        CheckConstraint("seq >= 1", name="seq_positive"),
+        CheckConstraint("(stage = 'DONE') = (ended_at IS NOT NULL)", name="ended_at_iff_done"),
+    )
+
+    company_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("companies.id"), index=True)
+    seq: Mapped[int]
+    """1 for a company's first cycle, then +1. Unique per company."""
+    stage: Mapped[str] = mapped_column(server_default=CycleStage.PLANNING.value)
+    plan: Mapped[dict[str, Any] | None] = mapped_column(JSONB)
+    review: Mapped[dict[str, Any] | None] = mapped_column(JSONB)
+    started_at: Mapped[datetime] = mapped_column(server_default=func.now())
+    stage_deadline: Mapped[datetime | None]
+    """When the current stage is advanced whether or not its work finished."""
+    ended_at: Mapped[datetime | None]

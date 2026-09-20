@@ -11,6 +11,7 @@ from autora.db.models import (
     Agent,
     Budget,
     CostReservation,
+    Cycle,
     EventRecord,
     ModelCall,
     Project,
@@ -275,3 +276,45 @@ async def test_failed_call_releases_its_reservation(committed, world):
             )
         ).all()
     assert reservation.released_at is not None and reservation.settled_at is None
+
+
+async def test_a_cycle_budget_is_spent_against_the_cycle_not_the_calendar_day(committed, world):
+    """T-601: the open cycle's start is the window. A call made earlier today, before the cycle
+    began, belongs to the previous cycle and must not eat this one's budget."""
+    ctx = world["ctx"]
+    now = datetime.now(UTC)
+    async with committed() as session:
+        session.add(
+            Cycle(
+                company_id=ctx.company_id,
+                seq=1,
+                stage="EXECUTING",
+                started_at=now - timedelta(minutes=30),
+            )
+        )
+        await session.commit()
+    await _add(
+        committed,
+        Budget(company_id=ctx.company_id, period="cycle", amount=Decimal("0.08")),
+        _call(ctx, "0.50", created_at=now - timedelta(hours=3)),  # before this cycle began
+    )
+
+    await DbCostGuard(committed).reserve(_request(ctx), BINDING)  # the old call does not count
+
+    await _add(committed, _call(ctx, "0.04", created_at=now - timedelta(minutes=5)))
+    with pytest.raises(BudgetExceeded) as exc:
+        await DbCostGuard(committed).reserve(_request(ctx), BINDING)
+    assert exc.value.scope == "company"
+
+
+async def test_without_an_open_cycle_a_cycle_budget_falls_back_to_the_day(committed, world):
+    ctx = world["ctx"]
+    now = datetime.now(UTC)
+    await _add(
+        committed,
+        Budget(company_id=ctx.company_id, period="cycle", amount=Decimal("0.08")),
+        _call(ctx, "0.04", created_at=now.replace(hour=0, minute=1)),
+    )
+    with pytest.raises(BudgetExceeded) as exc:
+        await DbCostGuard(committed).reserve(_request(ctx), BINDING)
+    assert exc.value.scope == "company"

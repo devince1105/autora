@@ -19,8 +19,10 @@ concurrent calls cannot both fit under the same remaining budget.
 
 Known limits of this version:
 - The estimate is conservative: input tokens ≈ characters / 4, plus the full ``max_output_tokens``.
-- Period windows are UTC calendar windows. ``cycle`` budgets use the day window until the
-  cycles table exists (the MVP cycle is daily, logs/platform/02 §2).
+- Period windows are UTC calendar windows, except ``cycle``: that one runs from the open
+  cycle's ``started_at`` (T-601), so a budget "per cycle" is spent against the cycle the work
+  actually belongs to, not against the calendar day it happens to fall in. A company with no
+  open cycle falls back to the day window.
 - Only model cost is counted. Tool costs join when tool usage is recorded in the ledger.
 """
 
@@ -37,7 +39,16 @@ from decimal import Decimal
 from sqlalchemy import func, select, text, update
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
-from autora.db.models import Agent, Budget, CostReservation, ModelCall, ModelCallStatus, Task
+from autora.db.models import (
+    Agent,
+    Budget,
+    CostReservation,
+    Cycle,
+    CycleStage,
+    ModelCall,
+    ModelCallStatus,
+    Task,
+)
 from autora.runtime.actor import Actor
 from autora.runtime.events import catalog as ev
 from autora.runtime.events.outbox import emit
@@ -99,13 +110,25 @@ def estimate_cost(
     return binding.price.cost(usage)
 
 
-def _window_start(period: str, now: datetime) -> datetime:
+def _window_start(period: str, now: datetime, cycle_started_at: datetime | None = None) -> datetime:
     day = now.astimezone(UTC).replace(hour=0, minute=0, second=0, microsecond=0)
-    if period in ("day", "cycle"):
+    if period == "cycle":
+        return cycle_started_at or day
+    if period == "day":
         return day
     if period == "month":
         return day.replace(day=1)
     raise ValueError(f"unknown budget period {period!r}")
+
+
+async def _open_cycle_start(session: AsyncSession, company_id: uuid.UUID) -> datetime | None:
+    """When the company's open cycle began. None before the first one, or between cycles."""
+    return await session.scalar(
+        select(Cycle.started_at)
+        .where(Cycle.company_id == company_id, Cycle.stage != CycleStage.DONE.value)
+        .order_by(Cycle.seq.desc())
+        .limit(1)
+    )
 
 
 @dataclass
@@ -196,6 +219,7 @@ class DbCostGuard:
                 limits.append(_Limit("task", task.budget_usd, None, task_id=ctx.task_id))
 
         budget_filter = [Budget.company_id == ctx.company_id, Budget.hard_cap.is_(True)]
+        cycle_start = await _open_cycle_start(session, ctx.company_id)
         if ctx.project_id:
             for budget in await session.scalars(
                 select(Budget).where(*budget_filter, Budget.project_id == ctx.project_id)
@@ -204,14 +228,16 @@ class DbCostGuard:
                     _Limit(
                         "project",
                         budget.amount,
-                        _window_start(budget.period, now),
+                        _window_start(budget.period, now, cycle_start),
                         project_id=ctx.project_id,
                     )
                 )
         for budget in await session.scalars(
             select(Budget).where(*budget_filter, Budget.project_id.is_(None))
         ):
-            limits.append(_Limit("company", budget.amount, _window_start(budget.period, now)))
+            limits.append(
+                _Limit("company", budget.amount, _window_start(budget.period, now, cycle_start))
+            )
         return limits
 
     async def _spent(

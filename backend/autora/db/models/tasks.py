@@ -83,8 +83,8 @@ class WorkflowRun(IdMixin, TimestampMixin, Base):
 
     company_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("companies.id"))
     project_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("projects.id"))
-    cycle_id: Mapped[uuid.UUID | None]
-    """cycles.id; FK added with the cycles table (Phase 3)."""
+    cycle_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("cycles.id"))
+    """The cycle that asked for this run: the audit chain cycle -> plan -> workflow -> tasks."""
     template_name: Mapped[str]
     """e.g. "newsroom.story_to_article_v2"."""
     params: Mapped[dict[str, Any]] = mapped_column(server_default=text("'{}'::jsonb"))
@@ -123,7 +123,7 @@ class Task(IdMixin, TimestampMixin, Base):
     company_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("companies.id"))
     project_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("projects.id"))
     workflow_run_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("workflow_runs.id"))
-    cycle_id: Mapped[uuid.UUID | None]
+    cycle_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("cycles.id"))
     name: Mapped[str]
     """Template node name, e.g. "research"."""
     display_name: Mapped[str]

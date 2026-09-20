@@ -15,6 +15,7 @@ from typing import TYPE_CHECKING
 if TYPE_CHECKING:
     from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
+    from autora.company.cycle import CycleRunner
     from autora.infra.blobstore import BlobStore
     from autora.infra.http import PageFetcher
     from autora.infra.search import SearchProvider
@@ -126,9 +127,12 @@ def build_scheduler(
     settings: Settings | None,
     session_factory: async_sessionmaker[AsyncSession],
     worker_id: str,
+    cycles: CycleRunner | None = None,
 ) -> Scheduler:
-    """The scheduler with every domain's handlers (newsroom: the source poller T-501, story
-    clustering T-504, the analytics collector T-516)."""
+    """The scheduler with the company's daily cycle (T-601) and every domain's handlers
+    (newsroom: the source poller T-501, story clustering T-504, the analytics collector
+    T-516)."""
+    from autora.company.cycle import CYCLE_START_SCHEDULE
     from autora.domains.newsroom.analytics import ANALYTICS_SCHEDULE, AnalyticsCollector
     from autora.domains.newsroom.sources import POLL_SCHEDULE, SourcePoller
     from autora.domains.newsroom.stories import CLUSTER_SCHEDULE, StoryDesk
@@ -145,6 +149,8 @@ def build_scheduler(
     )
     scheduler.register(CLUSTER_SCHEDULE, desk.schedule_handler())
     scheduler.register(ANALYTICS_SCHEDULE, AnalyticsCollector().schedule_handler())
+    if cycles is not None:
+        scheduler.register(CYCLE_START_SCHEDULE, cycles.schedule_handler())
     return scheduler
 
 
@@ -214,9 +220,12 @@ class Runtime:
     approvals: ApprovalService
     policy: PolicyEngine
     services: ServiceRegistry
+    cycles: CycleRunner
 
 
 def build_runtime(settings: Settings | None = None) -> Runtime:
+    from autora.company.cycle import CycleRunner, work_is_finished
+    from autora.db.models import CycleStage
     from autora.domains import newsroom
     from autora.runtime.approvals import ApprovalService
     from autora.runtime.dag import WorkflowEngine
@@ -231,6 +240,8 @@ def build_runtime(settings: Settings | None = None) -> Runtime:
         task_manager.retry_base = timedelta(seconds=settings.task_retry_base_seconds)
     templates = build_templates()
     workflows = WorkflowEngine(task_manager, templates)
+    cycles = CycleRunner()
+    cycles.finishes_when(CycleStage.EXECUTING, work_is_finished)
     runtime = Runtime(
         task_manager=task_manager,
         templates=templates,
@@ -238,6 +249,7 @@ def build_runtime(settings: Settings | None = None) -> Runtime:
         approvals=ApprovalService(task_manager),
         policy=build_policy_engine(),
         services=ServiceRegistry(),
+        cycles=cycles,
     )
     newsroom.register(runtime)
     return runtime
@@ -251,6 +263,7 @@ def build_worker(
     company_ids: frozenset[uuid.UUID] | None = None,
 ) -> Worker:
     """Everything a worker process runs: task loop, agent runner, maintenance, scheduler."""
+    from autora.company.cycle import maintenance_job as cycle_maintenance_job
     from autora.db.session import get_sessionmaker
     from autora.infra.blobstore import LocalFSBlobStore
     from autora.runtime.agent_runner import AgentRunner
@@ -289,7 +302,7 @@ def build_worker(
         task_manager=runtime.task_manager,
         runner=runner,
         approvals=runtime.approvals,
-        scheduler=build_scheduler(settings, session_factory, settings.worker_id),
+        scheduler=build_scheduler(settings, session_factory, settings.worker_id, runtime.cycles),
         services=ServiceDispatcher(
             session_factory=session_factory,
             registry=runtime.services,
@@ -302,4 +315,5 @@ def build_worker(
         poll_interval=settings.worker_poll_seconds,
         maintenance_interval=settings.worker_maintenance_seconds,
         company_ids=companies,
+        maintenance_jobs=[("advance_cycles", cycle_maintenance_job(runtime.cycles, companies))],
     )

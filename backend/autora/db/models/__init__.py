@@ -8,6 +8,8 @@ from autora.db.models.company import (
     CompanyPolicy,
     CompanyStatus,
     CompanyType,
+    Cycle,
+    CycleStage,
     GoalLevel,
     GoalStatus,
 )
@@ -61,6 +63,8 @@ __all__ = [
     "CompanyStatus",
     "CompanyType",
     "CostReservation",
+    "Cycle",
+    "CycleStage",
     "EventRecord",
     "GoalLevel",
     "GoalStatus",

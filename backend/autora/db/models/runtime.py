@@ -73,6 +73,7 @@ class EventRecord(Base):
     run_id: Mapped[uuid.UUID | None]
     workflow_run_id: Mapped[uuid.UUID | None]
     cycle_id: Mapped[uuid.UUID | None]
+    """No FK, like run_id and workflow_run_id above: the log outlives what it points at."""
     correlation_id: Mapped[uuid.UUID | None]
     causation_id: Mapped[uuid.UUID | None]
     actor: Mapped[dict[str, Any]]
