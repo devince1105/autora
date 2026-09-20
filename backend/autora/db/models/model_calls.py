@@ -40,6 +40,8 @@ class ModelCall(IdMixin, CreatedAtMixin, Base):
         Index("ix_model_calls_project_created", "project_id", "created_at"),
         Index("ix_model_calls_run", "run_id"),
         Index("ix_model_calls_task", "task_id"),
+        Index("ix_model_calls_workflow_run", "workflow_run_id"),
+        Index("ix_model_calls_cycle", "cycle_id"),
     )
 
     company_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("companies.id"))
@@ -47,6 +49,11 @@ class ModelCall(IdMixin, CreatedAtMixin, Base):
     agent_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("agents.id"))
     task_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("tasks.id"))
     run_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("agent_runs.id"))
+    workflow_run_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("workflow_runs.id"))
+    """What the call was for, end to end: the total cost of one article is the sum over its
+    workflow (AC-S8). Null for work that belongs to no workflow (the CEO planning a cycle)."""
+    cycle_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("cycles.id"))
+    """Which day's loop paid for it. The ledger settles a cycle by grouping on this (T-602)."""
     role: Mapped[str]
     capability: Mapped[str]
     alias: Mapped[str]

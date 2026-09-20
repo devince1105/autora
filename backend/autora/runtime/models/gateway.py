@@ -161,6 +161,8 @@ class ModelGateway:
             agent_id=ctx.agent_id,
             task_id=ctx.task_id,
             run_id=ctx.run_id,
+            workflow_run_id=ctx.workflow_run_id,
+            cycle_id=ctx.cycle_id,
             role=ctx.role,
             capability=request.capability,
             alias=alias,

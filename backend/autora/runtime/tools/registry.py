@@ -70,6 +70,7 @@ class ToolContext:
     run_id: uuid.UUID | None = None
     task_id: uuid.UUID | None = None
     workflow_run_id: uuid.UUID | None = None
+    cycle_id: uuid.UUID | None = None
     step_seq: int = 0
 
 
@@ -195,6 +196,7 @@ class ToolRegistry:
         run_id: uuid.UUID | None = None,
         task_id: uuid.UUID | None = None,
         workflow_run_id: uuid.UUID | None = None,
+        cycle_id: uuid.UUID | None = None,
         step_seq: int = 0,
         before_call: Callable[[AsyncSession], Awaitable[None]] | None = None,
     ) -> ToolInvocation:
@@ -208,6 +210,7 @@ class ToolRegistry:
             "run_id": run_id,
             "task_id": task_id,
             "workflow_run_id": workflow_run_id,
+            "cycle_id": cycle_id,
         }
 
         async with self.session_factory() as session:
@@ -333,6 +336,7 @@ class ToolRegistry:
                 run_id=run_id,
                 task_id=refs["task_id"],
                 workflow_run_id=refs["workflow_run_id"],
+                cycle_id=refs["cycle_id"],
                 correlation_id=refs["workflow_run_id"],
             ),
         )

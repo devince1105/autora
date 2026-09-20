@@ -342,6 +342,8 @@ class AgentRunner:
                 agent_id=claim.agent.id,
                 run_id=claim.run.id,
                 task_id=task.id,
+                workflow_run_id=task.workflow_run_id,
+                cycle_id=task.cycle_id,
                 task_name=task.name,
                 attempt=task.attempt,
                 step_seq=state.next_seq,
@@ -490,6 +492,7 @@ class AgentRunner:
                 run_id=claim.run.id,
                 task_id=task.id,
                 workflow_run_id=task.workflow_run_id,
+                cycle_id=task.cycle_id,
                 step_seq=step_seq,
                 before_call=working,
             )

@@ -168,6 +168,8 @@ class EmbedCaller:
     task_id: uuid.UUID | None = None
     run_id: uuid.UUID | None = None
     project_id: uuid.UUID | None = None
+    workflow_run_id: uuid.UUID | None = None
+    cycle_id: uuid.UUID | None = None
     role: str = "system"
 
 
@@ -221,6 +223,8 @@ class Embedder:
                 agent_id=caller.agent_id,
                 task_id=caller.task_id,
                 run_id=caller.run_id,
+                workflow_run_id=caller.workflow_run_id,
+                cycle_id=caller.cycle_id,
                 role=caller.role,
                 capability=CAPABILITY,
                 alias=ALIAS,

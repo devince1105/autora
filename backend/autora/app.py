@@ -16,6 +16,7 @@ if TYPE_CHECKING:
     from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
     from autora.company.cycle import CycleRunner
+    from autora.company.ledger import Ledger
     from autora.infra.blobstore import BlobStore
     from autora.infra.http import PageFetcher
     from autora.infra.search import SearchProvider
@@ -221,10 +222,12 @@ class Runtime:
     policy: PolicyEngine
     services: ServiceRegistry
     cycles: CycleRunner
+    ledger: Ledger
 
 
 def build_runtime(settings: Settings | None = None) -> Runtime:
     from autora.company.cycle import CycleRunner, work_is_finished
+    from autora.company.ledger import Ledger
     from autora.db.models import CycleStage
     from autora.domains import newsroom
     from autora.runtime.approvals import ApprovalService
@@ -242,6 +245,8 @@ def build_runtime(settings: Settings | None = None) -> Runtime:
     workflows = WorkflowEngine(task_manager, templates)
     cycles = CycleRunner()
     cycles.finishes_when(CycleStage.EXECUTING, work_is_finished)
+    ledger = Ledger()
+    cycles.when_entering(CycleStage.MEASURING, ledger.stage_hook())
     runtime = Runtime(
         task_manager=task_manager,
         templates=templates,
@@ -250,6 +255,7 @@ def build_runtime(settings: Settings | None = None) -> Runtime:
         policy=build_policy_engine(),
         services=ServiceRegistry(),
         cycles=cycles,
+        ledger=ledger,
     )
     newsroom.register(runtime)
     return runtime

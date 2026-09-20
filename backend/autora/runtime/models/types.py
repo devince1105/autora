@@ -77,6 +77,8 @@ class CallContext(BaseModel):
     agent_id: uuid.UUID | None = None
     run_id: uuid.UUID | None = None
     task_id: uuid.UUID | None = None
+    workflow_run_id: uuid.UUID | None = None
+    cycle_id: uuid.UUID | None = None
     task_name: str | None = None
     attempt: int = 1
     step_seq: int = 0

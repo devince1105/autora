@@ -498,3 +498,46 @@ async def test_a_company_gets_one_daily_schedule_and_only_one(db_session):
     )
     assert first.next_run_at == DAY_START + timedelta(days=1)  # 06:00 today has passed
     assert first.enabled
+
+
+async def test_the_cycle_settles_its_own_costs_on_the_way_through(db_session):
+    """T-602 meets T-601: MEASURING is where the day's model calls become money. The runner
+    knows nothing about the ledger — it just enters the stage."""
+    from decimal import Decimal
+
+    from autora.company.ledger import MODEL_COST, Ledger
+    from autora.db.models import ModelCall, Transaction
+
+    company = await unique_company(db_session, "cycle-money")
+    project = Project(company_id=company.id, name="p")
+    db_session.add(project)
+    await db_session.flush()
+    clock = FakeClock()
+    runner = await _runner(clock)
+    ledger = Ledger(clock=lambda: clock.now)
+    runner.when_entering(S.MEASURING, ledger.stage_hook())
+    cycle = await runner.start(db_session, company.id)
+    db_session.add(
+        ModelCall(
+            company_id=company.id,
+            project_id=project.id,
+            cycle_id=cycle.id,
+            role="writer",
+            capability="drafting",
+            alias="frontier",
+            provider="nvidia",
+            model_id="m",
+            status="ok",
+            cost_usd=Decimal("0.42"),
+        )  # fmt: skip
+    )
+    await db_session.flush()
+
+    await runner.tick(db_session, company.id)
+
+    assert cycle.stage == S.DONE
+    expense = await db_session.scalar(
+        select(Transaction).where(Transaction.company_id == company.id)
+    )
+    assert (expense.category, expense.amount) == (MODEL_COST, Decimal("0.420000"))
+    assert expense.ref_id == cycle.id
