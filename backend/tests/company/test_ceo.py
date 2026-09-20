@@ -12,7 +12,7 @@ import pytest
 from sqlalchemy import select
 
 from autora.app import build_policy_engine, build_runtime
-from autora.company import verbs
+from autora.company import verbs, verbs_business
 from autora.company.agents.ceo import (
     MAX_GOALS,
     PLAN,
@@ -22,11 +22,14 @@ from autora.company.agents.ceo import (
     CyclePlan,
     CycleReview,
     Goal,
+    OpportunityDecision,
     Priority,
     ProjectDecision,
     behaviors,
     goals_are_measurable,
+    opportunities_are_real_and_open,
     projects_are_real_and_running,
+    said_what_it_decided,
     said_what_it_did,
 )
 from autora.company.agents.roster import hire_agent
@@ -48,6 +51,7 @@ from autora.db.models import (
     CommandRecord,
     Cycle,
     CycleStage,
+    OpportunityState,
     Project,
     ProjectState,
     Task,
@@ -515,3 +519,156 @@ async def test_the_same_tool_call_twice_asks_once(committed, world):
             )
         ).all()
         assert len(records) == 1
+
+
+# --- deciding what the company might do next (T-611 increment) ---------------------------------
+
+
+async def _an_opportunity(session, company, *, key="ai_english", state=None):
+    from autora.company import opportunities as opp
+
+    opportunity = await opp.discover(
+        session,
+        company_id=company.id,
+        key=key,
+        title="AI English learning",
+        thesis="Adults pay for lessons.",
+        actor=HUMAN,
+    )
+    if state is not None:
+        await opp.advance(session, opportunity, to=state, actor=HUMAN, reason="for the test")
+    return opportunity
+
+
+async def test_the_review_may_decide_about_opportunities(db_session):
+    """The CEO's job is which businesses to be in, not only how the current one is doing."""
+    company, _, agent = await _company(db_session)
+    project = await operations_project(db_session, company.id, actor=HUMAN)
+    opportunity = await _an_opportunity(db_session, company)
+    run_id = await _a_run(db_session, company, project, agent)
+    bus = _bus()
+    verbs_business.register(bus)
+    await bus.submit(
+        db_session, "AdvanceOpportunity",
+        {"opportunity_id": str(opportunity.id), "to_state": "EVALUATING"},
+        company_id=company.id, actor=Actor.agent(agent.id), role=ROLE,
+        idempotency_key=f"k-{uuid.uuid4().hex[:8]}", run_id=run_id,
+    )  # fmt: skip
+    ctx = RunContext(
+        company_id=company.id, project_id=project.id, task=None, agent=agent, run_id=run_id
+    )
+    review = CycleReview(
+        opportunities=[
+            OpportunityDecision(
+                opportunity_id=opportunity.id,
+                decision="evaluate",
+                score=Decimal("7"),
+                rationale="three competitors and none of them bilingual",
+            )
+        ],
+        summary="Looked at what we might do next.",
+    )
+
+    assert await opportunities_are_real_and_open(db_session, ctx, review) == []
+    assert await said_what_it_decided(db_session, ctx, review) == []
+
+
+async def test_a_review_may_not_claim_a_decision_it_never_submitted(db_session):
+    company, _, agent = await _company(db_session)
+    project = await operations_project(db_session, company.id, actor=HUMAN)
+    opportunity = await _an_opportunity(db_session, company)
+    run_id = await _a_run(db_session, company, project, agent)
+    ctx = RunContext(
+        company_id=company.id, project_id=project.id, task=None, agent=agent, run_id=run_id
+    )
+    review = CycleReview(
+        opportunities=[
+            OpportunityDecision(
+                opportunity_id=opportunity.id, decision="reject", rationale="too expensive"
+            )
+        ],
+        summary="I said no, apparently.",
+    )
+
+    [issue] = await said_what_it_decided(db_session, ctx, review)
+    assert "no RejectOpportunity was submitted" in issue
+    # and watching asks for nothing, so it needs no command
+    watched = review.model_copy(
+        update={"opportunities": [review.opportunities[0].model_copy(update={"decision": "watch"})]}
+    )
+    assert await said_what_it_decided(db_session, ctx, watched) == []
+
+
+async def test_the_wrong_step_is_not_the_step_it_wrote_down(db_session):
+    """Moving one to EVALUATING is not moving it to VALIDATING, and the review must not say so."""
+    company, _, agent = await _company(db_session)
+    project = await operations_project(db_session, company.id, actor=HUMAN)
+    opportunity = await _an_opportunity(db_session, company)
+    run_id = await _a_run(db_session, company, project, agent)
+    bus = _bus()
+    verbs_business.register(bus)
+    await bus.submit(
+        db_session, "AdvanceOpportunity",
+        {"opportunity_id": str(opportunity.id), "to_state": "EVALUATING"},
+        company_id=company.id, actor=Actor.agent(agent.id), role=ROLE,
+        idempotency_key=f"k-{uuid.uuid4().hex[:8]}", run_id=run_id,
+    )  # fmt: skip
+    ctx = RunContext(
+        company_id=company.id, project_id=project.id, task=None, agent=agent, run_id=run_id
+    )
+    review = CycleReview(
+        opportunities=[
+            OpportunityDecision(
+                opportunity_id=opportunity.id, decision="validate", rationale="let us find out"
+            )
+        ],
+        summary="Two different steps.",
+    )
+
+    [issue] = await said_what_it_decided(db_session, ctx, review)
+    assert "no AdvanceOpportunity was submitted" in issue
+
+
+async def test_a_decided_opportunity_is_not_open_for_another_decision(db_session):
+    company, _, agent = await _company(db_session)
+    project = await operations_project(db_session, company.id, actor=HUMAN)
+    rejected = await _an_opportunity(
+        db_session, company, key="ai_support", state=OpportunityState.REJECTED
+    )
+    other = await unique_company(db_session, "elsewhere")
+    elsewhere = await _an_opportunity(db_session, other, key="elsewhere")
+    ctx = RunContext(
+        company_id=company.id, project_id=project.id, task=None, agent=agent, run_id=uuid.uuid4()
+    )
+    review = CycleReview(
+        opportunities=[
+            OpportunityDecision(
+                opportunity_id=rejected.id, decision="watch", rationale="let us look again"
+            ),
+            OpportunityDecision(
+                opportunity_id=elsewhere.id, decision="watch", rationale="not ours"
+            ),
+        ],
+        summary="Reopening what was closed.",
+    )
+
+    issues = await opportunities_are_real_and_open(db_session, ctx, review)
+    assert len(issues) == 2
+    assert any("was decided already" in i for i in issues)
+    assert any("not one of this company's" in i for i in issues)
+
+
+async def test_the_review_summary_says_what_it_looked_at(db_session):
+    company, _, _ = await _company(db_session)
+    opportunity = await _an_opportunity(db_session, company)
+    [_, review_behavior] = behaviors()
+    review = CycleReview(
+        projects=[],
+        opportunities=[
+            OpportunityDecision(
+                opportunity_id=opportunity.id, decision="watch", rationale="nothing new"
+            )
+        ],
+        summary="A quiet day.",
+    )
+    assert "1 opportunity(s) looked at" in review_behavior.summarize(review)

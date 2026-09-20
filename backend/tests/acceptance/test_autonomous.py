@@ -20,11 +20,13 @@ import pytest
 from sqlalchemy import func, select
 
 from autora.app import build_runtime, build_worker
+from autora.company import opportunities
 from autora.company.agents import hire_agent
 from autora.company.companies import create_company
 from autora.company.cycle import CYCLE_START_SCHEDULE, ensure_cycle_schedule
 from autora.company.organization import bootstrap_executive
 from autora.db.models import (
+    CommandRecord,
     Company,
     CompanyType,
     Cycle,
@@ -32,6 +34,8 @@ from autora.db.models import (
     EventRecord,
     KpiScope,
     KpiSnapshot,
+    Opportunity,
+    OpportunityState,
     Project,
     ProjectState,
     Schedule,
@@ -345,3 +349,92 @@ async def test_a_company_with_no_domain_runs_the_same_days(committed, e2e_settin
     assert any(cycle.plan.get("by") == "ceo" for cycle in cycles), [c.plan for c in cycles]
     assert any(cycle.review for cycle in cycles)
     assert company is not None
+
+
+# --- 4. deciding what to do next --------------------------------------------------------------
+
+
+@pytest.mark.slow
+async def test_the_company_decides_about_an_opportunity_by_itself(committed, e2e_settings):
+    """T-605a increment: the CEO's review reaches the business loop (ARCHITECTURE_V2_1 §5).
+
+    A person records something the company might do and then leaves. In the cycle's REVIEWING
+    stage the CEO reads it in its snapshot, scores it and moves it on — through the command
+    pipeline, like everything else it decides. Nobody asks it to.
+    """
+    clock = Clock(datetime.now(UTC))
+    runtime = build_runtime(e2e_settings)
+    runtime.cycles.clock = clock
+    slug = f"opp-{uuid.uuid4().hex[:8]}"
+
+    async with committed() as session:
+        company, _ = await create_company(
+            session, slug=slug, name="A Curious Company", type=CompanyType.NEWSROOM,
+            mission="find something worth doing", actor=OPERATOR,
+        )  # fmt: skip
+        _, ceo_role = await bootstrap_executive(session, company.id, actor=OPERATOR)
+        await hire_agent(
+            session, company_id=company.id, role=ceo_role.key, display_name="Cyra",
+            actor=OPERATOR, position=ceo_role,
+        )  # fmt: skip
+        session.add(
+            Project(
+                company_id=company.id,
+                name="Keep the lights on",
+                state=ProjectState.ACTIVE.value,
+                kill_criteria={},
+            )
+        )
+        opportunity = await opportunities.discover(
+            session,
+            company_id=company.id,
+            key="ai_english",
+            title="AI English learning",
+            thesis="Adults pay for lessons; a model teaches at the margin of zero.",
+            actor=OPERATOR,
+        )
+        await opportunities.add_signal(
+            session,
+            opportunity,
+            source="search",
+            summary="three competitors, none bilingual",
+            actor=OPERATOR,
+        )
+        await session.commit()
+        company_id, opportunity_id = company.id, opportunity.id
+
+    worker = build_worker(
+        e2e_settings, session_factory=committed, company_ids=frozenset({company_id}),
+        runtime=runtime,
+    )  # fmt: skip
+    worker.clock = clock
+    worker.scheduler.clock = clock
+    worker.maintenance_interval = 1
+
+    await _wind_to_next_start(committed, company_id, clock)
+    clock.advance(minutes=10)
+    await _drive(worker, clock, hours=17)
+
+    async with committed() as session:
+        decided = await session.get(Opportunity, opportunity_id)
+        commands = (
+            await session.scalars(
+                select(CommandRecord)
+                .where(
+                    CommandRecord.company_id == company_id,
+                    CommandRecord.command.in_(["ScoreOpportunity", "AdvanceOpportunity"]),
+                )
+                .order_by(CommandRecord.created_at)
+            )
+        ).all()
+        cycle = await session.scalar(select(Cycle).where(Cycle.company_id == company_id))
+
+    assert decided.state == OpportunityState.EVALUATING.value, "nobody looked at it properly"
+    assert decided.score is not None, "it was moved on without being compared to anything"
+    assert [c.command for c in commands] == ["ScoreOpportunity", "AdvanceOpportunity"]
+    assert all(c.actor["kind"] == "agent" and c.role == "ceo" for c in commands)
+    assert all(c.outcome == "done" for c in commands)
+    # and the review says what it did, which is what the validator checks
+    [written] = cycle.review["opportunities"]
+    assert written["opportunity_id"] == str(opportunity_id)
+    assert written["decision"] == "evaluate"

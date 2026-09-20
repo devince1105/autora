@@ -6,9 +6,11 @@ judgement is scripted. So a simulated cycle exercises the real pipeline: the pol
 refusal comes back as a refusal, and the plan is checked against what was actually submitted.
 
 The scripted judgement is the simplest defensible one, and it is stated here rather than hidden
-in the replies: **spend the day's cap on the business that is running, and set a goal for it.**
-That is enough to make a cycle real end to end, and little enough that nobody mistakes it for
-the CEO's actual reasoning.
+in the replies: **spend the day's cap on the business that is running, set a goal for it, and
+score the best open opportunity** (moving a freshly discovered one on to be evaluated). That is
+enough to make a cycle real end to end, and little enough that nobody mistakes it for the CEO's
+actual reasoning. It never rejects an opportunity and never invests: a script should not be the
+thing that closes a question or commits a company's capital.
 """
 
 from __future__ import annotations
@@ -110,6 +112,49 @@ def _plan(request: ModelRequest) -> FakeTurn:
 
 def _review(request: ModelRequest) -> FakeTurn:
     snapshot = _snapshot(request)
+    submitted = _submitted(request)
+    candidate = _worth_a_look(snapshot)
+
+    # the scripted judgement about what the company might do next: score the best open
+    # opportunity, and move a freshly discovered one to EVALUATING. Nothing here rejects or
+    # invests — a script should not be the thing that commits a company's capital (T-611).
+    if candidate is not None and "ScoreOpportunity" not in submitted:
+        return FakeTurn(
+            tool_uses=[
+                FakeToolUse(
+                    name="submit_command",
+                    input={
+                        "command": "ScoreOpportunity",
+                        "payload": {
+                            "opportunity_id": candidate["id"],
+                            "score": str(_score(candidate)),
+                        },
+                        "reason": "so the next cycle can compare it with the others",
+                    },
+                )
+            ]
+        )
+    if (
+        candidate is not None
+        and candidate.get("state") == "DISCOVERED"
+        and "AdvanceOpportunity" not in submitted
+    ):
+        return FakeTurn(
+            tool_uses=[
+                FakeToolUse(
+                    name="submit_command",
+                    input={
+                        "command": "AdvanceOpportunity",
+                        "payload": {
+                            "opportunity_id": candidate["id"],
+                            "to_state": "EVALUATING",
+                        },
+                        "reason": "there is enough evidence to look at it properly",
+                    },
+                )
+            ]
+        )
+
     projects = []
     for unit in snapshot.get("portfolio", []):
         for project in unit.get("projects", []):
@@ -120,10 +165,26 @@ def _review(request: ModelRequest) -> FakeTurn:
                     "rationale": "it did what it was funded for and nothing says to stop",
                 }
             )
+    opportunities = []
+    if candidate is not None:
+        moved = candidate.get("state") == "DISCOVERED" and _succeeded(request, "AdvanceOpportunity")
+        opportunities.append(
+            {
+                "opportunity_id": candidate["id"],
+                "decision": "evaluate" if moved else "watch",
+                "score": str(_score(candidate)),
+                "rationale": (
+                    "worth looking at properly"
+                    if moved
+                    else "nothing new about it this cycle; it stays where it is"
+                ),
+            }
+        )
     return FakeTurn(
         text=json.dumps(
             {
                 "projects": projects,
+                "opportunities": opportunities,
                 "summary": (
                     "The cycle ran. Costs are within the day's cap and no project is in "
                     "breach of its criteria."
@@ -214,6 +275,23 @@ def _goal_metric(snapshot: dict[str, Any]) -> str:
         if "." in metric and isinstance(value, int):
             return metric
     return DEFAULT_METRIC
+
+
+def _worth_a_look(snapshot: dict[str, Any]) -> dict[str, Any] | None:
+    """The opportunity the snapshot puts first — it is already ordered best-score-first."""
+    opportunities = snapshot.get("opportunities") or []
+    return opportunities[0] if opportunities else None
+
+
+def _score(opportunity: dict[str, Any]) -> Decimal:
+    """A number from what is actually known about it: one point per signal, capped at ten.
+
+    Deliberately mechanical. A scripted CEO that produced confident-looking scores out of
+    nowhere would make the simulation look like judgement instead of a stand-in for it.
+    """
+    signals = opportunity.get("signals")
+    count = signals if isinstance(signals, int) else 0
+    return Decimal(min(10, max(1, count)))
 
 
 def _first_running_business(snapshot: dict[str, Any]) -> dict[str, Any] | None:

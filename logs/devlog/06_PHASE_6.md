@@ -38,7 +38,7 @@
 | T-603 | Reporting + CompanySnapshot（token 上限）、`kpi_snapshots` | T-602、T-516 | ✅ |
 | T-604 | 命令管線（`submit_command`：instantiate_workflow、pause/kill、allocate_budget、update_strategy）、`commands_log` | T-205 | ✅ |
 | T-609 | `agent_memory`（最近 N 次執行的摘要進 context，TTL 30 天、每個代理 ≤ 50 列） | T-211 | ✅ |
-| T-605a | CEO 代理（公司層：資本、優先順序、組合） | T-211、T-603、T-604 | ✅ |
+| T-605a | CEO 代理（公司層：資本、優先順序、組合；**增量**：覆盤時決定機會） | T-211、T-603、T-604 | ✅ |
 | T-605b | 總編輯代理（新聞室：選題、品質、發佈順序） | T-605a | ✅ |
 | T-606 | 治理：kill criteria 自動暫停、kill 提案 → 人審、代理連續失敗 N 次自動暫停 | T-603、T-604 | ✅ |
 | T-607 | Fallback plan + 每日摘要文件（`documents`） | T-601、T-605 | ✅ |
@@ -583,7 +583,9 @@ cycle 1..7: DONE plan=ceo review=ok governance={'agents': 7, 'budgets': 1, 'proj
 
 ### CEO 還看不到全部
 
-快照多了 `opportunities` 一段（機會、它的提案、正在探索它的專案與花費），所以 CEO **看得到**；但 CEO 的 `CycleReview` schema 還沒有「機會決策」那一段，也就是說**目前只有人會用這八個命令**。那是 T-605a 的增量，不在這一輪做，老實記在這裡。
+快照多了 `opportunities` 一段（機會、它的提案、正在探索它的專案與花費），所以 CEO **看得到**；但 CEO 的 `CycleReview` schema 還沒有「機會決策」那一段，也就是說**目前只有人會用這八個命令**。那是 T-605a 的增量。
+
+→ 已在下面的〈T-605a 增量〉補上。
 
 ### 驗證
 - `pytest tests/company/test_opportunities.py`：18 個（機會先於投入存在、訊號累積、打分不是決定、只能向前、否決留著、APPROVED 必須有事業、資料庫也擋、過期、排序、一機會多提案、送出凍結與取代、決定過的不能再決定、草稿不能跳過送出、探索就是 Project、公司隔離、快照三個、cycle 自己過期且不花模型錢）。
@@ -638,6 +640,55 @@ cycle 1..7: DONE plan=ceo review=ok governance={'agents': 7, 'budgets': 1, 'proj
 
 ### 還沒做
 事業著色（同一事業的部門同色）、跨部門交接的信差路徑（目前仍是同一層樓的走道，§14.7 說要嘛走到門口消失、要嘛改成不走路的提示）。這兩件事需要動場景幾何，留在 3D 的下一輪。
+
+---
+
+## T-605a 增量 · CEO 決定要做哪一門生意
+
+T-611 把機會、提案與八個命令都建好了，也把機會放進 CEO 的快照，但 CEO 的覆盤 schema 沒有「機會」那一段——**看得到，卻說不出決定**，所以那八個命令實際上只有人會用。這一輪把最後那段接起來。
+
+### 覆盤多一段
+
+`CycleReview` 多了 `opportunities`，每一項是一個決定：
+
+| 決定 | 意思 | 送出的命令 |
+|---|---|---|
+| `watch` | 這一輪沒有新東西，維持原狀（可以順便打分） | 無 |
+| `evaluate` | 值得好好看一看 | `AdvanceOpportunity → EVALUATING` |
+| `validate` | 值得用一個小額、有停損的專案去驗證 | `AdvanceOpportunity → VALIDATING` |
+| `reject` | 這不是一門生意，並且說出為什麼 | `RejectOpportunity` |
+| `invest` | 照那份提案開一門生意 | `CreateBusinessUnit`（**一律人審**） |
+
+`watch` 是真正的決定，而且會是最常見的一個：一個這輪沒有任何新證據的機會，本來就應該原地不動。
+
+### 兩個新驗證器
+
+- **`opportunities_are_real_and_open`**：決定的對象必須是這間公司的，而且還開著。對一個上週已經否決的機會再下決定，等於悄悄把一個已經關上的問題重新打開。
+- **`said_what_it_decided`**：覆盤寫的每一個決定（`watch` 以外）都必須對應到**這次執行真的送出過**的命令，而且步驟要對——送出 `EVALUATING` 卻寫成 `validate` 會被擋下來。這跟 `said_what_it_did` 是同一個性質、同一個理由：最便宜的謊是描述一個沒做過的決定，也是事後最貴的那個。順手把兩個驗證器共用的「這次執行送出了什麼」抽成 `_submitted()`。
+
+### 模擬的 CEO 也會了（而且刻意不會做兩件事）
+
+模擬腳本現在會**替最值得看的那個機會打分**（分數來自訊號數，不是憑空生出來的自信），並把還在 `DISCOVERED` 的那個推進到 `EVALUATING`。
+
+它**永遠不否決、也永遠不投資**——一段腳本不該是「關掉一個問題」或「投下公司資本」的那個東西。真實模型當然可以，權限與人審都已經在原位。
+
+### 一個會跑的證明
+
+`test_the_company_decides_about_an_opportunity_by_itself`（加速時鐘，約 4 秒）：人記下一個機會、加一筆訊號，然後走開。一輪 cycle 之後——
+
+- 機會變成 `EVALUATING`、有了分數；
+- `commands_log` 裡剛好兩筆：`ScoreOpportunity`、`AdvanceOpportunity`，**actor 是代理、role 是 ceo、結果都是 done**；
+- cycle 的 `review.opportunities` 寫著 `evaluate`，指著同一個機會。
+
+沒有人按任何東西。
+
+### 驗證
+- `pytest tests/company/test_ceo.py`：23 個（新增 5 個：覆盤可以決定機會、不能宣稱沒送出的決定、`watch` 不需要命令、送錯步驟會被抓、已決定或別家公司的機會被擋、摘要說出看了幾個）。
+- `pytest tests/acceptance/test_autonomous.py`：5 個。
+- 後端 1279 個測試、web 287 個測試通過；六項 check 全過。
+
+### 還沒接上的
+`invest`（`CreateBusinessUnit`）在提示、驗證器與權限上都到位了，但模擬不會走到那一步，所以**「從提案開出一門生意」目前只有人測過**（`test_business_verbs.py` 裡有）。要讓它在模擬裡自己走完，需要一個會寫提案的代理——那是探索專案的工作，還沒有。
 
 ---
 
