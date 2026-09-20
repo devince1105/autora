@@ -467,6 +467,23 @@ export const BudgetExhaustedV1Event = z.object({
   payload: BudgetExhaustedV1Payload,
 });
 
+export const BudgetWarningV1Payload = z.object({
+  budget_id: z.uuid().nullable().default(null),
+  project_id: z.uuid().nullable().default(null),
+  business_unit_id: z.uuid().nullable().default(null),
+  period: z.enum(["cycle", "day", "month"]),
+  spent: z.string().regex(new RegExp("^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$")),
+  cap: z.string().regex(new RegExp("^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$")),
+  ratio: z.number().min(0),
+});
+export type BudgetWarningV1Payload = z.infer<typeof BudgetWarningV1Payload>;
+export const BudgetWarningV1Event = z.object({
+  ...envelopeFields,
+  event_type: z.literal("BUDGET_WARNING"),
+  schema_version: z.literal(1),
+  payload: BudgetWarningV1Payload,
+});
+
 export const BusinessUnitCreatedV1Payload = z.object({
   key: z.string(),
   name: z.string(),
@@ -478,6 +495,20 @@ export const BusinessUnitCreatedV1Event = z.object({
   event_type: z.literal("BUSINESS_UNIT_CREATED"),
   schema_version: z.literal(1),
   payload: BusinessUnitCreatedV1Payload,
+});
+
+export const BusinessUnitPausedV1Payload = z.object({
+  key: z.string(),
+  name: z.string(),
+  reason: z.string().nullable().default(null),
+  trigger: z.enum(["human", "ceo", "kill_criteria"]).default("human"),
+});
+export type BusinessUnitPausedV1Payload = z.infer<typeof BusinessUnitPausedV1Payload>;
+export const BusinessUnitPausedV1Event = z.object({
+  ...envelopeFields,
+  event_type: z.literal("BUSINESS_UNIT_PAUSED"),
+  schema_version: z.literal(1),
+  payload: BusinessUnitPausedV1Payload,
 });
 
 export const ClaimCreatedV1Payload = z.object({
@@ -1222,7 +1253,9 @@ export const EventEnvelope = z.discriminatedUnion("event_type", [
   ArticleRevisionRequestedV1Event,
   BudgetAllocatedV1Event,
   BudgetExhaustedV1Event,
+  BudgetWarningV1Event,
   BusinessUnitCreatedV1Event,
+  BusinessUnitPausedV1Event,
   ClaimCreatedV1Event,
   ClaimRejectedV1Event,
   ClaimVerifiedV1Event,
@@ -1312,7 +1345,9 @@ export const EVENT_TYPES = [
   "ARTICLE_REVISION_REQUESTED",
   "BUDGET_ALLOCATED",
   "BUDGET_EXHAUSTED",
+  "BUDGET_WARNING",
   "BUSINESS_UNIT_CREATED",
+  "BUSINESS_UNIT_PAUSED",
   "CLAIM_CREATED",
   "CLAIM_REJECTED",
   "CLAIM_VERIFIED",

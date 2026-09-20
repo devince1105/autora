@@ -262,6 +262,7 @@ def build_runtime(settings: Settings | None = None) -> Runtime:
     from autora.company import verbs as company_verbs
     from autora.company.commands import CommandBus
     from autora.company.cycle import CycleRunner, work_is_finished
+    from autora.company.governance import Governance
     from autora.company.ledger import Ledger
     from autora.company.reporting import Reporting
     from autora.company.snapshot import SnapshotBuilder
@@ -296,6 +297,9 @@ def build_runtime(settings: Settings | None = None) -> Runtime:
     commands = CommandBus(policy=policy, approvals=approvals, workflows=workflows)
     company_verbs.register(commands)
     commands.install()
+    # governance first: the rules fire before the CEO reads the cycle it is reviewing, so it
+    # sees a company the rules have already acted on rather than arguing with them after
+    cycles.when_entering(CycleStage.REVIEWING, Governance(commands).stage_hook())
     executive = company_executive.Executive(workflows)
     executive.install(cycles)
     runtime = Runtime(

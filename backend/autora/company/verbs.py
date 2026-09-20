@@ -111,6 +111,13 @@ class UpdateStrategy(BaseModel):
     summary: str = Field(min_length=1, max_length=4000)
 
 
+class PauseAgent(BaseModel):
+    """Stop giving an agent new work. The run it is on finishes."""
+
+    agent_id: uuid.UUID
+    reason: str = Field(min_length=1)
+
+
 class RestartWorkflow(BaseModel):
     """Run a failed workflow again from the top (the gap AC-9 left open)."""
 
@@ -285,11 +292,7 @@ async def pause_project(ctx: Context, command: PauseProject) -> dict[str, Any]:
     await emit(
         ctx.session,
         new_event(
-            ProjectPaused(
-                name=project.name,
-                reason=command.reason,
-                trigger="ceo" if ctx.role == "ceo" else "human",
-            ),
+            ProjectPaused(name=project.name, reason=command.reason, trigger=_trigger(ctx)),
             company_id=ctx.company_id,
             actor=ctx.actor,
             aggregate_type="project",
@@ -335,6 +338,19 @@ async def kill_project(ctx: Context, command: KillProject) -> dict[str, Any]:
         ),
     )
     return {"project_id": str(project.id), "state": project.state}
+
+
+async def pause_agent(ctx: Context, command: PauseAgent) -> dict[str, Any]:
+    from autora.company.agents.roster import pause_agent as do_pause
+    from autora.db.models import Agent, AgentStatus
+
+    agent = await ctx.session.get(Agent, command.agent_id)
+    if agent is None or agent.company_id != ctx.company_id:
+        raise Refused(f"no agent {command.agent_id} in this company")
+    if agent.status != AgentStatus.ACTIVE.value:
+        raise Refused(f"{agent.display_name} is already {agent.status}")
+    await do_pause(ctx.session, agent, actor=ctx.actor, reason=command.reason)
+    return {"agent_id": str(agent.id), "status": agent.status}
 
 
 async def update_strategy(ctx: Context, command: UpdateStrategy) -> dict[str, Any]:
@@ -418,6 +434,18 @@ async def restart_workflow(ctx: Context, command: RestartWorkflow) -> dict[str, 
         ),
     )
     return {**fresh, "restarted_from": str(run.id)}
+
+
+def _trigger(ctx: Context) -> str:
+    """Who stopped it, in the terms the office and the next snapshot read.
+
+    A pause by the system is a governance rule firing — that is the only thing in this company
+    that pauses without a person or the CEO behind it, and calling it "human" would make an
+    automatic decision look like somebody's.
+    """
+    if ctx.actor.kind == "system":
+        return "kill_criteria"
+    return "ceo" if ctx.role == "ceo" else "human"
 
 
 async def _project(ctx: Context, project_id: uuid.UUID) -> Project:
@@ -511,6 +539,13 @@ def register(bus: CommandBus) -> None:
             "update_strategy",
             update_strategy,
             summary=lambda c: f"New strategy: {c.summary[:120]}",
+        ),
+        CommandSpec(
+            "PauseAgent",
+            PauseAgent,
+            "pause_agent",
+            pause_agent,
+            summary=lambda c: f"Pause agent {c.agent_id}: {c.reason}",
         ),
         CommandSpec(
             "RestartWorkflow",

@@ -154,6 +154,17 @@ class BusinessUnitCreated(EventPayload):
     state: str
 
 
+@event("BUSINESS_UNIT_PAUSED")
+class BusinessUnitPaused(EventPayload):
+    """A business stopped spending. By a rule, by the CEO, or by a person — ``trigger`` says
+    which, the same way a project's pause does."""
+
+    key: str
+    name: str
+    reason: str | None = None
+    trigger: Literal["human", "ceo", "kill_criteria"] = "human"
+
+
 @event("DEPARTMENT_CREATED")
 class DepartmentCreated(EventPayload):
     key: str
@@ -204,6 +215,23 @@ class _LedgerEvent(EventPayload):
     category: str
     amount: Decimal = Field(gt=0)
     currency: str = "USD"
+
+
+@event("BUDGET_WARNING")
+class BudgetWarning(EventPayload):
+    """Spending is close to a cap but has not hit it (platform/07 §5).
+
+    A warning, not a block: the cost guard is what refuses a call at 100%. This exists so the
+    approach is visible before the refusal, in the timeline and in the next snapshot.
+    """
+
+    budget_id: uuid.UUID | None = None
+    project_id: uuid.UUID | None = None
+    business_unit_id: uuid.UUID | None = None
+    period: Literal["cycle", "day", "month"]
+    spent: Decimal = Field(ge=0)
+    cap: Decimal = Field(gt=0)
+    ratio: float = Field(ge=0)
 
 
 @event("EXPENSE_RECORDED")

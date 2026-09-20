@@ -1645,6 +1645,88 @@
         }
       }
     },
+    "BUDGET_WARNING": {
+      "1": {
+        "persistence": "persisted",
+        "payload": {
+          "additionalProperties": false,
+          "description": "Spending is close to a cap but has not hit it (platform/07 §5).\n\nA warning, not a block: the cost guard is what refuses a call at 100%. This exists so the\napproach is visible before the refusal, in the timeline and in the next snapshot.",
+          "properties": {
+            "budget_id": {
+              "anyOf": [
+                {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Budget Id"
+            },
+            "project_id": {
+              "anyOf": [
+                {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Project Id"
+            },
+            "business_unit_id": {
+              "anyOf": [
+                {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Business Unit Id"
+            },
+            "period": {
+              "enum": [
+                "cycle",
+                "day",
+                "month"
+              ],
+              "title": "Period",
+              "type": "string"
+            },
+            "spent": {
+              "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+              "title": "Spent",
+              "type": "string"
+            },
+            "cap": {
+              "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+              "title": "Cap",
+              "type": "string"
+            },
+            "ratio": {
+              "minimum": 0,
+              "title": "Ratio",
+              "type": "number"
+            }
+          },
+          "required": [
+            "period",
+            "spent",
+            "cap",
+            "ratio"
+          ],
+          "title": "BudgetWarning",
+          "type": "object"
+        }
+      }
+    },
     "BUSINESS_UNIT_CREATED": {
       "1": {
         "persistence": "persisted",
@@ -1670,6 +1752,53 @@
             "state"
           ],
           "title": "BusinessUnitCreated",
+          "type": "object"
+        }
+      }
+    },
+    "BUSINESS_UNIT_PAUSED": {
+      "1": {
+        "persistence": "persisted",
+        "payload": {
+          "additionalProperties": false,
+          "description": "A business stopped spending. By a rule, by the CEO, or by a person — ``trigger`` says\nwhich, the same way a project's pause does.",
+          "properties": {
+            "key": {
+              "title": "Key",
+              "type": "string"
+            },
+            "name": {
+              "title": "Name",
+              "type": "string"
+            },
+            "reason": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Reason"
+            },
+            "trigger": {
+              "default": "human",
+              "enum": [
+                "human",
+                "ceo",
+                "kill_criteria"
+              ],
+              "title": "Trigger",
+              "type": "string"
+            }
+          },
+          "required": [
+            "key",
+            "name"
+          ],
+          "title": "BusinessUnitPaused",
           "type": "object"
         }
       }
