@@ -3,6 +3,8 @@
 
 from autora.db.models.agents import ActivityState, Agent, AgentActivity, AgentStatus
 from autora.db.models.company import (
+    CommandOutcome,
+    CommandRecord,
     Company,
     CompanyGoal,
     CompanyPolicy,
@@ -74,6 +76,8 @@ __all__ = [
     "CompanyPolicy",
     "CompanyStatus",
     "CompanyType",
+    "CommandOutcome",
+    "CommandRecord",
     "CostReservation",
     "Department",
     "Cycle",

@@ -15,6 +15,7 @@ from typing import TYPE_CHECKING
 if TYPE_CHECKING:
     from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
+    from autora.company.commands import CommandBus
     from autora.company.cycle import CycleRunner
     from autora.company.ledger import Ledger
     from autora.company.reporting import Reporting
@@ -227,9 +228,12 @@ class Runtime:
     ledger: Ledger
     reporting: Reporting
     snapshots: SnapshotBuilder
+    commands: CommandBus
 
 
 def build_runtime(settings: Settings | None = None) -> Runtime:
+    from autora.company import verbs as company_verbs
+    from autora.company.commands import CommandBus
     from autora.company.cycle import CycleRunner, work_is_finished
     from autora.company.ledger import Ledger
     from autora.company.reporting import Reporting
@@ -250,6 +254,7 @@ def build_runtime(settings: Settings | None = None) -> Runtime:
         task_manager.retry_base = timedelta(seconds=settings.task_retry_base_seconds)
     templates = build_templates()
     workflows = WorkflowEngine(task_manager, templates)
+    policy = build_policy_engine()
     cycles = CycleRunner()
     cycles.finishes_when(CycleStage.EXECUTING, work_is_finished)
     ledger = Ledger()
@@ -260,17 +265,22 @@ def build_runtime(settings: Settings | None = None) -> Runtime:
     cycles.when_entering(CycleStage.MEASURING, reporting.stage_hook())
     snapshots = SnapshotBuilder(reporting, ledger)
     snapshots.register(newsroom_kpis.NAME, newsroom_kpis.candidates)
+    approvals = ApprovalService(task_manager)
+    commands = CommandBus(policy=policy, approvals=approvals, workflows=workflows)
+    company_verbs.register(commands)
+    commands.install()
     runtime = Runtime(
         task_manager=task_manager,
         templates=templates,
         workflows=workflows,
-        approvals=ApprovalService(task_manager),
-        policy=build_policy_engine(),
+        approvals=approvals,
+        policy=policy,
         services=ServiceRegistry(),
         cycles=cycles,
         ledger=ledger,
         reporting=reporting,
         snapshots=snapshots,
+        commands=commands,
     )
     newsroom.register(runtime)
     return runtime

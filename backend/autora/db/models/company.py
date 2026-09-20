@@ -8,8 +8,8 @@ from decimal import Decimal
 from enum import StrEnum
 from typing import Any
 
-from sqlalchemy import CheckConstraint, ForeignKey, UniqueConstraint, func, text
-from sqlalchemy.dialects.postgresql import JSONB
+from sqlalchemy import ARRAY, CheckConstraint, ForeignKey, UniqueConstraint, func, text
+from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
 from autora.db.base import (
@@ -189,3 +189,50 @@ class KpiSnapshot(IdMixin, CreatedAtMixin, Base):
     metrics: Mapped[dict[str, Any]] = mapped_column(JSONB, server_default=text("'{}'::jsonb"))
     period_start: Mapped[datetime]
     period_end: Mapped[datetime]
+
+
+class CommandOutcome(StrEnum):
+    DONE = "done"
+    """Executed. ``result`` says what it did."""
+    REFUSED = "refused"
+    """The policy said no, or the command contradicted the state of the company."""
+    AWAITING_APPROVAL = "awaiting_approval"
+    """A person has to decide. It runs when they approve, under the same key."""
+
+
+class CommandRecord(IdMixin, CreatedAtMixin, Base):
+    """Every attempt to change the company, decided and recorded (platform/06 §2, T-604).
+
+    The row exists whatever happened — executed, refused, or waiting for a person — because
+    "what did this company try to do, and who let it" has to be answerable afterwards, and a
+    refusal is as much a part of that answer as a change.
+
+    ``idempotency_key`` is what makes a command safe to send twice: the second attempt returns
+    the first one's outcome instead of doing it again. An agent that retries a tool call, a
+    double-clicked button and a redelivered webhook all land here.
+    """
+
+    __tablename__ = "commands_log"
+    __table_args__ = (
+        UniqueConstraint("idempotency_key"),
+        check_in("outcome", CommandOutcome),
+        check_regex("command", "^[A-Z][A-Za-z0-9]*$"),
+    )
+
+    company_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("companies.id"), index=True)
+    command: Mapped[str]
+    actor: Mapped[dict[str, Any]] = mapped_column(JSONB)
+    role: Mapped[str | None]
+    """The agent role that issued it, for the policy rule that decided it."""
+    payload: Mapped[dict[str, Any]] = mapped_column(JSONB, server_default=text("'{}'::jsonb"))
+    decision: Mapped[str]
+    """The policy's outcome: allow / deny / needs_approval / limited."""
+    outcome: Mapped[str]
+    reason: Mapped[str | None]
+    result: Mapped[dict[str, Any] | None] = mapped_column(JSONB)
+    event_ids: Mapped[list[uuid.UUID]] = mapped_column(
+        ARRAY(UUID(as_uuid=True)), server_default=text("'{}'::uuid[]")
+    )
+    """The events this command caused, so a change can be traced back to the decision."""
+    approval_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("approvals.id"))
+    idempotency_key: Mapped[str]

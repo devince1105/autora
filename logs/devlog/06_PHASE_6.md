@@ -36,7 +36,7 @@
 | T-601 | Cycle FSM + stage runner + deadlines（`cycles` 表、五階段、逾時強制推進） | T-212、T-104 | ✅ |
 | T-602 | Ledger：`model_calls` → expense 結算、餘額與已花額度 | T-209、T-103 | ✅ |
 | T-603 | Reporting + CompanySnapshot（token 上限）、`kpi_snapshots` | T-602、T-516 | ✅ |
-| T-604 | 命令管線（`submit_command`：instantiate_workflow、pause/kill、allocate_budget、update_strategy）、`commands_log` | T-205 | ⬜ |
+| T-604 | 命令管線（`submit_command`：instantiate_workflow、pause/kill、allocate_budget、update_strategy）、`commands_log` | T-205 | ✅ |
 | T-609 | `agent_memory`（最近 N 次執行的摘要進 context，TTL 30 天、每個代理 ≤ 50 列） | T-211 | ⬜ |
 | T-605 | CEO 代理（`CyclePlan` / `CycleReview` schema、validators、提示、模擬回應） | T-211、T-603、T-604 | ⬜ |
 | T-606 | 治理：kill criteria 自動暫停、kill 提案 → 人審、代理連續失敗 N 次自動暫停 | T-603、T-604 | ⬜ |
@@ -49,8 +49,8 @@
 | 編號 | 內容 | 併入 |
 |---|---|---|
 | 補-1 | `model_calls` 連到 workflow（每篇文章的總成本，AC-S8）——同時也是 T-602 按專案結算的前提 | T-602 ✅ |
-| 補-2 | 人可從收件匣重新啟動失敗的 workflow（AC-9 的最後一句） | T-604（一個命令） |
-| 補-3 | 加預算後自動放回 `BLOCKED_BUDGET` 的任務（AC-13、P-5） | T-604 |
+| 補-2 | 人可從收件匣重新啟動失敗的 workflow（AC-9 的最後一句） | T-604 ✅ |
+| 補-3 | 加預算後自動放回 `BLOCKED_BUDGET` 的任務（AC-13、P-5） | T-604 ✅ |
 | 補-4 | CEO 代理讓辦公室有第 6 個 avatar（AC-1） | T-605 |
 | 補-5 | AC-S4 的崩潰恢復改測寫手；AC-S6 的靜態掃描；AC-S7 的 WS p95 | T-610 |
 
@@ -242,6 +242,45 @@ CompanySnapshot（CEO 的輸入）與它的 token 上限、`GET /api/companies/{
 - `pytest tests/company/test_snapshot.py`：18 個（組合是脊椎、資本、目標的趨勢會跨前綴對上、沒人量的目標會說出來、上一輪與壞掉的任務、專案剩餘預算、人寫的字只讀不編、領域補充、壞掉的掛鉤只失去自己那一段、小公司不裁、**裁剪會說出裁了什麼**、固定順序、底線存在且穩定、不可失去的永不被裁、公司可自訂預算、空公司也產得出文件、未知公司、KILLED 專案不出現）。
 - `pytest tests/api/test_org_api.py`：新增 4 個（組合、新聞室的候選題材、緊預算會回報、未知公司 404）。
 - 後端 993 個測試通過；web 254、事件契約 8 通過；六項 check 全過。
+
+---
+
+## T-604 · 命令管線
+
+### 一條路，六個關卡
+```
+submit(name, payload)
+  → 解析    payload 變成有型別的命令，不是的話在任何事發生前就被拒
+  → 重播    用過的冪等鍵直接回傳第一次的結果
+  → 決定    PolicyEngine：allow / deny / needs_approval / limited
+  → 檢查    處理函式自己的前提：專案必須 ACTIVE、範本必須存在
+  → 變更    一個交易：狀態、命令紀錄、它造成的事件
+  → 記錄    誰問了什麼、怎麼決定的、結果如何
+```
+代理**沒有**直接寫專案 / 預算 / 金流的工具；人按的按鈕走同一條路，只是 `actor=human`。於是「誰可以改什麼」只有一個地方回答，「這間公司試過做什麼」也只有一個地方可讀。
+
+### 三個刻意的決定
+**拒絕是結果，不是例外。** 一間公司拒絕它的 CEO 加預算，這件事本身值得被看見；把它丟進例外堆疊會藏起最有趣的決策。所以拒絕也是一列 `commands_log`，`submit` 回傳它而不是拋出。
+
+**核准不等於「現在做」。** 需要人審的命令先記成等待中，payload 存在核准上；人核准時，**同一個處理函式在同一把鑰匙底下執行**。而且核准之後不保證還做得到——測試裡有一條：專案在等待期間自己完成了，核准之後命令被拒，並把原因記在命令上。
+
+**同一把鑰匙不做第二次。** 代理重試工具呼叫、使用者雙擊、webhook 重送，全都落在這裡。連「被拒絕」也會被記住——鑰匙是那次請求的身分，不是那次結果的。
+
+### 九個動詞
+`CreateCycleGoal`、`AllocateBudget`、`InstantiateWorkflow`、`CreateProject`、`PauseProject`、`ResumeProject`、`KillProject`、`UpdateStrategy`、`RestartWorkflow`。權限全部沿用 `company/policy.py` 早就註冊好的規則——**這個模組只說「做什麼」，不說「誰可以」**。
+
+順手把兩個階段 5 的缺口做掉：
+- **補-3（AC-13、P-5）**：`AllocateBudget` 把預算**調高**時，會把該範圍內 `BLOCKED_BUDGET` 的任務放回佇列。RUNBOOK 一直警告「加了預算不會自動恢復」——錢到了正是被擋住的工作在等的東西。調低則不放（有測試）。
+- **補-2（AC-9 的最後一句）**：`RestartWorkflow` 讓失敗的流程**重跑一次**。不是續跑：舊的那一輪保留它的歷史，因為「什麼失敗了、為什麼」正是留著它的理由；題材、證據、文章都還在，所以重跑是重花模型呼叫、但從公司已經知道的東西開始。
+
+`InstantiateWorkflow` 會把新的 workflow 與任務掛上當前 cycle（稽核鏈 cycle → workflow → task），而 `max_workflows_per_cycle` 的事實由 `workflows_this_cycle` 提供——防暴衝閘門 5 這才真的接上。
+
+### 驗證
+- `pytest tests/company/test_commands.py`：24 個。涵蓋決定 / 記錄 / 執行三件事、拒絕是結果、payload 不對在決定之前就被拒、公司狀態可以否決政策允許的事、未知命令是錯誤（不是紀錄）、同鑰匙不重做、拒絕也被記住、人審會等、核准後同鑰匙執行、駁回維持原狀、**核准後世界已改變就拒絕**、加預算放行被擋的工作、降預算不放行、預算只能屬於一個範圍、事業自己的信封、暫停 / 恢復、CEO 暫停會標註 `trigger=ceo`、建專案必須有 kill criteria 且要人審、開工計入 cycle 上限、失敗的流程可重跑、進行中的不可重跑、策略核准後下一份 snapshot 就讀得到、每次嘗試都在紀錄裡。
+- 後端 1017 個測試通過；web 254、事件契約 8 通過；六項 check 全過。
+
+### 我自己踩的坑（第二次）
+`test_commands.py` 有五個查詢沒有篩公司。單獨跑全過，一跑全套就撞上別的測試 commit 的資料。上一批才剛修過同一類問題——**這種測試在單獨跑時會騙人**，我把整個檔案掃過一遍補上條件。
 
 ---
 
