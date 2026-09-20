@@ -1,6 +1,7 @@
 // The camera (T-409, 04 §5–6): OrbitControls held to the isometric neighbourhood, the whole room
 // framed on load and resize, and the selection driving it without React:
 //   select an agent  -> a 0.6 s move to its desk, closer, then follow it (walks included);
+//   enter a room     -> a 0.6 s move that frames that department's zone (T-600 batch 3);
 //   clear selection  -> back to the overview;
 //   the user drags   -> the move stops, the camera is theirs ("free") until the next selection.
 import { OrbitControls } from "@react-three/drei";
@@ -22,6 +23,7 @@ import {
   POLAR_RANGE,
   ROOM_BOX,
   ROOM_CENTRE,
+  zoneBox,
   VIEW_DIRECTION,
   ZOOM_RANGE,
   type Framing,
@@ -72,6 +74,16 @@ export function CameraRig({ insetRight = 0 }: { insetRight?: number }) {
   };
   /** The whole room, from the default isometric angle (whatever the user turned it to). */
   const overviewFraming = (): Framing => ({ target: ROOM_CENTRE.clone(), zoom: overview.current, direction: VIEW_DIRECTION.clone() });
+  /** One department's room: its zone fills the canvas, at the angle the user is looking from. */
+  const roomFraming = (zone: string): Framing => {
+    const box = zoneBox(zone);
+    if (!box) return overviewFraming();
+    return {
+      target: clampTarget(box.getCenter(new Vector3())),
+      zoom: fitZoom(box, DEFAULT_ORIENTATION, size.width, size.height),
+      direction: current().direction,
+    };
+  };
 
   // frame the room on mount and on every resize
   useLayoutEffect(() => {
@@ -114,6 +126,11 @@ export function CameraRig({ insetRight = 0 }: { insetRight?: number }) {
             followed.current = null;
             tween.start(current(), overviewFraming(), performance.now());
           }
+        } else if (state.focusedDepartment !== prev.focusedDepartment) {
+          // entering a room frames its zone; stepping out goes back to the whole floor
+          followed.current = null;
+          const entered = state.focusedDepartment;
+          tween.start(current(), entered ? roomFraming(entered.zone) : overviewFraming(), performance.now());
         } else if (state.cameraMode === "overview" && prev.cameraMode !== "overview") {
           followed.current = null;
           tween.start(current(), overviewFraming(), performance.now());

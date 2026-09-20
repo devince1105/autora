@@ -50,6 +50,8 @@ export interface AgentState {
   avatar_key: string;
   department_id: string | null;
   department_key: string | null;
+  office_zone_key: string | null;
+  business_unit_key: string | null;
   /** null until the agent's first activity event (right after AGENT_CREATED). */
   activity: ActivityView | null;
   /** Latest ephemeral AGENT_STEP_PROGRESS of the agent's current run; never persisted. */
@@ -194,6 +196,8 @@ function applyOne(state: RealtimeState, event: EventEnvelope): RealtimeState {
         avatar_key: event.payload.avatar_key,
         department_id: event.payload.department_id ?? null,
         department_key: event.payload.department_key ?? null,
+        office_zone_key: event.payload.office_zone_key ?? null,
+        business_unit_key: event.payload.business_unit_key ?? null,
         activity: null,
         liveProgress: null,
       },
@@ -214,6 +218,8 @@ function applyOne(state: RealtimeState, event: EventEnvelope): RealtimeState {
         role: event.payload.role,
         department_id: event.payload.department_id,
         department_key: event.payload.department_key ?? null,
+        office_zone_key: event.payload.office_zone_key ?? null,
+        business_unit_key: event.payload.business_unit_key ?? null,
       },
     };
     return next;
@@ -430,6 +436,8 @@ export function view(state: RealtimeState, now: Date): Projection {
       avatar_key: agent.avatar_key,
       department_id: agent.department_id,
       department_key: agent.department_key,
+      office_zone_key: agent.office_zone_key,
+      business_unit_key: agent.business_unit_key,
       activity: {
         ...agent.activity,
         state: effectiveState(agent.activity, now),

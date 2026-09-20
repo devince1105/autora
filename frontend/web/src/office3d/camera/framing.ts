@@ -1,12 +1,13 @@
 // Camera framing (T-409, 04 §6): how much of the office the orthographic camera shows. Pure.
 //   overview — the whole room fits the canvas, whatever its size;
 //   focus    — an agent's desk, closer (FOCUS_FACTOR x the overview zoom);
+//   a room   — one department's zone, when the operator enters it (T-600 batch 3);
 // and the limits: a polar and azimuth range around the isometric view (the back and left walls
 // stay behind the room), zoom from a bit wider than the overview to close up, and a target that
 // cannot leave the room.
 import { Box3, Matrix4, OrthographicCamera, Vector3, type Quaternion } from "three";
 
-import { ROOM } from "../scene/layout";
+import { CEO_OFFICE, ROOM, ZONES } from "../scene/layout";
 
 /** The default view direction: from the front right, above (the isometric view). */
 export const VIEW_DIRECTION = new Vector3(1, 1.15, 1).normalize();
@@ -20,6 +21,17 @@ export const DEFAULT_AZIMUTH = Math.atan2(VIEW_DIRECTION.x, VIEW_DIRECTION.z);
 export const FOCUS_MS = 600;
 
 /** The room as the camera must frame it: slab to wall caps. */
+/** A department's room, as a box the camera can frame (T-600 batch 3); null for no such room. */
+export function zoneBox(zone: string): Box3 | null {
+  const area = zone === "ceo" ? CEO_OFFICE : ZONES[zone as keyof typeof ZONES];
+  if (!area) return null;
+  const pad = 1.2; // a little air, so the walls of the room are in shot
+  return new Box3(
+    new Vector3(area.minX - pad, -0.35, area.minZ - pad),
+    new Vector3(area.maxX + pad, ROOM.wallHeight, area.maxZ + pad),
+  );
+}
+
 export const ROOM_BOX = new Box3(new Vector3(ROOM.minX - 0.4, -0.35, ROOM.minZ - 0.4), new Vector3(ROOM.maxX + 0.4, ROOM.wallHeight, ROOM.maxZ + 0.4));
 export const ROOM_CENTRE = ROOM_BOX.getCenter(new Vector3());
 

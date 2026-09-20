@@ -309,6 +309,7 @@ async def assign(session: AsyncSession, agent: Agent, role: Role, *, actor: Acto
     await session.flush()
     if (was_department, was_role) != (agent.department_id, agent.role):
         department = await session.get(Department, role.department_id)
+        where = await placement(session, department)
         await emit(
             session,
             new_event(
@@ -317,6 +318,8 @@ async def assign(session: AsyncSession, agent: Agent, role: Role, *, actor: Acto
                     role_id=role.id,
                     department_id=role.department_id,
                     department_key=department.key if department else None,
+                    office_zone_key=where.zone,
+                    business_unit_key=where.business_unit,
                     previous_role=was_role,
                     previous_department_id=was_department,
                 ),
@@ -442,6 +445,41 @@ async def org_chart(session: AsyncSession, company_id: uuid.UUID) -> OrgChart:
             for unit in units
         ),
         unplaced=tuple(agents_of.get(None, ())),
+    )
+
+
+@dataclass(frozen=True)
+class Placement:
+    """Where in the office an agent's department puts it (T-600, ARCHITECTURE_V2 §14.7).
+
+    ``zone`` is the part of the floor it occupies and ``business_unit`` is what colours it. A
+    team inherits both from the department above it: "Research" is a team of the Newsroom, sits
+    in the newsroom's part of the floor unless it names its own, and belongs to AI Media.
+    """
+
+    department_key: str | None = None
+    zone: str | None = None
+    business_unit: str | None = None
+
+
+async def placement(session: AsyncSession, department: Department | None) -> Placement:
+    """Resolve a department's zone and business, walking up to its parent when it has none."""
+    if department is None:
+        return Placement()
+    zone, unit_id = department.office_zone_key, department.business_unit_id
+    parent_id = department.parent_department_id
+    seen = {department.id}
+    while (zone is None or unit_id is None) and parent_id is not None and parent_id not in seen:
+        seen.add(parent_id)
+        parent = await session.get(Department, parent_id)
+        if parent is None:
+            break
+        zone = zone or parent.office_zone_key
+        unit_id = unit_id or parent.business_unit_id
+        parent_id = parent.parent_department_id
+    unit = await session.get(BusinessUnit, unit_id) if unit_id else None
+    return Placement(
+        department_key=department.key, zone=zone, business_unit=unit.key if unit else None
     )
 
 

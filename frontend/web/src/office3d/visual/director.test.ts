@@ -184,7 +184,7 @@ describe("CueDirector (store -> queue)", () => {
 });
 
 describe("routes", () => {
-  const members = fixture.snapshot_before.agents.map((a) => ({ id: a.id, role: a.role, name: a.display_name, character: "character-male-a" as const }));
+  const members = fixture.snapshot_before.agents.map((a) => ({ id: a.id, role: a.role, name: a.display_name, character: "character-male-a" as const, department: null, office_zone_key: null, business_unit: null }));
   const { seats } = assignSeats(members);
   const researcher = members.find((m) => m.role === "researcher")!;
 

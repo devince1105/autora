@@ -18,6 +18,8 @@ import { usePageVisible } from "./usePageVisible";
 
 export type { OfficeView } from "./capabilities";
 export { parseView } from "./capabilities";
+/** The names the office puts on its rooms, for pages that offer a way into them (T-600). */
+export { DEPARTMENT_LABEL } from "./fallback/board";
 
 const Loading = () => <p className="p-4 text-sm text-muted">載入 3D 辦公室…</p>;
 
@@ -35,6 +37,8 @@ export interface OfficeCanvasProps {
   onViewChange?: (view: OfficeView) => void;
   /** Pixels on the right the page covers while an agent is selected (its detail panel). */
   selectionInsetRight?: number;
+  /** key -> name for the company's departments, from the org chart (T-600 batch 3). */
+  departmentNames?: Readonly<Record<string, string>>;
   /** Test seams: capability probe and the WebGL scene. */
   detect?: () => Capabilities;
   Scene?: ComponentType<Canvas3DProps>;
@@ -43,6 +47,7 @@ export interface OfficeCanvasProps {
 export function OfficeCanvas({
   view = "auto",
   onViewChange,
+  departmentNames,
   selectionInsetRight = 0,
   detect = detectCapabilities,
   Scene = LazyCanvas3D,
@@ -73,7 +78,7 @@ export function OfficeCanvas({
     return (
       <div data-office-mode="2d" className="h-full overflow-y-auto">
         {REASON[reason] ? <p className="px-4 pt-4 text-sm text-muted">{REASON[reason]}</p> : null}
-        <OfficeBoard2D />
+        <OfficeBoard2D departmentNames={departmentNames} />
       </div>
     );
   }

@@ -351,3 +351,42 @@ test("the 2D board opens the same panel", async ({ page }) => {
   await page.getByRole("button", { name: "關閉" }).click();
   await expect(panel(page)).toHaveCount(0);
 });
+
+test("the office is the organisation: enter a department, and the link says so (T-600)", async ({
+  page,
+}) => {
+  // the demo newsroom is the company with an org chart: AI Media's newsroom and its teams
+  await page.goto(`/office?company=${stack.newsroomCompanyId}&view=2d`);
+  await expect(office(page)).toHaveAttribute("data-office-mode", "2d", {
+    timeout: 30_000,
+  });
+  const strip = page.getByRole("group", { name: "部門" });
+  await expect(strip).toBeVisible({ timeout: 15_000 });
+
+  // the rooms come from the org chart, not from a list in the frontend
+  const research = page.getByTestId("department-newsroom_research");
+  await expect(research).toBeVisible();
+  await expect(page.getByTestId("department-newsroom_writing")).toBeVisible();
+
+  await research.click();
+  await expect(research).toHaveAttribute("aria-pressed", "true");
+  await expect(page).toHaveURL(/department=newsroom_research/);
+
+  // the board shows the same departments as rooms, named as the org chart names them
+  const room = page.getByRole("region", { name: "Research" });
+  await expect(room.locator('[data-testid^="board-agent-"]')).toHaveCount(2);
+  await expect(research).toHaveText(/Research/);
+
+  // a link into a department opens inside it
+  await page.goto(
+    `/office?company=${stack.newsroomCompanyId}&view=2d&department=newsroom_writing`,
+  );
+  await expect(page.getByTestId("department-newsroom_writing")).toHaveAttribute(
+    "aria-pressed",
+    "true",
+    { timeout: 15_000 },
+  );
+
+  await page.getByTestId("department-all").click();
+  await expect(page).not.toHaveURL(/department=/);
+});

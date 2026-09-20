@@ -1,6 +1,12 @@
 // The office floor plan (T-402, 3d-office/04 §2, D-010): the only source of coordinates. Desks,
-// avatars, decoration, courier walks (T-408) and camera focus (T-409) all read it. Seats are
-// keyed by role, not agent: agents are company data, the floor plan is a visual setting.
+// avatars, decoration, courier walks (T-408) and camera focus (T-409) all read it. The desks are
+// a visual setting; who sits at one is company data.
+//
+// **A department decides the room, not a role** (T-600 batch 3, ARCHITECTURE_V2 §14.7). An agent
+// is seated in the zone its department names (`departments.office_zone_key`, carried on the
+// stream as `office_zone_key`); within that zone it prefers the desk built for its role, so a
+// newsroom looks exactly as it was drawn while the rule underneath is organisational. A company
+// with no org chart yet falls back to the role's own zone, which is where v1 put it.
 //
 // Units are metres; x runs left to right, z from the back wall (-z) to the front (+z). The camera
 // looks from the front right, so the back and left walls are full height and the front and right
@@ -138,6 +144,19 @@ function seatAt(role: string, slots: RoleSlots, index: number): Seat {
   };
 }
 
+/** Every seat of a zone, in the order they are filled: the desks built for its roles first. */
+export function seatsInZone(zone: ZoneId): Seat[] {
+  const own = Object.entries(SLOTS)
+    .filter(([, slots]) => slots.zone === zone)
+    .sort(([a], [b]) => a.localeCompare(b))
+    .flatMap(([role, slots]) => slots.desks.map((_, i) => seatAt(role, slots, i)));
+  return zone === SPARE.zone ? [...own, ...SPARE.desks.map((_, i) => seatAt("spare", SPARE, i))] : own;
+}
+
+export const ZONE_OF_ROLE: Record<string, ZoneId> = Object.fromEntries(
+  Object.entries(SLOTS).map(([role, slots]) => [role, slots.zone]),
+);
+
 /** Up to `n` seats for a role (fewer when its area is full). */
 export function seatsForRole(role: string, n: number): Seat[] {
   const slots = SLOTS[role];
@@ -151,22 +170,53 @@ export interface Assignment {
   unseated: string[];
 }
 
-/** Every agent gets a seat by role; within a role, by id, so the result is stable. */
-export function assignSeats(agents: readonly { id: string; role: string }[]): Assignment {
+/** Anyone the office can seat: the runtime's role, and the department's place on the floor. */
+export interface Seatable {
+  id: string;
+  role: string;
+  office_zone_key?: string | null;
+}
+
+const ZONE_IDS = new Set<string>(Object.values(SLOTS).map((s) => s.zone).concat(SPARE.zone));
+
+/** Which part of the floor an agent belongs in: its department's, or its role's, or spare. */
+export function zoneOf(agent: Seatable): ZoneId {
+  const named = agent.office_zone_key;
+  if (named && ZONE_IDS.has(named)) return named as ZoneId;
+  return ZONE_OF_ROLE[agent.role] ?? SPARE.zone;
+}
+
+/**
+ * Seat every agent in its department's zone. Stable: the same roster gives the same desks.
+ *
+ * Within a zone the desk built for the agent's role is taken first, so a company whose
+ * departments match the drawn floor looks exactly as it was designed. Anyone left over takes
+ * another free desk in the same zone, then a flex desk, and only then goes unseated — which is
+ * a real state, not a bug: it is shown in the lists and on the 2D board.
+ */
+export function assignSeats(agents: readonly Seatable[]): Assignment {
   const seats = new Map<string, Seat>();
   const unseated: string[] = [];
-  const byRole = new Map<string, string[]>();
-  for (const agent of [...agents].sort((a, b) => a.id.localeCompare(b.id))) {
-    byRole.set(agent.role, [...(byRole.get(agent.role) ?? []), agent.id]);
-  }
-  let spareUsed = 0;
-  for (const [role, ids] of [...byRole].sort(([a], [b]) => a.localeCompare(b))) {
-    ids.forEach((id, i) => {
-      const slots = SLOTS[role];
-      if (slots && i < slots.desks.length) seats.set(id, seatAt(role, slots, i));
-      else if (!slots && spareUsed < SPARE.desks.length) seats.set(id, seatAt(role, SPARE, spareUsed++));
-      else unseated.push(id);
-    });
+  const taken = new Set<string>();
+  const free = new Map<ZoneId, Seat[]>();
+  const zoneSeats = (zone: ZoneId): Seat[] => {
+    if (!free.has(zone)) free.set(zone, seatsInZone(zone));
+    return free.get(zone)!;
+  };
+  const claim = (zone: ZoneId, role: string): Seat | undefined => {
+    const available = zoneSeats(zone).filter((seat) => !taken.has(seat.key));
+    const seat = available.find((s) => s.role === role) ?? available[0];
+    if (seat) taken.add(seat.key);
+    return seat;
+  };
+
+  const ordered = [...agents].sort(
+    (a, b) => a.role.localeCompare(b.role) || a.id.localeCompare(b.id),
+  );
+  for (const agent of ordered) {
+    const seat = claim(zoneOf(agent), agent.role) ?? claim(SPARE.zone, agent.role);
+    if (seat) seats.set(agent.id, { ...seat, role: agent.role });
+    else unseated.push(agent.id);
   }
   return { seats, unseated };
 }

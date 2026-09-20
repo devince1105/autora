@@ -96,11 +96,16 @@ function Card({ card, selected, cardRef }: { card: BoardCard; selected: boolean;
   );
 }
 
-export function OfficeBoard2D() {
+export function OfficeBoard2D({
+  departmentNames = {},
+}: {
+  /** key -> name, from the org chart; without it a room shows the key it is known by. */
+  departmentNames?: Readonly<Record<string, string>>;
+}) {
   const company = useRealtime((s) => s.company);
   const selected = useUi((s) => s.selectedAgentId);
   const now = useNow();
-  const rows = boardModel(company, now);
+  const rows = boardModel(company, now, departmentNames);
   const arrows = useHandoffArrows(company);
 
   const container = useRef<HTMLDivElement>(null);

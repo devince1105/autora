@@ -23,6 +23,7 @@ from typing import Any
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from autora.company.organization import placement
 from autora.db.models import AGENT_RUN_TERMINAL, Agent, AgentRun, AgentStatus, Department, Role
 from autora.db.repositories import agents as agent_repo
 from autora.runtime.activity import initialize_activity, set_activity
@@ -82,6 +83,7 @@ async def hire_agent(
     department = (
         await session.get(Department, position.department_id) if position is not None else None
     )
+    where = await placement(session, department)
     await emit(
         session,
         new_event(
@@ -92,6 +94,8 @@ async def hire_agent(
                 avatar_key=avatar_key,
                 department_id=department.id if department else None,
                 department_key=department.key if department else None,
+                office_zone_key=where.zone,
+                business_unit_key=where.business_unit,
             ),
             company_id=company_id,
             actor=actor,

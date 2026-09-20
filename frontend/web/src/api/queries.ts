@@ -23,6 +23,7 @@ export const queryKeys = {
   workflowEvents: (companyId: string, runId: string) => ["newsroom", "events", companyId, runId] as const,
   roles: () => ["roles"] as const,
   /** The company's days (T-608). */
+  org: (companyId: string) => ["org", companyId] as const,
   cycles: (companyId: string) => ["cycles", companyId] as const,
   cycle: (cycleId: string) => ["cycle", cycleId] as const,
 };
@@ -86,6 +87,20 @@ export function approvalsQuery(
  * KPIs are aggregates the event stream cannot rebuild (model costs are not events), so they are
  * server state: refetched when an event says they changed, and every minute while shown.
  */
+/** The org chart (T-600): who the company's departments are, and what they are called. */
+export function orgQuery(companyId: string, api: ApiClient = defaultApi) {
+  return queryOptions({
+    queryKey: queryKeys.org(companyId),
+    queryFn: async () =>
+      unwrap(
+        await api.GET("/api/companies/{company_id}/org", {
+          params: { path: { company_id: companyId } },
+        }),
+      ),
+    staleTime: 5 * 60_000, // an org chart changes when somebody is hired, not every minute
+  });
+}
+
 export function cyclesQuery(companyId: string, api: ApiClient = defaultApi) {
   return queryOptions({
     queryKey: queryKeys.cycles(companyId),

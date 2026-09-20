@@ -78,7 +78,7 @@ describe("seats", () => {
     for (const seat of allSeats()) expect(inside(seat.chair, office), seat.key).toBe(seat.role === "ceo");
   });
 
-  it("assignment: by role, stable by id, spare desks for unknown roles, overflow listed", () => {
+  it("assignment: the desk built for the role first, then any desk in the same room", () => {
     const agents = [
       { id: "b", role: "researcher" },
       { id: "a", role: "researcher" },
@@ -89,12 +89,47 @@ describe("seats", () => {
     const { seats, unseated } = assignSeats(agents);
     expect(seats.get("a")!.key).toBe("research:researcher:0");
     expect(seats.get("b")!.key).toBe("research:researcher:1");
-    expect(unseated).toEqual(["c"]);
-    expect(seats.get("d")!.zone).toBe("spare");
+    // a third researcher is not homeless: research has other desks, and it takes one
+    expect(seats.get("c")!.zone).toBe("research");
+    expect(unseated).toEqual([]);
+    expect(seats.get("d")!.zone).toBe("spare"); // a role the floor plan does not know
     expect(seats.get("e")!.key).toBe("editorial:writer:0");
     // the same agents in another order: the same seats
     const again = assignSeats([...agents].reverse());
     for (const [id, seat] of seats) expect(again.seats.get(id)!.key).toBe(seat.key);
+  });
+
+  it("the department decides the room, not the role (T-600 batch 3)", () => {
+    // the same writer, once with no org chart and once working for the research desk
+    const [alone] = [...assignSeats([{ id: "w", role: "writer" }]).seats.values()];
+    const [moved] = [
+      ...assignSeats([{ id: "w", role: "writer", office_zone_key: "research" }]).seats.values(),
+    ];
+    expect(alone.zone).toBe("editorial"); // v1's answer: the role's own zone
+    expect(moved.zone).toBe("research"); // v2's: where its department sits
+    expect(moved.role).toBe("writer"); // it is still a writer, at a research desk
+  });
+
+  it("a zone nobody drew is not a hole: the agent takes a flex desk", () => {
+    const { seats, unseated } = assignSeats([
+      { id: "x", role: "support", office_zone_key: "warehouse" },
+    ]);
+    expect(seats.get("x")!.zone).toBe("spare");
+    expect(unseated).toEqual([]);
+  });
+
+  it("a room fills up and the rest overflow, in a stable order", () => {
+    const crowd = Array.from({ length: 12 }, (_, i) => ({
+      id: `a${i}`,
+      role: "researcher",
+      office_zone_key: "research",
+    }));
+    const { seats, unseated } = assignSeats(crowd);
+    const zones = [...seats.values()].map((s) => s.zone);
+    expect(zones.filter((z) => z === "research")).toHaveLength(4); // research has four desks
+    expect(zones.filter((z) => z === "spare")).toHaveLength(3); // then the flex desks
+    expect(unseated).toHaveLength(5);
+    expect(assignSeats([...crowd].reverse()).unseated).toEqual(unseated);
   });
 });
 

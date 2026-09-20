@@ -50,14 +50,30 @@ describe("board model", () => {
   const company = replay();
   const now = new Date(events.at(-1)!.occurred_at);
 
-  it("cards in floor-plan rows, left to right, one per agent", () => {
+  it("one row per department, in floor order, left to right inside each", () => {
+    // this company is not on an org chart, so each agent's row is the part of the floor it
+    // sits in — which is what a company without departments honestly has (T-600 batch 3)
     const rows = boardModel(company, now);
-    expect(rows.map((r) => r.id)).toEqual(["work"]); // researchers, analysts, writers all sit in the work row
-    const names = rows[0].cards.map((c) => `${c.roleLabel}:${c.name}`);
-    expect(names).toHaveLength(6);
-    // research bench (left) first, then the editorial bench
-    expect(names.slice(0, 4).every((n) => n.startsWith("研究員") || n.startsWith("分析師"))).toBe(true);
-    expect(names.slice(4).every((n) => n.startsWith("寫手"))).toBe(true);
+    expect(rows.map((r) => r.id)).toEqual(["research", "editorial"]);
+    expect(rows.flatMap((r) => r.cards)).toHaveLength(6);
+    const research = rows[0].cards.map((c) => c.roleLabel);
+    expect(research.every((label) => label === "研究員" || label === "分析師")).toBe(true);
+    expect(rows[1].cards.every((c) => c.roleLabel === "寫手")).toBe(true);
+  });
+
+  it("an agent whose department the chart names gets a row of its own", () => {
+    const withDesk = {
+      ...company,
+      agents: Object.fromEntries(
+        Object.entries(company.agents).map(([id, agent], i) => [
+          id,
+          i === 0 ? { ...agent, department_key: "newsroom_research" } : agent,
+        ]),
+      ),
+    };
+    const rows = boardModel(withDesk, now);
+    expect(rows.map((r) => r.id)).toContain("newsroom_research");
+    expect(rows.find((r) => r.id === "newsroom_research")!.cards).toHaveLength(1);
   });
 
   it("each card: role colour, the mapping's badge, task, time in state, last completion", () => {
@@ -114,7 +130,8 @@ describe("OfficeBoard2D", () => {
     fireEvent.click(cards[2]);
     expect(uiStore.getState().selectedAgentId).toBe(cards[2].getAttribute("data-testid")!.slice("board-agent-".length));
     expect(cards[2].getAttribute("aria-pressed")).toBe("true");
-    expect(within(screen.getByRole("region", { name: "工作區" })).getAllByRole("button")).toHaveLength(6);
+    const rooms = screen.getAllByRole("region");
+    expect(rooms.flatMap((room) => within(room).getAllByRole("button"))).toHaveLength(6);
   });
 
   it("a hand-off that arrives flashes an arrow between the cards, then it goes", () => {

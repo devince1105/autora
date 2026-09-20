@@ -255,6 +255,17 @@
       "title": "Avatar Key",
       "type": "string"
      },
+     "business_unit_key": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Business Unit Key"
+     },
      "department_id": {
       "anyOf": [
        {
@@ -286,6 +297,17 @@
       "format": "uuid",
       "title": "Id",
       "type": "string"
+     },
+     "office_zone_key": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Office Zone Key"
      },
      "role": {
       "title": "Role",

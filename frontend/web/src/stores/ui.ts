@@ -12,8 +12,16 @@ export interface TimelineFilters {
   eventTypes: string[];
 }
 
+/** A department the operator entered: what it is called, and which room it is (T-600 batch 3). */
+export interface EnteredDepartment {
+  key: string;
+  zone: string;
+}
+
 export interface UiState {
   selectedAgentId: string | null;
+  /** The department the operator has entered; null is the whole floor. */
+  focusedDepartment: EnteredDepartment | null;
   panelTab: PanelTab;
   cameraMode: CameraMode;
   timelinePaused: boolean;
@@ -21,6 +29,8 @@ export interface UiState {
 
   /** Select an agent (opens its panel on the live tab); null closes the panel. */
   selectAgent(agentId: string | null): void;
+  /** Enter a department (the camera goes to its room); null steps back out to the floor. */
+  enterDepartment(department: EnteredDepartment | null): void;
   setPanelTab(tab: PanelTab): void;
   setCameraMode(mode: CameraMode): void;
   setTimelinePaused(paused: boolean): void;
@@ -30,6 +40,7 @@ export interface UiState {
 
 const initial = {
   selectedAgentId: null,
+  focusedDepartment: null as EnteredDepartment | null,
   panelTab: "live" as PanelTab,
   cameraMode: "overview" as CameraMode,
   timelinePaused: false,
@@ -45,6 +56,14 @@ export function createUiStore(): StoreApi<UiState> {
       // A new agent starts on the live tab; the camera follows it only if it already follows.
       set({ selectedAgentId: agentId, panelTab: "live" });
       if (agentId === null && get().cameraMode === "follow") set({ cameraMode: "overview" });
+    },
+    enterDepartment(department) {
+      if (department?.key === get().focusedDepartment?.key) return;
+      // entering a room is a camera move, not a selection: whoever was selected stays selected
+      set({
+        focusedDepartment: department,
+        cameraMode: department ? "free" : get().cameraMode,
+      });
     },
     setPanelTab(tab) {
       set({ panelTab: tab });

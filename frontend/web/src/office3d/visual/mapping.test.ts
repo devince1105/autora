@@ -90,6 +90,8 @@ describe("visualForAgent", () => {
     id: "a",
     role: "researcher",
     display_name: "Rae",
+    office_zone_key: null,
+    business_unit_key: null,
     department_id: null,
     department_key: null,
     avatar_key: "default",

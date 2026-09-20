@@ -5,19 +5,32 @@ import type { EventEnvelope } from "@autora/event-schema";
 import type { AgentState, RealtimeState } from "@/stores/realtime";
 
 import { ROLE_COLOR } from "../palette";
-import { assignSeats, type ZoneId } from "../scene/layout";
+import { assignSeats } from "../scene/layout";
 import { ROLE_LABEL, visualForAgent, type VisualState } from "../visual/mapping";
 
-export type RowId = "ceo" | "work" | "front" | "other";
+export type RowId = string;
 
-export const ROW_LABEL: Record<RowId, string> = {
+/** The row an agent with no department falls into; the only one this file names itself. */
+export const UNPLACED = "unplaced";
+
+export const DEPARTMENT_LABEL: Record<string, string> = {
+  [UNPLACED]: "未編制",
+  // the zones the floor plan draws, for a company whose departments are not on the chart yet
   ceo: "執行長室",
-  work: "工作區",
-  front: "前排",
-  other: "未排座位",
+  research: "研究區",
+  editorial: "編輯區",
+  growth: "行銷區",
+  spare: "彈性座位",
 };
 
-const ROW_OF: Record<ZoneId, RowId> = { ceo: "ceo", research: "work", editorial: "work", growth: "front", spare: "front" };
+/**
+ * A department's name is the company's to give (ARCHITECTURE_V2 §14.7): the org chart's name
+ * when the page has it, else the floor plan's own name for that room, else the key. The office
+ * does not invent names for a company's departments.
+ */
+function rowLabel(id: RowId, names: Readonly<Record<string, string>>): string {
+  return names[id] ?? DEPARTMENT_LABEL[id] ?? id;
+}
 
 export interface BoardCard {
   id: string;
@@ -81,26 +94,45 @@ function card(agent: AgentState, company: RealtimeState, now: Date): BoardCard |
   };
 }
 
-/** Cards in floor-plan rows (back to front, left to right), empty rows left out. */
-export function boardModel(company: RealtimeState | null, now: Date): BoardRow[] {
+/**
+ * One row per department (T-600 batch 3), in floor order, empty rows left out.
+ *
+ * The 3D office draws departments as rooms; without WebGL the same organisation is a list of
+ * them, so the two views answer "who works where" the same way. An agent the org chart does
+ * not place yet gets its own row rather than being dropped — the office shows what is there.
+ */
+export function boardModel(
+  company: RealtimeState | null,
+  now: Date,
+  names: Readonly<Record<string, string>> = {},
+): BoardRow[] {
   if (!company) return [];
   const agents = Object.values(company.agents);
-  const { seats, unseated } = assignSeats(agents);
-  const rows: Record<RowId, { card: BoardCard; x: number }[]> = { ceo: [], work: [], front: [], other: [] };
+  const { seats } = assignSeats(agents);
+  const rows = new Map<RowId, { card: BoardCard; x: number; order: number }[]>();
   for (const agent of agents) {
     const c = card(agent, company, now);
     if (!c) continue;
     const seat = seats.get(agent.id);
-    if (seat) rows[ROW_OF[seat.zone]].push({ card: c, x: seat.desk[0] });
-    else if (unseated.includes(agent.id)) rows.other.push({ card: c, x: 0 });
+    const id = agent.department_key ?? seat?.zone ?? UNPLACED;
+    // by the desk when it has one, so a row reads left to right as the room does
+    const entry = { card: c, x: seat?.desk[0] ?? 0, order: seat ? 0 : 1 };
+    rows.set(id, [...(rows.get(id) ?? []), entry]);
   }
-  return (Object.keys(rows) as RowId[])
-    .filter((id) => rows[id].length)
-    .map((id) => ({
+  return [...rows]
+    .sort(([a, left], [b, right]) => floorOrder(left) - floorOrder(right) || a.localeCompare(b))
+    .map(([id, entries]) => ({
       id,
-      label: ROW_LABEL[id],
-      cards: rows[id].sort((a, b) => a.x - b.x || a.card.name.localeCompare(b.card.name)).map((r) => r.card),
+      label: rowLabel(id, names),
+      cards: entries
+        .sort((l, r) => l.order - r.order || l.x - r.x || l.card.name.localeCompare(r.card.name))
+        .map((entry) => entry.card),
     }));
+}
+
+/** Rooms in the order the floor plan lays them out; unplaced agents last. */
+function floorOrder(entries: { x: number; order: number }[]): number {
+  return entries.some((e) => e.order === 0) ? Math.min(...entries.map((e) => e.x)) : 1000;
 }
 
 export interface Handoff {

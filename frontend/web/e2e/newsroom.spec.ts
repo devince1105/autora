@@ -93,8 +93,8 @@ test("a story from the feeds to the public site, and from the office to its draf
     page.locator("#timeline").getByText("工作流程建立"),
   ).toBeVisible();
 
-  // 3. the office: click the writer, follow its panel's link to the draft
-  await page.goto(`/office?company=${company}`);
+  // 3. the office: go into the writing room, select the writer, follow its panel to the draft
+  await page.goto(`/office?company=${company}&department=newsroom_writing`);
   await expect(page.locator("[data-office-mode]")).not.toHaveAttribute(
     "data-office-mode",
     "detecting",
@@ -112,10 +112,16 @@ test("a story from the feeds to the public site, and from the office to its draf
     await expect(
       page.getByTestId(/^head-tag-/).filter({ hasText: "Wren" }),
     ).toBeVisible({ timeout: 30_000 });
-    // The office's own shortcut for the third desk (writer). Clicking the avatar is what
-    // office.spec measures; here it would be flaky, because an avatar walks between hand-offs and
-    // can leave the spot under the pointer before the click lands.
-    await page.keyboard.press("3");
+    // Inside the writing department the number keys are its people (T-600 batch 3), and the
+    // writer is the only one. Clicking the avatar is what office.spec measures; here it would
+    // be flaky, because an avatar walks between hand-offs and can leave the spot under the
+    // pointer before the click lands.
+    await expect(page.getByTestId("department-newsroom_writing")).toHaveAttribute(
+      "aria-pressed",
+      "true",
+      { timeout: 15_000 },
+    );
+    await page.keyboard.press("1");
   } else {
     await page
       .locator('[data-testid^="board-agent-"]')

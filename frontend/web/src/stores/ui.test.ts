@@ -44,6 +44,14 @@ describe("ui store", () => {
     const keys = Object.keys(createUiStore().getState()).filter(
       (k) => typeof (createUiStore().getState() as unknown as Record<string, unknown>)[k] !== "function",
     );
-    expect(keys.sort()).toEqual(["cameraMode", "filters", "panelTab", "selectedAgentId", "timelinePaused"]);
+    expect(keys.sort()).toEqual([
+      "cameraMode",
+      "filters",
+      // which department the operator is looking inside: a view, not company data (T-600)
+      "focusedDepartment",
+      "panelTab",
+      "selectedAgentId",
+      "timelinePaused",
+    ]);
   });
 });

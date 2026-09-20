@@ -77,6 +77,36 @@ describe("framing", () => {
   });
 });
 
+describe("the numbers follow the room you are in (T-600 batch 3)", () => {
+  it("inside a department they are its people, outside it they are everybody", () => {
+    realtimeStore.getState().hydrate(fixture.snapshot_before);
+    const agents = Object.values(realtimeStore.getState().company!.agents);
+    const writers = agents.filter((a) => a.role === "writer").map((a) => a.id);
+    expect(writers.length).toBeGreaterThan(0);
+    // the whole floor: the first key is the leftmost desk, whoever that is
+    const onTheFloor = agentForKey("1");
+    expect(agents.some((a) => a.id === onTheFloor)).toBe(true);
+
+    // pretend the writers are a department of their own, and enter it
+    realtimeStore.setState((s) => ({
+      company: {
+        ...s.company!,
+        agents: Object.fromEntries(
+          Object.entries(s.company!.agents).map(([id, agent]) => [
+            id,
+            agent.role === "writer" ? { ...agent, department_key: "writing" } : agent,
+          ]),
+        ),
+      },
+    }));
+    uiStore.getState().enterDepartment({ key: "writing", zone: "editorial" });
+    for (let i = 1; i <= writers.length; i++) expect(writers).toContain(agentForKey(String(i)));
+    expect(agentForKey(String(writers.length + 1))).toBeNull(); // the room ends where it ends
+    uiStore.getState().enterDepartment(null);
+    expect(agentForKey("1")).toBe(onTheFloor);
+  });
+});
+
 describe("picking and keys", () => {
   it("clicking an avatar selects its agent (and stops the click reaching the floor)", () => {
     const stopPropagation = vi.fn();
@@ -85,20 +115,22 @@ describe("picking and keys", () => {
     expect(stopPropagation).toHaveBeenCalled();
   });
 
-  it("1–6 select a role's first agent; Esc clears; typing in a field is left alone", () => {
+  it("1–9 select the room's people left to right; Esc clears; typing is left alone", () => {
     realtimeStore.getState().hydrate(fixture.snapshot_before);
-    const researchers = fixture.snapshot_before.agents.filter((a) => a.role === "researcher").map((a) => a.id).sort();
-    expect(agentForKey("1")).toBe(researchers[0]);
-    expect(agentForKey("5")).toBeNull(); // no marketing in this company
-    expect(agentForKey("9")).toBeNull();
+    const seated = assignSeats(Object.values(realtimeStore.getState().company!.agents));
+    const leftToRight = [...seated.seats].sort((a, b) => a[1].desk[0] - b[1].desk[0]).map(([id]) => id);
+    expect(agentForKey("1")).toBe(leftToRight[0]);
+    expect(agentForKey("2")).toBe(leftToRight[1]);
+    expect(agentForKey(String(leftToRight.length + 1))).toBeNull(); // nobody that far right
+    expect(agentForKey("0")).toBeNull();
 
     onOfficeKey(new KeyboardEvent("keydown", { key: "1" }));
-    expect(uiStore.getState().selectedAgentId).toBe(researchers[0]);
+    expect(uiStore.getState().selectedAgentId).toBe(leftToRight[0]);
     const input = document.createElement("input");
     document.body.append(input);
     input.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true }));
     onOfficeKey({ key: "Escape", target: input } as unknown as KeyboardEvent);
-    expect(uiStore.getState().selectedAgentId).toBe(researchers[0]);
+    expect(uiStore.getState().selectedAgentId).toBe(leftToRight[0]);
     onOfficeKey(new KeyboardEvent("keydown", { key: "Escape" }));
     expect(uiStore.getState().selectedAgentId).toBeNull();
   });

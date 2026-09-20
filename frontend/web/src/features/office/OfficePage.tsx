@@ -1,10 +1,11 @@
 "use client";
 
 import { useQuery } from "@tanstack/react-query";
+import { useEffect, useMemo, useRef } from "react";
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 
-import { approvalsQuery, kpisQuery } from "@/api/queries";
+import { approvalsQuery, kpisQuery, orgQuery } from "@/api/queries";
 import { AgentPanel } from "@/features/agent-panel/AgentPanel";
 import { CompanyScope, withCompany, type Company } from "@/features/company/CompanyScope";
 import { useCompanyStream } from "@/features/company/useCompanyStream";
@@ -12,8 +13,10 @@ import { ConnectionBadge } from "@/features/dashboard/DashboardView";
 import { connectionModel, dashboardModel } from "@/features/dashboard/model";
 import { useNow } from "@/hooks/useNow";
 import { OfficeCanvas, parseView, type OfficeView } from "@/office3d/OfficeCanvas";
-import { useRealtime } from "@/stores/realtime";
+import { useRealtime, type RealtimeState } from "@/stores/realtime";
+import { useUi } from "@/stores/ui";
 
+import { DepartmentStrip, departmentNames as departmentNames_, departmentsOf } from "./Departments";
 import { MiniDashboardView } from "./MiniDashboard";
 
 const VIEWS: { id: OfficeView; label: string }[] = [
@@ -25,10 +28,58 @@ const VIEWS: { id: OfficeView; label: string }[] = [
 /**
  * /office (T-411): the office (3D or the 2D board), the dashboard's numbers in a strip, the
  * connection, and the agent detail panel of whoever is selected — by clicking an avatar or a card.
- * ?view=3d|2d overrides the automatic choice.
+ * ?view=3d|2d overrides the automatic choice; ?department=<key> opens inside one department.
  */
 export function OfficePage() {
   return <CompanyScope>{(company) => <CompanyOffice company={company} />}</CompanyScope>;
+}
+
+/**
+ * Keeps ?department=<key> and the entered department in step (T-600 batch 3).
+ *
+ * The URL is the shareable half: a link to a department opens inside it, and entering one from
+ * the strip puts it in the address bar. The roster is what resolves the key to a room, so the
+ * link waits for the stream rather than guessing where the department is.
+ */
+function useDepartmentInUrl(realtime: ReturnType<typeof useRealtime<RealtimeState | null>>) {
+  const params = useSearchParams();
+  const router = useRouter();
+  const pathname = usePathname();
+  const wanted = params.get("department");
+  const entered = useUi((s) => s.focusedDepartment);
+  const enter = useUi((s) => s.enterDepartment);
+  const known = useMemo(() => departmentsOf(Object.values(realtime?.agents ?? {})), [realtime]);
+  /** The last key taken *from* the URL, so leaving a room is not read as a link into it. */
+  const applied = useRef<string | null>(null);
+
+  useEffect(() => {
+    const key = entered?.key ?? null;
+    const setUrl = (next: string | null) => {
+      const query = new URLSearchParams(params);
+      if (next) query.set("department", next);
+      else query.delete("department");
+      applied.current = next;
+      router.replace(`${pathname}?${query}`);
+    };
+
+    if (wanted === key) {
+      applied.current = key;
+      return;
+    }
+    if (wanted && applied.current !== wanted) {
+      // a link into a department. The roster is what resolves it to a room and arrives on the
+      // stream a moment later, so until it does the link stands rather than being erased.
+      const found = known.find((d) => d.key === wanted);
+      if (found) {
+        applied.current = wanted;
+        enter({ key: found.key, zone: found.zone });
+      } else if (known.length) {
+        setUrl(key); // this company has no such department: the address bar follows the office
+      }
+      return;
+    }
+    setUrl(key); // the operator entered or left a room
+  }, [wanted, entered, enter, known, params, pathname, router]);
 }
 
 function CompanyOffice({ company }: { company: Company }) {
@@ -44,9 +95,12 @@ function CompanyOffice({ company }: { company: Company }) {
     router.replace(`${pathname}?${query}`);
   };
   const realtime = useRealtime((s) => (s.company?.companyId === company.id ? s.company : null));
+  useDepartmentInUrl(realtime);
   const connection = useRealtime((s) => s.connection);
   const now = useNow();
   const kpis = useQuery(kpisQuery(company.id));
+  const org = useQuery(orgQuery(company.id));
+  const departmentNames = useMemo(() => departmentNames_(org.data), [org.data]);
   const pending = useQuery(approvalsQuery(company.id));
   const model = dashboardModel(realtime, kpis.data, connection, now);
 
@@ -78,9 +132,15 @@ function CompanyOffice({ company }: { company: Company }) {
         </div>
       </header>
       <MiniDashboardView model={model} pendingApprovals={pending.data?.length ?? null} />
+      <DepartmentStrip companyId={company.id} />
       <div className="min-h-0 flex-1">
         {/* the detail panel is max-w-md (448 px) on the right while someone is selected */}
-        <OfficeCanvas view={view} onViewChange={setView} selectionInsetRight={448} />
+        <OfficeCanvas
+          view={view}
+          onViewChange={setView}
+          selectionInsetRight={448}
+          departmentNames={departmentNames}
+        />
       </div>
       <AgentPanel />
     </main>

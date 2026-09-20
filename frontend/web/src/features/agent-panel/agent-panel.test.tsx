@@ -30,6 +30,8 @@ function agent(state: ActivityState, detail: Record<string, unknown> = {}, extra
     display_name: "Rae",
     avatar_key: "default",
     department_id: null,
+    office_zone_key: null,
+    business_unit_key: null,
     department_key: null,
     activity: {
       state,

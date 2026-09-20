@@ -299,6 +299,10 @@ class AgentAssigned(EventPayload):
     role_id: uuid.UUID
     department_id: uuid.UUID
     department_key: str | None = None
+    office_zone_key: str | None = None
+    business_unit_key: str | None = None
+    """The same two the office needs to draw it (see ``AGENT_CREATED``): moving between
+    departments can move an agent to another part of the floor and another business."""
     previous_role: str | None = None
     previous_department_id: uuid.UUID | None = None
 

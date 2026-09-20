@@ -227,6 +227,30 @@
               "default": null,
               "title": "Department Key"
             },
+            "office_zone_key": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Office Zone Key"
+            },
+            "business_unit_key": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Business Unit Key"
+            },
             "previous_role": {
               "anyOf": [
                 {
@@ -314,6 +338,30 @@
               ],
               "default": null,
               "title": "Department Key"
+            },
+            "office_zone_key": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Office Zone Key"
+            },
+            "business_unit_key": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Business Unit Key"
             }
           },
           "required": [

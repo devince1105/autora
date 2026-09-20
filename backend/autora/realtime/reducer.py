@@ -84,6 +84,8 @@ class _Agent:
     avatar_key: str
     department_id: uuid.UUID | None = None
     department_key: str | None = None
+    office_zone_key: str | None = None
+    business_unit_key: str | None = None
     activity: ActivityView | None = None
 
 
@@ -106,7 +108,8 @@ class RealtimeState:
         for agent in snapshot.agents:
             state.agents[agent.id] = _Agent(
                 agent.id, agent.role, agent.display_name, agent.avatar_key,
-                agent.department_id, agent.department_key, agent.activity.model_copy(),
+                agent.department_id, agent.department_key, agent.office_zone_key,
+                agent.business_unit_key, agent.activity.model_copy(),
             )  # fmt: skip
         state.tasks = {task.id: task.model_copy() for task in snapshot.tasks}
         state.recent.extend(snapshot.recent_events)
@@ -131,6 +134,8 @@ class RealtimeState:
                 payload.avatar_key,
                 payload.department_id,
                 payload.department_key,
+                payload.office_zone_key,
+                payload.business_unit_key,
             )
         elif isinstance(payload, company_ev.AgentAssigned) and event.agent_id in self.agents:
             # the only thing that moves a drawn agent to another room without a reload
@@ -138,6 +143,8 @@ class RealtimeState:
             agent.role = payload.role
             agent.department_id = payload.department_id
             agent.department_key = payload.department_key
+            agent.office_zone_key = payload.office_zone_key
+            agent.business_unit_key = payload.business_unit_key
         elif isinstance(payload, company_ev.CycleStarted) and event.cycle_id is not None:
             self.cycle = CycleView(
                 id=event.cycle_id,
@@ -236,6 +243,8 @@ class RealtimeState:
                     avatar_key=agent.avatar_key,
                     department_id=agent.department_id,
                     department_key=agent.department_key,
+                    office_zone_key=agent.office_zone_key,
+                    business_unit_key=agent.business_unit_key,
                     activity=activity,
                 )  # fmt: skip
             )

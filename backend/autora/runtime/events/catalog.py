@@ -68,6 +68,12 @@ class AgentCreated(EventPayload):
     department_key: str | None = None
     """Where it works (T-600). Here for the same reason as ``avatar_key``: an agent is rebuilt
     from this event alone, so anything the office needs to draw it has to travel with it."""
+    office_zone_key: str | None = None
+    """Which part of the floor that department occupies, inherited from the department above it
+    when a team names none (ARCHITECTURE_V2 §14.7)."""
+    business_unit_key: str | None = None
+    """Which business it works for. None for a company-wide function, which is a real answer:
+    the Executive belongs to no business because it decides which businesses to have."""
 
 
 @event("AGENT_PAUSED")

@@ -12,11 +12,35 @@ export interface Member {
   role: string;
   name: string;
   character: Character;
+  /** Its department, and the part of the floor that department occupies (T-600 batch 3). */
+  department: string | null;
+  office_zone_key: string | null;
+  business_unit: string | null;
 }
 
-export function rosterKey(agents: Record<string, { id: string; role: string; display_name: string; avatar_key: string }> | undefined): string {
+interface RosterAgent {
+  id: string;
+  role: string;
+  display_name: string;
+  avatar_key: string;
+  department_key?: string | null;
+  office_zone_key?: string | null;
+  business_unit_key?: string | null;
+}
+
+export function rosterKey(agents: Record<string, RosterAgent> | undefined): string {
   return Object.values(agents ?? {})
-    .map((a) => [a.id, a.role, a.display_name, characterFor(a.id, a.avatar_key)].join("\t"))
+    .map((a) =>
+      [
+        a.id,
+        a.role,
+        a.display_name,
+        characterFor(a.id, a.avatar_key),
+        a.department_key ?? "",
+        a.office_zone_key ?? "",
+        a.business_unit_key ?? "",
+      ].join("\t"),
+    )
     .sort()
     .join("\n");
 }
@@ -24,8 +48,16 @@ export function rosterKey(agents: Record<string, { id: string; role: string; dis
 function parseRoster(key: string): Member[] {
   if (!key) return [];
   return key.split("\n").map((line) => {
-    const [id, role, name, character] = line.split("\t");
-    return { id, role, name, character: character as Character };
+    const [id, role, name, character, department, zone, unit] = line.split("\t");
+    return {
+      id,
+      role,
+      name,
+      character: character as Character,
+      department: department || null,
+      office_zone_key: zone || null,
+      business_unit: unit || null,
+    };
   });
 }
 

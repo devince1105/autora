@@ -675,6 +675,8 @@ export interface components {
             activity: components["schemas"]["ActivityView"];
             /** Avatar Key */
             avatar_key: string;
+            /** Business Unit Key */
+            business_unit_key?: string | null;
             /** Department Id */
             department_id?: string | null;
             /** Department Key */
@@ -686,6 +688,8 @@ export interface components {
              * Format: uuid
              */
             id: string;
+            /** Office Zone Key */
+            office_zone_key?: string | null;
             /** Role */
             role: string;
         };

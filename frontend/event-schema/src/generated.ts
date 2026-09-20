@@ -68,6 +68,8 @@ export const AgentAssignedV1Payload = z.object({
   role_id: z.uuid(),
   department_id: z.uuid(),
   department_key: z.string().nullable().default(null),
+  office_zone_key: z.string().nullable().default(null),
+  business_unit_key: z.string().nullable().default(null),
   previous_role: z.string().nullable().default(null),
   previous_department_id: z.uuid().nullable().default(null),
 });
@@ -86,6 +88,8 @@ export const AgentCreatedV1Payload = z.object({
   avatar_key: z.string().default("default"),
   department_id: z.uuid().nullable().default(null),
   department_key: z.string().nullable().default(null),
+  office_zone_key: z.string().nullable().default(null),
+  business_unit_key: z.string().nullable().default(null),
 });
 export type AgentCreatedV1Payload = z.infer<typeof AgentCreatedV1Payload>;
 export const AgentCreatedV1Event = z.object({

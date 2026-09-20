@@ -29,6 +29,7 @@ from typing import Any
 from pydantic import BaseModel
 from sqlalchemy import func, literal_column, select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import aliased
 
 from autora.db.models import (
     ActivityState,
@@ -36,6 +37,7 @@ from autora.db.models import (
     AgentActivity,
     AgentRun,
     AgentStatus,
+    BusinessUnit,
     Cycle,
     Department,
     EventRecord,
@@ -71,6 +73,10 @@ class AgentView(BaseModel):
     department_key: str | None = None
     """Which room of the office draws it (T-600). None for an agent with no place on the
     org chart — it works, it is simply not in a department yet."""
+    office_zone_key: str | None = None
+    """Which part of the floor that department occupies (ARCHITECTURE_V2 §14.7)."""
+    business_unit_key: str | None = None
+    """Which business it works for; None for a company-wide function."""
     activity: ActivityView
 
 
@@ -151,15 +157,41 @@ async def _cycle(session: AsyncSession, company_id: uuid.UUID) -> CycleView | No
 
 
 async def _agents(session: AsyncSession, company_id: uuid.UUID, now: datetime) -> list[AgentView]:
+    """Every working agent, with the place on the floor its department gives it.
+
+    A team inherits its parent's zone and business (the newsroom's Research team sits in the
+    newsroom's part of the floor), which is why the parent is joined as well.
+    """
+    parent = aliased(Department)
     rows = (
         await session.execute(
-            select(Agent, AgentActivity, Department.key)
+            select(
+                Agent,
+                AgentActivity,
+                Department.key,
+                Department.office_zone_key,
+                Department.business_unit_id,
+                parent.office_zone_key,
+                parent.business_unit_id,
+            )
             .join(AgentActivity, AgentActivity.agent_id == Agent.id)
             .outerjoin(Department, Department.id == Agent.department_id)
+            .outerjoin(parent, parent.id == Department.parent_department_id)
             .where(Agent.company_id == company_id, Agent.status != AgentStatus.RETIRED)
             .order_by(Agent.created_at, Agent.id)
         )
     ).all()
+    # a company has a handful of businesses; one query beats a third join on a coalesce, which
+    # no index can help (the snapshot has a latency budget: 3d-office/05 §3)
+    units = dict(
+        (
+            await session.execute(
+                select(BusinessUnit.id, BusinessUnit.key).where(
+                    BusinessUnit.company_id == company_id
+                )
+            )
+        ).all()
+    )
     return [
         AgentView(
             id=agent.id,
@@ -168,6 +200,8 @@ async def _agents(session: AsyncSession, company_id: uuid.UUID, now: datetime) -
             avatar_key=agent.avatar_key,
             department_id=agent.department_id,
             department_key=department_key,
+            office_zone_key=zone or parent_zone,
+            business_unit_key=units.get(unit_id or parent_unit_id),
             activity=ActivityView(
                 state=effective_state(activity, now),
                 stored_state=ActivityState(activity.state),
@@ -178,7 +212,7 @@ async def _agents(session: AsyncSession, company_id: uuid.UUID, now: datetime) -
                 last_event_seq=activity.last_event_seq,
             ),
         )
-        for agent, activity, department_key in rows
+        for agent, activity, department_key, zone, unit_id, parent_zone, parent_unit_id in rows
     ]
 
 

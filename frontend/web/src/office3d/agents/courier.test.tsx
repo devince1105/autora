@@ -97,7 +97,7 @@ describe("Courier in the scene (store -> director -> avatar)", () => {
     realtimeStore.getState().hydrate(fixture.snapshot_before);
     const done = completion;
     const agentId = done.agent_id as string;
-    const members = fixture.snapshot_before.agents.map((a) => ({ id: a.id, role: a.role, name: a.display_name, character: "character-male-a" as const }));
+    const members = fixture.snapshot_before.agents.map((a) => ({ id: a.id, role: a.role, name: a.display_name, character: "character-male-a" as const, department: null, office_zone_key: null, business_unit: null }));
     const { seats } = assignSeats(members);
     const seat = seats.get(agentId)!;
     const director = new CueDirector(realtimeStore);
