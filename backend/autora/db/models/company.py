@@ -235,4 +235,8 @@ class CommandRecord(IdMixin, CreatedAtMixin, Base):
     )
     """The events this command caused, so a change can be traced back to the decision."""
     approval_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("approvals.id"))
+    task_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("tasks.id"))
+    run_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("agent_runs.id"), index=True)
+    """Which run asked. Completes the audit chain — cycle -> plan -> command -> work — and lets
+    an agent's written plan be checked against what it actually asked for."""
     idempotency_key: Mapped[str]

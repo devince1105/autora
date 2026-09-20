@@ -173,6 +173,8 @@ class CommandBus:
         idempotency_key: str,
         role: str | None = None,
         company_policies: Mapping[str, Any] | None = None,
+        task_id: uuid.UUID | None = None,
+        run_id: uuid.UUID | None = None,
     ) -> CommandResult:
         """Ask the company to do something. Does not commit.
 
@@ -203,6 +205,8 @@ class CommandBus:
                     outcome=CommandOutcome.REFUSED,
                     reason=_why(exc),
                     idempotency_key=idempotency_key,
+                    task_id=task_id,
+                    run_id=run_id,
                 )
             )
 
@@ -232,6 +236,8 @@ class CommandBus:
                     outcome=CommandOutcome.REFUSED,
                     reason=decision.reason,
                     idempotency_key=idempotency_key,
+                    task_id=task_id,
+                    run_id=run_id,
                 )  # fmt: skip
             )
 
@@ -240,6 +246,7 @@ class CommandBus:
                 session, spec, args, company_id=company_id, actor=actor, role=role,
                 decision=decision.outcome, outcome=CommandOutcome.AWAITING_APPROVAL,
                 reason=decision.reason, idempotency_key=idempotency_key,
+                task_id=task_id, run_id=run_id,
             )  # fmt: skip
             approval = await self.approvals.request(
                 session,
@@ -273,6 +280,8 @@ class CommandBus:
                 decision=decision.outcome,
                 limit=decision.reason if decision.outcome == "limited" else None,
                 idempotency_key=idempotency_key,
+                task_id=task_id,
+                run_id=run_id,
             )  # fmt: skip
         )
 
@@ -292,6 +301,8 @@ class CommandBus:
         limit: str | None,
         idempotency_key: str,
         approval_id: uuid.UUID | None = None,
+        task_id: uuid.UUID | None = None,
+        run_id: uuid.UUID | None = None,
     ) -> CommandRecord:
         context = self._context(session, company_id, actor, role, limit)
         mark = await _last_seq(session, company_id)
@@ -302,13 +313,14 @@ class CommandBus:
                 session, spec, args, company_id=company_id, actor=actor, role=role,
                 decision=decision, outcome=CommandOutcome.REFUSED, reason=str(refusal),
                 idempotency_key=idempotency_key, approval_id=approval_id,
+                task_id=task_id, run_id=run_id,
             )  # fmt: skip
         caused = await _events_since(session, company_id, mark)
         return await self._record(
             session, spec, args, company_id=company_id, actor=actor, role=role,
             decision=decision, outcome=CommandOutcome.DONE, reason=limit,
             result=dict(result), event_ids=caused, idempotency_key=idempotency_key,
-            approval_id=approval_id,
+            approval_id=approval_id, task_id=task_id, run_id=run_id,
         )  # fmt: skip
 
     async def _on_decided(
@@ -386,6 +398,8 @@ class CommandBus:
         result: dict[str, Any] | None = None,
         event_ids: list[uuid.UUID] | None = None,
         approval_id: uuid.UUID | None = None,
+        task_id: uuid.UUID | None = None,
+        run_id: uuid.UUID | None = None,
     ) -> CommandRecord:
         record = CommandRecord(
             company_id=company_id,
@@ -399,6 +413,8 @@ class CommandBus:
             result=result,
             event_ids=event_ids or [],
             approval_id=approval_id,
+            task_id=task_id,
+            run_id=run_id,
             idempotency_key=idempotency_key,
         )
         session.add(record)

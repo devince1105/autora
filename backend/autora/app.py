@@ -17,6 +17,7 @@ if TYPE_CHECKING:
 
     from autora.company.commands import CommandBus
     from autora.company.cycle import CycleRunner
+    from autora.company.executive import Executive
     from autora.company.ledger import Ledger
     from autora.company.reporting import Reporting
     from autora.company.snapshot import SnapshotBuilder
@@ -67,21 +68,27 @@ def build_policy_engine() -> PolicyEngine:
 
 
 def build_templates() -> TemplateRegistry:
+    from autora.company import executive
     from autora.domains import echo, newsroom
     from autora.runtime.dag import TemplateRegistry
 
     templates = TemplateRegistry()
+    executive.register_templates(templates)  # the company's own work: planning and review
     echo.register_templates(templates)
     newsroom.register_templates(templates)
     return templates
 
 
-def build_behaviors() -> BehaviorRegistry:
+def build_behaviors(snapshots: SnapshotBuilder | None = None) -> BehaviorRegistry:
+    """Every agent the runtime can run. The company's own come first: they must still work when
+    every domain is deleted (ARCHITECTURE_V2_1 §9)."""
+    from autora.company.agents import ceo
     from autora.domains import echo
     from autora.domains.newsroom import agents as newsroom_agents
     from autora.runtime.behaviors import BehaviorRegistry
 
     behaviors = BehaviorRegistry()
+    ceo.register_behaviors(behaviors, snapshots)
     echo.register_behaviors(behaviors)
     newsroom_agents.register_behaviors(behaviors)
     return behaviors
@@ -171,11 +178,15 @@ def build_tools(
     settings: Settings | None = None,
     *,
     blobs: BlobStore | None = None,
+    commands: CommandBus | None = None,
 ) -> ToolRegistry:
-    """Every domain's tools. Without ``blobs``: the settings' blob store, else a temporary one."""
+    """Every tool an agent can call. Without ``blobs``: the settings' blob store, else a
+    temporary one. With ``commands``, executive agents also get ``submit_command`` — the only
+    way any agent changes the company."""
     import tempfile
     from pathlib import Path
 
+    from autora.company import tools as company_tools
     from autora.domains import echo
     from autora.domains.newsroom import tools as newsroom_tools
     from autora.infra.blobstore import LocalFSBlobStore
@@ -185,6 +196,8 @@ def build_tools(
         root = settings.blob_store_dir if settings else Path(tempfile.gettempdir()) / "autora-blobs"
         blobs = LocalFSBlobStore(root)
     tools = ToolRegistry(session_factory)
+    if commands is not None:
+        company_tools.register_tools(tools, commands)
     echo.register_tools(tools)
     newsroom_tools.register_tools(
         tools,
@@ -197,12 +210,20 @@ def build_tools(
 
 
 def simulated_model(request: ModelRequest) -> FakeTurn:
-    """The fake provider's answer to any unscripted request: ask each domain's simulation."""
+    """The fake provider's answer to any unscripted request: ask the company, then each domain.
+
+    The company comes first because its agents must keep working when every domain is deleted
+    (ARCHITECTURE_V2_1 §9)."""
+    from autora.company import simulation as company_simulation
     from autora.domains.echo import simulation as echo_simulation
     from autora.domains.newsroom import simulation as newsroom_simulation
     from autora.runtime.models.providers.fake import FakeTurn
 
-    for respond in (echo_simulation.respond, newsroom_simulation.respond):
+    for respond in (
+        company_simulation.respond,
+        echo_simulation.respond,
+        newsroom_simulation.respond,
+    ):
         turn = respond(request)
         if turn is not None:
             return turn
@@ -229,9 +250,11 @@ class Runtime:
     reporting: Reporting
     snapshots: SnapshotBuilder
     commands: CommandBus
+    executive: Executive
 
 
 def build_runtime(settings: Settings | None = None) -> Runtime:
+    from autora.company import executive as company_executive
     from autora.company import verbs as company_verbs
     from autora.company.commands import CommandBus
     from autora.company.cycle import CycleRunner, work_is_finished
@@ -269,6 +292,8 @@ def build_runtime(settings: Settings | None = None) -> Runtime:
     commands = CommandBus(policy=policy, approvals=approvals, workflows=workflows)
     company_verbs.register(commands)
     commands.install()
+    executive = company_executive.Executive(workflows)
+    executive.install(cycles)
     runtime = Runtime(
         task_manager=task_manager,
         templates=templates,
@@ -281,6 +306,7 @@ def build_runtime(settings: Settings | None = None) -> Runtime:
         reporting=reporting,
         snapshots=snapshots,
         commands=commands,
+        executive=executive,
     )
     newsroom.register(runtime)
     return runtime
@@ -320,11 +346,11 @@ def build_worker(
         session_factory=session_factory,
         task_manager=runtime.task_manager,
         gateway=gateway,
-        tools=build_tools(session_factory, settings, blobs=blobs),
+        tools=build_tools(session_factory, settings, blobs=blobs, commands=runtime.commands),
         policy=runtime.policy,
         approvals=runtime.approvals,
         blobs=blobs,
-        behaviors=build_behaviors(),
+        behaviors=build_behaviors(runtime.snapshots),
         progress=ProgressPublisher(session_factory),
     )
     return Worker(
