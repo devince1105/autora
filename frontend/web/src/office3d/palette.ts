@@ -516,6 +516,40 @@ export function isThemeId(value: unknown): value is ThemeId {
   return typeof value === "string" && Object.hasOwn(THEMES, value);
 }
 
+/**
+ * Colours that mark which business a department works for (ARCHITECTURE_V2 §14.7, T-600).
+ *
+ * Not a theme colour: it identifies a business, so it is the same in every interior-design
+ * style, like the role colours below. The list is fixed and the choice is by position, so the
+ * first business a company opens is always the first colour — a company's floor does not
+ * change colour because somebody renamed a business.
+ */
+export const BUSINESS_COLORS = [
+  "#3f7fd6",
+  "#3fb58a",
+  "#e0533d",
+  "#8e5bd6",
+  "#f2c14e",
+  "#3fa7b5",
+] as const;
+
+/** Company-wide functions belong to no business, and are marked as such rather than coloured. */
+export const SHARED_COLOR = "#9aa0a8";
+
+/**
+ * One colour per business, assigned in the order the keys sort.
+ *
+ * Sorted, not hashed: two colours next to each other must be told apart, and a hash makes that
+ * a matter of luck. With more businesses than colours the list repeats, which is honest — at
+ * that point the floor is not the place to tell them apart.
+ */
+export function businessColors(keys: readonly (string | null)[]): Record<string, string> {
+  const named = [...new Set(keys.filter((key): key is string => Boolean(key)))].sort();
+  return Object.fromEntries(
+    named.map((key, i) => [key, BUSINESS_COLORS[i % BUSINESS_COLORS.length]]),
+  );
+}
+
 /** Chair accents and (T-405) outfit colours per role: the same in every theme (they identify roles). */
 export const ROLE_COLOR: Record<string, string> = {
   researcher: "#e0533d",

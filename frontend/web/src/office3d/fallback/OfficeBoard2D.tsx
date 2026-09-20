@@ -132,7 +132,19 @@ export function OfficeBoard2D({
     <div ref={container} className="relative grid gap-8 p-4 pt-10" aria-label="辦公室（2D）">
       {rows.map((row) => (
         <section key={row.id} aria-label={row.label}>
-          <h3 className="mb-2 text-xs font-medium tracking-wide text-muted">{row.label}</h3>
+          <h3 className="mb-2 flex items-center gap-2 text-xs font-medium tracking-wide text-muted">
+            {/* the same colour the 3D floor marks this room with; none for a shared function */}
+            {row.businessColor ? (
+              <span
+                aria-hidden
+                data-testid={`row-business-${row.id}`}
+                title={row.business ?? undefined}
+                className="size-2 rounded-full"
+                style={{ backgroundColor: row.businessColor }}
+              />
+            ) : null}
+            {row.label}
+          </h3>
           <div className="grid grid-cols-[repeat(auto-fill,minmax(13rem,1fr))] gap-3">
             {row.cards.map((card) => (
               <Card

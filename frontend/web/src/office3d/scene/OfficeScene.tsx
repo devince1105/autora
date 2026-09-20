@@ -13,6 +13,7 @@ import { DEFAULT_THEME, THEMES, type ThemeId } from "../palette";
 import { StatsProbe } from "../perf/StatsProbe";
 import { CueProvider } from "../visual/CueRunner";
 import { VisualTrackerProvider } from "../visual/tracker";
+import { BusinessBands } from "./BusinessBands";
 import { Floors } from "./Floors";
 import { OfficeEnvironment } from "./OfficeEnvironment";
 import { officeParts, partitionGlassParts, windowGlassParts } from "./furniture";
@@ -67,6 +68,8 @@ export function OfficeScene({ insetRight = 0, theme = DEFAULT_THEME }: { insetRi
       <group>
         {/* keyed by theme: a material gaining a map it did not have needs a new shader */}
         <Floors key={theme} palette={palette} />
+        {/* which business each room works for (T-600 batch 4): above the floor, below everything */}
+        <BusinessBands />
         <Labels palette={palette} />
         <mesh geometry={office} castShadow receiveShadow>
           <meshStandardMaterial vertexColors roughness={0.6} />

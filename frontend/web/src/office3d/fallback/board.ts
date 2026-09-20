@@ -4,7 +4,7 @@ import type { EventEnvelope } from "@autora/event-schema";
 
 import type { AgentState, RealtimeState } from "@/stores/realtime";
 
-import { ROLE_COLOR } from "../palette";
+import { businessColors, ROLE_COLOR } from "../palette";
 import { assignSeats } from "../scene/layout";
 import { ROLE_LABEL, visualForAgent, type VisualState } from "../visual/mapping";
 
@@ -49,6 +49,9 @@ export interface BoardRow {
   id: RowId;
   label: string;
   cards: BoardCard[];
+  /** Which business this room works for, and the colour the 3D floor marks it with (T-600). */
+  business: string | null;
+  businessColor: string | null;
 }
 
 const str = (value: unknown): string | null => (typeof value === "string" && value ? value : null);
@@ -109,7 +112,9 @@ export function boardModel(
   if (!company) return [];
   const agents = Object.values(company.agents);
   const { seats } = assignSeats(agents);
+  const colors = businessColors(agents.map((a) => a.business_unit_key));
   const rows = new Map<RowId, { card: BoardCard; x: number; order: number }[]>();
+  const business = new Map<RowId, string>();
   for (const agent of agents) {
     const c = card(agent, company, now);
     if (!c) continue;
@@ -118,12 +123,15 @@ export function boardModel(
     // by the desk when it has one, so a row reads left to right as the room does
     const entry = { card: c, x: seat?.desk[0] ?? 0, order: seat ? 0 : 1 };
     rows.set(id, [...(rows.get(id) ?? []), entry]);
+    if (agent.business_unit_key) business.set(id, agent.business_unit_key);
   }
   return [...rows]
     .sort(([a, left], [b, right]) => floorOrder(left) - floorOrder(right) || a.localeCompare(b))
     .map(([id, entries]) => ({
       id,
       label: rowLabel(id, names),
+      business: business.get(id) ?? null,
+      businessColor: business.has(id) ? colors[business.get(id)!] : null,
       cards: entries
         .sort((l, r) => l.order - r.order || l.x - r.x || l.card.name.localeCompare(r.card.name))
         .map((entry) => entry.card),

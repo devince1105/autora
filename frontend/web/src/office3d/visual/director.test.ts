@@ -204,3 +204,49 @@ describe("routes", () => {
     expect(routeFor({ kind: "walk", agentId: "stranger", target: { role: "analyst" }, carry: "none", returnAfter: false, seq: 1 }, { members, seats })).toBeNull();
   });
 });
+
+describe("carrying work to another department (T-600 batch 4)", () => {
+  const placed = (zone: string | null, over: Partial<AgentState> = {}) =>
+    ({ ...Object.values(agents)[0], office_zone_key: zone, ...over }) as AgentState;
+
+  it("to a colleague's desk in the same room, to the door of another", () => {
+    const done = first("AGENT_RUN_COMPLETED", (e) => handoffRoles(e).length === 1);
+    const [role] = handoffRoles(done);
+    const mine = placed("research", { id: done.agent_id as string, role: "researcher" });
+
+    // the colleague sits in the same room: the courier walks to the desk, as before
+    const together = {
+      [mine.id]: mine,
+      colleague: placed("research", { id: "colleague", role }),
+    };
+    expect(cuesFor(done, together, at(done))).toMatchObject([{ target: { role } }]);
+
+    // the colleague works in another department: it goes to that room's door instead
+    const apart = {
+      [mine.id]: mine,
+      colleague: placed("editorial", { id: "colleague", role }),
+    };
+    expect(cuesFor(done, apart, at(done))).toMatchObject([{ target: { door: "editorial" } }]);
+  });
+
+  it("a role nobody holds is still walked to its desk", () => {
+    const done = first("AGENT_RUN_COMPLETED", (e) => handoffRoles(e).length === 1);
+    const [role] = handoffRoles(done);
+    const alone = { [done.agent_id as string]: placed("research", { id: done.agent_id as string }) };
+    expect(cuesFor(done, alone, at(done))).toMatchObject([{ target: { role } }]);
+  });
+
+  it("two walks to the same door are one walk", () => {
+    const door = (seq: number): WalkCue => ({
+      kind: "walk", agentId: "a", target: { door: "editorial" }, carry: "document",
+      returnAfter: true, seq,
+    });  // fmt: skip
+    const q = new CueQueue();
+    q.apply([door(1)], 0);
+    q.apply([door(2)], 0);
+    expect(q.queued("a")).toHaveLength(1);
+    // and a different room is a different walk
+    q.apply([{ ...door(3), target: { door: "growth" } }], 0);
+    expect(q.queued("a")).toHaveLength(2);
+  });
+});

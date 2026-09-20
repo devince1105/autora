@@ -6,6 +6,7 @@ import {
   assignSeats,
   CEO_OFFICE,
   CORRIDORS,
+  doorOf,
   DECOR,
   ENTRANCE,
   LABELS,
@@ -230,3 +231,31 @@ describe("zones, entrance and labels (T-413)", () => {
 function rectAroundSeat(seat: Seat): Omit<Rect, "name"> {
   return { minX: Math.min(seat.desk[0], seat.chair[0]) - 0.75, maxX: Math.max(seat.desk[0], seat.chair[0]) + 0.75, minZ: seat.desk[1] - 0.4, maxZ: seat.chair[1] + 0.3 };
 }
+
+describe("the door of a department (T-600 batch 4)", () => {
+  it("every open-plan room is entered from the front corridor, the CEO's through its door", () => {
+    for (const zone of ["research", "editorial", "growth", "spare", "lobby"] as const) {
+      const { point, lane } = doorOf(zone);
+      const area = ZONES[zone];
+      expect(lane).toBe("front");
+      expect(point[0]).toBeGreaterThan(area.minX);
+      expect(point[0]).toBeLessThan(area.maxX);
+      // just outside the room, in the walkway, and clear of the furniture
+      expect(point[1]).toBeGreaterThan(CORRIDORS.front.minZ - 0.1);
+      expect(point[1]).toBeLessThan(CORRIDORS.front.maxZ + 0.1);
+      expect(obstacles().some((o) => inside(point, o))).toBe(false);
+    }
+    const ceo = doorOf("ceo");
+    expect(ceo.lane).toBe("back");
+    expect(Math.abs(ceo.point[0] - CEO_OFFICE.doorX)).toBeLessThan(0.01);
+  });
+
+  it("a walk to a door ends there, and the path stays out of the furniture", () => {
+    const [seat] = seatsForRole("researcher", 1);
+    const path = walkPath(seat, { door: "editorial" });
+    expect(path.at(-1)).toEqual(doorOf("editorial").point);
+    for (const { point } of samples(path)) {
+      expect(inRoom(point)).toBe(true);
+    }
+  });
+});

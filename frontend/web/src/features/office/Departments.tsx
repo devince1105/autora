@@ -19,7 +19,7 @@ import { useMemo } from "react";
 
 import { orgQuery } from "@/api/queries";
 import type { components } from "@/api/schema.gen";
-import { DEPARTMENT_LABEL } from "@/office3d/OfficeCanvas";
+import { businessColors, DEPARTMENT_LABEL } from "@/office3d/OfficeCanvas";
 import { useRealtime } from "@/stores/realtime";
 import { useUi, type EnteredDepartment } from "@/stores/ui";
 
@@ -27,6 +27,8 @@ export interface DepartmentEntry extends EnteredDepartment {
   label: string;
   headcount: number;
   business: string | null;
+  /** The colour the office marks this business with; null for a company-wide function. */
+  businessColor: string | null;
 }
 
 interface RosterAgent {
@@ -46,6 +48,7 @@ export function departmentsOf(
   agents: readonly RosterAgent[],
   names: Readonly<Record<string, string>> = {},
 ): DepartmentEntry[] {
+  const colors = businessColors(agents.map((a) => a.business_unit_key ?? null));
   const found = new Map<string, DepartmentEntry>();
   for (const agent of agents) {
     const key = agent.department_key ?? agent.office_zone_key;
@@ -58,7 +61,8 @@ export function departmentsOf(
         zone: agent.office_zone_key ?? key,
         label: names[key] ?? DEPARTMENT_LABEL[key] ?? key,
         headcount: 1,
-        business: agent.business_unit_key,
+        business: agent.business_unit_key ?? null,
+        businessColor: agent.business_unit_key ? colors[agent.business_unit_key] : null,
       });
   }
   return [...found.values()].sort(
@@ -126,6 +130,14 @@ export function DepartmentStrip({ companyId }: { companyId: string }) {
             entered?.key === department.key ? "bg-accent text-canvas" : "text-muted"
           }`}
         >
+          {department.businessColor ? (
+            <span
+              aria-hidden
+              data-testid={`department-business-${department.key}`}
+              className="mr-1.5 inline-block size-2 rounded-full align-middle"
+              style={{ backgroundColor: department.businessColor }}
+            />
+          ) : null}
           {department.label}
           <span className="ml-1.5 tabular-nums opacity-70">{department.headcount}</span>
         </button>

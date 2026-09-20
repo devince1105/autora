@@ -167,3 +167,33 @@ describe("OfficeBoard2D", () => {
     expect(screen.getByText("這間公司還沒有代理。")).toBeTruthy();
   });
 });
+
+describe("the board says which business each room works for (T-600 batch 4)", () => {
+  const withBusiness = (agents: RealtimeState["agents"]) =>
+    Object.fromEntries(
+      Object.entries(agents).map(([id, agent], i) => [
+        id,
+        {
+          ...agent,
+          department_key: i < 2 ? "newsroom_research" : "newsroom_writing",
+          office_zone_key: i < 2 ? "research" : "editorial",
+          business_unit_key: i < 4 ? "ai_media" : "ai_edu",
+        },
+      ]),
+    );
+
+  it("rooms of one business share a colour; another business gets its own", () => {
+    const company = replay();
+    const rows = boardModel({ ...company, agents: withBusiness(company.agents) }, new Date(events.at(-1)!.occurred_at));
+    const colours = new Map(rows.map((r) => [r.business, r.businessColor]));
+    expect(colours.get("ai_media")).toBeTruthy();
+    expect(colours.get("ai_edu")).toBeTruthy();
+    expect(colours.get("ai_media")).not.toBe(colours.get("ai_edu"));
+  });
+
+  it("a room with nobody's business shows no colour at all", () => {
+    const company = replay();
+    const rows = boardModel(company, new Date(events.at(-1)!.occurred_at));
+    expect(rows.every((r) => r.businessColor === null)).toBe(true);
+  });
+});

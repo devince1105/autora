@@ -323,10 +323,38 @@ export const DOORS = [
 
 // --- walking ----------------------------------------------------------------------------------
 
-export type WalkTarget = Seat | "approval";
+export type WalkTarget = Seat | "approval" | { door: string };
+
+/**
+ * Where a department is entered from the corridor: the middle of its edge, on the lane that
+ * runs past it (T-600 batch 4).
+ *
+ * The key comes from the server (a department's ``office_zone_key``), so it may name a room
+ * this floor does not draw; that falls back to the middle of the walkway, which is where
+ * somebody with nowhere to go would in fact stand.
+ *
+ * A courier carrying work to another department stops here rather than at somebody's desk.
+ * That is not only an animation choice: the work goes to whichever colleague claims it next,
+ * so walking to one particular desk would draw a hand-over that is not what happened.
+ */
+export function doorOf(zone: string): { point: Vec2; lane: Lane } {
+  if (zone === "ceo") {
+    // the one room with an actual door: the opening in its glass front
+    return { point: [CEO_OFFICE.doorX, BACK_ROOMS_Z + 0.5], lane: "back" };
+  }
+  const area = ZONES[zone as keyof typeof ZONES];
+  if (!area) return { point: [SPINE_X, LANES.front], lane: "front" };
+  const middle = (area.minX + area.maxX) / 2;
+  // every open-plan zone opens onto the front corridor: the work row from its front edge, the
+  // rest from their back edge, both stopping just inside the walkway
+  const inCorridor = area.maxZ <= CORRIDORS.front.minZ ? area.maxZ + 0.6 : area.minZ - 0.6;
+  return { point: [middle, inCorridor], lane: "front" };
+}
 
 function approachOf(target: WalkTarget): { point: Vec2; lane: Lane } {
-  return target === "approval" ? { point: APPROVAL_DESK.approach, lane: "front" } : { point: target.approach, lane: target.lane };
+  if (target === "approval") return { point: APPROVAL_DESK.approach, lane: "front" };
+  if ("door" in target) return doorOf(target.door);
+  return { point: target.approach, lane: target.lane };
 }
 
 /**

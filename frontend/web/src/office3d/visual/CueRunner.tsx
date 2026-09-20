@@ -9,7 +9,7 @@ import { realtimeStore, serverNow, type RealtimeStoreState } from "@/stores/real
 
 import type { Roster } from "../agents/roster";
 import { useRoster } from "../agents/roster";
-import { APPROVAL_DESK, seatsForRole, walkPath, type Seat, type Vec2 } from "../scene/layout";
+import { APPROVAL_DESK, doorOf, seatsForRole, walkPath, type Seat, type Vec2 } from "../scene/layout";
 import type { WalkCue } from "./cues";
 import { cuesFor, CueQueue } from "./director";
 
@@ -75,8 +75,9 @@ export interface Route {
 export function routeFor(cue: WalkCue, roster: Pick<Roster, "members" | "seats">): Route | null {
   const from = roster.seats.get(cue.agentId);
   if (!from) return null;
-  let to: Seat | "approval";
+  let to: Seat | "approval" | { door: string };
   if ("place" in cue.target) to = "approval";
+  else if ("door" in cue.target) to = { door: cue.target.door };
   else {
     const role = cue.target.role;
     const colleague = roster.members.find((m) => m.role === role && m.id !== cue.agentId && roster.seats.has(m.id));
@@ -88,7 +89,12 @@ export function routeFor(cue: WalkCue, roster: Pick<Roster, "members" | "seats">
   let length = 0;
   for (let i = 1; i < path.length; i++) length += Math.hypot(path[i][0] - path[i - 1][0], path[i][1] - path[i - 1][1]);
   const walking = (length / WALK_SPEED) * 1000 * (cue.returnAfter ? 2 : 1);
-  const lookAt = to === "approval" ? APPROVAL_DESK.center : to.chair;
+  const lookAt =
+    to === "approval"
+      ? APPROVAL_DESK.center
+      : "door" in to
+        ? doorOf(to.door).point // it hands the work over at the room's door and comes back
+        : to.chair;
   return { path, length, durationMs: Math.round(walking + HANDOVER_MS), lookAt, returnAfter: cue.returnAfter };
 }
 

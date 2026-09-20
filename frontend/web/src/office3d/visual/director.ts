@@ -27,6 +27,11 @@ export function agentOf(event: EventEnvelope): string | null {
 }
 
 /** The cues one event asks for. `now` is server time; `agents` the company's agents. */
+/** The room an agent works in: its department's zone, or none when it has no place yet. */
+function roomOf(agent: AgentState | undefined): string | null {
+  return agent?.office_zone_key ?? null;
+}
+
 export function cuesFor(event: EventEnvelope, agents: Record<string, AgentState>, now: Date): VisualCue[] {
   if (event.seq === null) return [];
   if (Date.parse(event.occurred_at) < now.getTime() - CUE_TTL_MS) return [];
@@ -34,6 +39,22 @@ export function cuesFor(event: EventEnvelope, agents: Record<string, AgentState>
   const agentId = agentOf(event);
   const payload = event.payload as Payload;
   const walk = (target: WalkCue["target"]): WalkCue => ({ kind: "walk", agentId: agentId!, target, carry: "document", returnAfter: true, seq });
+  /**
+   * Where work going to `role` is carried (T-600 batch 4).
+   *
+   * To a colleague's desk when one of them sits in this agent's own room; to the door of the
+   * room they work in when they do not. Nothing is invented for a role nobody holds — that is
+   * still a walk to the desk the floor plan keeps for it.
+   */
+  const handTo = (role: string): WalkCue => {
+    const mine = agentId ? agents[agentId] : undefined;
+    const holders = Object.values(agents).filter((a) => a.role === role && a.id !== agentId);
+    if (holders.length === 0) return walk({ role });
+    const here = holders.some((a) => roomOf(a) === roomOf(mine));
+    if (here) return walk({ role });
+    const room = roomOf(holders[0]);
+    return room ? walk({ door: room }) : walk({ role });
+  };
 
   switch (event.event_type) {
     case "AGENT_RUN_STARTED":
@@ -41,12 +62,12 @@ export function cuesFor(event: EventEnvelope, agents: Record<string, AgentState>
     case "AGENT_RUN_COMPLETED": {
       if (!agentId) return [];
       const roles = new Set(((payload.handoff as { to_role: string }[] | undefined) ?? []).map((h) => h.to_role));
-      return [...roles].map((role) => walk({ role }));
+      return [...roles].map(handTo);
     }
     case "TASK_SUCCEEDED": {
       if (!agentId) return [];
       const roles = new Set(((payload.unlocks as { required_role: string }[] | undefined) ?? []).map((u) => u.required_role));
-      return [...roles].map((role) => (role === "human" ? walk({ place: "approval" }) : walk({ role })));
+      return [...roles].map((role) => (role === "human" ? walk({ place: "approval" }) : handTo(role)));
     }
     case "APPROVAL_REQUESTED":
       return agentId ? [walk({ place: "approval" })] : [];
