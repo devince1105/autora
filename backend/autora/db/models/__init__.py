@@ -12,6 +12,8 @@ from autora.db.models.company import (
     CycleStage,
     GoalLevel,
     GoalStatus,
+    KpiScope,
+    KpiSnapshot,
 )
 from autora.db.models.finance import (
     Budget,
@@ -78,6 +80,8 @@ __all__ = [
     "CycleStage",
     "EventRecord",
     "GoalLevel",
+    "KpiScope",
+    "KpiSnapshot",
     "GoalStatus",
     "ModelCall",
     "ModelCallStatus",

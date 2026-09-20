@@ -7,8 +7,9 @@ Computed on read with plain SQL, never by an LLM (platform/02). "Today" is the U
 - **expenses_today** = today's expense transactions + today's model call costs.
 - **model_cost_today** = today's model call costs (included in expenses_today).
 - **revenue_today** = today's revenue transactions.
-- **published_today** = today's ARTICLE_PUBLISHED events (T-512); counted from events, so the
-  company layer needs nothing from the newsroom domain.
+- **domain_metrics** = whatever the registered domains counted for today, under their own names
+  (``newsroom.published_articles``). The company layer does not know what any of them mean —
+  that is the point: it stores numbers, domains define them (T-603).
 - **goal**: the active cycle goal due soonest (or the latest active one without a deadline).
 
 Model costs are counted once, from ``model_calls``, the source of truth for model spend
@@ -21,14 +22,15 @@ from __future__ import annotations
 import uuid
 from datetime import UTC, datetime, timedelta
 from decimal import Decimal
+from typing import Any
 
 from pydantic import BaseModel
 from sqlalchemy import case, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from autora.company.reporting import Reporting, Window
 from autora.db.models import (
     CompanyGoal,
-    EventRecord,
     GoalLevel,
     GoalStatus,
     ModelCall,
@@ -37,7 +39,6 @@ from autora.db.models import (
 )
 
 MODEL_COST_CATEGORY = "model_cost"
-PUBLISHED_EVENT = "ARTICLE_PUBLISHED"
 ZERO = Decimal(0)
 
 
@@ -57,8 +58,8 @@ class Kpis(BaseModel):
     revenue_today: Decimal
     expenses_today: Decimal
     model_cost_today: Decimal
-    published_today: int | None = None
-    """Articles published today (None only from older API versions)."""
+    domain_metrics: dict[str, Any] = {}
+    """Today's numbers from each domain, prefixed with the domain that defined them."""
     goal: GoalView | None = None
 
 
@@ -67,7 +68,11 @@ def day_start(now: datetime) -> datetime:
 
 
 async def load_kpis(
-    session: AsyncSession, company_id: uuid.UUID, *, now: datetime | None = None
+    session: AsyncSession,
+    company_id: uuid.UUID,
+    *,
+    now: datetime | None = None,
+    reporting: Reporting | None = None,
 ) -> Kpis:
     now = now or datetime.now(UTC)
     today = day_start(now)
@@ -130,16 +135,14 @@ async def load_kpis(
         )
     ).one()
 
-    published_today = await session.scalar(
-        select(func.count())
-        .select_from(EventRecord)
-        .where(
-            EventRecord.company_id == company_id,
-            EventRecord.event_type == PUBLISHED_EVENT,
-            EventRecord.occurred_at >= today,
-            EventRecord.occurred_at <= now,
-        )
-    )
+    domain_metrics: dict[str, Any] = {}
+    if reporting is not None:
+        window = Window(company_id=company_id, since=today, until=now)
+        domain_metrics = {
+            key: value
+            for key, value in (await reporting.metrics_for(session, window)).items()
+            if "." in key  # the core's own figures are already fields above
+        }
 
     goal = await session.scalar(
         select(CompanyGoal)
@@ -158,6 +161,6 @@ async def load_kpis(
         revenue_today=revenue,
         expenses_today=expenses + model_today,
         model_cost_today=model_today,
-        published_today=int(published_today or 0),
+        domain_metrics=domain_metrics,
         goal=GoalView.model_validate(goal, from_attributes=True) if goal else None,
     )

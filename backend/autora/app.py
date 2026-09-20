@@ -17,6 +17,7 @@ if TYPE_CHECKING:
 
     from autora.company.cycle import CycleRunner
     from autora.company.ledger import Ledger
+    from autora.company.reporting import Reporting
     from autora.infra.blobstore import BlobStore
     from autora.infra.http import PageFetcher
     from autora.infra.search import SearchProvider
@@ -223,13 +224,16 @@ class Runtime:
     services: ServiceRegistry
     cycles: CycleRunner
     ledger: Ledger
+    reporting: Reporting
 
 
 def build_runtime(settings: Settings | None = None) -> Runtime:
     from autora.company.cycle import CycleRunner, work_is_finished
     from autora.company.ledger import Ledger
+    from autora.company.reporting import Reporting
     from autora.db.models import CycleStage
     from autora.domains import newsroom
+    from autora.domains.newsroom import kpis as newsroom_kpis
     from autora.runtime.approvals import ApprovalService
     from autora.runtime.dag import WorkflowEngine
     from autora.runtime.services import ServiceRegistry
@@ -246,7 +250,11 @@ def build_runtime(settings: Settings | None = None) -> Runtime:
     cycles = CycleRunner()
     cycles.finishes_when(CycleStage.EXECUTING, work_is_finished)
     ledger = Ledger()
+    reporting = Reporting()
+    reporting.register(newsroom_kpis.NAME, newsroom_kpis.kpis)
+    # order matters: the ledger settles the cycle's costs, then reporting measures them
     cycles.when_entering(CycleStage.MEASURING, ledger.stage_hook())
+    cycles.when_entering(CycleStage.MEASURING, reporting.stage_hook())
     runtime = Runtime(
         task_manager=task_manager,
         templates=templates,
@@ -256,6 +264,7 @@ def build_runtime(settings: Settings | None = None) -> Runtime:
         services=ServiceRegistry(),
         cycles=cycles,
         ledger=ledger,
+        reporting=reporting,
     )
     newsroom.register(runtime)
     return runtime

@@ -7,10 +7,13 @@ import pytest
 from sqlalchemy import func, select
 
 from autora.app import build_policy_engine
+from autora.company.reporting import Reporting
 from autora.company.reporting_min import load_kpis
 from autora.db.models import Agent, EventRecord, PolicyDecision, StateTransition
 from autora.db.repositories.companies import upsert_policy
 from autora.domains.newsroom.articles import ARTICLE_FSM
+from autora.domains.newsroom.kpis import NAME
+from autora.domains.newsroom.kpis import kpis as newsroom_kpis
 from autora.domains.newsroom.models import Article, Distribution, Story
 from autora.domains.newsroom.publisher import (
     NotAllowed,
@@ -219,8 +222,11 @@ async def test_publish_once(newsroom_room):
         "distribution_id"
     ] == str(site.id)
 
-    async with room.committed() as session:  # the dashboard counts it (T-314's KPI)
-        assert (await load_kpis(session, room.company.id)).published_today == 1
+    async with room.committed() as session:  # the dashboard counts it, via the newsroom's own
+        reporting = Reporting()  # KPI hook: the company layer stores the number,
+        reporting.register(NAME, newsroom_kpis)  # the newsroom is what knows it means articles
+        kpis = await load_kpis(session, room.company.id, reporting=reporting)
+        assert kpis.domain_metrics["newsroom.published_articles"] == 1
 
     again = await publish(room, article_id)  # a retried node, a double click
     assert (

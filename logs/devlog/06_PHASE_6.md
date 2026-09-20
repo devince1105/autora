@@ -35,7 +35,7 @@
 | T-600 | **組織模型（v2）**：`business_units`、`departments`、`roles`、`products` 四張表；代理歸屬部門與職務；事業歸屬；種子資料與 API | `ARCHITECTURE_V2.md` | 🚧 |
 | T-601 | Cycle FSM + stage runner + deadlines（`cycles` 表、五階段、逾時強制推進） | T-212、T-104 | ✅ |
 | T-602 | Ledger：`model_calls` → expense 結算、餘額與已花額度 | T-209、T-103 | ✅ |
-| T-603 | Reporting + CompanySnapshot（token 上限）、`kpi_snapshots` | T-602、T-516 | ⬜ |
+| T-603 | Reporting + CompanySnapshot（token 上限）、`kpi_snapshots` | T-602、T-516 | 🚧 |
 | T-604 | 命令管線（`submit_command`：instantiate_workflow、pause/kill、allocate_budget、update_strategy）、`commands_log` | T-205 | ⬜ |
 | T-609 | `agent_memory`（最近 N 次執行的摘要進 context，TTL 30 天、每個代理 ≤ 50 列） | T-211 | ⬜ |
 | T-605 | CEO 代理（`CyclePlan` / `CycleReview` schema、validators、提示、模擬回應） | T-211、T-603、T-604 | ⬜ |
@@ -186,6 +186,38 @@ Company
 **順手修掉自己測試裡的一個洞**：`test_organization.py` 有兩個查事件的斷言沒有篩公司。單獨跑看不出來，但新的 API 測試會 commit 資料，一跑全套就撞上。已補上公司條件——這種測試在單獨跑時會騙人。
 
 **這一批還沒做**：3D 辦公室還沒改成可進入的部門（`layout.ts` 的 `SLOTS`、`palette.ts` 的封閉 union、導覽、相機、信差路徑、2D 備援都要動，見 `ARCHITECTURE_V2.md` §14.7），留給第三批。
+
+---
+
+## T-603 · Reporting（第一批：KPI 與領域掛鉤）
+
+### 核心只數錢，領域數自己的東西
+這是 `ARCHITECTURE_V2_1.md` §9 指出的那個真耦合的修法。原本 `company/reporting_min.py` 直接數 `ARTICLE_PUBLISHED` 事件，欄位還叫 `published_today`——**import-linter 攔不到它，因為那是一個字串**。
+
+現在：領域註冊一個 KPI 掛鉤，公司層只存數字。
+
+- 公司層自己的指標**不帶前綴**：`cost_usd`、`model_cost_usd`、`revenue_usd`、`profit_usd`、`model_calls`。
+- 領域的指標**帶自己的名字**：`newsroom.published_articles`、`newsroom.views`、`newsroom.cost_per_published_article`。
+- 於是**讀一個指標就知道是誰算的**，而且刪掉一個領域只會少掉它的指標，報表其他部分照常成立。
+- 一個掛鉤爆炸只會失去它自己的數字（記在 log），不會讓整份報表消失。
+
+**掛鉤會拿到公司層剛算好的數字**（第三個參數）。理由是像「每篇文章成本」這種比率**一邊是領域的單位、一邊是公司的錢**，兩邊必須來自同一次量測，不能各查一次然後互相矛盾。AI Media 的 kill criteria 正是寫在 `cost_per_published_article` 上，所以它只能有一個意思。
+
+`reporting_min` 的 `published_today` 欄位改成通用的 `domain_metrics`；儀表板那塊磚改讀 `newsroom.published_articles`——**「知道有新聞室」這件事搬到 UI，不再留在 Core**。
+
+### `kpi_snapshots`（migration 0025）
+每輪量測三種範圍：公司、每個事業、每個進行中的專案。唯一鍵是 `(cycle, scope, business_unit, project)` 且 NULL 視為相等，所以 **MEASURING 重跑會就地更新，不會寫出第二份**。掛在 cycle 的 MEASURING，**排在帳本之後**——先結算，再量測。
+
+### 一個順手修掉的錯誤定義
+修訂數（`revisions_requested`）本來想用 `articles.revision_count` 搭配 `updated_at` 篩視窗。那是錯的：計數器說的是「這篇文章總共被退回幾次」，而 `updated_at` 會因為無關的原因跳動，**兩者都答不出「什麼時候被退回」**。改成數 `ARTICLE_REVISION_REQUESTED` 事件——事件知道時間。
+
+### 驗證
+- `pytest tests/company/test_reporting.py`：17 個（公司層只數錢、結算過的模型成本不重複計、視窗外的不算、事業透過專案量測、領域指標帶前綴、掛鉤拿得到公司數字、壞掉的掛鉤只失去自己、註冊一次、**沒有任何領域也能產出完整報表**、三種範圍、重跑就地更新、事件只發一次、結束的 cycle 量到結束時間、KILLED 的專案不再量測、讀取最新與歷史）。
+- `pytest tests/newsroom/test_kpis.py`：6 個（發布數與讀者數、比率與公司成本同源、沒發布就不報每篇成本（回 0 或無限大都會被讀成新聞）、別輪的文章不算、**另一個事業拿不到新聞室的數字**、專案只看自己的題材）。
+- 後端 971 個測試通過；web 254、事件契約 8 通過；`ruff`、`typecheck`、`lint-imports`、`db-check`、`gen-schema-check`、`gen-api-check` 通過。
+
+### 這一批還沒做
+CompanySnapshot（CEO 的輸入）與它的 token 上限、`GET /api/companies/{id}/snapshot`，下一批做。
 
 ---
 

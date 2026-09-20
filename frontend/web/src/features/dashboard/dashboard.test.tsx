@@ -35,7 +35,7 @@ const kpis: KpisData = {
   revenue_today: "12.500000",
   expenses_today: "2.400000",
   model_cost_today: "0.400000",
-  published_today: null,
+  domain_metrics: { "newsroom.published_articles": 3 },
   goal: { title: "發布 3 篇雙語文章", metric: "published_articles", target: "3", current: "1", deadline: null },
 };
 const live = { status: "live" as const, serverOffsetMs: 0, lastEventAt: Date.now() };
@@ -92,7 +92,7 @@ describe("dashboard view", () => {
     expect(within(screen.getByTestId("expenses")).getByText(/其中模型費用 US\$0\.40/)).toBeTruthy();
     expect(within(screen.getByTestId("agents")).getByText(`/ ${model.agents.total}`, { exact: false })).toBeTruthy();
     expect(within(screen.getByTestId("tasks")).getByText(String(model.tasks.active))).toBeTruthy();
-    expect(within(screen.getByTestId("published")).getByText("文章功能於階段 5 上線")).toBeTruthy();
+    expect(within(screen.getByTestId("published")).getByText("3")).toBeTruthy();
     expect(within(screen.getByTestId("goal")).getByText("發布 3 篇雙語文章")).toBeTruthy();
     expect(screen.getByRole("status").textContent).toContain("即時");
     expect(screen.queryByRole("alert")).toBeNull();

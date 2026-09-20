@@ -177,7 +177,7 @@ export function DashboardView({
           testId="published"
           label="今日發布"
           value={model.publishedToday ?? PENDING}
-          detail={model.publishedToday === null ? "文章功能於階段 5 上線" : null}
+          detail={model.publishedToday === null ? "這間公司沒有新聞室" : null}
         />
         <Tile
           testId="goal"

@@ -12,7 +12,14 @@ from sqlalchemy import CheckConstraint, ForeignKey, UniqueConstraint, func, text
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column
 
-from autora.db.base import Base, IdMixin, TimestampMixin, check_in, check_regex
+from autora.db.base import (
+    Base,
+    CreatedAtMixin,
+    IdMixin,
+    TimestampMixin,
+    check_in,
+    check_regex,
+)
 
 
 class CompanyType(StrEnum):
@@ -141,3 +148,44 @@ class Cycle(IdMixin, TimestampMixin, Base):
     stage_deadline: Mapped[datetime | None]
     """When the current stage is advanced whether or not its work finished."""
     ended_at: Mapped[datetime | None]
+
+
+class KpiScope(StrEnum):
+    COMPANY = "company"
+    BUSINESS_UNIT = "business_unit"
+    PROJECT = "project"
+
+
+class KpiSnapshot(IdMixin, CreatedAtMixin, Base):
+    """What a scope achieved and what it cost, for one cycle (platform/06 §2, T-603).
+
+    Written by Reporting in MEASURING, after the ledger has settled, and never by a model: a
+    KPI is arithmetic over rows that already exist, so it is reproducible and cheap to redo.
+
+    ``metrics`` is a flat map of numbers, and the names say where each came from: the company
+    layer's own are bare (``cost_usd``, ``revenue_usd``, ``profit_usd``), a domain's carry the
+    domain's name (``newsroom.published_articles``). The core stores numbers; it does not know
+    what a published article is.
+    """
+
+    __tablename__ = "kpi_snapshots"
+    __table_args__ = (
+        UniqueConstraint(
+            "cycle_id",
+            "scope",
+            "business_unit_id",
+            "project_id",
+            postgresql_nulls_not_distinct=True,
+        ),
+        check_in("scope", KpiScope),
+    )
+
+    company_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("companies.id"), index=True)
+    cycle_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("cycles.id"), index=True)
+    business_unit_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("business_units.id"))
+    project_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("projects.id"))
+    scope: Mapped[str]
+    """Which of the three the numbers are about; the matching id column is set, the others null."""
+    metrics: Mapped[dict[str, Any]] = mapped_column(JSONB, server_default=text("'{}'::jsonb"))
+    period_start: Mapped[datetime]
+    period_end: Mapped[datetime]

@@ -11,7 +11,8 @@ export interface KpisData {
   revenue_today: string;
   expenses_today: string;
   model_cost_today: string;
-  published_today?: number | null;
+  /** Today's numbers from each domain, prefixed by the domain that defined them (T-603). */
+  domain_metrics?: Record<string, unknown> | null;
   goal?: {
     title: string;
     metric: string;
@@ -37,6 +38,12 @@ export interface DashboardModel {
   publishedToday: number | null;
   goal: { title: string; current: number | null; target: number; deadline: string | null } | null;
   connection: { status: Connection["status"]; staleSeconds: number | null };
+}
+
+function toCount(value: unknown): number | null {
+  if (value === undefined || value === null) return null;
+  const count = Number(value);
+  return Number.isFinite(count) ? count : null;
 }
 
 export function dashboardModel(
@@ -80,7 +87,9 @@ export function dashboardModel(
       : null,
     agents,
     tasks,
-    publishedToday: kpis?.published_today ?? null,
+    // the company layer stores numbers without knowing what they mean; this tile is the
+    // newsroom's, so naming the newsroom belongs here rather than in the backend
+    publishedToday: toCount(kpis?.domain_metrics?.["newsroom.published_articles"]),
     goal: kpis?.goal
       ? {
           title: kpis.goal.title,

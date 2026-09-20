@@ -218,7 +218,8 @@ export interface paths {
         };
         /**
          * Get Kpis
-         * @description Cash, today's revenue and expenses (model calls included), today's goal.
+         * @description Cash, today's revenue and expenses (model calls included), today's goal, and whatever
+         *     each domain counted today under its own name.
          */
         get: operations["get_kpis_api_companies__company_id__kpis_get"];
         put?: never;
@@ -1151,13 +1152,18 @@ export interface components {
              * @default USD
              */
             currency: string;
+            /**
+             * Domain Metrics
+             * @default {}
+             */
+            domain_metrics: {
+                [key: string]: unknown;
+            };
             /** Expenses Today */
             expenses_today: string;
             goal?: components["schemas"]["GoalView"] | null;
             /** Model Cost Today */
             model_cost_today: string;
-            /** Published Today */
-            published_today?: number | null;
             /** Revenue Today */
             revenue_today: string;
         };

@@ -1640,6 +1640,12 @@
       "title": "Currency",
       "type": "string"
      },
+     "domain_metrics": {
+      "additionalProperties": true,
+      "default": {},
+      "title": "Domain Metrics",
+      "type": "object"
+     },
      "expenses_today": {
       "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
       "title": "Expenses Today",
@@ -1659,17 +1665,6 @@
       "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
       "title": "Model Cost Today",
       "type": "string"
-     },
-     "published_today": {
-      "anyOf": [
-       {
-        "type": "integer"
-       },
-       {
-        "type": "null"
-       }
-      ],
-      "title": "Published Today"
      },
      "revenue_today": {
       "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
@@ -4317,7 +4312,7 @@
   },
   "/api/companies/{company_id}/kpis": {
    "get": {
-    "description": "Cash, today's revenue and expenses (model calls included), today's goal.",
+    "description": "Cash, today's revenue and expenses (model calls included), today's goal, and whatever\neach domain counted today under its own name.",
     "operationId": "get_kpis_api_companies__company_id__kpis_get",
     "parameters": [
      {
