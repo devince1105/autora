@@ -249,6 +249,7 @@ CompanySnapshot（CEO 的輸入）與它的 token 上限、`GET /api/companies/{
 
 | 提交 | 日期 | 內容 | 持續整合 |
 |---|---|---|---|
+| `2c66378` | 2026-09-20 | T-603 第二批：CompanySnapshot、token 上限與裁剪紀錄、`/snapshot` API | ✅ 執行編號 `35493172070`（web 1 分 16 秒、e2e 5 分 53 秒、python 3 分 13 秒） |
 | `c6c8dd4` | 2026-09-20 | T-603 第一批：KPI 與領域掛鉤、`kpi_snapshots`、修掉 `ARTICLE_PUBLISHED` 耦合 | ✅ 執行編號 `35492557724`（web 59 秒、python 2 分 50 秒、e2e 7 分 11 秒） |
 | `278f802` | 2026-09-20 | T-600 第二批：新聞室的組織（AI Media 事業、部門與團隊、產品）、`/api/companies/{id}/org` | ✅ 執行編號 `35491545739`（e2e 6 分 26 秒、python 2 分 49 秒、web 1 分 16 秒） |
 | `eb29c3a` | 2026-09-20 | 修 web typecheck（測試 fixture 缺欄位）；`make lint-web` 補上 typecheck | ✅ 執行編號 `35491126802` |
