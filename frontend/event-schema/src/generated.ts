@@ -300,7 +300,7 @@ export const AnalyticsDailyUpdatedV1Event = z.object({
 });
 
 export const ApprovalApprovedV1Payload = z.object({
-  kind: z.enum(["tool_call", "command", "project", "kill", "strategy", "article"]),
+  kind: z.string(),
   ref_type: z.string(),
   ref_id: z.uuid(),
   reason: z.string().nullable().default(null),
@@ -314,7 +314,7 @@ export const ApprovalApprovedV1Event = z.object({
 });
 
 export const ApprovalExpiredV1Payload = z.object({
-  kind: z.enum(["tool_call", "command", "project", "kill", "strategy", "article"]),
+  kind: z.string(),
   ref_type: z.string(),
   ref_id: z.uuid(),
 });
@@ -327,7 +327,7 @@ export const ApprovalExpiredV1Event = z.object({
 });
 
 export const ApprovalRejectedV1Payload = z.object({
-  kind: z.enum(["tool_call", "command", "project", "kill", "strategy", "article"]),
+  kind: z.string(),
   ref_type: z.string(),
   ref_id: z.uuid(),
   reason: z.string().nullable().default(null),
@@ -341,7 +341,7 @@ export const ApprovalRejectedV1Event = z.object({
 });
 
 export const ApprovalRequestedV1Payload = z.object({
-  kind: z.enum(["tool_call", "command", "project", "kill", "strategy", "article"]),
+  kind: z.string(),
   ref_type: z.string(),
   ref_id: z.uuid(),
   summary: z.string(),

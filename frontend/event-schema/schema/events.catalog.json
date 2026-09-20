@@ -1155,14 +1155,6 @@
           "additionalProperties": false,
           "properties": {
             "kind": {
-              "enum": [
-                "tool_call",
-                "command",
-                "project",
-                "kill",
-                "strategy",
-                "article"
-              ],
               "title": "Kind",
               "type": "string"
             },
@@ -1205,14 +1197,6 @@
           "additionalProperties": false,
           "properties": {
             "kind": {
-              "enum": [
-                "tool_call",
-                "command",
-                "project",
-                "kill",
-                "strategy",
-                "article"
-              ],
               "title": "Kind",
               "type": "string"
             },
@@ -1243,14 +1227,6 @@
           "additionalProperties": false,
           "properties": {
             "kind": {
-              "enum": [
-                "tool_call",
-                "command",
-                "project",
-                "kill",
-                "strategy",
-                "article"
-              ],
               "title": "Kind",
               "type": "string"
             },
@@ -1293,14 +1269,6 @@
           "additionalProperties": false,
           "properties": {
             "kind": {
-              "enum": [
-                "tool_call",
-                "command",
-                "project",
-                "kill",
-                "strategy",
-                "article"
-              ],
               "title": "Kind",
               "type": "string"
             },

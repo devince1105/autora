@@ -34,6 +34,10 @@ PIPELINE = WorkflowTemplate(
     ),
 )
 
+DOMAIN_KIND = "shipment"
+"""A kind this domain-less layer has never heard of. The runtime stores the token and
+asks a person about it; what it means belongs to whoever asked (ARCHITECTURE_V2_1 §9)."""
+
 
 class Clock:
     def __init__(self):
@@ -199,7 +203,7 @@ async def test_human_node_approval_unlocks_the_next_step(db_session, world):
     assert approve.state == "READY"
 
     approval = await world["approvals"].request_for_task(
-        db_session, approve, kind=ApprovalKind.ARTICLE, summary="Publish 'EU AI Act explained'?"
+        db_session, approve, kind=DOMAIN_KIND, summary="Publish 'EU AI Act explained'?"
     )
     assert (await _reload(db_session, Task, approve.id)).state == "WAITING_APPROVAL"
     assert (await _reload(db_session, Task, tasks["publish"].id)).state == "PENDING"
@@ -234,7 +238,7 @@ async def test_rejected_article_cancels_publishing(db_session, world):
     approval = await world["approvals"].request_for_task(
         db_session,
         await _reload(db_session, Task, tasks["approve"].id),
-        kind=ApprovalKind.ARTICLE,
+        kind=DOMAIN_KIND,
         summary="Publish?",
     )
     await world["approvals"].decide(db_session, approval.id, outcome="reject", actor=OPERATOR)
@@ -246,9 +250,7 @@ async def test_only_ready_tasks_can_await_an_approval(db_session, world):
     task = await _task(world, db_session)
     await world["tm"].claim_next(db_session, world["agents"]["w1"], "worker-1")
     with pytest.raises(ApprovalError, match="only READY"):
-        await world["approvals"].request_for_task(
-            db_session, task, kind=ApprovalKind.ARTICLE, summary="x"
-        )
+        await world["approvals"].request_for_task(db_session, task, kind=DOMAIN_KIND, summary="x")
 
 
 # --- rules --------------------------------------------------------------------------------

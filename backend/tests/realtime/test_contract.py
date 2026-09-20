@@ -51,6 +51,10 @@ ATTEMPTS = 6
 """Draws per step. An operation that is illegal right now costs a draw, not the step: a
 history in which nothing happens for twenty steps exercises nothing."""
 
+DOMAIN_KIND = "shipment"
+"""A kind this domain-less layer has never heard of. The runtime stores the token and
+asks a person about it; what it means belongs to whoever asked (ARCHITECTURE_V2_1 §9)."""
+
 
 @dataclass
 class History:
@@ -173,7 +177,7 @@ class History:
     async def human_node(self, session):
         task = self.rng.choice(await self._tasks(session, required_role="human", state="READY"))
         await self.runtime.approvals.request_for_task(
-            session, task, kind=ApprovalKind.ARTICLE, summary="approve?"
+            session, task, kind=DOMAIN_KIND, summary="approve?"
         )
         return task.display_name
 

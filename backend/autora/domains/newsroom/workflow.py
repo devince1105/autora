@@ -32,7 +32,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from autora.company.agents import hire_agent
 from autora.company.organization import role_by_key
 from autora.company.workflows import StartWorkflowError, start_workflow
-from autora.db.models import Agent, AgentStatus, Approval, ApprovalKind, WorkflowRun
+from autora.db.models import Agent, AgentStatus, Approval, WorkflowRun
 from autora.domains.newsroom import organization
 from autora.domains.newsroom.models import Article, ArticleState, Story, StoryState
 from autora.domains.newsroom.publisher import (
@@ -52,6 +52,9 @@ TEMPLATE_NAME = "newsroom.story_to_article_v2"
 APPROVE = "newsroom.approve"
 PUBLISH = "newsroom.publish"
 APPROVE_ACTION = "approve_article"
+ARTICLE_APPROVAL = "article"
+"""What the newsroom asks people to decide about. The word is the newsroom's, not the
+runtime's: the runtime stores the token and does not know what an article is (§9)."""
 MAX_REVISIONS = 2  # review.MAX_REVISIONS: the editor's tool drops the story after that
 
 
@@ -216,7 +219,7 @@ async def approve_step(ctx: ServiceContext) -> None:
             await ctx.fail("NotAllowed", refused.reason)
             return
         await ctx.request_approval(
-            kind=ApprovalKind.ARTICLE,
+            kind=ARTICLE_APPROVAL,
             action=APPROVE_ACTION,
             summary=f"核准發布：{article.title}"[:300],
             payload={

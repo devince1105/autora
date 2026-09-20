@@ -4,7 +4,6 @@ import pytest
 from sqlalchemy import select
 
 from autora.db.models import (
-    ApprovalKind,
     EventRecord,
     Project,
     Task,
@@ -26,6 +25,10 @@ from autora.runtime.task_manager import TaskManager
 from tests.conftest import unique_company
 
 HUMAN = Actor.human("operator")
+
+DOMAIN_KIND = "shipment"
+"""A kind this domain-less layer has never heard of. The runtime stores the token and
+asks a person about it; what it means belongs to whoever asked (ARCHITECTURE_V2_1 §9)."""
 
 
 def _loop_template(max_rounds=2):
@@ -246,7 +249,7 @@ async def test_a_step_can_wait_for_a_person(committed):
 
     async def ask(ctx):
         await ctx.request_approval(
-            kind=ApprovalKind.ARTICLE, summary="ok?", action="t.ship", payload={"x": 1}
+            kind=DOMAIN_KIND, summary="ok?", action="t.ship", payload={"x": 1}
         )
 
     async def hook(session, approval, outcome, actor, reason):

@@ -45,12 +45,6 @@ VOCABULARY = (
 every one of them, which is the test §3 gives for what belongs in a domain."""
 
 KNOWN_LEAKS = {
-    # An approval kind the runtime knows by name. Publishing is a domain's idea of a decision;
-    # the runtime should carry the kind the domain registered. Changing it needs a migration
-    # and every newsroom caller, so it is written down here rather than quietly tolerated.
-    "runtime/events/catalog.py: 'article'",
-    "db/models/runtime.py: 'ARTICLE'",
-    "db/models/runtime.py: 'article'",
     # The company type taxonomy names the industries a company can be in. Arguably data rather
     # than vocabulary, but it does mean the core ships a list of businesses it knows about.
     "db/models/company.py: 'NEWSROOM'",

@@ -823,6 +823,37 @@ transactions: customer_id   -- 新增，可空
 
 ---
 
+## 修掉 `ApprovalKind.ARTICLE` · 執行層不該知道什麼是文章
+
+T-611 補上的詞彙掃描列了七處違規，這是其中最實在的一處：**`approvals.kind` 是一個固定清單的 enum，而清單裡有 `article`**。import-linter 攔不到它，因為那是一個字串——正是 `ARCHITECTURE_V2_1` §9 說的那種耦合。
+
+### 做法：它是一個詞，不是一張清單
+
+照這個儲存庫本來就有的先例——`transactions.category`——處理：
+
+- `ApprovalKind` enum 保留**執行層自己**要問的五種（工具呼叫、命令、專案、終止、策略），拿掉 `article`；
+- `approvals.kind` 的資料庫約束從「在這張清單裡」改成「**是一個小寫 token**」（migration 0033）；
+- 事件契約的 `ApprovalKind` 從 `Literal[...]` 變成 `str`；
+- 新聞室宣告自己的詞：`ARTICLE_APPROVAL = "article"`，就在它用的地方。
+
+**既有資料一列都不用動**：`article` 還是 `article`，只是它現在是新聞室的詞，不是執行層的。
+
+### 連測試也不該知道
+
+原本三個 runtime / realtime 的測試用 `ApprovalKind.ARTICLE`。把它們改成 import 新聞室的常數會是同一個錯誤搬個地方，所以它們各自宣告了一個**自己編的** kind（`"shipment"`）——那反而證明得更乾淨：執行層儲存任何 token，而且根本沒聽過新聞室的詞。
+
+### 棘輪少了兩格
+
+`test_core_vocabulary.py` 的 `KNOWN_LEAKS` 從七條減到五條（`runtime/events/catalog.py` 與 `db/models/runtime.py` 的三條走了）。這個測試會在**變多時紅、也會在變少而沒更新清單時紅**，所以這次的改動必須同時刪掉那三行——這正是它的用途。
+
+### 剩下的五條
+`Company.type` 的 `newsroom`（產業分類，比較像資料）、`infra/settings.py` 的 `story_match_threshold`、fetcher 的 User-Agent。另外前端的審批頁還有一張 `KIND_LABEL` 字典帶著 `article: "文章"`——那是一個翻譯，而且不認得的 kind 會直接顯示 token，不會壞；但它確實還是前端知道了一個領域的詞。
+
+### 驗證
+- 後端 1359 個測試、web 293 個測試通過；六項 check 全過（含重新產生事件契約與 OpenAPI）。
+
+---
+
 ## 提交紀錄
 
 | 提交 | 日期 | 內容 | 持續整合 |

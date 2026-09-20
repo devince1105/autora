@@ -327,7 +327,10 @@ class TaskBlocked(EventPayload):
 
 # --- Governance / Scheduler ----------------------------------------------------------------
 
-ApprovalKind = Literal["tool_call", "command", "project", "kill", "strategy", "article"]
+ApprovalKind = str
+"""What is being decided, as a token. The runtime's own kinds are in
+``autora.db.models.ApprovalKind``; a domain names its own, and this layer does not know them
+(ARCHITECTURE_V2_1 §9)."""
 
 
 @event("APPROVAL_REQUESTED")

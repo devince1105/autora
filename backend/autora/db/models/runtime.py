@@ -147,12 +147,20 @@ class ApprovalState(StrEnum):
 
 
 class ApprovalKind(StrEnum):
+    """What the runtime itself asks people to decide.
+
+    These five are the runtime's own: a tool call it held, a command the policy deferred, a
+    project, a kill, a change of strategy. **A domain names its own kinds** (the newsroom asks
+    about an article) and stores them as plain tokens — ``approvals.kind`` is a word, not this
+    enum, for the same reason ``transactions.category`` is: the core stores what happened, the
+    layer above says what it means (ARCHITECTURE_V2_1 §9).
+    """
+
     TOOL_CALL = "tool_call"
     COMMAND = "command"
     PROJECT = "project"
     KILL = "kill"
     STRATEGY = "strategy"
-    ARTICLE = "article"
 
 
 class Approval(IdMixin, TimestampMixin, Base):
@@ -165,7 +173,9 @@ class Approval(IdMixin, TimestampMixin, Base):
     __tablename__ = "approvals"
     __table_args__ = (
         check_in("state", ApprovalState),
-        check_in("kind", ApprovalKind),
+        # a token, not a fixed list: the runtime's five kinds and whatever a domain calls its
+        # own. The shape is checked; the meaning is the asking layer's (ARCHITECTURE_V2_1 §9)
+        check_regex("kind", "^[a-z][a-z0-9_]*$"),
         CheckConstraint(
             "(state IN ('APPROVED', 'REJECTED')) = "
             "(decided_at IS NOT NULL AND decided_by IS NOT NULL)",

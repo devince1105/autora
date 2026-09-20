@@ -65,7 +65,7 @@ class ServiceContext:
     async def request_approval(
         self,
         *,
-        kind: ApprovalKind,
+        kind: ApprovalKind | str,
         summary: str,
         action: str | None = None,
         payload: dict[str, Any] | None = None,

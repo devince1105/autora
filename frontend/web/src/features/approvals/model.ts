@@ -16,6 +16,11 @@ export const STATES: { id: ApprovalState; label: string }[] = [
   { id: "EXPIRED", label: "已過期" },
 ];
 
+/**
+ * What to call each kind of decision. An open map on purpose: the backend stores the kind as a
+ * token and a domain names its own (§9), so a kind this page has never seen shows its token
+ * rather than nothing — "article" is the newsroom's word, kept here only as a translation.
+ */
 const KIND_LABEL: Record<string, string> = {
   tool_call: "工具呼叫",
   command: "指令",
