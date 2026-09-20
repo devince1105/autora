@@ -750,6 +750,11 @@ export interface components {
         /** CompanyOut */
         CompanyOut: {
             /**
+             * Agents
+             * @default 0
+             */
+            agents: number;
+            /**
              * Created At
              * Format: date-time
              */
@@ -1810,7 +1815,10 @@ export interface operations {
     };
     list_companies_api_companies_get: {
         parameters: {
-            query?: never;
+            query?: {
+                /** @description Archived companies too */
+                include_archived?: boolean;
+            };
             header?: never;
             path?: never;
             cookie?: never;
@@ -1824,6 +1832,15 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["CompanyOut"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };

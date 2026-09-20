@@ -17,14 +17,17 @@ const message = (text: string, alert = false) => (
 );
 
 /**
- * The company an admin page shows: ?company=<id>, or the first company. Renders loading, error
- * and "no company" states itself; a 401 goes back to the token form.
+ * The company an admin page shows: ?company=<id>, or — with none asked for — the first company
+ * that has agents (a company nobody works at shows an empty office; old test companies linger in
+ * a developer's database). Renders loading, error and "no company" states itself; a 401 goes back
+ * to the token form.
  */
 export function CompanyScope({ children }: { children: (company: Company) => ReactNode }) {
   const requested = useSearchParams().get("company");
   const companies = useQuery(companiesQuery());
-  const company =
-    companies.data?.find((c) => c.id === requested) ?? (requested ? undefined : companies.data?.[0]);
+  const company = requested
+    ? companies.data?.find((c) => c.id === requested)
+    : (companies.data?.find((c) => c.agents > 0) ?? companies.data?.[0]);
 
   const unauthorized = companies.error instanceof ApiError && companies.error.status === 401;
   useEffect(() => {

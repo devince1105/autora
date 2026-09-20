@@ -1,7 +1,11 @@
 // @vitest-environment jsdom
 import { act, cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { useEffect } from "react";
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import { afterEach, describe, expect, it, vi } from "vitest";
+
+import { realtimeStore } from "@/stores/realtime";
 
 import type { Canvas3DProps } from "./Canvas3D";
 import { chooseMode, detectCapabilities, parseView, type Capabilities } from "./capabilities";
@@ -12,6 +16,7 @@ import { readTheme, THEME_STORAGE_KEY } from "./theme";
 afterEach(() => {
   cleanup();
   window.localStorage.clear();
+  realtimeStore.getState().reset();
 });
 
 const DESKTOP: Capabilities = { webgl2: true, narrow: false };
@@ -82,6 +87,19 @@ describe("OfficeCanvas", () => {
     expect(mode(container)).toBe("2d");
     rerender(<OfficeCanvas view="3d" detect={narrow} Scene={Scene} />);
     expect(mode(container)).toBe("3d");
+  });
+
+  it("an office with nobody in it says so", () => {
+    const { Scene } = sceneStub();
+    const { rerender } = render(<OfficeCanvas detect={() => DESKTOP} Scene={Scene} />);
+    expect(screen.getByRole("status").textContent).toContain("還沒有代理");
+
+    const fixture = JSON.parse(
+      readFileSync(join(process.cwd(), "src/realtime/__fixtures__/contract.json"), "utf8"),
+    ) as { snapshot_before: unknown };
+    act(() => realtimeStore.getState().hydrate(fixture.snapshot_before));
+    rerender(<OfficeCanvas detect={() => DESKTOP} Scene={Scene} />);
+    expect(screen.queryByRole("status")).toBeNull();
   });
 
   it("3D draws while visible and stops while the tab is hidden", () => {

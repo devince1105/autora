@@ -8,7 +8,15 @@ from sqlalchemy import func, select
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from autora.db.models import Company, CompanyGoal, CompanyPolicy, GoalStatus
+from autora.db.models import (
+    Agent,
+    AgentStatus,
+    Company,
+    CompanyGoal,
+    CompanyPolicy,
+    CompanyStatus,
+    GoalStatus,
+)
 from autora.infra.ids import uuid7
 
 
@@ -26,8 +34,24 @@ async def get_company_by_slug(session: AsyncSession, slug: str) -> Company | Non
     return await session.scalar(select(Company).where(Company.slug == slug))
 
 
-async def list_companies(session: AsyncSession) -> Sequence[Company]:
-    return (await session.scalars(select(Company).order_by(Company.id))).all()
+async def list_companies(
+    session: AsyncSession, *, include_archived: bool = False
+) -> Sequence[Company]:
+    """The companies to work with. Archived ones are kept (their events are), but out of the way."""
+    query = select(Company).order_by(Company.id)
+    if not include_archived:
+        query = query.where(Company.status != CompanyStatus.ARCHIVED)
+    return (await session.scalars(query)).all()
+
+
+async def active_agent_counts(session: AsyncSession) -> dict[uuid.UUID, int]:
+    """Active agents per company: which companies have someone at work."""
+    rows = await session.execute(
+        select(Agent.company_id, func.count())
+        .where(Agent.status == AgentStatus.ACTIVE)
+        .group_by(Agent.company_id)
+    )
+    return dict(rows.all())
 
 
 # --- goals -------------------------------------------------------------------------------

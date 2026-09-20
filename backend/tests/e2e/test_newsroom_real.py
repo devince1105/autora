@@ -36,8 +36,9 @@ from autora.infra.settings import SettingsError, load_settings
 from autora.runtime.actor import Actor
 
 OPERATOR = Actor.human("smoke-operator")
-MINUTES = 20
-"""The whole line, model calls included. A real model takes seconds per call."""
+MINUTES = 45
+"""The whole line, model calls included. A free endpoint can take minutes over one call (D-006),
+and a step that fails on a timeout waits for its retry."""
 
 
 def _real_provider() -> str | None:

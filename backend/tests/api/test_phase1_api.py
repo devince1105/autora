@@ -168,3 +168,31 @@ async def test_events_limit_is_bounded(api):
     company_id = (await _create(api)).json()["id"]
     response = await api.get("/api/events", params={"company_id": company_id, "limit": 501})
     assert response.status_code == 422
+
+
+async def test_the_company_list_counts_agents_and_hides_archived(api, db_session):
+    """A page with no company asked for picks one that has agents; archived ones are out of the
+    way but keep their events (T-517 follow-up)."""
+    from autora.company.agents import hire_agent
+    from autora.db.models import Company
+    from autora.runtime.actor import Actor
+
+    staffed = (await _create(api, slug="staffed", name="有人的公司")).json()
+    empty = (await _create(api, slug="empty-one", name="空的公司")).json()
+    await hire_agent(
+        db_session,
+        company_id=uuid.UUID(staffed["id"]),
+        role="researcher",
+        display_name="Rae",
+        actor=Actor.human("operator"),
+    )
+    await db_session.flush()
+
+    listed = {c["slug"]: c for c in (await api.get("/api/companies")).json()}
+    assert listed["staffed"]["agents"] == 1 and listed["empty-one"]["agents"] == 0
+
+    (await db_session.get(Company, uuid.UUID(empty["id"]))).status = "archived"
+    await db_session.flush()
+    assert "empty-one" not in {c["slug"] for c in (await api.get("/api/companies")).json()}
+    with_archived = await api.get("/api/companies", params={"include_archived": True})
+    assert "empty-one" in {c["slug"] for c in with_archived.json()}

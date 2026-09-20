@@ -25,10 +25,12 @@ lease check (``LeaseLost``: a reaped worker cannot finish anything) and the fina
 
 from __future__ import annotations
 
+import asyncio
 import hashlib
 import json
 import uuid
-from collections.abc import Callable
+from collections.abc import Awaitable, Callable
+from contextlib import suppress
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from decimal import Decimal
@@ -296,6 +298,29 @@ class AgentRunner:
             if outcome is not None:
                 return outcome
 
+    async def _keeping_the_lease[T](self, claim: Claim, work: Awaitable[T]) -> T:
+        """Await ``work`` while the task's lease stays fresh.
+
+        A model call can take longer than the lease (a slow or retrying provider). Without a
+        heartbeat the lease reaper would hand the task to another worker while this one is still
+        waiting for the reply, and the same step would run twice. If the lease is already lost,
+        the call is cancelled instead of finishing work nobody will accept."""
+        running = asyncio.ensure_future(work)
+        every = max(self.task_manager.lease.total_seconds() / 3, 1.0)
+        while True:
+            done, _ = await asyncio.wait({running}, timeout=every)
+            if running in done:
+                return running.result()
+            try:
+                async with self.session_factory() as session:
+                    await self.task_manager.heartbeat(session, claim)
+                    await session.commit()
+            except BaseException:
+                running.cancel()
+                with suppress(asyncio.CancelledError):
+                    await running
+                raise
+
     async def _call_model(self, state: _State) -> ModelResponse:
         claim, behavior, task = state.claim, state.behavior, state.ctx.task
         kind = StepKind.REPAIR if state.repairing else StepKind.THINK
@@ -327,7 +352,7 @@ class AgentRunner:
             output_model=behavior.output_model,
             max_output_tokens=behavior.max_output_tokens,
         )
-        response = await self.gateway.complete(request)
+        response = await self._keeping_the_lease(claim, self.gateway.complete(request))
         state.model_calls += 1
         state.repairing = False
         state.messages.append(Message(role="assistant", content=response.content))

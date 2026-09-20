@@ -4,6 +4,7 @@ Uses committed transactions like the worker will: the claim comes from one sessi
 opens its own, and every write is checked against the lease.
 """
 
+import asyncio
 import json
 from datetime import UTC, datetime, timedelta
 from decimal import Decimal
@@ -206,6 +207,38 @@ async def _claim(world, worker="worker-1"):
         claim = await world["tm"].claim_next(session, world["agent"], worker)
         await session.commit()
     return claim
+
+
+async def test_a_slow_model_call_keeps_the_lease(world):
+    """A reply can take longer than the lease (a slow or retrying provider). While the runner
+    waits, it keeps the lease fresh, so the reaper does not hand the task to another worker and
+    run the same step twice (T-519)."""
+    world["tm"].lease = timedelta(seconds=3)  # the runner heartbeats every second
+    await _task(world)
+    claim = await _claim(world)
+    world["fake"].script(
+        ROLE,
+        "research",
+        1,
+        FakeTurn(structured={"story": "slow", "sources": ["https://a.example/1"]}, delay_s=5),
+    )
+
+    async def let_the_lease_expire_then_reap():
+        await asyncio.sleep(1.0)
+        world["clock"].now += timedelta(minutes=1)  # the model is still thinking
+        await asyncio.sleep(1.5)  # a heartbeat or two later
+        async with world["committed"]() as session:
+            reaped = await world["tm"].reap_expired_leases(session)
+            await session.commit()
+        return reaped
+
+    outcome, reaped = await asyncio.gather(
+        world["runner"].run(claim), let_the_lease_expire_then_reap()
+    )
+    assert reaped == [], "the task was reaped while its model call was still running"
+    assert outcome.status == "completed", outcome.message
+    task = await _get(world, Task, claim.task.id)
+    assert task.state == "SUCCEEDED" and task.output["story"] == "slow"
 
 
 async def _get(world, model, id_):

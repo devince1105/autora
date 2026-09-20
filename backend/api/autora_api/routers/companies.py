@@ -2,9 +2,9 @@ from __future__ import annotations
 
 import uuid
 from datetime import datetime
-from typing import Any
+from typing import Annotated, Any
 
-from fastapi import APIRouter, HTTPException, status
+from fastapi import APIRouter, HTTPException, Query, status
 from pydantic import BaseModel, Field
 
 from autora.company.companies import CompanyAlreadyExists, create_company
@@ -32,10 +32,14 @@ class CompanyOut(BaseModel):
     mission: str | None
     status: str
     created_at: datetime
+    agents: int = 0
+    """Active agents. A page with no company asked for shows a company that has some."""
 
     @classmethod
-    def of(cls, company: Company) -> CompanyOut:
-        return cls.model_validate(company, from_attributes=True)
+    def of(cls, company: Company, agents: int = 0) -> CompanyOut:
+        return cls.model_validate(company, from_attributes=True).model_copy(
+            update={"agents": agents}
+        )
 
 
 class ActivityOut(BaseModel):
@@ -66,8 +70,14 @@ async def _company_or_404(session: Session, company_id: uuid.UUID) -> Company:
 
 
 @router.get("")
-async def list_companies(session: Session, _: Operator) -> list[CompanyOut]:
-    return [CompanyOut.of(c) for c in await company_repo.list_companies(session)]
+async def list_companies(
+    session: Session,
+    _: Operator,
+    include_archived: Annotated[bool, Query(description="Archived companies too")] = False,
+) -> list[CompanyOut]:
+    counts = await company_repo.active_agent_counts(session)
+    companies = await company_repo.list_companies(session, include_archived=include_archived)
+    return [CompanyOut.of(c, counts.get(c.id, 0)) for c in companies]
 
 
 @router.post("", status_code=status.HTTP_201_CREATED)

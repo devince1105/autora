@@ -10,6 +10,7 @@ import { useEffect, useState, type ComponentType } from "react";
 import type { Canvas3DProps } from "./Canvas3D";
 import { chooseMode, detectCapabilities, type Capabilities, type ModeReason, type OfficeView } from "./capabilities";
 import { OfficeBoard2D } from "./fallback/OfficeBoard2D";
+import { useRoster } from "./agents/roster";
 import { onOfficeKey } from "./interaction/picking";
 import { THEME_IDS, THEMES } from "./palette";
 import { useOfficeTheme } from "./theme";
@@ -46,6 +47,7 @@ export function OfficeCanvas({
   detect = detectCapabilities,
   Scene = LazyCanvas3D,
 }: OfficeCanvasProps) {
+  const empty = useRoster().members.length === 0;
   const [caps, setCaps] = useState<Capabilities | null>(null);
   const [lost, setLost] = useState(false);
   const [generation, setGeneration] = useState(0);
@@ -64,6 +66,7 @@ export function OfficeCanvas({
   }, []);
 
   if (!caps) return <div data-office-mode="detecting" className="h-full" />;
+
   const { mode, reason } = chooseMode(caps, view);
 
   if (mode === "2d") {
@@ -110,6 +113,14 @@ export function OfficeCanvas({
           </button>
         ))}
       </div>
+      {empty ? (
+        <div
+          role="status"
+          className="absolute inset-x-0 top-1/2 mx-auto w-fit rounded-lg border border-line bg-surface/90 px-4 py-2 text-sm text-muted shadow-sm"
+        >
+          這間公司還沒有代理。
+        </div>
+      ) : null}
       {lost ? (
         <div
           role="alert"
