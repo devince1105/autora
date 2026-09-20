@@ -69,10 +69,11 @@ test("a story from the feeds to the public site, and from the office to its draf
   const mode = await page.locator("[data-office-mode]").getAttribute("data-office-mode");
   if (mode === "3d") {
     await page.waitForFunction(() => (window.__autoraOffice?.frames ?? 0) > 0, null, { timeout: 90_000 });
-    const tag = page.getByTestId(/^head-tag-/).filter({ hasText: "Wren" });
-    await expect(tag).toBeVisible({ timeout: 30_000 });
-    const box = (await tag.boundingBox())!;
-    await page.mouse.click(box.x + box.width / 2, box.y + box.height + 15);
+    await expect(page.getByTestId(/^head-tag-/).filter({ hasText: "Wren" })).toBeVisible({ timeout: 30_000 });
+    // The office's own shortcut for the third desk (writer). Clicking the avatar is what
+    // office.spec measures; here it would be flaky, because an avatar walks between hand-offs and
+    // can leave the spot under the pointer before the click lands.
+    await page.keyboard.press("3");
   } else {
     await page.locator('[data-testid^="board-agent-"]').filter({ hasText: "Wren" }).click();
   }
