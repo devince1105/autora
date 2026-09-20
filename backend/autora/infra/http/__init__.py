@@ -21,7 +21,16 @@ from urllib.parse import urljoin, urlsplit
 
 import httpx
 
-USER_AGENT = "AutoraNewsroom/0.1 (+https://github.com/vince115/autora)"
+from autora import __version__
+
+PROJECT_URL = "https://github.com/vince115/autora"
+USER_AGENT = f"Autora/{__version__} (+{PROJECT_URL})"
+"""How this software introduces itself to a site it fetches from.
+
+The product's name and a link, not a domain's: the fetcher is a shared service, and a company
+that publishes software fetches pages too. A caller that wants to say more about itself passes
+its own ``user_agent`` — polite to the sites being polled, and their operators do read it.
+"""
 
 
 @dataclass(frozen=True)
@@ -75,10 +84,14 @@ class HttpFetcher:
         max_redirects: int = 5,
         client: httpx.AsyncClient | None = None,
         resolver: Resolver = _resolve,
+        user_agent: str = USER_AGENT,
     ):
         self.timeout_s = timeout_s
         self.max_bytes = max_bytes
         self.max_redirects = max_redirects
+        self.user_agent = user_agent
+        """What to tell the sites being fetched. The caller's to choose; this software's name
+        by default, never a domain's."""
         self._client = client
         self._resolve = resolver
 
@@ -97,7 +110,7 @@ class HttpFetcher:
     async def fetch(self, url: str) -> FetchedPage:
         if self._client is not None:
             return await self._fetch(self._client, url)
-        async with httpx.AsyncClient(headers={"User-Agent": USER_AGENT}) as client:
+        async with httpx.AsyncClient() as client:
             return await self._fetch(client, url)
 
     async def _fetch(self, client: httpx.AsyncClient, url: str) -> FetchedPage:
@@ -106,7 +119,13 @@ class HttpFetcher:
             await self._check(current)
             try:
                 async with client.stream(
-                    "GET", current, timeout=self.timeout_s, follow_redirects=False
+                    "GET",
+                    current,
+                    timeout=self.timeout_s,
+                    follow_redirects=False,
+                    # per request, not per client: a caller that passed its own client still
+                    # says who it is to the site being fetched
+                    headers={"User-Agent": self.user_agent},
                 ) as response:
                     if response.is_redirect:
                         location = response.headers.get("location")

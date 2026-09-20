@@ -124,11 +124,15 @@ def build_page_fetcher(settings: Settings | None) -> PageFetcher:
     import json
     from pathlib import Path
 
+    from autora.domains.newsroom import settings as newsroom_settings
     from autora.infra.http import FixtureFetcher, HttpFetcher
 
     if settings is not None and settings.tools_profile == "live":
+        # the newsroom says who it is to the sites it polls; the fetcher itself has no idea
         return HttpFetcher(
-            timeout_s=settings.fetch_timeout_seconds, max_bytes=settings.fetch_max_bytes
+            timeout_s=settings.fetch_timeout_seconds,
+            max_bytes=settings.fetch_max_bytes,
+            user_agent=newsroom_settings.USER_AGENT,
         )
     import autora.domains.newsroom as newsroom
 

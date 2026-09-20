@@ -19,6 +19,7 @@ from sqlalchemy import func, select, update
 import autora.domains.newsroom as newsroom
 from autora.app import build_page_fetcher, build_scheduler
 from autora.db.models import EventRecord, Schedule
+from autora.domains.newsroom import settings as newsroom_settings
 from autora.domains.newsroom.feeds import FeedError, parse_feed
 from autora.domains.newsroom.models import Source, SourceItem, SourceStatus
 from autora.domains.newsroom.sources import (
@@ -30,6 +31,7 @@ from autora.domains.newsroom.sources import (
     content_hash,
 )
 from autora.infra.http import (
+    USER_AGENT,
     FetchedPage,
     FetchRefused,
     FetchUnavailable,
@@ -512,3 +514,23 @@ async def test_fixture_fetcher():
 def test_fetched_page_is_plain_data():
     page = FetchedPage(url="u", status=200, content_type="t", body=b"")
     assert page.status == 200
+
+
+async def test_the_fetcher_says_who_is_fetching():
+    """T-600: the product's name by default, the caller's when it has one to give.
+
+    It used to be the newsroom's, hard-coded in a core module — the fetcher is shared, and a
+    company that publishes software fetches pages too (ARCHITECTURE_V2_1 §9).
+    """
+    seen: list[str | None] = []
+
+    def handler(request):
+        seen.append(request.headers.get("user-agent"))
+        return httpx.Response(200, headers={"content-type": "text/html"}, text="<p>ok</p>")
+
+    await http(handler).fetch("https://example.com/a")
+    assert seen[-1] == USER_AGENT
+    assert seen[-1].startswith("Autora/") and "newsroom" not in seen[-1].lower()
+
+    await http(handler, user_agent=newsroom_settings.USER_AGENT).fetch("https://example.com/a")
+    assert seen[-1] == newsroom_settings.USER_AGENT
