@@ -12,7 +12,7 @@ import {
   type Projection,
   type RealtimeState,
 } from "./reducer";
-import { RealtimeSnapshot } from "./snapshot";
+import { RealtimeSnapshot, type CycleView } from "./snapshot";
 
 // Written by the Python contract test from a randomised real runtime history (make
 // realtime-fixture): the first snapshot, every event after it, and the last snapshot.
@@ -39,6 +39,7 @@ function canonical(p: {
   agents: { id: string }[];
   tasks: { id: string }[];
   recent_events: unknown[];
+  cycle: CycleView | null;
 }) {
   return {
     company_id: p.company_id,
@@ -46,6 +47,11 @@ function canonical(p: {
     agents: Object.fromEntries(p.agents.map((a) => [a.id, a])),
     tasks: Object.fromEntries(p.tasks.map((t) => [t.id, t])),
     recent_event_seqs: p.recent_events.map((e) => (e as { seq: number }).seq),
+    // the deadline as an instant, not as a spelling: the snapshot and the event that carries it
+    // are serialised by two different writers and only the moment has to agree
+    cycle: p.cycle
+      ? { ...p.cycle, deadline: p.cycle.deadline && Date.parse(p.cycle.deadline) }
+      : null,
   };
 }
 
@@ -202,5 +208,65 @@ describe("leaving the roster", () => {
     const after = applyEvent(state, retired);
     expect(Object.keys(after.agents)).toEqual(Object.keys(state.agents).filter((id) => id !== agentId));
     expect(after.lastSeq).toBe(state.lastSeq + 1);
+  });
+});
+
+describe("the company's day (T-608)", () => {
+  const cycleEvent = (
+    state: RealtimeState,
+    event_type: string,
+    payload: Record<string, unknown>,
+    cycle_id: string,
+  ) =>
+    ({
+      ...events[events.length - 1]!,
+      event_id: crypto.randomUUID(),
+      seq: state.lastSeq + 1,
+      event_type,
+      aggregate_type: "cycle",
+      aggregate_id: cycle_id,
+      cycle_id,
+      agent_id: null,
+      task_id: null,
+      payload,
+    }) as unknown as EventEnvelope;
+
+  it("the fixture's history really contains cycles", () => {
+    expect(events.filter((e) => e.event_type === "CYCLE_STARTED").length).toBeGreaterThan(0);
+    expect(after.cycle).not.toBeNull();
+  });
+
+  it("CYCLE_STARTED replaces the day, CYCLE_STAGE_CHANGED moves its stage", () => {
+    const state = replay();
+    const id = crypto.randomUUID();
+    const started = applyEvent(
+      state,
+      cycleEvent(state, "CYCLE_STARTED", { seq: 99, stage: "PLANNING", deadline: null }, id),
+    );
+    expect(started.cycle).toEqual({ id, seq: 99, stage: "PLANNING", deadline: null });
+
+    const deadline = "2026-09-20T12:00:00Z";
+    const moved = applyEvent(
+      started,
+      cycleEvent(
+        started,
+        "CYCLE_STAGE_CHANGED",
+        { from_stage: "PLANNING", to_stage: "EXECUTING", deadline },
+        id,
+      ),
+    );
+    expect(moved.cycle).toEqual({ id, seq: 99, stage: "EXECUTING", deadline });
+    expect(view(moved, new Date()).cycle).toEqual(moved.cycle);
+  });
+
+  it("a stage change before any cycle is known changes nothing", () => {
+    const empty: RealtimeState = { ...hydrate(before), cycle: null };
+    const event = cycleEvent(
+      empty,
+      "CYCLE_STAGE_CHANGED",
+      { from_stage: "PLANNING", to_stage: "EXECUTING", deadline: null },
+      crypto.randomUUID(),
+    );
+    expect(applyEvent(empty, event).cycle).toBeNull();
   });
 });

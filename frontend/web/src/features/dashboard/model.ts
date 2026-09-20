@@ -1,5 +1,9 @@
 // What the dashboard shows, computed from real data only (T-309 AC: no hardcoded numbers):
-// agents and tasks from the realtime store, money and the goal from the KPIs query.
+// agents and tasks from the realtime store, money from the KPIs query, and the goal from the
+// day the company planned (T-608 AC-12) — its words from the CEO's plan, its progress from
+// what was actually counted. A company with no cycle yet falls back to the standing goal the
+// KPIs carry, so the tile is never empty for the wrong reason.
+import { todaysGoal, type CycleLine } from "@/features/cycles/model";
 import { effectiveState, isTaskVisible, type RealtimeState } from "@/realtime/reducer";
 import type { ActivityState } from "@/realtime/snapshot";
 import type { Connection } from "@/stores/realtime";
@@ -36,7 +40,16 @@ export interface DashboardModel {
   agents: { total: number; busy: number; waiting: number; paused: number; failed: number };
   tasks: { active: number; running: number; waitingApproval: number; blocked: number; doneRecently: number };
   publishedToday: number | null;
-  goal: { title: string; current: number | null; target: number; deadline: string | null } | null;
+  goal: {
+    title: string;
+    current: number | null;
+    target: number | null;
+    deadline: string | null;
+    /** "cycle": today's plan. "kpi": the standing goal, when there is no cycle yet. */
+    source: "cycle" | "kpi";
+  } | null;
+  /** Which stage the company's current day is in (PLANNING…DONE), from the stream. */
+  cycleStage: string | null;
   connection: { status: Connection["status"]; staleSeconds: number | null };
 }
 
@@ -51,6 +64,7 @@ export function dashboardModel(
   kpis: KpisData | undefined,
   connection: Connection,
   now: Date,
+  cycles: readonly CycleLine[] = [],
 ): DashboardModel {
   const agents = { total: 0, busy: 0, waiting: 0, paused: 0, failed: 0 };
   for (const agent of Object.values(company?.agents ?? {})) {
@@ -90,15 +104,36 @@ export function dashboardModel(
     // the company layer stores numbers without knowing what they mean; this tile is the
     // newsroom's, so naming the newsroom belongs here rather than in the backend
     publishedToday: toCount(kpis?.domain_metrics?.["newsroom.published_articles"]),
-    goal: kpis?.goal
-      ? {
-          title: kpis.goal.title,
-          current: kpis.goal.current === null ? null : Number(kpis.goal.current),
-          target: Number(kpis.goal.target),
-          deadline: kpis.goal.deadline,
-        }
-      : null,
+    goal: goalModel(kpis, cycles),
+    cycleStage: company?.cycle?.stage ?? null,
     connection: connectionModel(connection, company !== null, now),
+  };
+}
+
+/**
+ * The goal tile: today's plan when the company has a day, the standing goal otherwise.
+ *
+ * The plan is preferred even when its progress is unknown — a target nobody has measured yet
+ * is still what the company said it was doing today.
+ */
+function goalModel(kpis: KpisData | undefined, cycles: readonly CycleLine[]): DashboardModel["goal"] {
+  const planned = todaysGoal(cycles);
+  if (planned) {
+    return {
+      title: planned.label,
+      current: planned.current,
+      target: planned.target,
+      deadline: null,
+      source: "cycle",
+    };
+  }
+  if (!kpis?.goal) return null;
+  return {
+    title: kpis.goal.title,
+    current: kpis.goal.current === null ? null : Number(kpis.goal.current),
+    target: Number(kpis.goal.target),
+    deadline: kpis.goal.deadline,
+    source: "kpi",
   };
 }
 

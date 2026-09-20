@@ -15,6 +15,7 @@ from autora_api import problems
 from autora_api.routers import (
     approvals,
     companies,
+    cycles,
     events,
     meta,
     newsroom,
@@ -66,6 +67,7 @@ def create_app() -> FastAPI:
     app.include_router(workflows.router)
     app.include_router(realtime.router)
     app.include_router(reporting.router)
+    app.include_router(cycles.router)
     app.include_router(public.router)
     app.include_router(newsroom.router)
     app.include_router(meta.router)

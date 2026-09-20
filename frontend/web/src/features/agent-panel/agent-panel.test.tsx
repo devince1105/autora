@@ -98,7 +98,7 @@ describe("cards: the live layer", () => {
 
 describe("panel: next step, produced, tools", () => {
   const company = (tasks: TaskView[]): RealtimeState => ({
-    companyId: "c", lastSeq: 10, agents: {}, recentEvents: [],
+    companyId: "c", lastSeq: 10, agents: {}, recentEvents: [], cycle: null,
     tasks: Object.fromEntries(tasks.map((t) => [t.id, t])),
   });
 

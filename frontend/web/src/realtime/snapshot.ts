@@ -56,6 +56,15 @@ export const TaskView = z.object({
 });
 export type TaskView = z.infer<typeof TaskView>;
 
+export const CycleView = z.object({
+  id: z.uuid(),
+  seq: z.number().int(),
+  stage: z.string(),
+  /** When the current stage is forced forward; null when it has no deadline. */
+  deadline: z.string().nullable().default(null),
+});
+export type CycleView = z.infer<typeof CycleView>;
+
 export const RealtimeSnapshot = z.object({
   company_id: z.uuid(),
   last_seq: z.number().int().min(0),
@@ -65,6 +74,8 @@ export const RealtimeSnapshot = z.object({
   /** Parsed one by one with parseEvent: an event of a newer type is dropped, not fatal. */
   recent_events: z.array(z.unknown()),
   kpis: z.record(z.string(), z.unknown()).nullable(),
-  cycle: z.record(z.string(), z.unknown()).nullable(),
+  /** The company's latest cycle: only what the CYCLE_* events carry, so the reducer can
+   * rebuild it from them. The plan and the review come from the API, not from the stream. */
+  cycle: CycleView.nullable().default(null),
 });
 export type RealtimeSnapshot = z.infer<typeof RealtimeSnapshot>;

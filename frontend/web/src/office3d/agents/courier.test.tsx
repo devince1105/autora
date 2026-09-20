@@ -16,6 +16,15 @@ const fixture = JSON.parse(readFileSync(join(process.cwd(), "src/realtime/__fixt
   snapshot_before: { agents: { id: string; role: string; display_name: string }[] };
   events: Record<string, unknown>[];
 };
+// The first completion handed to a role somebody on the roster holds: that is the one with a
+// colleague to walk to. Which role it is comes from the history, which is regenerated.
+const ROSTER_ROLES = new Set(fixture.snapshot_before.agents.map((a) => a.role));
+const handoffRoles = (e: Record<string, unknown>) =>
+  (((e.payload as { handoff?: { to_role: string }[] }).handoff ?? []) as { to_role: string }[]).map((h) => h.to_role);
+const completion = fixture.events.find(
+  (e) => e.event_type === "AGENT_RUN_COMPLETED" && handoffRoles(e).some((r) => ROSTER_ROLES.has(r)),
+)!;
+const HANDOFF_ROLE = handoffRoles(completion).find((r) => ROSTER_ROLES.has(r))!;
 
 describe("courier timeline", () => {
   const route: Route = {
@@ -86,7 +95,7 @@ describe("Courier in the scene (store -> director -> avatar)", () => {
 
   it("a hand-off walks the avatar over and back; a new run sends it straight back to its chair (T-408 AC)", async () => {
     realtimeStore.getState().hydrate(fixture.snapshot_before);
-    const done = fixture.events.find((e) => e.event_type === "AGENT_RUN_COMPLETED")!;
+    const done = completion;
     const agentId = done.agent_id as string;
     const members = fixture.snapshot_before.agents.map((a) => ({ id: a.id, role: a.role, name: a.display_name, character: "character-male-a" as const }));
     const { seats } = assignSeats(members);
@@ -108,7 +117,7 @@ describe("Courier in the scene (store -> director -> avatar)", () => {
     await frame(16);
     const seated = avatar().position.toArray();
 
-    // the completion, now: a walk to the analysts, carrying the result
+    // the completion, now: a walk to the colleagues it handed to, carrying the result
     let seq = realtimeStore.getState().company!.lastSeq;
     const now = () => new Date(Date.now()).toISOString();
     await ReactThreeTestRenderer.act(async () => {
@@ -121,7 +130,7 @@ describe("Courier in the scene (store -> director -> avatar)", () => {
     expect(avatar().position.y).toBe(0);
     expect(avatar().position.toArray()).not.toEqual(seated);
 
-    const route = routeFor({ kind: "walk", agentId, target: { role: "analyst" }, carry: "document", returnAfter: true, seq }, { members, seats })!;
+    const route = routeFor({ kind: "walk", agentId, target: { role: HANDOFF_ROLE }, carry: "document", returnAfter: true, seq }, { members, seats })!;
     await frame((route.length / WALK_SPEED) * 1000 - 1500 + HANDOVER_MS / 4);
     expect(pose()).toBe("stand"); // handing over, at the colleague's desk
     const end: Vec2 = route.path.at(-1)!;
@@ -155,7 +164,7 @@ describe("Courier in the scene (store -> director -> avatar)", () => {
 
   it("left alone, the walk ends back in the chair", async () => {
     realtimeStore.getState().hydrate(fixture.snapshot_before);
-    const done = fixture.events.find((e) => e.event_type === "AGENT_RUN_COMPLETED")!;
+    const done = completion;
     const agentId = done.agent_id as string;
     const { seats } = assignSeats(fixture.snapshot_before.agents);
     const director = new CueDirector(realtimeStore);

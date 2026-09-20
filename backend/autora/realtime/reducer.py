@@ -45,6 +45,7 @@ from autora.realtime.projection import (
     RECENT_EVENTS,
     ActivityView,
     AgentView,
+    CycleView,
     RealtimeSnapshot,
     TaskView,
 )
@@ -90,13 +91,18 @@ class _Agent:
 class RealtimeState:
     company_id: uuid.UUID
     last_seq: int = 0
+    cycle: CycleView | None = None
     agents: dict[uuid.UUID, _Agent] = field(default_factory=dict)
     tasks: dict[uuid.UUID, TaskView] = field(default_factory=dict)
     recent: deque[EventEnvelope] = field(default_factory=lambda: deque(maxlen=RECENT_EVENTS))
 
     @classmethod
     def from_snapshot(cls, snapshot: RealtimeSnapshot) -> RealtimeState:
-        state = cls(company_id=snapshot.company_id, last_seq=snapshot.last_seq)
+        state = cls(
+            company_id=snapshot.company_id,
+            last_seq=snapshot.last_seq,
+            cycle=snapshot.cycle.model_copy() if snapshot.cycle else None,
+        )
         for agent in snapshot.agents:
             state.agents[agent.id] = _Agent(
                 agent.id, agent.role, agent.display_name, agent.avatar_key,
@@ -132,6 +138,17 @@ class RealtimeState:
             agent.role = payload.role
             agent.department_id = payload.department_id
             agent.department_key = payload.department_key
+        elif isinstance(payload, company_ev.CycleStarted) and event.cycle_id is not None:
+            self.cycle = CycleView(
+                id=event.cycle_id,
+                seq=payload.seq,
+                stage=payload.stage,
+                deadline=payload.deadline,
+            )
+        elif isinstance(payload, company_ev.CycleStageChanged) and self.cycle is not None:
+            self.cycle = self.cycle.model_copy(
+                update={"stage": payload.to_stage, "deadline": payload.deadline}
+            )
         elif isinstance(payload, ev.AgentRetired) and event.agent_id is not None:
             self.agents.pop(event.agent_id, None)  # off the roster: the office stops drawing it
         elif type(payload) in _ACTIVITY and event.agent_id in self.agents:
@@ -234,6 +251,7 @@ class RealtimeState:
             agents=agents,
             tasks=tasks,
             recent_events=list(self.recent),
+            cycle=self.cycle.model_copy() if self.cycle else None,
         )
 
 

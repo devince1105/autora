@@ -23,6 +23,10 @@ const events: EventEnvelope[] = fixture.events.map((raw) => {
 const agents = Object.fromEntries(fixture.snapshot_before.agents.map((a) => [a.id, { ...a, avatar_key: "default", activity: null, liveProgress: null }])) as Record<string, AgentState>;
 const at = (e: EventEnvelope, plusMs = 0) => new Date(Date.parse(e.occurred_at) + plusMs);
 const first = (type: string, where: (e: EventEnvelope) => boolean = () => true) => events.find((e) => e.event_type === type && where(e))!;
+/** The roles an event hands work to, read from the event itself: the history is regenerated
+ * (make realtime-fixture), so which role it happens to be is not something to hardcode. */
+const handoffRoles = (e: EventEnvelope) => [...new Set(((e.payload as { handoff?: { to_role: string }[] }).handoff ?? []).map((h) => h.to_role))];
+const unlockRoles = (e: EventEnvelope) => [...new Set(((e.payload as { unlocks?: { required_role: string }[] }).unlocks ?? []).map((u) => u.required_role))];
 /** A real envelope turned into another event type (for types the history does not contain). */
 const as = (type: string, payload: Record<string, unknown>, base = first("AGENT_THINKING")): EventEnvelope => {
   const parsed = parseEvent({ ...base, event_type: type, payload });
@@ -32,15 +36,25 @@ const as = (type: string, payload: Record<string, unknown>, base = first("AGENT_
 
 describe("events -> cues (04 §4 table)", () => {
   it("a completed run with a hand-off walks the result to the next role's desk and back", () => {
-    const done = first("AGENT_RUN_COMPLETED");
+    const done = first("AGENT_RUN_COMPLETED", (e) => handoffRoles(e).length === 1);
+    const [role] = handoffRoles(done);
     expect(cuesFor(done, agents, at(done))).toEqual([
-      { kind: "walk", agentId: done.agent_id, target: { role: "analyst" }, carry: "document", returnAfter: true, seq: done.seq },
+      { kind: "walk", agentId: done.agent_id, target: { role }, carry: "document", returnAfter: true, seq: done.seq },
     ]);
+    // the same completion with nobody waiting on it: no walk at all
+    const alone = as("AGENT_RUN_COMPLETED", { ...(done.payload as object), handoff: [] }, done);
+    expect(cuesFor(alone, agents, at(alone))).toEqual([]);
   });
 
   it("a task that unlocks others walks to them too (a human step: to the approval desk)", () => {
-    const succeeded = first("TASK_SUCCEEDED");
-    expect(cuesFor(succeeded, agents, at(succeeded))).toMatchObject([{ kind: "walk", target: { role: "analyst" } }]);
+    const succeeded = first("TASK_SUCCEEDED", (e) => {
+      const roles = unlockRoles(e);
+      // an agent's own completion: a task finished by a human has nobody to walk
+      return e.agent_id !== null && roles.length === 1 && roles[0] !== "human";
+    });
+    expect(cuesFor(succeeded, agents, at(succeeded))).toMatchObject([
+      { kind: "walk", target: { role: unlockRoles(succeeded)[0] } },
+    ]);
     const toHuman = as("TASK_SUCCEEDED", { run_id: null, output_ref: null, unlocks: [{ task_id: succeeded.task_id, required_role: "human" }] }, succeeded);
     expect(cuesFor(toHuman, agents, at(toHuman))).toMatchObject([{ kind: "walk", target: { place: "approval" } }]);
   });
@@ -53,7 +67,7 @@ describe("events -> cues (04 §4 table)", () => {
   });
 
   it("a final failure or abort flashes red; a retry does not", () => {
-    const failed = first("AGENT_RUN_FAILED");
+    const failed = first("AGENT_RUN_FAILED", (e) => (e.payload as { final: boolean }).final);
     expect(cuesFor(failed, agents, at(failed))).toEqual([{ kind: "flash", agentId: failed.agent_id, color: "red", durationMs: FLASH_MS, seq: failed.seq }]);
     const aborted = first("AGENT_RUN_ABORTED", (e) => (e.payload as { final: boolean }).final);
     expect(cuesFor(aborted, agents, at(aborted))).toMatchObject([{ kind: "flash" }]);
@@ -158,12 +172,13 @@ describe("CueDirector (store -> queue)", () => {
 
     // the same completion, happening now
     const now = new Date().toISOString();
-    const done = fixture.events.find((e) => e.event_type === "AGENT_RUN_COMPLETED")!;
+    const handed = first("AGENT_RUN_COMPLETED", (e) => handoffRoles(e).length === 1);
+    const done = fixture.events.find((e) => e.event_id === handed.event_id)!;
     const seq = store.getState().company!.lastSeq + 1;
     store.getState().applyEvent({ ...done, seq, event_id: "01a0b700-0000-7000-8000-000000000001", occurred_at: now });
     clock = 5;
     director.queue.step(clock, () => 1000);
-    expect(director.queue.walk(done.agent_id as string)?.cue).toMatchObject({ target: { role: "analyst" }, seq });
+    expect(director.queue.walk(done.agent_id as string)?.cue).toMatchObject({ target: { role: handoffRoles(handed)[0] }, seq });
     director.dispose();
   });
 });

@@ -2,7 +2,7 @@
 
 import { useQuery } from "@tanstack/react-query";
 
-import { approvalsQuery, kpisQuery } from "@/api/queries";
+import { approvalsQuery, cyclesQuery, kpisQuery } from "@/api/queries";
 import { AgentList, AgentPanel } from "@/features/agent-panel/AgentPanel";
 import { CompanyScope, type Company } from "@/features/company/CompanyScope";
 import { useCompanyStream } from "@/features/company/useCompanyStream";
@@ -21,6 +21,8 @@ function CompanyDashboard({ company }: { company: Company }) {
   useCompanyStream(company.id);
   const kpis = useQuery(kpisQuery(company.id));
   const pending = useQuery(approvalsQuery(company.id));
+  // today's goal comes from the day the company planned, not from a standing target (AC-12)
+  const cycles = useQuery(cyclesQuery(company.id));
   const realtime = useRealtime((state) => state.company);
   const connection = useRealtime((state) => state.connection);
   const now = useNow();
@@ -30,6 +32,7 @@ function CompanyDashboard({ company }: { company: Company }) {
     kpis.data,
     connection,
     now,
+    cycles.data ?? [],
   );
   return (
     <>

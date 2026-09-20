@@ -23,6 +23,7 @@ from sqlalchemy import select
 
 from autora.app import build_runtime
 from autora.company.agents import hire_agent
+from autora.company.cycle import CycleRunner
 from autora.company.workflows import start_workflow
 from autora.db.models import Agent, AgentActivity, Approval, ApprovalKind, ApprovalState, Task
 from autora.domains import echo
@@ -46,6 +47,9 @@ REVIEW = WorkflowTemplate(
 )
 SEEDS = range(8)
 STEPS = 120
+ATTEMPTS = 6
+"""Draws per step. An operation that is illegal right now costs a draw, not the step: a
+history in which nothing happens for twenty steps exercises nothing."""
 
 
 @dataclass
@@ -56,6 +60,9 @@ class History:
     rng: random.Random
     runtime: object = field(default_factory=build_runtime)
     claims: dict[uuid.UUID, Claim] = field(default_factory=dict)
+    cycles: CycleRunner = field(default_factory=CycleRunner)
+    """No hooks and no completion checks: the days open and close on their own, which is all
+    this contract needs from them (T-608). What happens inside a cycle is tested elsewhere."""
 
     def __post_init__(self):
         self.runtime.templates.register(REVIEW)
@@ -64,17 +71,22 @@ class History:
         weighted = {
             self.start_workflow: 2, self.claim: 4, self.work: 4, self.finish: 5,
             self.decide: 3, self.human_node: 2, self.cancel: 1, self.pause: 1, self.resume: 2,
-            self.reap: 0.5, self.release_blocked: 1,
+            self.reap: 0.5, self.release_blocked: 1, self.cycle: 1.5,
         }  # fmt: skip
-        [op] = self.rng.choices(list(weighted), weights=list(weighted.values()))
-        async with self.committed() as session:
-            try:
-                outcome = await op(session)
-                await session.commit()
-            except Exception as exc:  # noqa: BLE001 - an illegal move is skipped, not a bug
-                await session.rollback()
-                return f"{op.__name__}: skipped ({type(exc).__name__})"
-        return f"{op.__name__}: {outcome}"
+        ops, weights = list(weighted), list(weighted.values())
+        skipped = ""
+        for _ in range(ATTEMPTS):
+            [op] = self.rng.choices(ops, weights=weights)
+            async with self.committed() as session:
+                try:
+                    outcome = await op(session)
+                    await session.commit()
+                except Exception as exc:  # noqa: BLE001 - an illegal move is not a bug
+                    await session.rollback()
+                    skipped = f"{op.__name__}: skipped ({type(exc).__name__})"
+                    continue
+            return f"{op.__name__}: {outcome}"
+        return skipped  # every draw was illegal in this state: a rare, genuinely idle step
 
     # --- operations ------------------------------------------------------------------------
 
@@ -176,7 +188,12 @@ class History:
 
     async def pause(self, session):
         """Also mid-run: the task manager must still end the run (the agent stays PAUSED)."""
-        agent = self.rng.choice(await self._agents(session, paused=False))
+        working = await self._agents(session, paused=False)
+        agent = self.rng.choice(working)
+        if len(working) == 1:
+            # never pause the last one: a company where nobody can work produces no history,
+            # and a history of nothing tests nothing
+            raise LookupError("the last unpaused agent")
         await set_activity(session, agent, ev.AgentPaused(reason="operator"), actor=OPERATOR)
         return agent.role
 
@@ -198,6 +215,17 @@ class History:
         if not reaped:
             raise LookupError("no lease to reclaim")
         return len(reaped)
+
+    async def cycle(self, session):
+        """The company's day: open one when none is open, otherwise move it along."""
+        open_cycle = await self.cycles.open_cycle(session, self.company_id, lock=True)
+        if open_cycle is None:
+            started = await self.cycles.start(session, self.company_id)
+            return f"started {started.seq}"
+        moved = await self.cycles.tick(session, self.company_id)
+        if moved is None:
+            raise LookupError("the cycle has nowhere to go yet")
+        return f"{moved.seq} -> {moved.stage}"
 
     async def release_blocked(self, session):
         released = await self.runtime.task_manager.release_blocked(session, self.company_id)
@@ -296,7 +324,9 @@ async def test_reducer_reproduces_every_snapshot(committed, echo_company, seed):
         line.split(":")[0] + (":" + line.split(": ")[1] if line.startswith("finish") else "")
         for line in applied
     )
+    skipped = Counter(line.split(":")[0] for line in log if "skipped" in line)
     print(f"\nseed {seed}: {len(applied)} applied, {len(snapshots)} snapshots, {dict(kinds)}")
+    print(f"        skipped: {dict(skipped)}")
     assert len(applied) >= STEPS // 4, f"history too thin to mean anything:\n{log}"
     assert len(kinds) >= 10, f"history too uniform: {dict(kinds)}"
 

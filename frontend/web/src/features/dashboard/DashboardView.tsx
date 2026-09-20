@@ -2,6 +2,7 @@ import Link from "next/link";
 import type { ReactNode } from "react";
 
 import { withCompany } from "@/features/company/CompanyScope";
+import { STAGE_LABEL } from "@/features/cycles/model";
 
 import { formatMoney, type DashboardModel } from "./model";
 
@@ -38,6 +39,15 @@ export function ConnectionBadge({ connection }: { connection: DashboardModel["co
       {stale !== null && connection.status !== "live" ? `・資料可能已過期 ${stale} 秒` : null}
     </span>
   );
+}
+
+/** The progress line under 今日目標: the plan's numbers, and which stage the day is in. */
+function goalDetail(goal: NonNullable<DashboardModel["goal"]>, stage: string | null): string {
+  const progress = `進度 ${goal.current ?? 0} / ${goal.target ?? "—"}`;
+  if (goal.source === "cycle") {
+    return progress + (stage ? `・${STAGE_LABEL[stage] ?? stage}` : "");
+  }
+  return progress + (goal.deadline ? `・期限 ${new Date(goal.deadline).toLocaleString("zh-TW")}` : "");
 }
 
 function Tile({
@@ -107,6 +117,9 @@ export function DashboardView({
           </Link>
           <Link href={withCompany("/agents", companyId)} className="text-sm text-accent underline">
             代理
+          </Link>
+          <Link href={withCompany("/cycles", companyId)} className="text-sm text-accent underline">
+            每日週期
           </Link>
           <Link href={withCompany("/timeline", companyId)} className="text-sm text-accent underline">
             事件時間軸
@@ -183,13 +196,7 @@ export function DashboardView({
           testId="goal"
           label="今日目標"
           value={goal ? goal.title : <span className="font-normal text-muted">尚未設定</span>}
-          detail={
-            goal
-              ? `進度 ${goal.current ?? 0} / ${goal.target}${
-                  goal.deadline ? `・期限 ${new Date(goal.deadline).toLocaleString("zh-TW")}` : ""
-                }`
-              : null
-          }
+          detail={goal ? goalDetail(goal, model.cycleStage) : null}
         />
       </div>
     </main>

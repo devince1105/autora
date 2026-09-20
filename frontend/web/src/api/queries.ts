@@ -22,6 +22,9 @@ export const queryKeys = {
   sources: (companyId: string) => ["newsroom", "sources", companyId] as const,
   workflowEvents: (companyId: string, runId: string) => ["newsroom", "events", companyId, runId] as const,
   roles: () => ["roles"] as const,
+  /** The company's days (T-608). */
+  cycles: (companyId: string) => ["cycles", companyId] as const,
+  cycle: (cycleId: string) => ["cycle", cycleId] as const,
 };
 
 export function companiesQuery(api: ApiClient = defaultApi) {
@@ -83,6 +86,31 @@ export function approvalsQuery(
  * KPIs are aggregates the event stream cannot rebuild (model costs are not events), so they are
  * server state: refetched when an event says they changed, and every minute while shown.
  */
+export function cyclesQuery(companyId: string, api: ApiClient = defaultApi) {
+  return queryOptions({
+    queryKey: queryKeys.cycles(companyId),
+    queryFn: async () =>
+      unwrap(
+        await api.GET("/api/companies/{company_id}/cycles", {
+          params: { path: { company_id: companyId } },
+        }),
+      ),
+    refetchInterval: 60_000,
+  });
+}
+
+export function cycleQuery(cycleId: string, api: ApiClient = defaultApi) {
+  return queryOptions({
+    queryKey: queryKeys.cycle(cycleId),
+    queryFn: async () =>
+      unwrap(
+        await api.GET("/api/cycles/{cycle_id}", {
+          params: { path: { cycle_id: cycleId } },
+        }),
+      ),
+  });
+}
+
 export function kpisQuery(companyId: string, api: ApiClient = defaultApi) {
   return queryOptions({
     queryKey: queryKeys.kpis(companyId),

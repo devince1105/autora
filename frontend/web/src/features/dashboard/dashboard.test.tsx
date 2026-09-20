@@ -40,6 +40,14 @@ const kpis: KpisData = {
 };
 const live = { status: "live" as const, serverOffsetMs: 0, lastEventAt: Date.now() };
 
+/** A day the CEO planned: the words are the plan's, the count is what was measured (AC-12). */
+const planned = (goals: { metric: string; title?: string; target?: number; current?: number }[], stage = "EXECUTING") =>
+  [{
+    id: "01a0b900-0000-7000-8000-000000000001", seq: 7, stage, started_at: "2026-09-20T00:00:00Z",
+    ended_at: null, stage_deadline: null, planned_by: "ceo", goals, review: null,
+    review_missing: null, workflows: 2, failed_tasks: 0, cost_usd: "1.500000",
+  }] as Parameters<typeof dashboardModel>[4];
+
 afterEach(cleanup);
 
 describe("dashboard model: only real data", () => {
@@ -57,17 +65,41 @@ describe("dashboard model: only real data", () => {
     expect(model.tasks.active).toBe(unfinished.length);
   });
 
-  it("takes money and the goal from the KPIs, nothing when they are not loaded", () => {
+  it("takes money from the KPIs, nothing when they are not loaded", () => {
     const now = new Date();
     const model = dashboardModel(company([]), kpis, live, now);
     expect(model.money).toEqual({
       currency: "USD", cash: 103, revenueToday: 12.5, expensesToday: 2.4, modelCostToday: 0.4,
     });
-    expect(model.goal).toEqual({ title: "發布 3 篇雙語文章", current: 1, target: 3, deadline: null });
     const empty = dashboardModel(null, undefined, { ...live, status: "connecting" }, now);
     expect(empty.money).toBeNull();
     expect(empty.agents.total).toBe(0);
     expect(empty.goal).toBeNull();
+  });
+
+  it("today's goal is the day's plan; its progress is what was counted (AC-12)", () => {
+    const now = new Date();
+    const cycles = planned([
+      { metric: "published_articles", title: "發布 5 篇雙語文章", target: 5, current: 3 },
+    ]);
+    const model = dashboardModel(company([]), kpis, live, now, cycles);
+    // the plan says 5 and the count says 3 — not the standing goal's 3 / 1
+    expect(model.goal).toEqual({
+      title: "發布 5 篇雙語文章", current: 3, target: 5, deadline: null, source: "cycle",
+    });
+  });
+
+  it("a goal nobody has measured yet still shows what the day is for", () => {
+    const cycles = planned([{ metric: "published_articles", title: "發布 5 篇雙語文章", target: 5 }]);
+    const model = dashboardModel(company([]), kpis, live, new Date(), cycles);
+    expect(model.goal).toMatchObject({ current: null, target: 5, source: "cycle" });
+  });
+
+  it("with no cycle at all, the standing goal from the KPIs is shown instead", () => {
+    const model = dashboardModel(company([]), kpis, live, new Date(), []);
+    expect(model.goal).toEqual({
+      title: "發布 3 篇雙語文章", current: 1, target: 3, deadline: null, source: "kpi",
+    });
   });
 
   it("reports how stale the data is when not live", () => {

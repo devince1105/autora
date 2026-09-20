@@ -36,6 +36,7 @@ from autora.db.models import (
     AgentActivity,
     AgentRun,
     AgentStatus,
+    Cycle,
     Department,
     EventRecord,
     Task,
@@ -90,6 +91,13 @@ class TaskView(BaseModel):
     last_event_seq: int
 
 
+class CycleView(BaseModel):
+    id: uuid.UUID
+    seq: int
+    stage: str
+    deadline: datetime | None = None
+
+
 class RealtimeSnapshot(BaseModel):
     company_id: uuid.UUID
     last_seq: int
@@ -99,7 +107,10 @@ class RealtimeSnapshot(BaseModel):
     tasks: list[TaskView]
     recent_events: list[EventEnvelope]
     kpis: dict[str, Any] | None = None
-    cycle: dict[str, Any] | None = None
+    cycle: CycleView | None = None
+    """The company's latest cycle. Only what the CYCLE_* events carry, because the reducer has
+    to be able to rebuild it from them — the plan and the review are read from the API, not
+    followed live (T-608)."""
 
 
 async def begin_consistent_read(session: AsyncSession) -> None:
@@ -124,7 +135,19 @@ async def load_snapshot(
         agents=await _agents(session, company_id, now),
         tasks=await _tasks(session, company_id, now),
         recent_events=await _recent_events(session, company_id, last_seq),
+        cycle=await _cycle(session, company_id),
     )
+
+
+async def _cycle(session: AsyncSession, company_id: uuid.UUID) -> CycleView | None:
+    """The latest cycle, open or not — the same one the reducer arrives at by following the
+    events, which is what makes the two comparable."""
+    cycle = await session.scalar(
+        select(Cycle).where(Cycle.company_id == company_id).order_by(Cycle.seq.desc()).limit(1)
+    )
+    if cycle is None:
+        return None
+    return CycleView(id=cycle.id, seq=cycle.seq, stage=cycle.stage, deadline=cycle.stage_deadline)
 
 
 async def _agents(session: AsyncSession, company_id: uuid.UUID, now: datetime) -> list[AgentView]:

@@ -21,7 +21,16 @@ const events: EventEnvelope[] = fixture.events.map((raw) => {
   if (!parsed.ok) throw new Error(parsed.error);
   return parsed.event;
 });
-const handoffIndex = fixture.events.findIndex((e) => e.event_type === "AGENT_RUN_COMPLETED" && (e.payload.handoff as unknown[])?.length);
+const handoffRoles = (e: { payload: Record<string, unknown> }) =>
+  ((e.payload.handoff as { to_role: string }[] | undefined) ?? []).map((h) => h.to_role);
+// the first hand-off to a role somebody on the roster holds: a hand-off to "human" is the
+// approval desk and draws no arrow between cards
+const rosterRoles = new Set(
+  (fixture.snapshot_before as { agents: { role: string }[] }).agents.map((a) => a.role),
+);
+const handoffIndex = fixture.events.findIndex(
+  (e) => e.event_type === "AGENT_RUN_COMPLETED" && handoffRoles(e).some((r) => rosterRoles.has(r)),
+);
 
 function replay(until = events.length): RealtimeState {
   const store = createRealtimeStore();
@@ -69,11 +78,18 @@ describe("board model", () => {
   });
 
   it("a hand-off goes from the finishing agent to the agents of the next role", () => {
-    const [handoff] = handoffsAfter(company.recentEvents, 0, company.agents);
-    expect(handoff).toBeTruthy();
-    expect(company.agents[handoff.from].role).toBe("researcher");
-    expect(handoff.to.map((id) => company.agents[id].role)).toEqual(["analyst", "analyst"]);
-    expect(handoffsAfter(company.recentEvents, handoff.seq, company.agents)).toEqual([]);
+    const handoffs = handoffsAfter(company.recentEvents, 0, company.agents);
+    expect(handoffs.length).toBeGreaterThan(0);
+    for (const handoff of handoffs) {
+      const event = company.recentEvents.find((e) => e.seq === handoff.seq)!;
+      const roles = new Set(handoffRoles(event as unknown as { payload: Record<string, unknown> }));
+      expect(handoff.to.length).toBeGreaterThan(0);
+      for (const id of handoff.to) {
+        expect(roles.has(company.agents[id].role)).toBe(true);
+        expect(id).not.toBe(handoff.from); // nobody hands work to themselves
+      }
+    }
+    expect(handoffsAfter(company.recentEvents, handoffs.at(-1)!.seq, company.agents)).toEqual([]);
   });
 });
 
@@ -111,10 +127,12 @@ describe("OfficeBoard2D", () => {
     act(() => void realtimeStore.getState().applyEvents([fixture.events[handoffIndex]]));
     const arrows = screen.getAllByTestId("handoff-arrow");
     const company = realtimeStore.getState().company!;
-    expect(arrows.length).toBe(2);
+    const to = new Set(handoffRoles(fixture.events[handoffIndex]));
+    const from = fixture.events[handoffIndex] as unknown as { agent_id: string };
+    expect(arrows.length).toBeGreaterThan(0);
     for (const arrow of arrows) {
-      expect(company.agents[arrow.getAttribute("data-from")!].role).toBe("researcher");
-      expect(company.agents[arrow.getAttribute("data-to")!].role).toBe("analyst");
+      expect(arrow.getAttribute("data-from")).toBe(from.agent_id);
+      expect(to.has(company.agents[arrow.getAttribute("data-to")!].role)).toBe(true);
     }
     act(() => void vi.advanceTimersByTime(HANDOFF_MS + 10));
     expect(screen.queryAllByTestId("handoff-arrow")).toHaveLength(0);

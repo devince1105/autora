@@ -12,6 +12,8 @@
 //   = payload + run/task/workflow context (none for IDLE and PAUSED; task_name is the task's
 //   display name), since changes only when the state does. A non-final AGENT_RUN_FAILED or
 //   AGENT_RUN_ABORTED is trace data and changes nothing.
+// - CYCLE_STARTED replaces the current cycle, CYCLE_STAGE_CHANGED moves its stage and deadline
+//   (T-608). Only what the events carry: the plan and the review are read from the API.
 // - TASK_CREATED adds a task (PENDING); TASK_* set its state, since and lastEventSeq;
 //   TASK_STARTED also sets attempt, run and agent.
 // - view(now): effective activity state (COMPLETED past display_until reads IDLE), finished tasks
@@ -24,6 +26,7 @@ import { parseEvent, type EventEnvelope } from "@autora/event-schema";
 import type {
   ActivityState,
   ActivityView,
+  CycleView,
   RealtimeSnapshot,
   TaskView,
 } from "./snapshot";
@@ -59,6 +62,8 @@ export interface RealtimeState {
   agents: Record<string, AgentState>;
   tasks: Record<string, TaskView>;
   recentEvents: EventEnvelope[];
+  /** The company's current day (T-608): which cycle it is and which stage it is in. */
+  cycle: CycleView | null;
 }
 
 /** What load_snapshot returns: the comparable projection at a moment. */
@@ -70,6 +75,7 @@ export interface Projection {
   })[];
   tasks: TaskView[];
   recent_events: EventEnvelope[];
+  cycle: CycleView | null;
 }
 
 const ACTIVITY_BY_TYPE: Partial<
@@ -126,6 +132,7 @@ export function hydrate(snapshot: RealtimeSnapshot): RealtimeState {
     agents,
     tasks,
     recentEvents,
+    cycle: snapshot.cycle ? { ...snapshot.cycle } : null,
   };
 }
 
@@ -208,6 +215,26 @@ function applyOne(state: RealtimeState, event: EventEnvelope): RealtimeState {
         department_id: event.payload.department_id,
         department_key: event.payload.department_key ?? null,
       },
+    };
+    return next;
+  }
+
+  if (event.event_type === "CYCLE_STARTED" && event.cycle_id) {
+    next.cycle = {
+      id: event.cycle_id,
+      seq: event.payload.seq,
+      stage: event.payload.stage,
+      deadline: event.payload.deadline,
+    };
+    return next;
+  }
+
+  if (event.event_type === "CYCLE_STAGE_CHANGED" && state.cycle) {
+    // the stage moves; the cycle itself only changes when a new one starts
+    next.cycle = {
+      ...state.cycle,
+      stage: event.payload.to_stage,
+      deadline: event.payload.deadline,
     };
     return next;
   }
@@ -417,5 +444,6 @@ export function view(state: RealtimeState, now: Date): Projection {
       isTaskVisible(task, now),
     ),
     recent_events: state.recentEvents.slice(-RECENT_EVENTS_VIEW),
+    cycle: state.cycle ? { ...state.cycle } : null,
   };
 }

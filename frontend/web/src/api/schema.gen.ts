@@ -209,6 +209,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/companies/{company_id}/cycles": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Cycles
+         * @description The company's recent days, newest first.
+         */
+        get: operations["list_cycles_api_companies__company_id__cycles_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/companies/{company_id}/kpis": {
         parameters: {
             query?: never;
@@ -338,6 +358,26 @@ export interface paths {
         put?: never;
         /** Post Workflow */
         post: operations["post_workflow_api_companies__company_id__workflows_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/cycles/{cycle_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Cycle
+         * @description One day, in full: the plan, the numbers, the work, the summary and the timeline.
+         */
+        get: operations["get_cycle_api_cycles__cycle_id__get"];
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -1038,6 +1078,144 @@ export interface components {
          * @enum {string}
          */
         CompanyType: "newsroom" | "saas" | "research" | "ecommerce" | "software_studio";
+        /** CycleDetail */
+        CycleDetail: {
+            /** Cost Usd */
+            cost_usd?: string | null;
+            /** Ended At */
+            ended_at: string | null;
+            /**
+             * Failed Tasks
+             * @default 0
+             */
+            failed_tasks: number;
+            /**
+             * Goals
+             * @default []
+             */
+            goals: components["schemas"]["CycleGoal"][];
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /**
+             * Kpis
+             * @default {}
+             */
+            kpis: {
+                [key: string]: unknown;
+            };
+            /** Plan */
+            plan?: {
+                [key: string]: unknown;
+            } | null;
+            /** Planned By */
+            planned_by?: string | null;
+            /** Review */
+            review?: string | null;
+            /** Review Detail */
+            review_detail?: {
+                [key: string]: unknown;
+            } | null;
+            /** Review Missing */
+            review_missing?: string | null;
+            /** Seq */
+            seq: number;
+            /** Stage */
+            stage: string;
+            /** Stage Deadline */
+            stage_deadline: string | null;
+            /**
+             * Started At
+             * Format: date-time
+             */
+            started_at: string;
+            /** Summary */
+            summary?: string | null;
+            /**
+             * Timeline
+             * @default []
+             */
+            timeline: components["schemas"]["EventEnvelope"][];
+            /**
+             * Workflows
+             * @default 0
+             */
+            workflows: number;
+        };
+        /**
+         * CycleGoal
+         * @description A target the cycle was aimed at, and where it got to.
+         */
+        CycleGoal: {
+            /** Current */
+            current?: number | null;
+            /** Metric */
+            metric: string;
+            /** Target */
+            target?: number | null;
+            /** Title */
+            title?: string | null;
+        };
+        /** CycleLine */
+        CycleLine: {
+            /** Cost Usd */
+            cost_usd?: string | null;
+            /** Ended At */
+            ended_at: string | null;
+            /**
+             * Failed Tasks
+             * @default 0
+             */
+            failed_tasks: number;
+            /**
+             * Goals
+             * @default []
+             */
+            goals: components["schemas"]["CycleGoal"][];
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Planned By */
+            planned_by?: string | null;
+            /** Review */
+            review?: string | null;
+            /** Review Missing */
+            review_missing?: string | null;
+            /** Seq */
+            seq: number;
+            /** Stage */
+            stage: string;
+            /** Stage Deadline */
+            stage_deadline: string | null;
+            /**
+             * Started At
+             * Format: date-time
+             */
+            started_at: string;
+            /**
+             * Workflows
+             * @default 0
+             */
+            workflows: number;
+        };
+        /** CycleView */
+        CycleView: {
+            /** Deadline */
+            deadline?: string | null;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Seq */
+            seq: number;
+            /** Stage */
+            stage: string;
+        };
         /** DailyView */
         DailyView: {
             /**
@@ -1617,10 +1795,7 @@ export interface components {
              * Format: uuid
              */
             company_id: string;
-            /** Cycle */
-            cycle?: {
-                [key: string]: unknown;
-            } | null;
+            cycle?: components["schemas"]["CycleView"] | null;
             /** Kpis */
             kpis?: {
                 [key: string]: unknown;
@@ -2612,6 +2787,39 @@ export interface operations {
             };
         };
     };
+    list_cycles_api_companies__company_id__cycles_get: {
+        parameters: {
+            query?: {
+                limit?: number;
+            };
+            header?: never;
+            path: {
+                company_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CycleLine"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     get_kpis_api_companies__company_id__kpis_get: {
         parameters: {
             query?: never;
@@ -2860,6 +3068,37 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["WorkflowRunOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_cycle_api_cycles__cycle_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                cycle_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CycleDetail"];
                 };
             };
             /** @description Validation Error */

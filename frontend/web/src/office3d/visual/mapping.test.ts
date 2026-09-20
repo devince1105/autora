@@ -141,7 +141,9 @@ describe("a real runtime history", () => {
     }
     // the history exercises the main states, and hand-offs go to roles the company has
     for (const text of ["閒置", "思考中", "工作中", "檢查中", "已完成"]) expect(seen).toContain(text);
+    // "human" among them is the approval desk: a step nobody on the roster sits at
     const roles = new Set(Object.values(store.getState().company!.agents).map((a) => a.role));
+    roles.add("human");
     expect(walks.length).toBeGreaterThan(0);
     for (const role of walks) expect(roles).toContain(role);
   });

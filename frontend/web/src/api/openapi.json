@@ -1277,6 +1277,374 @@
     "title": "CompanyType",
     "type": "string"
    },
+   "CycleDetail": {
+    "properties": {
+     "cost_usd": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Cost Usd"
+     },
+     "ended_at": {
+      "anyOf": [
+       {
+        "format": "date-time",
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Ended At"
+     },
+     "failed_tasks": {
+      "default": 0,
+      "title": "Failed Tasks",
+      "type": "integer"
+     },
+     "goals": {
+      "default": [],
+      "items": {
+       "$ref": "#/components/schemas/CycleGoal"
+      },
+      "title": "Goals",
+      "type": "array"
+     },
+     "id": {
+      "format": "uuid",
+      "title": "Id",
+      "type": "string"
+     },
+     "kpis": {
+      "additionalProperties": true,
+      "default": {},
+      "title": "Kpis",
+      "type": "object"
+     },
+     "plan": {
+      "anyOf": [
+       {
+        "additionalProperties": true,
+        "type": "object"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Plan"
+     },
+     "planned_by": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Planned By"
+     },
+     "review": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Review"
+     },
+     "review_detail": {
+      "anyOf": [
+       {
+        "additionalProperties": true,
+        "type": "object"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Review Detail"
+     },
+     "review_missing": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Review Missing"
+     },
+     "seq": {
+      "title": "Seq",
+      "type": "integer"
+     },
+     "stage": {
+      "title": "Stage",
+      "type": "string"
+     },
+     "stage_deadline": {
+      "anyOf": [
+       {
+        "format": "date-time",
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Stage Deadline"
+     },
+     "started_at": {
+      "format": "date-time",
+      "title": "Started At",
+      "type": "string"
+     },
+     "summary": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Summary"
+     },
+     "timeline": {
+      "default": [],
+      "items": {
+       "$ref": "#/components/schemas/EventEnvelope"
+      },
+      "title": "Timeline",
+      "type": "array"
+     },
+     "workflows": {
+      "default": 0,
+      "title": "Workflows",
+      "type": "integer"
+     }
+    },
+    "required": [
+     "id",
+     "seq",
+     "stage",
+     "started_at",
+     "ended_at",
+     "stage_deadline"
+    ],
+    "title": "CycleDetail",
+    "type": "object"
+   },
+   "CycleGoal": {
+    "description": "A target the cycle was aimed at, and where it got to.",
+    "properties": {
+     "current": {
+      "anyOf": [
+       {
+        "type": "number"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Current"
+     },
+     "metric": {
+      "title": "Metric",
+      "type": "string"
+     },
+     "target": {
+      "anyOf": [
+       {
+        "type": "number"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Target"
+     },
+     "title": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Title"
+     }
+    },
+    "required": [
+     "metric"
+    ],
+    "title": "CycleGoal",
+    "type": "object"
+   },
+   "CycleLine": {
+    "properties": {
+     "cost_usd": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Cost Usd"
+     },
+     "ended_at": {
+      "anyOf": [
+       {
+        "format": "date-time",
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Ended At"
+     },
+     "failed_tasks": {
+      "default": 0,
+      "title": "Failed Tasks",
+      "type": "integer"
+     },
+     "goals": {
+      "default": [],
+      "items": {
+       "$ref": "#/components/schemas/CycleGoal"
+      },
+      "title": "Goals",
+      "type": "array"
+     },
+     "id": {
+      "format": "uuid",
+      "title": "Id",
+      "type": "string"
+     },
+     "planned_by": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Planned By"
+     },
+     "review": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Review"
+     },
+     "review_missing": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Review Missing"
+     },
+     "seq": {
+      "title": "Seq",
+      "type": "integer"
+     },
+     "stage": {
+      "title": "Stage",
+      "type": "string"
+     },
+     "stage_deadline": {
+      "anyOf": [
+       {
+        "format": "date-time",
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Stage Deadline"
+     },
+     "started_at": {
+      "format": "date-time",
+      "title": "Started At",
+      "type": "string"
+     },
+     "workflows": {
+      "default": 0,
+      "title": "Workflows",
+      "type": "integer"
+     }
+    },
+    "required": [
+     "id",
+     "seq",
+     "stage",
+     "started_at",
+     "ended_at",
+     "stage_deadline"
+    ],
+    "title": "CycleLine",
+    "type": "object"
+   },
+   "CycleView": {
+    "properties": {
+     "deadline": {
+      "anyOf": [
+       {
+        "format": "date-time",
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Deadline"
+     },
+     "id": {
+      "format": "uuid",
+      "title": "Id",
+      "type": "string"
+     },
+     "seq": {
+      "title": "Seq",
+      "type": "integer"
+     },
+     "stage": {
+      "title": "Stage",
+      "type": "string"
+     }
+    },
+    "required": [
+     "id",
+     "seq",
+     "stage"
+    ],
+    "title": "CycleView",
+    "type": "object"
+   },
    "DailyView": {
     "properties": {
      "day": {
@@ -2729,14 +3097,12 @@
      "cycle": {
       "anyOf": [
        {
-        "additionalProperties": true,
-        "type": "object"
+        "$ref": "#/components/schemas/CycleView"
        },
        {
         "type": "null"
        }
-      ],
-      "title": "Cycle"
+      ]
      },
      "kpis": {
       "anyOf": [
@@ -4822,6 +5188,71 @@
     ]
    }
   },
+  "/api/companies/{company_id}/cycles": {
+   "get": {
+    "description": "The company's recent days, newest first.",
+    "operationId": "list_cycles_api_companies__company_id__cycles_get",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "company_id",
+      "required": true,
+      "schema": {
+       "format": "uuid",
+       "title": "Company Id",
+       "type": "string"
+      }
+     },
+     {
+      "in": "query",
+      "name": "limit",
+      "required": false,
+      "schema": {
+       "default": 14,
+       "maximum": 60,
+       "minimum": 1,
+       "title": "Limit",
+       "type": "integer"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "items": {
+          "$ref": "#/components/schemas/CycleLine"
+         },
+         "title": "Response List Cycles Api Companies  Company Id  Cycles Get",
+         "type": "array"
+        }
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "security": [
+     {
+      "HTTPBearer": []
+     }
+    ],
+    "summary": "List Cycles",
+    "tags": [
+     "cycles"
+    ]
+   }
+  },
   "/api/companies/{company_id}/kpis": {
    "get": {
     "description": "Cash, today's revenue and expenses (model calls included), today's goal, and whatever\neach domain counted today under its own name.",
@@ -5272,6 +5703,55 @@
     "summary": "Post Workflow",
     "tags": [
      "workflows"
+    ]
+   }
+  },
+  "/api/cycles/{cycle_id}": {
+   "get": {
+    "description": "One day, in full: the plan, the numbers, the work, the summary and the timeline.",
+    "operationId": "get_cycle_api_cycles__cycle_id__get",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "cycle_id",
+      "required": true,
+      "schema": {
+       "format": "uuid",
+       "title": "Cycle Id",
+       "type": "string"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/CycleDetail"
+        }
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "security": [
+     {
+      "HTTPBearer": []
+     }
+    ],
+    "summary": "Get Cycle",
+    "tags": [
+     "cycles"
     ]
    }
   },
