@@ -390,7 +390,10 @@ async def test_assigning_the_same_position_again_says_nothing(db_session):
 
     assert not (
         await db_session.scalars(
-            select(EventRecord).where(EventRecord.event_type == "AGENT_ASSIGNED")
+            select(EventRecord).where(
+                EventRecord.company_id == company.id,
+                EventRecord.event_type == "AGENT_ASSIGNED",
+            )
         )
     ).all()
 
@@ -432,7 +435,9 @@ async def test_a_product_belongs_to_a_business(db_session):
     assert product.business_unit_id == media.id
     assert await product_by_key(db_session, company.id, "daily_english_world") is not None
     created = await db_session.scalar(
-        select(EventRecord).where(EventRecord.event_type == "PRODUCT_CREATED")
+        select(EventRecord).where(
+            EventRecord.company_id == company.id, EventRecord.event_type == "PRODUCT_CREATED"
+        )
     )
     assert created.payload["business_unit_id"] == str(media.id)
 

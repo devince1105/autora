@@ -14,7 +14,8 @@ from autora.company.agents import pause_agent as agent_pause
 from autora.company.agents import resume_agent as agent_resume
 from autora.company.agents import retire_agent as agent_retire
 from autora.company.companies import CompanyAlreadyExists, create_company
-from autora.db.models import Agent, Company, CompanyType
+from autora.company.organization import org_chart
+from autora.db.models import Agent, Company, CompanyType, Department
 from autora.db.repositories import agents as agent_repo
 from autora.db.repositories import companies as company_repo
 from autora.runtime.activity import effective_state, get_activity
@@ -64,6 +65,8 @@ class AgentOut(BaseModel):
     role: str
     display_name: str
     avatar_key: str
+    department_id: uuid.UUID | None = None
+    department_key: str | None = None
     status: str
     activity: ActivityOut | None
 
@@ -110,11 +113,18 @@ async def get_company(company_id: uuid.UUID, session: Session, _: Operator) -> C
 
 async def _agent_out(session: Session, agent: Agent) -> AgentOut:
     activity = await get_activity(session, agent.id)
+    department = (
+        await session.get(Department, agent.department_id)
+        if agent.department_id is not None
+        else None
+    )
     return AgentOut(
         id=agent.id,
         role=agent.role,
         display_name=agent.display_name,
         avatar_key=agent.avatar_key,
+        department_id=agent.department_id,
+        department_key=department.key if department else None,
         status=agent.status,
         activity=None
         if activity is None
@@ -232,3 +242,130 @@ async def hire(
     )
     await session.commit()
     return await _agent_out(session, agent)
+
+
+# --- the organisation (T-600) ---------------------------------------------------------------
+
+
+class RoleOut(BaseModel):
+    id: uuid.UUID
+    key: str
+    """The string the runtime dispatches on: a task asking for this role reaches this desk."""
+    title: str
+    is_lead: bool
+    responsibilities: str | None
+    held_by: list[uuid.UUID] = []
+    """Agents holding this position. Empty is a real state — a defined but unfilled chair."""
+
+
+class DepartmentOut(BaseModel):
+    id: uuid.UUID
+    key: str
+    name: str
+    purpose: str | None
+    office_zone_key: str | None
+    roles: list[RoleOut] = []
+    agents: list[AgentOut] = []
+    teams: list[DepartmentOut] = []
+    headcount: int
+
+
+class ProductOut(BaseModel):
+    id: uuid.UUID
+    key: str
+    name: str
+    state: str
+    public_url: str | None
+
+
+class BusinessUnitOut(BaseModel):
+    id: uuid.UUID | None
+    """None for the company's own shared functions, which belong to no business."""
+    key: str | None
+    name: str
+    mission: str | None = None
+    state: str | None = None
+    departments: list[DepartmentOut] = []
+    products: list[ProductOut] = []
+
+
+class OrgOut(BaseModel):
+    """The company's organisation: what it is in, how it is arranged, and who is where."""
+
+    company_id: uuid.UUID
+    shared: BusinessUnitOut
+    units: list[BusinessUnitOut] = []
+    unplaced: list[AgentOut] = []
+    """Agents with no department: they work, they are just not on the chart yet."""
+    headcount: int
+
+
+@router.get("/{company_id}/org")
+async def get_org(session: Session, company_id: uuid.UUID) -> OrgOut:
+    """The whole org chart in one call — what the office needs to draw its rooms."""
+    await _company_or_404(session, company_id)
+    chart = await org_chart(session, company_id)
+    by_role: dict[uuid.UUID, list[uuid.UUID]] = {}
+    for node in _walk(chart):
+        for agent in node.agents:
+            if agent.role_id is not None:
+                by_role.setdefault(agent.role_id, []).append(agent.id)
+
+    async def department(node) -> DepartmentOut:
+        return DepartmentOut(
+            id=node.department.id,
+            key=node.department.key,
+            name=node.department.name,
+            purpose=node.department.purpose,
+            office_zone_key=node.department.office_zone_key,
+            roles=[
+                RoleOut(
+                    id=role.id,
+                    key=role.key,
+                    title=role.title,
+                    is_lead=role.is_lead,
+                    responsibilities=role.responsibilities,
+                    held_by=by_role.get(role.id, []),
+                )
+                for role in node.roles
+            ],
+            agents=[await _agent_out(session, agent) for agent in node.agents],
+            teams=[await department(team) for team in node.teams],
+            headcount=node.headcount,
+        )
+
+    async def unit(node, *, name: str) -> BusinessUnitOut:
+        return BusinessUnitOut(
+            id=node.unit.id if node.unit else None,
+            key=node.unit.key if node.unit else None,
+            name=node.unit.name if node.unit else name,
+            mission=node.unit.mission if node.unit else None,
+            state=node.unit.state if node.unit else None,
+            departments=[await department(d) for d in node.departments],
+            products=[
+                ProductOut(id=p.id, key=p.key, name=p.name, state=p.state, public_url=p.public_url)
+                for p in node.products
+            ],
+        )
+
+    return OrgOut(
+        company_id=company_id,
+        shared=await unit(chart.shared, name="Company"),
+        units=[await unit(u, name="") for u in chart.units],
+        unplaced=[await _agent_out(session, agent) for agent in chart.unplaced],
+        headcount=chart.headcount,
+    )
+
+
+def _walk(chart):
+    def nodes(node):
+        yield node
+        for team in node.teams:
+            yield from nodes(team)
+
+    for unit in (chart.shared, *chart.units):
+        for node in unit.departments:
+            yield from nodes(node)
+
+
+DepartmentOut.model_rebuild()

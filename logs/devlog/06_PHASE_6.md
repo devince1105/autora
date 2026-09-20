@@ -157,11 +157,43 @@ Python 與 TypeScript 兩個 reducer 同步改，投影契約 fixture 重新產�
 ### 這一批還沒做
 種子資料還沒建立組織（示範公司目前仍然是 6 個沒有部門的代理）、`/api/org` 還沒開、3D 辦公室還沒改成可進入的部門。下一批做。
 
+### 第二批：種子資料建出組織、`/api/companies/{id}/org`
+
+**新聞室自己宣告它的位置**（`domains/newsroom/organization.py`）。這是分層的自然結果：`domains` 可以 import `company`，所以新聞室直接呼叫 Core 的 `add_business_unit` / `add_department` / `add_role` / `add_product` 把自己安裝進公司，Core 不需要知道有新聞室這回事。建出來的形狀：
+
+```
+Company
+  Executive                    （不屬於任何事業：它決定公司要做哪些事業）→ ceo（職務已定義，還沒有人）
+  AI Media                     事業（ACTIVE，帶 kill criteria）
+    Newsroom                   部門 → editor_in_chief（職務已定義，還沒有人，T-605b）
+      Research                 團隊 → researcher、analyst
+      Writing                  團隊 → writer
+      Editing                  團隊 → editor（= Copy Editor）
+      Audience                 團隊 → marketing
+    Daily English World        產品（LIVE，`/news/zh-TW`）
+```
+
+**兩把空椅子是誠實的狀態**：`ceo` 與 `editor_in_chief` 的職務定義好了但沒有人擔任——今天仍然是人去啟動整條線，沒有誰在選題。它們的代理分別是 T-605a 與 T-605b。
+
+`staff_newsroom()` 改成**先建組織、再把代理雇進職務**（`hire_agent(position=...)`），所以每個代理一出生就有部門與職務的預設值，不再是一個裸的角色字串。仍然依 key 冪等：種子跑兩次只會有一個組織。示範專案也掛到 AI Media 底下（舊資料會被補上）。
+
+`bootstrap_executive()` 放在 Core：一間公司至少要有一個不屬於任何事業的部門——決定要做哪些事業的那個。
+
+**`GET /api/companies/{id}/org`** 一次回傳整張組織圖（共用職能、各事業與其部門 / 團隊 / 職務 / 人、產品、未歸屬的代理、總人數）。每個職務帶 `held_by`，所以「這張椅子沒有人坐」在 API 層就看得出來。`AgentOut` 也跟著帶 `department_id` / `department_key`。
+
+**驗證**：`pytest tests/api/test_org_api.py` 8 個測試（公司職能與事業分開、新聞室底下的四個團隊、人數只算一次、職務說得出誰擔任、代理名冊也帶部門、沒有組織的公司也能回答、未知公司 404、種子跑兩次只有一個組織）。後端 948 個測試通過；web 254、事件契約 8 通過；`ruff`、`typecheck`、`lint-imports`、`db-check`、`gen-schema-check`、`gen-api-check` 通過。
+
+**順手修掉自己測試裡的一個洞**：`test_organization.py` 有兩個查事件的斷言沒有篩公司。單獨跑看不出來，但新的 API 測試會 commit 資料，一跑全套就撞上。已補上公司條件——這種測試在單獨跑時會騙人。
+
+**這一批還沒做**：3D 辦公室還沒改成可進入的部門（`layout.ts` 的 `SLOTS`、`palette.ts` 的封閉 union、導覽、相機、信差路徑、2D 備援都要動，見 `ARCHITECTURE_V2.md` §14.7），留給第三批。
+
 ---
 
 ## 提交紀錄
 
 | 提交 | 日期 | 內容 | 持續整合 |
 |---|---|---|---|
+| `eb29c3a` | 2026-09-20 | 修 web typecheck（測試 fixture 缺欄位）；`make lint-web` 補上 typecheck | ✅ 執行編號 `35491126802` |
+| `1fa692b` | 2026-09-20 | T-600 第一批：組織四張表、服務、`AGENT_ASSIGNED`、即時契約 | ❌ 執行編號 `35490732378`（python、e2e 通過；web typecheck 失敗）→ 見上一列 |
 | `8bc0ef7` | 2026-09-20 | T-602 帳本（一輪一專案一筆結算）、補-1 `model_calls` 連到 workflow 與 cycle | ✅ 執行編號 `35489615243`（e2e 4 分 55 秒、python 2 分 33 秒、web 1 分 3 秒） |
 | `e6d004c` | 2026-09-20 | T-601 cycle 狀態機、stage runner、時限；cycle 預算視窗 | ✅ 執行編號 `35489042649`（python 2 分 33 秒、e2e 7 分 31 秒、web 1 分 13 秒） |

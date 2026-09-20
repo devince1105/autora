@@ -24,8 +24,10 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from autora.company.companies import create_company
+from autora.company.organization import bootstrap_executive, business_unit_by_key
 from autora.db.models import Company, CompanyType, Project, ProjectState, WorkflowRun
 from autora.db.repositories.companies import get_company_by_slug
+from autora.domains.newsroom import organization as newsroom_org
 from autora.domains.newsroom.models import Source, Story, StoryState
 from autora.domains.newsroom.sources import SourcePoller, add_source
 from autora.domains.newsroom.stories import StoryDesk
@@ -74,19 +76,24 @@ async def seed_demo(
             mission="用有來源、查核過的中英雙語報導，讓流明市民知道城市裡發生了什麼。",
             actor=actor,
         )
+    await bootstrap_executive(session, company.id, actor=actor)
+    await staff_newsroom(session, company.id, actor=actor)
+    unit = await business_unit_by_key(session, company.id, newsroom_org.BUSINESS_UNIT)
     project = await session.scalar(
         select(Project).where(Project.company_id == company.id, Project.name == PROJECT)
     )
     if project is None:
         project = Project(
             company_id=company.id,
+            business_unit_id=unit.id if unit else None,
             name=PROJECT,
             state=ProjectState.ACTIVE.value,
             kill_criteria={"max_cost_usd": 5},
         )
         session.add(project)
         await session.flush()
-    await staff_newsroom(session, company.id, actor=actor)
+    elif project.business_unit_id is None and unit is not None:
+        project.business_unit_id = unit.id  # a demo seeded before the organisation existed
     known = set(
         (await session.scalars(select(Source.url).where(Source.company_id == company.id))).all()
     )

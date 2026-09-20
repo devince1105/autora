@@ -194,6 +194,29 @@
       "title": "Avatar Key",
       "type": "string"
      },
+     "department_id": {
+      "anyOf": [
+       {
+        "format": "uuid",
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Department Id"
+     },
+     "department_key": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Department Key"
+     },
      "display_name": {
       "title": "Display Name",
       "type": "string"
@@ -807,6 +830,82 @@
     "title": "BlockView",
     "type": "object"
    },
+   "BusinessUnitOut": {
+    "properties": {
+     "departments": {
+      "default": [],
+      "items": {
+       "$ref": "#/components/schemas/DepartmentOut"
+      },
+      "title": "Departments",
+      "type": "array"
+     },
+     "id": {
+      "anyOf": [
+       {
+        "format": "uuid",
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Id"
+     },
+     "key": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Key"
+     },
+     "mission": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Mission"
+     },
+     "name": {
+      "title": "Name",
+      "type": "string"
+     },
+     "products": {
+      "default": [],
+      "items": {
+       "$ref": "#/components/schemas/ProductOut"
+      },
+      "title": "Products",
+      "type": "array"
+     },
+     "state": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "State"
+     }
+    },
+    "required": [
+     "id",
+     "key",
+     "name"
+    ],
+    "title": "BusinessUnitOut",
+    "type": "object"
+   },
    "ClaimView": {
     "properties": {
      "claim_type": {
@@ -1009,6 +1108,83 @@
      "decision"
     ],
     "title": "DecisionIn",
+    "type": "object"
+   },
+   "DepartmentOut": {
+    "properties": {
+     "agents": {
+      "default": [],
+      "items": {
+       "$ref": "#/components/schemas/AgentOut"
+      },
+      "title": "Agents",
+      "type": "array"
+     },
+     "headcount": {
+      "title": "Headcount",
+      "type": "integer"
+     },
+     "id": {
+      "format": "uuid",
+      "title": "Id",
+      "type": "string"
+     },
+     "key": {
+      "title": "Key",
+      "type": "string"
+     },
+     "name": {
+      "title": "Name",
+      "type": "string"
+     },
+     "office_zone_key": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Office Zone Key"
+     },
+     "purpose": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Purpose"
+     },
+     "roles": {
+      "default": [],
+      "items": {
+       "$ref": "#/components/schemas/RoleOut"
+      },
+      "title": "Roles",
+      "type": "array"
+     },
+     "teams": {
+      "default": [],
+      "items": {
+       "$ref": "#/components/schemas/DepartmentOut"
+      },
+      "title": "Teams",
+      "type": "array"
+     }
+    },
+    "required": [
+     "id",
+     "key",
+     "name",
+     "purpose",
+     "office_zone_key",
+     "headcount"
+    ],
+    "title": "DepartmentOut",
     "type": "object"
    },
    "DistributionView": {
@@ -1723,6 +1899,87 @@
     "title": "NewSource",
     "type": "object"
    },
+   "OrgOut": {
+    "description": "The company's organisation: what it is in, how it is arranged, and who is where.",
+    "properties": {
+     "company_id": {
+      "format": "uuid",
+      "title": "Company Id",
+      "type": "string"
+     },
+     "headcount": {
+      "title": "Headcount",
+      "type": "integer"
+     },
+     "shared": {
+      "$ref": "#/components/schemas/BusinessUnitOut"
+     },
+     "units": {
+      "default": [],
+      "items": {
+       "$ref": "#/components/schemas/BusinessUnitOut"
+      },
+      "title": "Units",
+      "type": "array"
+     },
+     "unplaced": {
+      "default": [],
+      "items": {
+       "$ref": "#/components/schemas/AgentOut"
+      },
+      "title": "Unplaced",
+      "type": "array"
+     }
+    },
+    "required": [
+     "company_id",
+     "shared",
+     "headcount"
+    ],
+    "title": "OrgOut",
+    "type": "object"
+   },
+   "ProductOut": {
+    "properties": {
+     "id": {
+      "format": "uuid",
+      "title": "Id",
+      "type": "string"
+     },
+     "key": {
+      "title": "Key",
+      "type": "string"
+     },
+     "name": {
+      "title": "Name",
+      "type": "string"
+     },
+     "public_url": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Public Url"
+     },
+     "state": {
+      "title": "State",
+      "type": "string"
+     }
+    },
+    "required": [
+     "id",
+     "key",
+     "name",
+     "state",
+     "public_url"
+    ],
+    "title": "ProductOut",
+    "type": "object"
+   },
    "PublicArticle": {
     "properties": {
      "article_id": {
@@ -2019,6 +2276,56 @@
      "recent_events"
     ],
     "title": "RealtimeSnapshot",
+    "type": "object"
+   },
+   "RoleOut": {
+    "properties": {
+     "held_by": {
+      "default": [],
+      "items": {
+       "format": "uuid",
+       "type": "string"
+      },
+      "title": "Held By",
+      "type": "array"
+     },
+     "id": {
+      "format": "uuid",
+      "title": "Id",
+      "type": "string"
+     },
+     "is_lead": {
+      "title": "Is Lead",
+      "type": "boolean"
+     },
+     "key": {
+      "title": "Key",
+      "type": "string"
+     },
+     "responsibilities": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Responsibilities"
+     },
+     "title": {
+      "title": "Title",
+      "type": "string"
+     }
+    },
+    "required": [
+     "id",
+     "key",
+     "title",
+     "is_lead",
+     "responsibilities"
+    ],
+    "title": "RoleOut",
     "type": "object"
    },
    "Roles": {
@@ -4054,6 +4361,50 @@
     "summary": "Get Kpis",
     "tags": [
      "reporting"
+    ]
+   }
+  },
+  "/api/companies/{company_id}/org": {
+   "get": {
+    "description": "The whole org chart in one call — what the office needs to draw its rooms.",
+    "operationId": "get_org_api_companies__company_id__org_get",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "company_id",
+      "required": true,
+      "schema": {
+       "format": "uuid",
+       "title": "Company Id",
+       "type": "string"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/OrgOut"
+        }
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Get Org",
+    "tags": [
+     "companies"
     ]
    }
   },

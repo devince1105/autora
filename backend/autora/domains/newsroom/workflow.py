@@ -30,8 +30,10 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from autora.company.agents import hire_agent
+from autora.company.organization import role_by_key
 from autora.company.workflows import StartWorkflowError, start_workflow
 from autora.db.models import Agent, AgentStatus, Approval, ApprovalKind, WorkflowRun
+from autora.domains.newsroom import organization
 from autora.domains.newsroom.models import Article, ArticleState, Story, StoryState
 from autora.domains.newsroom.publisher import (
     NotAllowed,
@@ -104,7 +106,13 @@ DISPLAY_NAMES = {
 async def staff_newsroom(
     session: AsyncSession, company_id: uuid.UUID, *, actor: Actor
 ) -> list[Agent]:
-    """Hire one active agent per newsroom role the company does not have yet."""
+    """Build the newsroom's place in the company, then hire one agent into each position.
+
+    The organisation comes first (T-600): an agent is hired *into a role*, so it arrives with a
+    department and the position's defaults rather than with a bare role string. The
+    editor-in-chief's chair is left empty on purpose — its agent is T-605b.
+    """
+    await organization.build(session, company_id, actor=actor)
     existing = set(
         (
             await session.scalars(
@@ -114,11 +122,22 @@ async def staff_newsroom(
             )
         ).all()
     )
-    return [
-        await hire_agent(session, company_id=company_id, role=role, display_name=name, actor=actor)
-        for role, name in DISPLAY_NAMES.items()
-        if role not in existing
-    ]
+    hired = []
+    for role, name in DISPLAY_NAMES.items():
+        if role in existing:
+            continue
+        position = await role_by_key(session, company_id, role)
+        hired.append(
+            await hire_agent(
+                session,
+                company_id=company_id,
+                role=role,
+                display_name=name,
+                actor=actor,
+                position=position,
+            )
+        )
+    return hired
 
 
 async def start_story(

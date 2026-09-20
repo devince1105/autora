@@ -229,6 +229,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/companies/{company_id}/org": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Org
+         * @description The whole org chart in one call — what the office needs to draw its rooms.
+         */
+        get: operations["get_org_api_companies__company_id__org_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/companies/{company_id}/realtime/snapshot": {
         parameters: {
             query?: never;
@@ -572,6 +592,10 @@ export interface components {
             activity: components["schemas"]["ActivityOut"] | null;
             /** Avatar Key */
             avatar_key: string;
+            /** Department Id */
+            department_id?: string | null;
+            /** Department Key */
+            department_key?: string | null;
             /** Display Name */
             display_name: string;
             /**
@@ -808,6 +832,29 @@ export interface components {
             /** Type */
             type: string;
         };
+        /** BusinessUnitOut */
+        BusinessUnitOut: {
+            /**
+             * Departments
+             * @default []
+             */
+            departments: components["schemas"]["DepartmentOut"][];
+            /** Id */
+            id: string | null;
+            /** Key */
+            key: string | null;
+            /** Mission */
+            mission?: string | null;
+            /** Name */
+            name: string;
+            /**
+             * Products
+             * @default []
+             */
+            products: components["schemas"]["ProductOut"][];
+            /** State */
+            state?: string | null;
+        };
         /** ClaimView */
         ClaimView: {
             /** Claim Type */
@@ -892,6 +939,39 @@ export interface components {
             decision: "approve" | "reject";
             /** Reason */
             reason?: string | null;
+        };
+        /** DepartmentOut */
+        DepartmentOut: {
+            /**
+             * Agents
+             * @default []
+             */
+            agents: components["schemas"]["AgentOut"][];
+            /** Headcount */
+            headcount: number;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Key */
+            key: string;
+            /** Name */
+            name: string;
+            /** Office Zone Key */
+            office_zone_key: string | null;
+            /** Purpose */
+            purpose: string | null;
+            /**
+             * Roles
+             * @default []
+             */
+            roles: components["schemas"]["RoleOut"][];
+            /**
+             * Teams
+             * @default []
+             */
+            teams: components["schemas"]["DepartmentOut"][];
         };
         /** DistributionView */
         DistributionView: {
@@ -1154,6 +1234,46 @@ export interface components {
             /** Url */
             url?: string | null;
         };
+        /**
+         * OrgOut
+         * @description The company's organisation: what it is in, how it is arranged, and who is where.
+         */
+        OrgOut: {
+            /**
+             * Company Id
+             * Format: uuid
+             */
+            company_id: string;
+            /** Headcount */
+            headcount: number;
+            shared: components["schemas"]["BusinessUnitOut"];
+            /**
+             * Units
+             * @default []
+             */
+            units: components["schemas"]["BusinessUnitOut"][];
+            /**
+             * Unplaced
+             * @default []
+             */
+            unplaced: components["schemas"]["AgentOut"][];
+        };
+        /** ProductOut */
+        ProductOut: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Key */
+            key: string;
+            /** Name */
+            name: string;
+            /** Public Url */
+            public_url: string | null;
+            /** State */
+            state: string;
+        };
         /** PublicArticle */
         PublicArticle: {
             /**
@@ -1274,6 +1394,27 @@ export interface components {
             server_time: string;
             /** Tasks */
             tasks: components["schemas"]["TaskView"][];
+        };
+        /** RoleOut */
+        RoleOut: {
+            /**
+             * Held By
+             * @default []
+             */
+            held_by: string[];
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Is Lead */
+            is_lead: boolean;
+            /** Key */
+            key: string;
+            /** Responsibilities */
+            responsibilities: string | null;
+            /** Title */
+            title: string;
         };
         /** Roles */
         Roles: {
@@ -2247,6 +2388,37 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Kpis"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_org_api_companies__company_id__org_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                company_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OrgOut"];
                 };
             };
             /** @description Validation Error */

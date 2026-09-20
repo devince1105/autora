@@ -243,6 +243,49 @@ async def add_product(
     return product
 
 
+EXECUTIVE = "executive"
+CEO_ROLE = "ceo"
+
+
+async def bootstrap_executive(
+    session: AsyncSession, company_id: uuid.UUID, *, actor: Actor
+) -> tuple[Department, Role]:
+    """Give a company the one department every company has, and the position that leads it.
+
+    A company runs businesses through departments, so it needs at least one that belongs to no
+    business: the one that decides which businesses to run. The position is defined here; the
+    agent that holds it arrives with the CEO agent (T-605), and a company with an empty chair
+    is a real state — it simply has nobody deciding yet.
+    """
+    department = await department_by_key(session, company_id, EXECUTIVE)
+    if department is None:
+        department = await add_department(
+            session,
+            company_id=company_id,
+            key=EXECUTIVE,
+            name="Executive",
+            actor=actor,
+            purpose="Capital, portfolio, priorities and risk.",
+            office_zone_key="ceo",
+        )
+    role = await role_by_key(session, company_id, CEO_ROLE)
+    if role is None:
+        role = await add_role(
+            session,
+            company_id=company_id,
+            key=CEO_ROLE,
+            title="CEO",
+            department_id=department.id,
+            actor=actor,
+            is_lead=True,
+            responsibilities=(
+                "Decides which businesses the company is in and what they are worth spending "
+                "on. Does not do the businesses' work."
+            ),
+        )
+    return department, role
+
+
 # --- putting agents in it -------------------------------------------------------------------
 
 
