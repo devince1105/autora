@@ -830,6 +830,109 @@
     "title": "BlockView",
     "type": "object"
    },
+   "BusinessLine": {
+    "properties": {
+     "id": {
+      "anyOf": [
+       {
+        "format": "uuid",
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Id"
+     },
+     "key": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Key"
+     },
+     "kill_criteria": {
+      "anyOf": [
+       {
+        "additionalProperties": true,
+        "type": "object"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Kill Criteria"
+     },
+     "kpis_last_cycle": {
+      "additionalProperties": true,
+      "default": {},
+      "title": "Kpis Last Cycle",
+      "type": "object"
+     },
+     "mission": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Mission"
+     },
+     "name": {
+      "title": "Name",
+      "type": "string"
+     },
+     "products": {
+      "default": [],
+      "items": {
+       "$ref": "#/components/schemas/ProductLine"
+      },
+      "title": "Products",
+      "type": "array"
+     },
+     "projects": {
+      "default": [],
+      "items": {
+       "$ref": "#/components/schemas/ProjectLine"
+      },
+      "title": "Projects",
+      "type": "array"
+     },
+     "state": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "State"
+     },
+     "trend_7d": {
+      "additionalProperties": {
+       "items": {
+        "type": "number"
+       },
+       "type": "array"
+      },
+      "default": {},
+      "title": "Trend 7D",
+      "type": "object"
+     }
+    },
+    "required": [
+     "name"
+    ],
+    "title": "BusinessLine",
+    "type": "object"
+   },
    "BusinessUnitOut": {
     "properties": {
      "departments": {
@@ -904,6 +1007,43 @@
      "name"
     ],
     "title": "BusinessUnitOut",
+    "type": "object"
+   },
+   "Capital": {
+    "properties": {
+     "balance": {
+      "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+      "title": "Balance",
+      "type": "string"
+     },
+     "currency": {
+      "default": "USD",
+      "title": "Currency",
+      "type": "string"
+     },
+     "daily_cap": {
+      "anyOf": [
+       {
+        "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Daily Cap"
+     },
+     "daily_spent": {
+      "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+      "title": "Daily Spent",
+      "type": "string"
+     }
+    },
+    "required": [
+     "balance",
+     "daily_spent"
+    ],
+    "title": "Capital",
     "type": "object"
    },
    "ClaimView": {
@@ -1034,6 +1174,96 @@
      "created_at"
     ],
     "title": "CompanyOut",
+    "type": "object"
+   },
+   "CompanySnapshot": {
+    "description": "What the CEO sees. The same document the operator can read on the page.",
+    "properties": {
+     "capital": {
+      "$ref": "#/components/schemas/Capital"
+     },
+     "company": {
+      "title": "Company",
+      "type": "string"
+     },
+     "company_work": {
+      "default": [],
+      "items": {
+       "$ref": "#/components/schemas/ProjectLine"
+      },
+      "title": "Company Work",
+      "type": "array"
+     },
+     "domains": {
+      "additionalProperties": true,
+      "default": {},
+      "title": "Domains",
+      "type": "object"
+     },
+     "goals": {
+      "default": [],
+      "items": {
+       "$ref": "#/components/schemas/GoalLine"
+      },
+      "title": "Goals",
+      "type": "array"
+     },
+     "human_notes": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Human Notes"
+     },
+     "last_cycle": {
+      "$ref": "#/components/schemas/LastCycle"
+     },
+     "period": {
+      "$ref": "#/components/schemas/Period"
+     },
+     "portfolio": {
+      "default": [],
+      "items": {
+       "$ref": "#/components/schemas/BusinessLine"
+      },
+      "title": "Portfolio",
+      "type": "array"
+     },
+     "strategy_summary": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Strategy Summary"
+     },
+     "tokens": {
+      "default": 0,
+      "title": "Tokens",
+      "type": "integer"
+     },
+     "trimmed": {
+      "default": [],
+      "items": {
+       "type": "string"
+      },
+      "title": "Trimmed",
+      "type": "array"
+     }
+    },
+    "required": [
+     "company",
+     "period",
+     "capital"
+    ],
+    "title": "CompanySnapshot",
     "type": "object"
    },
    "CompanyType": {
@@ -1554,6 +1784,67 @@
     "title": "FactCheckView",
     "type": "object"
    },
+   "GoalLine": {
+    "properties": {
+     "current": {
+      "anyOf": [
+       {
+        "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Current"
+     },
+     "id": {
+      "format": "uuid",
+      "title": "Id",
+      "type": "string"
+     },
+     "level": {
+      "title": "Level",
+      "type": "string"
+     },
+     "metric": {
+      "title": "Metric",
+      "type": "string"
+     },
+     "target": {
+      "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+      "title": "Target",
+      "type": "string"
+     },
+     "title": {
+      "title": "Title",
+      "type": "string"
+     },
+     "trend_7d": {
+      "anyOf": [
+       {
+        "items": {
+         "type": "number"
+        },
+        "type": "array"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Trend 7D"
+     }
+    },
+    "required": [
+     "id",
+     "level",
+     "title",
+     "metric",
+     "target"
+    ],
+    "title": "GoalLine",
+    "type": "object"
+   },
    "GoalView": {
     "properties": {
      "current": {
@@ -1719,6 +2010,53 @@
      "blocks"
     ],
     "title": "LanguageView",
+    "type": "object"
+   },
+   "LastCycle": {
+    "properties": {
+     "approvals_pending": {
+      "default": 0,
+      "title": "Approvals Pending",
+      "type": "integer"
+     },
+     "failed_tasks": {
+      "default": [],
+      "items": {
+       "type": "string"
+      },
+      "title": "Failed Tasks",
+      "type": "array"
+     },
+     "kpis": {
+      "additionalProperties": true,
+      "default": {},
+      "title": "Kpis",
+      "type": "object"
+     },
+     "seq": {
+      "anyOf": [
+       {
+        "type": "integer"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Seq"
+     },
+     "stage": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Stage"
+     }
+    },
+    "title": "LastCycle",
     "type": "object"
    },
    "Lead": {
@@ -1934,6 +2272,83 @@
     "title": "OrgOut",
     "type": "object"
    },
+   "Period": {
+    "properties": {
+     "cycle_id": {
+      "anyOf": [
+       {
+        "format": "uuid",
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Cycle Id"
+     },
+     "date": {
+      "format": "date-time",
+      "title": "Date",
+      "type": "string"
+     },
+     "seq": {
+      "anyOf": [
+       {
+        "type": "integer"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Seq"
+     },
+     "stage": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Stage"
+     }
+    },
+    "required": [
+     "date"
+    ],
+    "title": "Period",
+    "type": "object"
+   },
+   "ProductLine": {
+    "properties": {
+     "id": {
+      "format": "uuid",
+      "title": "Id",
+      "type": "string"
+     },
+     "key": {
+      "title": "Key",
+      "type": "string"
+     },
+     "name": {
+      "title": "Name",
+      "type": "string"
+     },
+     "state": {
+      "title": "State",
+      "type": "string"
+     }
+    },
+    "required": [
+     "id",
+     "key",
+     "name",
+     "state"
+    ],
+    "title": "ProductLine",
+    "type": "object"
+   },
    "ProductOut": {
     "properties": {
      "id": {
@@ -1973,6 +2388,70 @@
      "public_url"
     ],
     "title": "ProductOut",
+    "type": "object"
+   },
+   "ProjectLine": {
+    "properties": {
+     "budget_remaining": {
+      "anyOf": [
+       {
+        "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Budget Remaining"
+     },
+     "failed_tasks": {
+      "default": 0,
+      "title": "Failed Tasks",
+      "type": "integer"
+     },
+     "id": {
+      "format": "uuid",
+      "title": "Id",
+      "type": "string"
+     },
+     "kill_criteria": {
+      "anyOf": [
+       {
+        "additionalProperties": true,
+        "type": "object"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Kill Criteria"
+     },
+     "kpis_last_cycle": {
+      "additionalProperties": true,
+      "default": {},
+      "title": "Kpis Last Cycle",
+      "type": "object"
+     },
+     "name": {
+      "title": "Name",
+      "type": "string"
+     },
+     "open_tasks": {
+      "default": 0,
+      "title": "Open Tasks",
+      "type": "integer"
+     },
+     "state": {
+      "title": "State",
+      "type": "string"
+     }
+    },
+    "required": [
+     "id",
+     "name",
+     "state"
+    ],
+    "title": "ProjectLine",
     "type": "object"
    },
    "PublicArticle": {
@@ -4449,6 +4928,71 @@
     "summary": "Get Snapshot",
     "tags": [
      "realtime"
+    ]
+   }
+  },
+  "/api/companies/{company_id}/snapshot": {
+   "get": {
+    "description": "The CEO's view of the company: capital, goals, the portfolio, and what each domain put\nin front of the decision. ``trimmed`` says what a size limit left out.",
+    "operationId": "get_snapshot_api_companies__company_id__snapshot_get",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "company_id",
+      "required": true,
+      "schema": {
+       "format": "uuid",
+       "title": "Company Id",
+       "type": "string"
+      }
+     },
+     {
+      "in": "query",
+      "name": "tokens",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "type": "integer"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Tokens"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/CompanySnapshot"
+        }
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "security": [
+     {
+      "HTTPBearer": []
+     }
+    ],
+    "summary": "Get Snapshot",
+    "tags": [
+     "reporting"
     ]
    }
   },

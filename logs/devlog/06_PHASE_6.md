@@ -35,7 +35,7 @@
 | T-600 | **組織模型（v2）**：`business_units`、`departments`、`roles`、`products` 四張表；代理歸屬部門與職務；事業歸屬；種子資料與 API | `ARCHITECTURE_V2.md` | 🚧 |
 | T-601 | Cycle FSM + stage runner + deadlines（`cycles` 表、五階段、逾時強制推進） | T-212、T-104 | ✅ |
 | T-602 | Ledger：`model_calls` → expense 結算、餘額與已花額度 | T-209、T-103 | ✅ |
-| T-603 | Reporting + CompanySnapshot（token 上限）、`kpi_snapshots` | T-602、T-516 | 🚧 |
+| T-603 | Reporting + CompanySnapshot（token 上限）、`kpi_snapshots` | T-602、T-516 | ✅ |
 | T-604 | 命令管線（`submit_command`：instantiate_workflow、pause/kill、allocate_budget、update_strategy）、`commands_log` | T-205 | ⬜ |
 | T-609 | `agent_memory`（最近 N 次執行的摘要進 context，TTL 30 天、每個代理 ≤ 50 列） | T-211 | ⬜ |
 | T-605 | CEO 代理（`CyclePlan` / `CycleReview` schema、validators、提示、模擬回應） | T-211、T-603、T-604 | ⬜ |
@@ -219,12 +219,37 @@ Company
 ### 這一批還沒做
 CompanySnapshot（CEO 的輸入）與它的 token 上限、`GET /api/companies/{id}/snapshot`，下一批做。
 
+### 第二批：CompanySnapshot
+
+**CEO 不查資料庫。** 它每輪只拿到一份 JSON，**不在裡面的東西就影響不了決定**。所以這份文件的形狀就是決策的形狀。
+
+**以事業組合為主軸**（依 v2）：portfolio 是脊椎，因為這份文件存在的理由就是「這門生意要不要繼續投錢、那門要不要暫停、要不要試新的」。不屬於任何事業的工作（平台、探索）放在 portfolio **旁邊**，不是塞進去。
+
+欄位：`period`、`capital`（餘額、日上限、今日已花）、`goals`（含 `trend_7d`）、`portfolio`（每門生意的 KPI、趨勢、kill criteria、產品、專案）、`company_work`、`last_cycle`（含壞掉的任務與待審批數）、`domains`（各領域放到決策面前的東西）、`strategy_summary`、`human_notes`。
+
+### 有上限，而且會說自己被裁掉了什麼
+一份會隨公司長大的快照，遲早比它要支援的決定還貴；而**把有趣的部分默默擠出 context 視窗，是最糟的遺失方式**。所以文件會量自己的大小，按**固定順序**裁剪，每一刀都記在 `trimmed` 裡——**CEO 被告知它看到的是局部，而不是被留著以為自己看到了全部**。
+
+裁剪順序（從最能失去的到最不能）：領域的補充 → 趨勢 → 非運作中事業的細節 → 專案 KPI → 上一輪壞掉的任務（留 3 筆）→ 所有專案。
+
+**永遠不裁**：`period`、`capital`、每門生意的名字與狀態。少了這些就不是決定了。因此文件有一個**不可壓縮的底線**——預算低於它不會讓文件變小，只會讓那個預算是錯的，而 `trimmed` 會說出這件事（有測試）。
+
+`human_notes` 與 `strategy_summary` 來自公司政策，**只讀不編**。
+
+`GET /api/companies/{id}/snapshot` 回傳同一份文件——**人看到的跟 CEO 看到的是同一份**，可以用 `?tokens=` 試不同預算。新聞室透過 snapshot 掛鉤提供 `candidates`（依分數排序的題材，上限 8 筆）——**放到決策面前，不是替它決定**。
+
+### 驗證
+- `pytest tests/company/test_snapshot.py`：18 個（組合是脊椎、資本、目標的趨勢會跨前綴對上、沒人量的目標會說出來、上一輪與壞掉的任務、專案剩餘預算、人寫的字只讀不編、領域補充、壞掉的掛鉤只失去自己那一段、小公司不裁、**裁剪會說出裁了什麼**、固定順序、底線存在且穩定、不可失去的永不被裁、公司可自訂預算、空公司也產得出文件、未知公司、KILLED 專案不出現）。
+- `pytest tests/api/test_org_api.py`：新增 4 個（組合、新聞室的候選題材、緊預算會回報、未知公司 404）。
+- 後端 993 個測試通過；web 254、事件契約 8 通過；六項 check 全過。
+
 ---
 
 ## 提交紀錄
 
 | 提交 | 日期 | 內容 | 持續整合 |
 |---|---|---|---|
+| `c6c8dd4` | 2026-09-20 | T-603 第一批：KPI 與領域掛鉤、`kpi_snapshots`、修掉 `ARTICLE_PUBLISHED` 耦合 | ✅ 執行編號 `35492557724`（web 59 秒、python 2 分 50 秒、e2e 7 分 11 秒） |
 | `278f802` | 2026-09-20 | T-600 第二批：新聞室的組織（AI Media 事業、部門與團隊、產品）、`/api/companies/{id}/org` | ✅ 執行編號 `35491545739`（e2e 6 分 26 秒、python 2 分 49 秒、web 1 分 16 秒） |
 | `eb29c3a` | 2026-09-20 | 修 web typecheck（測試 fixture 缺欄位）；`make lint-web` 補上 typecheck | ✅ 執行編號 `35491126802` |
 | `1fa692b` | 2026-09-20 | T-600 第一批：組織四張表、服務、`AGENT_ASSIGNED`、即時契約 | ❌ 執行編號 `35490732378`（python、e2e 通過；web typecheck 失敗）→ 見上一列 |

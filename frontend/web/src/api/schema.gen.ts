@@ -271,6 +271,27 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/companies/{company_id}/snapshot": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Snapshot
+         * @description The CEO's view of the company: capital, goals, the portfolio, and what each domain put
+         *     in front of the decision. ``trimmed`` says what a size limit left out.
+         */
+        get: operations["get_snapshot_api_companies__company_id__snapshot_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/companies/{company_id}/sources": {
         parameters: {
             query?: never;
@@ -833,6 +854,47 @@ export interface components {
             /** Type */
             type: string;
         };
+        /** BusinessLine */
+        BusinessLine: {
+            /** Id */
+            id?: string | null;
+            /** Key */
+            key?: string | null;
+            /** Kill Criteria */
+            kill_criteria?: {
+                [key: string]: unknown;
+            } | null;
+            /**
+             * Kpis Last Cycle
+             * @default {}
+             */
+            kpis_last_cycle: {
+                [key: string]: unknown;
+            };
+            /** Mission */
+            mission?: string | null;
+            /** Name */
+            name: string;
+            /**
+             * Products
+             * @default []
+             */
+            products: components["schemas"]["ProductLine"][];
+            /**
+             * Projects
+             * @default []
+             */
+            projects: components["schemas"]["ProjectLine"][];
+            /** State */
+            state?: string | null;
+            /**
+             * Trend 7D
+             * @default {}
+             */
+            trend_7d: {
+                [key: string]: number[];
+            };
+        };
         /** BusinessUnitOut */
         BusinessUnitOut: {
             /**
@@ -855,6 +917,20 @@ export interface components {
             products: components["schemas"]["ProductOut"][];
             /** State */
             state?: string | null;
+        };
+        /** Capital */
+        Capital: {
+            /** Balance */
+            balance: string;
+            /**
+             * Currency
+             * @default USD
+             */
+            currency: string;
+            /** Daily Cap */
+            daily_cap?: string | null;
+            /** Daily Spent */
+            daily_spent: string;
         };
         /** ClaimView */
         ClaimView: {
@@ -909,6 +985,53 @@ export interface components {
             status: string;
             /** Type */
             type: string;
+        };
+        /**
+         * CompanySnapshot
+         * @description What the CEO sees. The same document the operator can read on the page.
+         */
+        CompanySnapshot: {
+            capital: components["schemas"]["Capital"];
+            /** Company */
+            company: string;
+            /**
+             * Company Work
+             * @default []
+             */
+            company_work: components["schemas"]["ProjectLine"][];
+            /**
+             * Domains
+             * @default {}
+             */
+            domains: {
+                [key: string]: unknown;
+            };
+            /**
+             * Goals
+             * @default []
+             */
+            goals: components["schemas"]["GoalLine"][];
+            /** Human Notes */
+            human_notes?: string | null;
+            last_cycle?: components["schemas"]["LastCycle"];
+            period: components["schemas"]["Period"];
+            /**
+             * Portfolio
+             * @default []
+             */
+            portfolio: components["schemas"]["BusinessLine"][];
+            /** Strategy Summary */
+            strategy_summary?: string | null;
+            /**
+             * Tokens
+             * @default 0
+             */
+            tokens: number;
+            /**
+             * Trimmed
+             * @default []
+             */
+            trimmed: string[];
         };
         /**
          * CompanyType
@@ -1115,6 +1238,26 @@ export interface components {
             /** Version */
             version: number | null;
         };
+        /** GoalLine */
+        GoalLine: {
+            /** Current */
+            current?: string | null;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Level */
+            level: string;
+            /** Metric */
+            metric: string;
+            /** Target */
+            target: string;
+            /** Title */
+            title: string;
+            /** Trend 7D */
+            trend_7d?: number[] | null;
+        };
         /** GoalView */
         GoalView: {
             /** Current */
@@ -1180,6 +1323,30 @@ export interface components {
              * Format: uuid
              */
             version_id: string;
+        };
+        /** LastCycle */
+        LastCycle: {
+            /**
+             * Approvals Pending
+             * @default 0
+             */
+            approvals_pending: number;
+            /**
+             * Failed Tasks
+             * @default []
+             */
+            failed_tasks: string[];
+            /**
+             * Kpis
+             * @default {}
+             */
+            kpis: {
+                [key: string]: unknown;
+            };
+            /** Seq */
+            seq?: number | null;
+            /** Stage */
+            stage?: string | null;
         };
         /** Lead */
         Lead: {
@@ -1264,6 +1431,34 @@ export interface components {
              */
             unplaced: components["schemas"]["AgentOut"][];
         };
+        /** Period */
+        Period: {
+            /** Cycle Id */
+            cycle_id?: string | null;
+            /**
+             * Date
+             * Format: date-time
+             */
+            date: string;
+            /** Seq */
+            seq?: number | null;
+            /** Stage */
+            stage?: string | null;
+        };
+        /** ProductLine */
+        ProductLine: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Key */
+            key: string;
+            /** Name */
+            name: string;
+            /** State */
+            state: string;
+        };
         /** ProductOut */
         ProductOut: {
             /**
@@ -1277,6 +1472,41 @@ export interface components {
             name: string;
             /** Public Url */
             public_url: string | null;
+            /** State */
+            state: string;
+        };
+        /** ProjectLine */
+        ProjectLine: {
+            /** Budget Remaining */
+            budget_remaining?: string | null;
+            /**
+             * Failed Tasks
+             * @default 0
+             */
+            failed_tasks: number;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Kill Criteria */
+            kill_criteria?: {
+                [key: string]: unknown;
+            } | null;
+            /**
+             * Kpis Last Cycle
+             * @default {}
+             */
+            kpis_last_cycle: {
+                [key: string]: unknown;
+            };
+            /** Name */
+            name: string;
+            /**
+             * Open Tasks
+             * @default 0
+             */
+            open_tasks: number;
             /** State */
             state: string;
         };
@@ -2456,6 +2686,39 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["RealtimeSnapshot"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_snapshot_api_companies__company_id__snapshot_get: {
+        parameters: {
+            query?: {
+                tokens?: number | null;
+            };
+            header?: never;
+            path: {
+                company_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CompanySnapshot"];
                 };
             };
             /** @description Validation Error */

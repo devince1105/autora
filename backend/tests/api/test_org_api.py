@@ -1,5 +1,7 @@
 """T-600: the org chart over the API, and the shape the newsroom seed actually builds."""
 
+from decimal import Decimal
+
 import pytest
 
 from autora.company.organization import bootstrap_executive
@@ -120,3 +122,53 @@ async def test_seeding_twice_builds_one_organisation(committed, staffed):
 
     assert chart.business_unit.key == "ai_media"
     assert len(chart.teams) == 4
+
+
+# --- the CEO's view (T-603) ------------------------------------------------------------------
+
+
+async def test_the_snapshot_shows_the_company_as_a_portfolio(api, staffed):
+    response = await api.get(f"/api/companies/{staffed.id}/snapshot")
+    assert response.status_code == 200
+    snapshot = response.json()
+
+    (unit,) = snapshot["portfolio"]
+    assert (unit["key"], unit["state"]) == ("ai_media", "ACTIVE")
+    assert [p["key"] for p in unit["products"]] == ["daily_english_world"]
+    assert unit["kill_criteria"]["auto_pause_if"]["metric"] == "cost_per_published_article"
+    assert snapshot["capital"]["balance"] == "0.000000"
+    assert snapshot["trimmed"] == []  # a company this size fits
+
+
+async def test_the_snapshot_carries_the_newsroom_s_candidates(api, committed, staffed):
+    """What the newsroom puts in front of whoever plans the day (the editor-in-chief, T-605b)."""
+    from autora.domains.newsroom.models import Story
+
+    async with committed() as session:
+        session.add_all([
+            Story(company_id=staffed.id, title="A microgrid for Lumen City",
+                  state="DISCOVERED", score=Decimal("0.90"), items_count=3),
+            Story(company_id=staffed.id, title="Quieter trams", state="DISCOVERED",
+                  score=Decimal("0.40"), items_count=1),
+            Story(company_id=staffed.id, title="Old news", state="PUBLISHED",
+                  score=Decimal("0.99"), items_count=9),
+        ])  # fmt: skip
+        await session.commit()
+
+    snapshot = (await api.get(f"/api/companies/{staffed.id}/snapshot")).json()
+
+    candidates = snapshot["domains"]["newsroom"]["candidates"]
+    assert [c["title"] for c in candidates] == ["A microgrid for Lumen City", "Quieter trams"]
+    assert candidates[0]["score"] == 0.9  # ordered by score; a published story is not a candidate
+
+
+async def test_a_tight_budget_is_reported_not_hidden(api, staffed):
+    snapshot = (await api.get(f"/api/companies/{staffed.id}/snapshot?tokens=60")).json()
+
+    assert snapshot["trimmed"]
+    assert snapshot["portfolio"][0]["key"] == "ai_media"  # still there: the decision needs it
+
+
+async def test_the_snapshot_of_an_unknown_company_is_not_found(api):
+    response = await api.get("/api/companies/01a0bd00-0000-7000-8000-000000000000/snapshot")
+    assert response.status_code == 404

@@ -20,6 +20,7 @@ so a second business never sees newsroom metrics on its report.
 
 from __future__ import annotations
 
+import uuid
 from collections.abc import Mapping
 from decimal import Decimal, InvalidOperation
 
@@ -29,11 +30,18 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from autora.company.reporting import Window
 from autora.db.models import EventRecord, KpiScope, Project
-from autora.domains.newsroom.models import AnalyticsDaily, Article, ArticleState, Story
+from autora.domains.newsroom.models import (
+    AnalyticsDaily,
+    Article,
+    ArticleState,
+    Story,
+    StoryState,
+)
 
 NAME = "newsroom"
 RATIO = Decimal("0.0001")
 REVISION_REQUESTED = "ARTICLE_REVISION_REQUESTED"
+TOP_CANDIDATES = 8
 
 
 async def kpis(
@@ -136,3 +144,35 @@ def _money(value: object) -> Decimal | None:
     except (InvalidOperation, TypeError):
         return None
     return amount if amount > 0 else None
+
+
+async def candidates(session: AsyncSession, company_id: uuid.UUID) -> dict[str, object]:
+    """What the newsroom could cover next, for whoever is planning the day.
+
+    Put in front of the decision, not taken: choosing among these is the editor-in-chief's job
+    (T-605b), and until that agent exists a person chooses. The list is short on purpose — a
+    planner that has to read fifty candidates is being given work, not information.
+    """
+    stories = (
+        await session.scalars(
+            select(Story)
+            .where(
+                Story.company_id == company_id,
+                Story.state.in_([StoryState.DISCOVERED.value, StoryState.SELECTED.value]),
+            )
+            .order_by(Story.score.desc(), Story.updated_at.desc())
+            .limit(TOP_CANDIDATES)
+        )
+    ).all()
+    return {
+        "candidates": [
+            {
+                "story_id": str(story.id),
+                "title": story.title,
+                "score": float(story.score or 0),
+                "sources": story.items_count,
+                "state": story.state,
+            }
+            for story in stories
+        ]
+    }

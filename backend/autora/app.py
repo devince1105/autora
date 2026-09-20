@@ -18,6 +18,7 @@ if TYPE_CHECKING:
     from autora.company.cycle import CycleRunner
     from autora.company.ledger import Ledger
     from autora.company.reporting import Reporting
+    from autora.company.snapshot import SnapshotBuilder
     from autora.infra.blobstore import BlobStore
     from autora.infra.http import PageFetcher
     from autora.infra.search import SearchProvider
@@ -225,12 +226,14 @@ class Runtime:
     cycles: CycleRunner
     ledger: Ledger
     reporting: Reporting
+    snapshots: SnapshotBuilder
 
 
 def build_runtime(settings: Settings | None = None) -> Runtime:
     from autora.company.cycle import CycleRunner, work_is_finished
     from autora.company.ledger import Ledger
     from autora.company.reporting import Reporting
+    from autora.company.snapshot import SnapshotBuilder
     from autora.db.models import CycleStage
     from autora.domains import newsroom
     from autora.domains.newsroom import kpis as newsroom_kpis
@@ -255,6 +258,8 @@ def build_runtime(settings: Settings | None = None) -> Runtime:
     # order matters: the ledger settles the cycle's costs, then reporting measures them
     cycles.when_entering(CycleStage.MEASURING, ledger.stage_hook())
     cycles.when_entering(CycleStage.MEASURING, reporting.stage_hook())
+    snapshots = SnapshotBuilder(reporting, ledger)
+    snapshots.register(newsroom_kpis.NAME, newsroom_kpis.candidates)
     runtime = Runtime(
         task_manager=task_manager,
         templates=templates,
@@ -265,6 +270,7 @@ def build_runtime(settings: Settings | None = None) -> Runtime:
         cycles=cycles,
         ledger=ledger,
         reporting=reporting,
+        snapshots=snapshots,
     )
     newsroom.register(runtime)
     return runtime
