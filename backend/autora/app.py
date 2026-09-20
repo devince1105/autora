@@ -179,6 +179,8 @@ def build_tools(
     *,
     blobs: BlobStore | None = None,
     commands: CommandBus | None = None,
+    policy: PolicyEngine | None = None,
+    workflows: WorkflowEngine | None = None,
 ) -> ToolRegistry:
     """Every tool an agent can call. Without ``blobs``: the settings' blob store, else a
     temporary one. With ``commands``, executive agents also get ``submit_command`` — the only
@@ -205,6 +207,8 @@ def build_tools(
         fetcher=build_page_fetcher(settings),
         blobs=blobs,
         embedder=build_embedder(settings),
+        policy=policy,
+        workflows=workflows,
     )
     return tools
 
@@ -346,7 +350,14 @@ def build_worker(
         session_factory=session_factory,
         task_manager=runtime.task_manager,
         gateway=gateway,
-        tools=build_tools(session_factory, settings, blobs=blobs, commands=runtime.commands),
+        tools=build_tools(
+            session_factory,
+            settings,
+            blobs=blobs,
+            commands=runtime.commands,
+            policy=runtime.policy,
+            workflows=runtime.workflows,
+        ),
         policy=runtime.policy,
         approvals=runtime.approvals,
         blobs=blobs,

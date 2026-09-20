@@ -14,7 +14,6 @@ the CEO's actual reasoning.
 from __future__ import annotations
 
 import json
-import re
 from decimal import Decimal
 from typing import Any
 
@@ -23,7 +22,6 @@ from autora.runtime.models.types import ModelRequest, ToolResultBlock, ToolUseBl
 
 ROLE = "ceo"
 DEFAULT_ALLOCATION = Decimal("5")
-_JSON = re.compile(r"\{.*\}", re.DOTALL)
 
 
 def respond(request: ModelRequest) -> FakeTurn | None:
@@ -46,8 +44,8 @@ def _plan(request: ModelRequest) -> FakeTurn:
         return FakeTurn(
             tool_uses=[
                 FakeToolUse(
-                    "submit_command",
-                    {
+                    name="submit_command",
+                    input={
                         "command": "CreateCycleGoal",
                         "payload": {
                             "title": "Publish what the day is worth",
@@ -63,8 +61,8 @@ def _plan(request: ModelRequest) -> FakeTurn:
         return FakeTurn(
             tool_uses=[
                 FakeToolUse(
-                    "submit_command",
-                    {
+                    name="submit_command",
+                    input={
                         "command": "AllocateBudget",
                         "payload": {
                             "amount": str(_affordable(snapshot)),
@@ -140,27 +138,33 @@ def _review(request: ModelRequest) -> FakeTurn:
 # --- reading its own conversation ---------------------------------------------------------------
 
 
+MARKER = "The company right now:"
+
+
 def _snapshot(request: ModelRequest) -> dict[str, Any]:
-    """The document the CEO was handed, parsed back out of its first message."""
+    """The document the CEO was handed, parsed back out of its first message.
+
+    Read from the marker onwards, not from the first brace in the message: the task's own input
+    is JSON too, and a regex spanning both parses neither.
+    """
     for message in request.messages:
-        for block in message.content if isinstance(message.content, list) else []:
-            text = getattr(block, "text", None)
-            if text and "The company right now:" in text:
-                found = _JSON.search(text)
-                if found:
-                    try:
-                        return json.loads(found.group())
-                    except json.JSONDecodeError:
-                        return {}
-        text = message.content if isinstance(message.content, str) else None
-        if text and "The company right now:" in text:
-            found = _JSON.search(text)
-            if found:
-                try:
-                    return json.loads(found.group())
-                except json.JSONDecodeError:
-                    return {}
+        for text in _texts(message):
+            if MARKER not in text:
+                continue
+            after = text.split(MARKER, 1)[1]
+            try:
+                value, _ = json.JSONDecoder().raw_decode(after.lstrip())
+            except ValueError:
+                continue
+            if isinstance(value, dict):
+                return value
     return {}
+
+
+def _texts(message) -> list[str]:
+    if isinstance(message.content, str):
+        return [message.content]
+    return [t for t in (getattr(b, "text", None) for b in message.content or []) if t]
 
 
 def _submitted(request: ModelRequest) -> set[str]:

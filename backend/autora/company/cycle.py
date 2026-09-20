@@ -108,7 +108,7 @@ StageCheck = Callable[[AsyncSession, Cycle], Awaitable[bool]]
 A stage with no check registered is finished the moment it is entered, because everything it
 had to do ran in its ``on_enter`` hooks, inside that transaction. A stage whose work is a task
 some agent has to pick up (PLANNING waiting for the CEO, EXECUTING waiting for the day's
-workflows) registers a check and is held there until the check passes or the deadline does."""
+workflows) registers a check and is held there until every check passes or the deadline does."""
 
 
 class CycleError(Exception):
@@ -161,7 +161,7 @@ class CycleRunner:
 
     clock: Clock = field(default=lambda: datetime.now(UTC))
     on_enter: dict[CycleStage, list[StageHook]] = field(default_factory=dict)
-    is_done: dict[CycleStage, StageCheck] = field(default_factory=dict)
+    is_done: dict[CycleStage, list[StageCheck]] = field(default_factory=dict)
 
     @property
     def actor(self) -> Actor:
@@ -173,10 +173,13 @@ class CycleRunner:
         self.on_enter.setdefault(stage, []).append(hook)
 
     def finishes_when(self, stage: CycleStage, check: StageCheck) -> None:
-        """Let ``stage`` end early, as soon as ``check`` says its work is done."""
-        if stage in self.is_done:
-            raise CycleError(f"{stage} already has a completion check")
-        self.is_done[stage] = check
+        """Let ``stage`` end early, as soon as ``check`` says its work is done.
+
+        A stage may be claimed by several: PLANNING waits for the CEO *and* for each business's
+        own planner. It ends when they all say so — anything else would let one planner's
+        answer end a stage another was still working in.
+        """
+        self.is_done.setdefault(stage, []).append(check)
 
     # --- starting ---------------------------------------------------------------------------
 
@@ -347,8 +350,13 @@ class CycleRunner:
         return cycle.stage_deadline is not None and self.clock() >= cycle.stage_deadline
 
     async def _finished(self, session: AsyncSession, cycle: Cycle) -> bool:
-        check = self.is_done.get(CycleStage(cycle.stage))
-        return True if check is None else await check(session, cycle)
+        checks = self.is_done.get(CycleStage(cycle.stage))
+        if not checks:
+            return True
+        for check in checks:
+            if not await check(session, cycle):
+                return False
+        return True
 
     async def _stage_minutes(
         self, session: AsyncSession, company_id: uuid.UUID

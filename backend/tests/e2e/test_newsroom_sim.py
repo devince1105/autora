@@ -23,6 +23,9 @@ from autora.db.models import (
     AgentActivity,
     AgentRun,
     Approval,
+    Budget,
+    CompanyGoal,
+    Cycle,
     EventRecord,
     ModelCall,
     Task,
@@ -184,8 +187,12 @@ async def test_the_demo_newsroom_publishes_a_story_from_its_feeds(committed, e2e
     called = {e.payload["tool_call_id"] for e in tool_events if e.event_type == "TOOL_CALLED"}
     finished = {e.payload["tool_call_id"] for e in tool_events if e.event_type != "TOOL_CALLED"}
     assert called and called == finished
-    assert len(activities) == len(DISPLAY_NAMES)
-    assert all(a.detail.get("links") for a in activities.values())
+    # the desk's agents, plus the company's CEO: this demo is a company with a newsroom in it,
+    # not a newsroom pretending to be a company (T-605a/b)
+    assert len(activities) == len(DISPLAY_NAMES) + 1
+    # the ones that did the line's work carry their links; the planners' runs are their own
+    working = [a for a in activities.values() if a.detail.get("links")]
+    assert len(working) >= len(DISPLAY_NAMES) - 1
 
 
 async def test_an_editor_that_never_decides_fails_visibly(committed, e2e_settings):
@@ -260,3 +267,74 @@ async def test_an_editor_that_never_decides_fails_visibly(committed, e2e_setting
     assert activity.detail["error_class"] == "EvaluationFailed"
     assert "nothing was decided" in activity.detail["message"]
     assert [e.payload["final"] for e in failed] == [False, False, True]
+
+
+async def test_a_cycle_plans_and_commissions_without_anyone_pressing_anything(
+    committed, e2e_settings
+):
+    """AC-11, in simulation: the company decides its own day.
+
+    Nobody starts a workflow here. The cycle opens, the CEO sets a goal and a budget, the
+    editor-in-chief picks stories off the desk and commissions them, and the line starts — each
+    of them an ordinary agent run, claimed and worked by the real worker.
+    """
+    runtime = build_runtime(e2e_settings)
+    poller = SourcePoller(
+        fetcher=build_page_fetcher(e2e_settings), search=build_search_provider(e2e_settings)
+    )
+    desk = StoryDesk(build_embedder(e2e_settings), threshold=e2e_settings.story_match_threshold)
+    slug = f"newsroom-cycle-{uuid.uuid4().hex[:8]}"
+
+    async with committed() as session:
+        demo = await seed_demo(session, actor=OPERATOR, slug=slug)
+        stories = await gather_stories(session, demo.company.id, poller=poller, desk=desk)
+        assert stories, "the desk needs candidates to choose from"
+        await session.commit()
+        company_id = demo.company.id
+
+    worker = build_worker(
+        e2e_settings, session_factory=committed, company_ids=frozenset({company_id})
+    )
+    async with committed() as session:
+        cycle = await runtime.cycles.start(session, company_id)
+        await session.commit()
+        cycle_id = cycle.id
+
+    # the two planners' runs, then the work they commissioned
+    async with asyncio.timeout(180):
+        for _ in range(4):
+            await worker.run_until_idle()
+            async with committed() as session:
+                await runtime.cycles.tick(session, company_id)
+                await session.commit()
+
+    async with committed() as session:
+        planning = (
+            await session.scalars(
+                select(WorkflowRun)
+                .where(WorkflowRun.cycle_id == cycle_id)
+                .order_by(WorkflowRun.created_at)
+            )
+        ).all()
+        templates = [run.template_name for run in planning]
+        commissioned = (
+            await session.scalars(
+                select(Story).where(
+                    Story.company_id == company_id,
+                    Story.state.in_(["IN_PRODUCTION", "PUBLISHED"]),
+                )
+            )
+        ).all()
+        goals = await _count(session, CompanyGoal, CompanyGoal.company_id == company_id)
+        budgets = await _count(session, Budget, Budget.company_id == company_id)
+        cycle_now = await session.get(Cycle, cycle_id)
+
+    # the company planned its own day: the CEO in PLANNING, then the desk once the budget was
+    # set (the desk plans at the start of EXECUTING, which is the first moment it can know it)
+    assert templates[0] == "company.cycle_plan_v1"
+    assert "newsroom.editorial_plan_v1" in templates
+    # and the desk put the line to work on what it chose
+    assert commissioned, "the editor-in-chief commissioned nothing"
+    assert "newsroom.story_to_article_v2" in templates
+    assert goals >= 1 and budgets >= 1  # the CEO's own decisions, through the pipeline
+    assert cycle_now.stage != "PLANNING"  # both planners answered; the stage moved on

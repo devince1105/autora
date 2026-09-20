@@ -16,10 +16,18 @@ DEFAULT_MAX_WORKFLOWS_PER_CYCLE = 5
 DEFAULT_CEO_BUDGET_ALLOCATION_LIMIT_USD = Decimal("5")
 
 
-def _max_workflows(args: Mapping[str, Any], facts: Mapping[str, Any], policies) -> str | None:
+def max_workflows(args: Mapping[str, Any], facts: Mapping[str, Any], policies) -> str | None:
+    """How much work may still be started this cycle (anti-runaway gate 5).
+
+    Public because a business's own desk head starts its own work and must be held to the same
+    number: a newsroom that could define its own cap could give itself a bigger day.
+    """
     cap = int(policies.get("company.max_workflows_per_cycle", DEFAULT_MAX_WORKFLOWS_PER_CYCLE))
     started = int(facts.get("workflows_in_cycle", 0))
     return None if started < cap else f"{started} workflows already started this cycle (cap {cap})"
+
+
+_max_workflows = max_workflows  # the name the rule below was written with
 
 
 def _allocation_limit(args: Mapping[str, Any], facts, policies) -> str | None:
@@ -39,6 +47,9 @@ def _allocation_limit(args: Mapping[str, Any], facts, policies) -> str | None:
 
 
 ACTIONS = {
+    # The tool an executive agent uses to ask for anything. Allowing the tool is not allowing
+    # what it asks for: every command is decided again, on its own action, by the pipeline.
+    "submit_command": "write",
     "create_cycle_goal": "write",
     "instantiate_workflow": "write",
     "create_project": "write",
@@ -54,6 +65,7 @@ ACTIONS = {
 }
 
 RULES: list[Rule] = [
+    *allow("submit_command", "ceo"),
     *allow("create_cycle_goal", "ceo"),
     *allow(
         "instantiate_workflow",

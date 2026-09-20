@@ -23,9 +23,17 @@ from decimal import Decimal
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from autora.company.agents.roster import hire_agent
 from autora.company.companies import create_company
 from autora.company.organization import bootstrap_executive, business_unit_by_key
-from autora.db.models import Company, CompanyType, Project, ProjectState, WorkflowRun
+from autora.db.models import (
+    Agent,
+    Company,
+    CompanyType,
+    Project,
+    ProjectState,
+    WorkflowRun,
+)
 from autora.db.repositories.companies import get_company_by_slug
 from autora.domains.newsroom import organization as newsroom_org
 from autora.domains.newsroom.models import Source, Story, StoryState
@@ -76,7 +84,21 @@ async def seed_demo(
             mission="用有來源、查核過的中英雙語報導，讓流明市民知道城市裡發生了什麼。",
             actor=actor,
         )
-    await bootstrap_executive(session, company.id, actor=actor)
+    _, ceo_role = await bootstrap_executive(session, company.id, actor=actor)
+    if (
+        await session.scalar(
+            select(Agent.id).where(Agent.company_id == company.id, Agent.role == ceo_role.key)
+        )
+        is None
+    ):
+        await hire_agent(
+            session,
+            company_id=company.id,
+            role=ceo_role.key,
+            display_name="Cyra",
+            actor=actor,
+            position=ceo_role,
+        )
     await staff_newsroom(session, company.id, actor=actor)
     unit = await business_unit_by_key(session, company.id, newsroom_org.BUSINESS_UNIT)
     project = await session.scalar(

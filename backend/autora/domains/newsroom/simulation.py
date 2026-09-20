@@ -4,8 +4,8 @@ It reads its conversation like a real model would (the task's first message, the
 far) and acts through the same tools, so everything a run does is real: searches hit the search
 provider, pages become evidence, validators check the result. Only the decisions are scripted.
 
-T-506: the researcher; T-507: the analyst; T-509: the writer; T-511: the editor; T-513:
-marketing.
+T-605b: the editor-in-chief; T-506: the researcher; T-507: the analyst; T-509: the writer;
+T-511: the editor; T-513: marketing.
 
 Demo knobs (T-518), from the workflow's ``params.demo`` (``start_story(..., demo=...)``):
 - ``pace_seconds``: every reply takes at least this long, so people can watch the office work;
@@ -27,6 +27,9 @@ from autora.runtime.models.providers.fake import FakeToolUse, FakeTurn
 from autora.runtime.models.types import ModelRequest, TextBlock, ToolResultBlock, ToolUseBlock
 
 TARGET_SOURCES = 3
+SIM_STORIES = 2
+"""How many the simulated desk head takes. Two, because the point of the simulation is that the
+line runs, and two articles show a hand-off that one does not."""
 _URL = re.compile(r"https?://\S+")
 
 
@@ -449,7 +452,80 @@ def _distribute(request: ModelRequest) -> FakeTurn:
     )
 
 
+def _editorial_plan(request: ModelRequest) -> FakeTurn:
+    """The simulated desk head: commission the best candidates, then say so.
+
+    The judgement is the simplest defensible one and it is stated here rather than hidden in
+    the reply: **take the top candidates the context offered, up to the desk's own limit.** Real
+    selection is the model's job; this exists so a simulated cycle exercises the real path —
+    the tool, the policy's cap, and the validator that checks the plan against the desk.
+    """
+    commissioned = _commissioned(request)
+    offered = _candidate_ids(request)
+    wanted = offered[:SIM_STORIES]
+    for story_id in wanted:
+        if story_id not in commissioned:
+            return FakeTurn(
+                tool_uses=[FakeToolUse(name="commission_story", input={"story_id": story_id})]
+            )
+    done = [story_id for story_id in wanted if commissioned.get(story_id)]
+    return FakeTurn(
+        text=json.dumps(
+            {
+                "stories": [
+                    {"story_id": story_id, "priority": n + 1} for n, story_id in enumerate(done)
+                ],
+                "target_articles": len(done),
+                "rationale": (
+                    "The best-sourced candidates the desk was offered, within what the company "
+                    "allocated."
+                    if done
+                    else "Nothing on offer carries an article today."
+                ),
+            }
+        )
+    )
+
+
+def _candidate_ids(request: ModelRequest) -> list[str]:
+    """The stories the desk was shown, best first, read back out of its own context."""
+    for message in request.messages:
+        text = _text_of(message)
+        if text and "Candidate stories" in text:
+            return _UUID.findall(text)
+    return []
+
+
+def _commissioned(request: ModelRequest) -> dict[str, bool]:
+    """Which ones this run has already put to work, and whether the company allowed it."""
+    asked: dict[str, bool] = {}
+    for message in request.messages:
+        blocks = message.content if isinstance(message.content, list) else []
+        for block in blocks:
+            if isinstance(block, ToolUseBlock) and block.name == "commission_story":
+                asked[str((block.input or {}).get("story_id"))] = False
+            if isinstance(block, ToolResultBlock):
+                body = (
+                    block.content if isinstance(block.content, str) else json.dumps(block.content)
+                )
+                for story_id in _UUID.findall(body):
+                    if story_id in asked and '"ok": true' in body.lower():
+                        asked[story_id] = True
+    return asked
+
+
+def _text_of(message) -> str | None:
+    if isinstance(message.content, str):
+        return message.content
+    for block in message.content or []:
+        text = getattr(block, "text", None)
+        if text:
+            return text
+    return None
+
+
 _HANDLERS = {
+    ("editor_in_chief", "plan"): _editorial_plan,
     ("researcher", "research"): _research,
     ("analyst", "analysis"): _analysis,
     ("writer", "draft"): _draft,

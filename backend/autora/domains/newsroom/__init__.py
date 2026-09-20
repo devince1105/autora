@@ -10,9 +10,10 @@ from __future__ import annotations
 
 from typing import Protocol
 
-from autora.domains.newsroom import workflow
+from autora.domains.newsroom import planning, workflow
 from autora.domains.newsroom.activity_links import activity_links
-from autora.domains.newsroom.workflow import register_templates
+from autora.domains.newsroom.planning import EditorialPlanning
+from autora.domains.newsroom.workflow import register_templates as _register_workflow_templates
 from autora.runtime.approvals import ApprovalService
 from autora.runtime.policy import PolicyEngine
 from autora.runtime.services import ServiceRegistry
@@ -24,6 +25,14 @@ class RuntimeParts(Protocol):
     approvals: ApprovalService
     policy: PolicyEngine
     services: ServiceRegistry
+    workflows: object
+    cycles: object
+
+
+def register_templates(templates) -> None:
+    """The line that makes an article, and the desk's own daily planning (T-605b)."""
+    _register_workflow_templates(templates)
+    planning.register_template(templates)
 
 
 def register(runtime: RuntimeParts) -> None:
@@ -33,6 +42,8 @@ def register(runtime: RuntimeParts) -> None:
         workflow.APPROVE_ACTION, workflow.on_article_decided(runtime.policy)
     )
     runtime.task_manager.link_hooks.append(activity_links)
+    # the desk plans its own day, after the company has set the budget (T-605b)
+    EditorialPlanning(runtime.workflows).install(runtime.cycles)
 
 
 __all__ = ["register", "register_templates"]

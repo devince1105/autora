@@ -13,41 +13,56 @@ from autora.runtime.policy import OVERRIDES_KEY, PolicyEngine, PolicyError, Rule
 from tests.conftest import unique_company
 
 A, H, D = "allow", "needs_approval", "deny"
-ROLES = ("researcher", "analyst", "writer", "editor", "marketing", "ceo", "finance")
+ROLES = (
+    "researcher",
+    "analyst",
+    "writer",
+    "editor",
+    "marketing",
+    "editor_in_chief",
+    "ceo",
+    "finance",
+)
 
 # One row per action, one column per role, transcribed from platform/07 §3 (P5 finance incl.).
 # Limits are evaluated with facts/args that satisfy them; limit behaviour is tested separately.
 MATRIX = {
-    "web_search":           (A, D, D, D, A, D, D),
-    "fetch_url":            (A, D, D, D, A, D, D),
-    "read_evidence":        (A, A, A, A, A, A, D),
-    "search_evidence":      (A, A, A, A, A, A, D),
-    "create_claim":         (D, A, D, D, D, D, D),
-    "link_evidence":        (D, A, D, D, D, D, D),
-    "list_claims":          (A, A, A, A, A, A, D),
-    "write_draft":          (D, D, A, D, D, D, D),
-    "read_draft":           (D, D, A, A, A, A, D),
-    "run_fact_check":       (D, D, D, A, D, D, D),
-    "request_revision":     (D, D, D, A, D, D, D),
-    "accept_draft":         (D, D, D, A, D, D, D),
-    "approve_article":      (D, D, D, D, D, D, D),
-    "publish_article":      (D, D, D, D, D, D, D),
-    "create_distribution":  (D, D, D, D, A, D, D),
-    "spend_ad_budget":      (D, D, D, D, A, D, D),
-    "create_cycle_goal":    (D, D, D, D, D, A, D),
-    "instantiate_workflow": (D, D, D, D, D, A, D),
-    "create_project":       (D, D, D, D, D, H, D),
-    "allocate_budget":      (D, D, D, D, D, A, H),
-    "pause_project":        (D, D, D, D, D, A, D),
-    "kill_project":         (D, D, D, D, D, H, D),
-    "update_strategy":      (D, D, D, D, D, H, D),
-    "record_transaction":   (D, D, D, D, D, D, D),
-    "payment":              (D, D, D, D, D, H, H),
-    "delete":               (D, D, D, D, D, D, D),
-    "pause_agent":          (D, D, D, D, D, D, D),
-    "resume_agent":         (D, D, D, D, D, D, D),
+    "web_search":           (A, D, D, D, A, D, D, D),
+    "fetch_url":            (A, D, D, D, A, D, D, D),
+    "read_evidence":        (A, A, A, A, A, A, A, D),
+    "search_evidence":      (A, A, A, A, A, A, A, D),
+    "create_claim":         (D, A, D, D, D, D, D, D),
+    "link_evidence":        (D, A, D, D, D, D, D, D),
+    "list_claims":          (A, A, A, A, A, A, A, D),
+    "write_draft":          (D, D, A, D, D, D, D, D),
+    "read_draft":           (D, D, A, A, A, D, A, D),
+    "run_fact_check":       (D, D, D, A, D, D, D, D),
+    "request_revision":     (D, D, D, A, D, D, D, D),
+    "accept_draft":         (D, D, D, A, D, D, D, D),
+    "approve_article":      (D, D, D, D, D, D, D, D),
+    "publish_article":      (D, D, D, D, D, D, D, D),
+    "create_distribution":  (D, D, D, D, A, D, D, D),
+    "spend_ad_budget":      (D, D, D, D, A, D, D, D),
+    "create_cycle_goal":    (D, D, D, D, D, D, A, D),
+    "instantiate_workflow": (D, D, D, D, D, A, A, D),
+    "create_project":       (D, D, D, D, D, D, H, D),
+    "allocate_budget":      (D, D, D, D, D, D, A, H),
+    "pause_project":        (D, D, D, D, D, D, A, D),
+    "kill_project":         (D, D, D, D, D, D, H, D),
+    "update_strategy":      (D, D, D, D, D, D, H, D),
+    "record_transaction":   (D, D, D, D, D, D, D, D),
+    "payment":              (D, D, D, D, D, D, H, H),
+    "delete":               (D, D, D, D, D, D, D, D),
+    "pause_agent":          (D, D, D, D, D, D, D, D),
+    "resume_agent":         (D, D, D, D, D, D, D, D),
+    # The desk head (T-605b): it commissions stories and starts the work it commissions, under
+    # the company's own cap on workflows per cycle.
+    "commission_story":     (D, D, D, D, D, A, D, D),
+    # The executive's one tool. Allowing it is not allowing what it asks for: every command is
+    # decided again on its own action (T-605a).
+    "submit_command":       (D, D, D, D, D, D, A, D),
     # Echo domain (T-213), not in platform/07: each echo desk writes its own note.
-    "echo_note":            (A, A, A, D, D, D, D),
+    "echo_note":            (A, A, A, D, D, D, D, D),
 }  # fmt: skip
 
 WITHIN_LIMITS = {

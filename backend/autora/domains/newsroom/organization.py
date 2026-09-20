@@ -19,9 +19,9 @@ The roles are the same keys as before, so nothing in the runtime changes: a beha
 registered for ``writer``, a task still asks for ``writer``. What is new is that the key now
 resolves to a desk in a team in a department of a business.
 
-``editor_in_chief`` is defined here but nobody holds it yet — its agent arrives with T-605b.
-The chair being empty is the honest state: today a person starts the line, and the newsroom
-runs without anybody choosing the day's stories.
+``editor_in_chief`` heads the desk: it is the role that decides what the newsroom covers, and
+since T-605b an agent holds it. The company's CEO decides what AI Media may spend; the chief
+decides what it is spent on.
 """
 
 from __future__ import annotations

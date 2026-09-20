@@ -94,13 +94,15 @@ def register_templates(templates: TemplateRegistry) -> None:
 # --- staffing ---------------------------------------------------------------------------------
 
 DISPLAY_NAMES = {
+    "editor_in_chief": "Edda",
     "researcher": "Rae",
     "analyst": "Ana",
     "writer": "Wren",
     "editor": "Eli",
     "marketing": "Mika",
 }
-"""The newsroom's desks (the echo demo's three share the names)."""
+"""The newsroom's desks (the echo demo's three share the names). Edda heads it: she decides
+what the desk covers, and nobody else does (T-605b)."""
 
 
 async def staff_newsroom(
@@ -149,6 +151,7 @@ async def start_story(
     project_id: uuid.UUID,
     actor: Actor,
     role: str | None = None,
+    facts: dict[str, Any] | None = None,
     demo: dict[str, Any] | None = None,
 ) -> WorkflowRun:
     """Start the workflow for a SELECTED story (the ``instantiate_workflow`` command: the policy
@@ -167,6 +170,7 @@ async def start_story(
         | ({"demo": demo} if demo else {}),
         actor=actor,
         role=role,
+        facts=facts,
     )
     await STORY_FSM.transition(session, story, StoryState.IN_PRODUCTION, actor=actor)
     return run

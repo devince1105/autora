@@ -33,7 +33,8 @@ async def test_the_chart_separates_the_company_s_functions_from_its_business(api
     assert [d["key"] for d in org["shared"]["departments"]] == ["executive"]
     executive = org["shared"]["departments"][0]
     assert [r["key"] for r in executive["roles"]] == ["ceo"]
-    assert executive["roles"][0]["held_by"] == []  # the chair is defined, not filled
+    # this fixture staffs the newsroom only; the demo seed also hires a CEO (T-605a)
+    assert executive["roles"][0]["held_by"] == []
     assert executive["headcount"] == 0
 
     # the business it is in
@@ -50,7 +51,8 @@ async def test_the_newsroom_is_a_department_with_teams_under_it(api, staffed):
 
     assert desk["key"] == "newsroom"
     assert [r["key"] for r in desk["roles"]] == ["editor_in_chief"]
-    assert desk["roles"][0]["is_lead"] and desk["roles"][0]["held_by"] == []
+    # the chair has someone in it now: the desk head decides what the newsroom covers (T-605b)
+    assert desk["roles"][0]["is_lead"] and len(desk["roles"][0]["held_by"]) == 1
     assert [t["key"] for t in desk["teams"]] == [
         "newsroom_audience",
         "newsroom_editing",
@@ -65,11 +67,11 @@ async def test_the_newsroom_is_a_department_with_teams_under_it(api, staffed):
 async def test_everyone_hired_is_on_the_chart_and_counted_once(api, staffed):
     org = (await api.get(f"/api/companies/{staffed.id}/org")).json()
 
-    assert org["headcount"] == 5  # the five newsroom agents; no CEO, no editor-in-chief
+    assert org["headcount"] == 6  # the five who make the articles, plus the head of the desk
     assert org["unplaced"] == []
     (unit,) = org["units"]
     (desk,) = unit["departments"]
-    assert desk["headcount"] == 5  # all of them sit in the desk's teams
+    assert desk["headcount"] == 6  # the head sits at the desk; the rest in its teams
     assert sum(t["headcount"] for t in desk["teams"]) == 5
 
 

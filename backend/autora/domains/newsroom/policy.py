@@ -12,6 +12,7 @@ from dataclasses import dataclass
 from decimal import Decimal
 from typing import Any
 
+from autora.company import policy as company_policy
 from autora.runtime.policy import Limit, PolicyEngine, Rule, allow
 
 AUTO_APPROVE_KEY = "newsroom.auto_approve_if_fact_check_passed"
@@ -65,7 +66,15 @@ def language_policy(policies: Mapping[str, Any]) -> LanguagePolicy:
     )
 
 
-WRITERS_AND_READERS = ("researcher", "analyst", "writer", "editor", "marketing", "ceo")
+WRITERS_AND_READERS = (
+    "researcher",
+    "analyst",
+    "writer",
+    "editor",
+    "marketing",
+    "editor_in_chief",
+    "ceo",
+)
 
 
 def _auto_approve_enabled(args, facts, policies: Mapping[str, Any]) -> str | None:
@@ -107,6 +116,7 @@ ACTIONS = {
     "publish_article": "write",
     "create_distribution": "write",
     "spend_ad_budget": "write",
+    "commission_story": "write",
 }
 
 RULES: list[Rule] = [
@@ -137,6 +147,19 @@ RULES: list[Rule] = [
         "spend_ad_budget",
         "marketing",
         limit=Limit(_within_campaign_cap, over="needs_approval", description="campaign cap"),
+    ),
+    # The desk head may commission a story, and may start the work it commissions. The cap on
+    # how much work that is belongs to the company, not to the newsroom: this rule points at
+    # the company's own limit so a newsroom cannot give itself a bigger day (T-605b).
+    *allow("commission_story", "editor_in_chief"),
+    *allow(
+        "instantiate_workflow",
+        "editor_in_chief",
+        limit=Limit(
+            company_policy.max_workflows,
+            over="deny",
+            description="workflows per cycle",
+        ),
     ),
 ]
 
