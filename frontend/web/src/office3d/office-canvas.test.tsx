@@ -93,6 +93,7 @@ describe("OfficeCanvas", () => {
     const { Scene } = sceneStub();
     const { rerender } = render(<OfficeCanvas detect={() => DESKTOP} Scene={Scene} />);
     expect(screen.getByRole("status").textContent).toContain("還沒有代理");
+    expect(screen.getByRole("link", { name: "去雇用" }).getAttribute("href")).toBe("/agents");
 
     const fixture = JSON.parse(
       readFileSync(join(process.cwd(), "src/realtime/__fixtures__/contract.json"), "utf8"),

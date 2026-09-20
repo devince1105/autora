@@ -118,7 +118,10 @@ export function OfficeCanvas({
           role="status"
           className="absolute inset-x-0 top-1/2 mx-auto w-fit rounded-lg border border-line bg-surface/90 px-4 py-2 text-sm text-muted shadow-sm"
         >
-          這間公司還沒有代理。
+          這間公司還沒有代理。{" "}
+          <a href="/agents" className="text-accent underline">
+            去雇用
+          </a>
         </div>
       ) : null}
       {lost ? (

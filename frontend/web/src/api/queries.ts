@@ -21,6 +21,7 @@ export const queryKeys = {
   article: (articleId: string, version: number | null) => ["newsroom", "article", articleId, version] as const,
   sources: (companyId: string) => ["newsroom", "sources", companyId] as const,
   workflowEvents: (companyId: string, runId: string) => ["newsroom", "events", companyId, runId] as const,
+  roles: () => ["roles"] as const,
 };
 
 export function companiesQuery(api: ApiClient = defaultApi) {
@@ -193,6 +194,26 @@ export async function startWorkflow(
     await api.POST("/api/companies/{company_id}/workflows", {
       params: { path: { company_id: companyId } },
       body: { ...body, params: body.params ?? {} },
+    }),
+  );
+}
+
+export function rolesQuery(api: ApiClient = defaultApi) {
+  return queryOptions({
+    queryKey: queryKeys.roles(),
+    queryFn: async () => unwrap(await api.GET("/api/roles")),
+    staleTime: Infinity, // the runtime's roles change with a deploy, not with the data
+  });
+}
+
+export type NewAgent = Schemas["NewAgent"];
+
+/** Hire an agent (T-517 follow-up): it appears in the office and takes its role's tasks. */
+export async function hireAgent(companyId: string, body: NewAgent, api: ApiClient = defaultApi) {
+  return unwrap(
+    await api.POST("/api/companies/{company_id}/agents", {
+      params: { path: { company_id: companyId } },
+      body,
     }),
   );
 }

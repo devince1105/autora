@@ -124,7 +124,11 @@ export interface paths {
         /** List Company Agents */
         get: operations["list_company_agents_api_companies__company_id__agents_get"];
         put?: never;
-        post?: never;
+        /**
+         * Hire
+         * @description Hire an agent: it appears in the office and starts taking its role's tasks.
+         */
+        post: operations["hire_api_companies__company_id__agents_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -287,6 +291,23 @@ export interface paths {
         };
         /** Get Article */
         get: operations["get_article_api_public_articles__lang___slug__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/roles": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Roles */
+        get: operations["list_roles_api_roles_get"];
         put?: never;
         post?: never;
         delete?: never;
@@ -1019,6 +1040,27 @@ export interface components {
             /** Url */
             url: string;
         };
+        /** NewAgent */
+        NewAgent: {
+            /**
+             * Avatar Key
+             * @default default
+             */
+            avatar_key: string;
+            /** Description */
+            description?: string | null;
+            /** Display Name */
+            display_name: string;
+            /** Per Run Usd */
+            per_run_usd?: number | string | null;
+            /** Role */
+            role: string;
+            /**
+             * Tools
+             * @default []
+             */
+            tools: string[];
+        };
         /** NewSource */
         NewSource: {
             /**
@@ -1166,6 +1208,11 @@ export interface components {
             server_time: string;
             /** Tasks */
             tasks: components["schemas"]["TaskView"][];
+        };
+        /** Roles */
+        Roles: {
+            /** Roles */
+            roles: string[];
         };
         /**
          * RunOut
@@ -1940,6 +1987,41 @@ export interface operations {
             };
         };
     };
+    hire_api_companies__company_id__agents_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                company_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["NewAgent"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AgentOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     list_articles_api_companies__company_id__articles_get: {
         parameters: {
             query?: {
@@ -2273,6 +2355,26 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_roles_api_roles_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Roles"];
                 };
             };
         };

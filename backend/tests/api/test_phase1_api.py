@@ -196,3 +196,42 @@ async def test_the_company_list_counts_agents_and_hides_archived(api, db_session
     assert "empty-one" not in {c["slug"] for c in (await api.get("/api/companies")).json()}
     with_archived = await api.get("/api/companies", params={"include_archived": True})
     assert "empty-one" in {c["slug"] for c in with_archived.json()}
+
+
+async def test_hiring_an_agent(api):
+    """The office's own way in: hire an agent for a role the runtime can run (T-517 follow-up)."""
+    company = (await _create(api, slug="hiring-co", name="要雇人的公司")).json()
+    roles = (await api.get("/api/roles")).json()["roles"]
+    assert {"researcher", "analyst", "writer", "editor", "marketing"} <= set(roles)
+
+    hired = await api.post(
+        f"/api/companies/{company['id']}/agents",
+        json={
+            "role": "editor",
+            "display_name": "Eli",
+            "description": "審稿",
+            "per_run_usd": "0.5",
+            "tools": ["read_draft", "run_fact_check"],
+        },
+    )
+    assert hired.status_code == 201, hired.text
+    body = hired.json()
+    assert body["role"] == "editor" and body["display_name"] == "Eli"
+    assert body["activity"]["state"] == "IDLE"  # ready for work, shown in the office
+
+    listed = (await api.get(f"/api/companies/{company['id']}/agents")).json()
+    assert [a["display_name"] for a in listed] == ["Eli"]
+
+    unknown = await api.post(
+        f"/api/companies/{company['id']}/agents",
+        json={"role": "chef", "display_name": "Nobody"},
+    )
+    assert unknown.status_code == 422 and "no behavior for role 'chef'" in unknown.text
+    bad = await api.post(
+        f"/api/companies/{company['id']}/agents", json={"role": "Editor!", "display_name": ""}
+    )
+    assert bad.status_code == 422
+    missing = await api.post(
+        f"/api/companies/{uuid.uuid4()}/agents", json={"role": "editor", "display_name": "E"}
+    )
+    assert missing.status_code == 404

@@ -1,6 +1,12 @@
 """T-519: the newsroom line with a real model (whichever MODEL_PROVIDER is configured).
 
-Run with ``pytest backend -m integration -k newsroom_real``. The model is real: it reads the same
+Run it **alone and with its own database**, because a pytest session recreates the test schema
+and would wipe this one's data mid-run::
+
+    DATABASE_URL=<dev url, database autora_smoke> \
+        pytest backend -m integration -k newsroom_real
+
+(the fixtures add the ``_test`` suffix themselves). The model is real: it reads the same
 prompts, calls the same tools and must satisfy the same validators as in production. Everything
 else stays offline and free — the tools use the fixture corpus (``TOOLS_PROFILE=fixture``), so no
 search credits are spent and the pages are the fictional Lumen City ones.
@@ -112,6 +118,11 @@ async def test_the_newsroom_line_with_a_real_model(committed, db_settings, tmp_p
                 tasks = (
                     await session.scalars(select(Task).where(Task.workflow_run_id == run.id))
                 ).all()
+            if not tasks:
+                raise AssertionError(
+                    "the workflow's tasks are gone: another pytest session reset this database "
+                    "while the smoke was running (give it its own DATABASE_URL)"
+                )
             if all(t.state in ("SUCCEEDED", "FAILED", "CANCELLED") for t in tasks):
                 raise AssertionError(f"the line stopped before {what}: {_states(tasks)}")
             await asyncio.sleep(5)  # a retry's backoff

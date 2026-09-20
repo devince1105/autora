@@ -1545,6 +1545,72 @@
     "title": "Lead",
     "type": "object"
    },
+   "NewAgent": {
+    "properties": {
+     "avatar_key": {
+      "default": "default",
+      "maxLength": 40,
+      "title": "Avatar Key",
+      "type": "string"
+     },
+     "description": {
+      "anyOf": [
+       {
+        "maxLength": 500,
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Description"
+     },
+     "display_name": {
+      "maxLength": 80,
+      "minLength": 1,
+      "title": "Display Name",
+      "type": "string"
+     },
+     "per_run_usd": {
+      "anyOf": [
+       {
+        "maximum": 100.0,
+        "minimum": 0.0,
+        "type": "number"
+       },
+       {
+        "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Per Run Usd"
+     },
+     "role": {
+      "maxLength": 40,
+      "pattern": "^[a-z][a-z0-9_]*$",
+      "title": "Role",
+      "type": "string"
+     },
+     "tools": {
+      "default": [],
+      "items": {
+       "type": "string"
+      },
+      "maxItems": 20,
+      "title": "Tools",
+      "type": "array"
+     }
+    },
+    "required": [
+     "role",
+     "display_name"
+    ],
+    "title": "NewAgent",
+    "type": "object"
+   },
    "NewSource": {
     "properties": {
      "config": {
@@ -1912,6 +1978,22 @@
      "recent_events"
     ],
     "title": "RealtimeSnapshot",
+    "type": "object"
+   },
+   "Roles": {
+    "properties": {
+     "roles": {
+      "items": {
+       "type": "string"
+      },
+      "title": "Roles",
+      "type": "array"
+     }
+    },
+    "required": [
+     "roles"
+    ],
+    "title": "Roles",
     "type": "object"
    },
    "RunOut": {
@@ -3556,6 +3638,63 @@
     "tags": [
      "companies"
     ]
+   },
+   "post": {
+    "description": "Hire an agent: it appears in the office and starts taking its role's tasks.",
+    "operationId": "hire_api_companies__company_id__agents_post",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "company_id",
+      "required": true,
+      "schema": {
+       "format": "uuid",
+       "title": "Company Id",
+       "type": "string"
+      }
+     }
+    ],
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/NewAgent"
+       }
+      }
+     },
+     "required": true
+    },
+    "responses": {
+     "201": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/AgentOut"
+        }
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "security": [
+     {
+      "HTTPBearer": []
+     }
+    ],
+    "summary": "Hire",
+    "tags": [
+     "companies"
+    ]
    }
   },
   "/api/companies/{company_id}/articles": {
@@ -4258,6 +4397,32 @@
     "summary": "Get Article",
     "tags": [
      "public"
+    ]
+   }
+  },
+  "/api/roles": {
+   "get": {
+    "operationId": "list_roles_api_roles_get",
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/Roles"
+        }
+       }
+      },
+      "description": "Successful Response"
+     }
+    },
+    "security": [
+     {
+      "HTTPBearer": []
+     }
+    ],
+    "summary": "List Roles",
+    "tags": [
+     "meta"
     ]
    }
   },
