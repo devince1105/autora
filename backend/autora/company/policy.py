@@ -112,6 +112,8 @@ ACTIONS = {
     "score_opportunity": "write",
     "advance_opportunity": "write",
     "reject_opportunity": "write",
+    "draft_proposal": "write",
+    "submit_proposal": "write",
     "create_business_unit": "irreversible",
     "scale_business_unit": "write",
     "pause_business_unit": "write",
@@ -119,7 +121,9 @@ ACTIONS = {
 }
 
 RULES: list[Rule] = [
-    *allow("submit_command", "ceo"),
+    # the executive agents' one tool. Allowing it is not allowing what it asks for: every
+    # command is decided again, on its own action, by the pipeline
+    *allow("submit_command", "ceo", "strategist"),
     *allow("create_cycle_goal", "ceo"),
     *allow(
         "instantiate_workflow",
@@ -157,6 +161,10 @@ RULES: list[Rule] = [
         ),
     ),
     *allow("reject_opportunity", "ceo"),  # saying no is cheap and is kept as a record
+    # writing a proposal and putting it up for decision are documents, not commitments: the
+    # strategist does both alone, and the commitment below is still a person's
+    *allow("draft_proposal", "ceo", "strategist"),
+    *allow("submit_proposal", "ceo", "strategist"),
     *needs_approval("create_business_unit", "ceo"),  # real capital, a lasting organisation
     *allow(
         "scale_business_unit",

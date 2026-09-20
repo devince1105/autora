@@ -1,4 +1,4 @@
-"""The simulated CEO (``MODEL_PROVIDER=fake``, T-605a).
+"""The simulated executives (``MODEL_PROVIDER=fake``, T-605a and T-611).
 
 Like the newsroom's, it reads its conversation the way a real model would — the snapshot it was
 given, the results of the commands it has submitted — and acts through the same tool. Only the
@@ -23,18 +23,105 @@ from autora.runtime.models.providers.fake import FakeToolUse, FakeTurn
 from autora.runtime.models.types import ModelRequest, ToolResultBlock, ToolUseBlock
 
 ROLE = "ceo"
+STRATEGIST = "strategist"
 DEFAULT_ALLOCATION = Decimal("5")
 
 
 def respond(request: ModelRequest) -> FakeTurn | None:
-    """A reply for the CEO's tasks; None for anything else."""
-    if request.context.role != ROLE:
-        return None
-    if request.context.task_name == "plan":
-        return _plan(request)
-    if request.context.task_name == "review":
-        return _review(request)
+    """A reply for the company's own agents; None for anything else."""
+    role, task = request.context.role, request.context.task_name
+    if role == ROLE:
+        if task == "plan":
+            return _plan(request)
+        if task == "review":
+            return _review(request)
+    if role == STRATEGIST and task == "propose":
+        return _propose(request)
     return None
+
+
+def _propose(request: ModelRequest) -> FakeTurn:
+    """The strategist's scripted judgement: **propose the obvious thing, and say what is not
+    known about it.** It writes one subscription proposal from whatever the opportunity's
+    signals say, gives it a kill criterion drawn from the exploration cap, and submits it.
+
+    It never invents a market size. The evidence it lists is the signal summaries it was given,
+    verbatim — a scripted strategist that produced confident numbers would make the simulation
+    look like analysis instead of a stand-in for it.
+    """
+    snapshot = _snapshot(request)
+    opportunity = _opportunity_in_hand(request, snapshot)
+    if opportunity is None:
+        return FakeTurn(
+            error="NoOpportunity",
+            text="the task names no opportunity this company has open",
+            fallback_allowed=False,
+        )
+    submitted = _submitted(request)
+    proposal_id = _proposal_id(request)
+    title = f"{opportunity.get('title', 'An idea')}, as a subscription"
+
+    if "DraftProposal" not in submitted:
+        return FakeTurn(
+            tool_uses=[
+                FakeToolUse(
+                    name="submit_command",
+                    input={
+                        "command": "DraftProposal",
+                        "payload": {
+                            "opportunity_id": opportunity["id"],
+                            "title": title,
+                            "business_model": "a monthly subscription, sold directly",
+                            "target_market": opportunity.get("thesis") or "the market it names",
+                            "expected_revenue_model": "recurring, per subscriber",
+                            "risks": {"unknown": "nobody has been asked to pay for it yet"},
+                            "validation_plan": {
+                                "step": "offer it to a small group and count who pays"
+                            },
+                            "kill_criteria": {
+                                "auto_pause_if": {
+                                    "metric": "revenue_usd",
+                                    "op": "<",
+                                    "value": 1,
+                                    "consecutive_cycles": 3,
+                                }
+                            },
+                        },
+                        "reason": "one proposal a person can decide about",
+                    },
+                )
+            ]
+        )
+    if proposal_id is not None and "SubmitProposal" not in submitted:
+        return FakeTurn(
+            tool_uses=[
+                FakeToolUse(
+                    name="submit_command",
+                    input={
+                        "command": "SubmitProposal",
+                        "payload": {"proposal_id": proposal_id},
+                        "reason": "it is as complete as the evidence allows",
+                    },
+                )
+            ]
+        )
+    return FakeTurn(
+        text=json.dumps(
+            {
+                "opportunity_id": opportunity["id"],
+                "proposal_id": proposal_id,
+                "title": title,
+                "business_model": "a monthly subscription, sold directly",
+                "evidence": _evidence(opportunity),
+                "risks": ["nobody has been asked to pay for it yet"],
+                "rationale": (
+                    "The signals say there is an audience and a price; nothing says anyone has "
+                    "paid us. The proposal is small enough to find that out."
+                ),
+                "submitted": _succeeded(request, "SubmitProposal"),
+            }
+        )
+    )
 
 
 def _plan(request: ModelRequest) -> FakeTurn:
@@ -222,6 +309,20 @@ def _snapshot(request: ModelRequest) -> dict[str, Any]:
     return {}
 
 
+def _task_input(request: ModelRequest) -> dict[str, Any]:
+    """The task's own input, as the runner wrote it after ``Input:`` in the first message."""
+    for text in _texts(request.messages[0]) if request.messages else []:
+        if "Input:\n" not in text:
+            continue
+        try:
+            value, _ = json.JSONDecoder().raw_decode(text.split("Input:\n", 1)[1].lstrip())
+        except ValueError:
+            continue
+        if isinstance(value, dict):
+            return value
+    return {}
+
+
 def _texts(message) -> list[str]:
     if isinstance(message.content, str):
         return [message.content]
@@ -275,6 +376,44 @@ def _goal_metric(snapshot: dict[str, Any]) -> str:
         if "." in metric and isinstance(value, int):
             return metric
     return DEFAULT_METRIC
+
+
+def _opportunity_in_hand(request: ModelRequest, snapshot: dict[str, Any]) -> dict[str, Any] | None:
+    """The one the task was started for, found in the snapshot by its id."""
+    wanted = str(_task_input(request).get("params", {}).get("opportunity_id") or "")
+    for opportunity in snapshot.get("opportunities") or []:
+        if not wanted or str(opportunity.get("id")) == wanted:
+            return opportunity
+    return None
+
+
+def _evidence(opportunity: dict[str, Any]) -> list[str]:
+    """What it was actually given. The thesis is the company's own words, not a finding."""
+    count = opportunity.get("signals")
+    if isinstance(count, int) and count:
+        return [f"{count} signal(s) recorded about this opportunity"]
+    return []
+
+
+def _proposal_id(request: ModelRequest) -> str | None:
+    """The id DraftProposal returned, read out of the tool result like a real agent would."""
+    for message in request.messages:
+        blocks = message.content if isinstance(message.content, list) else []
+        for block in blocks:
+            if not isinstance(block, ToolResultBlock) or block.is_error:
+                continue
+            content = block.content if isinstance(block.content, str) else json.dumps(block.content)
+            if '"command": "DraftProposal"' not in content:
+                continue
+            try:
+                payload = json.loads(content)
+            except ValueError:
+                continue
+            # the tool flattens the command's own result into its output
+            found = payload.get("proposal_id")
+            if found:
+                return str(found)
+    return None
 
 
 def _worth_a_look(snapshot: dict[str, Any]) -> dict[str, Any] | None:

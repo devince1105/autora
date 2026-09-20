@@ -172,7 +172,10 @@ async def test_a_rejection_is_kept_with_its_reason(db_session):
     assert "acquisition cost" in opportunity.decision_reason
     [event] = (
         await db_session.scalars(
-            select(EventRecord).where(EventRecord.event_type == "OPPORTUNITY_REJECTED")
+            select(EventRecord).where(
+                EventRecord.company_id == company.id,
+                EventRecord.event_type == "OPPORTUNITY_REJECTED",
+            )
         )
     ).all()
     assert event.payload["from_state"] == "EVALUATING"
@@ -317,7 +320,10 @@ async def test_a_decided_proposal_cannot_be_decided_again(db_session):
         )
     [decided] = (
         await db_session.scalars(
-            select(EventRecord).where(EventRecord.event_type == "PROPOSAL_DECIDED")
+            select(EventRecord).where(
+                EventRecord.company_id == company.id,
+                EventRecord.event_type == "PROPOSAL_DECIDED",
+            )
         )
     ).all()
     assert decided.payload["outcome"] == "APPROVED"

@@ -83,6 +83,33 @@ class RejectOpportunity(BaseModel):
     reason: str = Field(min_length=1)
 
 
+class DraftProposal(BaseModel):
+    """What the company would do about an opportunity. A document, not a commitment."""
+
+    opportunity_id: uuid.UUID
+    title: str = Field(min_length=1, max_length=200)
+    business_model: str | None = Field(default=None, max_length=2000)
+    target_market: str | None = Field(default=None, max_length=2000)
+    target_customer: str | None = Field(default=None, max_length=2000)
+    proposed_product: dict[str, Any] | None = None
+    expected_revenue_model: str | None = Field(default=None, max_length=2000)
+    expected_margin: Decimal | None = Field(default=None, ge=0, le=1)
+    estimated_startup_cost: Decimal | None = Field(default=None, ge=0)
+    estimated_monthly_cost: Decimal | None = Field(default=None, ge=0)
+    required_agents: dict[str, Any] | None = None
+    required_capabilities: dict[str, Any] | None = None
+    risks: dict[str, Any] | None = None
+    validation_plan: dict[str, Any] | None = None
+    kill_criteria: dict[str, Any]
+    """Required, like a project's: a business nobody knows how to stop is not a proposal."""
+
+
+class SubmitProposal(BaseModel):
+    """Freeze a draft and put it up for decision. Still not a commitment — that is a person."""
+
+    proposal_id: uuid.UUID
+
+
 class CreateBusinessUnit(BaseModel):
     """Open a business from an approved proposal, and put capital behind it."""
 
@@ -183,6 +210,46 @@ async def reject_opportunity(ctx: Context, command: RejectOpportunity) -> dict[s
         reason=command.reason,
     )
     return {"opportunity_id": str(opportunity.id), "state": opportunity.state}
+
+
+async def draft_proposal(ctx: Context, command: DraftProposal) -> dict[str, Any]:
+    """Write a proposal for an open opportunity.
+
+    Cheap and reversible: it is a document, so nobody has to approve it. What it costs is the
+    exploration project's budget, like the rest of finding out (ARCHITECTURE_V2_1 §6).
+    """
+    opportunity = await _opportunity(ctx, command.opportunity_id)
+    if opportunity.state not in opportunities_service.OPEN_STATES:
+        raise Refused(
+            f"opportunity {opportunity.key} is {opportunity.state}; it was decided already"
+        )
+    if not command.kill_criteria:
+        raise Refused("a proposal must say what would make this business not worth running")
+    fields = command.model_dump(exclude={"opportunity_id", "title"}, exclude_none=True)
+    proposal = await opportunities_service.draft_proposal(
+        ctx.session,
+        opportunity,
+        title=command.title,
+        actor=ctx.actor,
+        run_id=ctx.run_id,
+        **fields,
+    )
+    return {
+        "proposal_id": str(proposal.id),
+        "version": proposal.version,
+        "opportunity_id": str(opportunity.id),
+    }
+
+
+async def submit_proposal(ctx: Context, command: SubmitProposal) -> dict[str, Any]:
+    """Put a draft up for decision. Any proposal already submitted for it is superseded."""
+    proposal = await ctx.session.get(BusinessProposal, command.proposal_id)
+    if proposal is None or proposal.company_id != ctx.company_id:
+        raise Refused(f"no proposal {command.proposal_id} in this company")
+    if proposal.state != ProposalState.DRAFT.value:
+        raise Refused(f"proposal v{proposal.version} is {proposal.state}; only a draft is put up")
+    await opportunities_service.submit(ctx.session, proposal, actor=ctx.actor)
+    return {"proposal_id": str(proposal.id), "version": proposal.version, "state": proposal.state}
 
 
 async def create_business_unit(ctx: Context, command: CreateBusinessUnit) -> dict[str, Any]:
@@ -457,6 +524,20 @@ def register(bus: CommandBus) -> None:
             "reject_opportunity",
             reject_opportunity,
             summary=lambda c: f"Reject {c.opportunity_id}: {c.reason}",
+        ),
+        CommandSpec(
+            "DraftProposal",
+            DraftProposal,
+            "draft_proposal",
+            draft_proposal,
+            summary=lambda c: f"Draft a proposal: {c.title}",
+        ),
+        CommandSpec(
+            "SubmitProposal",
+            SubmitProposal,
+            "submit_proposal",
+            submit_proposal,
+            summary=lambda c: f"Put proposal {c.proposal_id} up for decision",
         ),
         CommandSpec(
             "CreateBusinessUnit",

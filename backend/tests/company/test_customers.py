@@ -95,7 +95,10 @@ async def test_the_same_payment_reference_is_the_same_customer(db_session):
     ).all()
     assert len(rows) == 1
     acquired = await db_session.scalars(
-        select(EventRecord).where(EventRecord.event_type == "CUSTOMER_ACQUIRED")
+        select(EventRecord).where(
+            EventRecord.company_id == company.id,
+            EventRecord.event_type == "CUSTOMER_ACQUIRED",
+        )
     )
     assert len(list(acquired)) == 1
 
@@ -141,7 +144,10 @@ async def test_churning_keeps_the_row_and_says_how_long_they_stayed(db_session):
     assert customer.churned_at == DAY
     [event] = (
         await db_session.scalars(
-            select(EventRecord).where(EventRecord.event_type == "CUSTOMER_CHURNED")
+            select(EventRecord).where(
+                EventRecord.company_id == company.id,
+                EventRecord.event_type == "CUSTOMER_CHURNED",
+            )
         )
     ).all()
     assert event.payload["days"] == 40 and event.payload["reason"] == "stopped reading"

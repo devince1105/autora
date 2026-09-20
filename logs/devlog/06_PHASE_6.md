@@ -690,6 +690,8 @@ T-611 把機會、提案與八個命令都建好了，也把機會放進 CEO 的
 ### 還沒接上的
 `invest`（`CreateBusinessUnit`）在提示、驗證器與權限上都到位了，但模擬不會走到那一步，所以**「從提案開出一門生意」目前只有人測過**（`test_business_verbs.py` 裡有）。要讓它在模擬裡自己走完，需要一個會寫提案的代理——那是探索專案的工作，還沒有。
 
+→ 已在下面的〈會寫提案的代理〉補上。
+
 ---
 
 ## T-612 · 誰付錢給這間公司
@@ -726,6 +728,60 @@ transactions: customer_id   -- 新增，可空
 
 ### 現在可以答、但還沒有資料的
 七種切法全部答得出來了——每個事業、每個產品、每個專案、每個代理、毛利、現金流、**每個客戶**。全部回傳零，因為還沒有人付過錢。那正是「邊界先留好」的意思。
+
+---
+
+## 會寫提案的代理 · 商業迴圈的最後一個洞
+
+到上一輪為止：機會可以被發現、打分、推進，提案可以被核准變成事業——但**沒有任何東西會寫那份提案**。整條迴圈只有在「人自己打一份」的時候才接得起來。這一輪補上。
+
+### 先補兩個命令
+
+代理要改變公司只有一條路：命令管線。而管線裡**沒有「寫提案」這個動詞**，所以在寫代理之前得先有 `DraftProposal` 與 `SubmitProposal`。兩個都是 **CEO 與 strategist 可以自己做**——它們產出的是文件，不是承諾；承諾是 `CreateBusinessUnit`，那一個一律人審（§6）。
+
+### `strategist`：公司層的代理，不屬於任何領域
+
+「我們要賣什麼、賣給誰、賣多少錢、什麼情況下不值得做」——**換哪個產業都是同一個問題**，所以它跟 CEO 一樣住在 `company/agents/`，刪掉所有領域它照樣工作。
+
+四個驗證器守住它可能說的四種謊：
+- 機會必須是這間公司的、而且還開著；
+- 它說的那份提案必須存在、屬於那個機會、**而且是這次執行寫的**（`authored_by_run_id`）；
+- 說「已送出」就必須真的送出；
+- 提案必須有 kill criteria，而且**至少寫出一個風險**——沒有風險的提案不是想過，是希望過。
+
+### 探索就是專案（§4 的兌現）
+
+`company/exploration.py` 在 EXECUTING 進入時啟動工作，一輪**只開一條**：拿分數最高、正在 EVALUATING、還沒有活著的提案的那個機會，替它開一個 `Explore: <title>` 專案（`opportunity_id` 指回去），再跑 `company.business_proposal_v1`。
+
+於是三件事自動成立，而這正是「探索是 Project」的理由：預算由 CEO 用 `AllocateExplorationBudget` 給、成本自動歸到那個機會、**停損是專案本來就有的 kill criteria**（預設超過 2 美元自動暫停）。沒有新機制。
+
+一輪一條也不是後加的節流閥，是 §4 的規則：慢迴圈一天只走一步。
+
+### 會跑的證明
+
+`test_an_opportunity_becomes_a_proposal_a_person_can_decide`（約 7 秒）：
+
+- 第一天：CEO 覆盤時把人記下的機會打分、推進到 EVALUATING；
+- 第二天：公司自己開探索專案，strategist 寫出提案並送出；
+- 斷言 `PROPOSAL_DRAFTED` / `PROPOSAL_SUBMITTED` **沒有任何一筆的 actor 是人**；
+- 然後人核准 `CreateBusinessUnit`——事業開出來、機會變成 APPROVED、指向那門生意。
+
+**兩個人的動作之間，全部是公司自己做的。**
+
+### 三個真的 bug（都是跑起來才發現的）
+
+1. **strategist 沒有 `submit_command` 的權限**：權限矩陣只給了 ceo。它的第一次執行是 `PolicyDenied`。順手把 `strategist` 加成權限矩陣的第九欄，所有列預設 D。
+2. **`Context` 沒有 `run_id`**：處理器要把 `authored_by_run_id` 寫進提案，但管線沒有把「是哪次執行問的」交給處理器——工具回傳 `AttributeError`，命令一筆都沒進 log。加上 `Context.run_id`（人審通過後執行的那條路徑**刻意留 None**：那時是人在執行，不該把寫入掛到代理的執行上）。
+3. **模擬讀錯了工具輸出的形狀**：`submit_command` 把命令的結果**攤平**在輸出裡，不是包在 `result` 底下，所以模擬拿不到 `proposal_id`，提案寫了卻沒送出。
+
+### 第四次了：測試查詢沒篩公司
+
+`test_a_decided_proposal_cannot_be_decided_again` 查 `PROPOSAL_DECIDED` 事件時沒有加公司條件。單獨跑過、全套跑就紅——因為新的驗收測試會 commit 同名事件。**這是我第四次犯同一個錯**（前三次在 `test_organization.py`、`test_commands.py`、AC-9 的事件查詢）。這次把這一輪寫的四個測試檔全部掃過，補上四處。
+
+### 驗證
+- `pytest tests/company/test_strategist.py`：11 個（它只有一個工具且不能開事業、草稿與送出、沒有 kill criteria 會被拒、已決定的機會不再寫提案、不能報告別的執行寫的提案、不能說送出了還是草稿的東西、別家公司的機會、一輪一條且挑分數最高的、已有提案的不再開、沒有 strategist 就不開、DISCOVERED 還不到寫提案的時候）。
+- `pytest tests/acceptance/test_autonomous.py`：6 個。
+- 後端 1359 個測試、web 287 個測試通過；六項 check 全過。
 
 ---
 

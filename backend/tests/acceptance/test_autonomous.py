@@ -21,11 +21,13 @@ from sqlalchemy import func, select
 
 from autora.app import build_runtime, build_worker
 from autora.company import opportunities
-from autora.company.agents import hire_agent
+from autora.company.agents import hire_agent, strategist
 from autora.company.companies import create_company
 from autora.company.cycle import CYCLE_START_SCHEDULE, ensure_cycle_schedule
-from autora.company.organization import bootstrap_executive
+from autora.company.organization import add_role, bootstrap_executive
 from autora.db.models import (
+    BusinessProposal,
+    BusinessUnit,
     CommandRecord,
     Company,
     CompanyType,
@@ -38,6 +40,7 @@ from autora.db.models import (
     OpportunityState,
     Project,
     ProjectState,
+    ProposalState,
     Schedule,
     WorkflowRun,
 )
@@ -438,3 +441,112 @@ async def test_the_company_decides_about_an_opportunity_by_itself(committed, e2e
     [written] = cycle.review["opportunities"]
     assert written["opportunity_id"] == str(opportunity_id)
     assert written["decision"] == "evaluate"
+
+
+@pytest.mark.slow
+async def test_an_opportunity_becomes_a_proposal_a_person_can_decide(committed, e2e_settings):
+    """T-611, the loop closed: nobody writes the proposal by hand (ARCHITECTURE_V2_1 §4).
+
+    Day one the CEO evaluates what somebody noticed. Day two the company starts an exploration
+    project and its strategist writes a proposal and puts it up for decision. Then — and only
+    then — a person approves it, and the business exists. Everything between the two human acts
+    is the company's own.
+    """
+    clock = Clock(datetime.now(UTC))
+    runtime = build_runtime(e2e_settings)
+    runtime.cycles.clock = clock
+    slug = f"proposal-{uuid.uuid4().hex[:8]}"
+
+    async with committed() as session:
+        company, _ = await create_company(
+            session, slug=slug, name="A Company With An Idea", type=CompanyType.NEWSROOM,
+            mission="find something worth doing", actor=OPERATOR,
+        )  # fmt: skip
+        department, ceo_role = await bootstrap_executive(session, company.id, actor=OPERATOR)
+        strategist_role = await add_role(
+            session, company_id=company.id, department_id=department.id,
+            key=strategist.ROLE, title="Strategist", actor=OPERATOR,
+        )  # fmt: skip
+        for role, name in ((ceo_role, "Cyra"), (strategist_role, "Sol")):
+            await hire_agent(
+                session, company_id=company.id, role=role.key, display_name=name,
+                actor=OPERATOR, position=role,
+            )  # fmt: skip
+        opportunity = await opportunities.discover(
+            session,
+            company_id=company.id,
+            key="ai_english",
+            title="AI English learning",
+            thesis="Adults pay for lessons; a model teaches at the margin of zero.",
+            actor=OPERATOR,
+        )
+        await opportunities.add_signal(
+            session, opportunity, source="search", summary="three competitors, none bilingual",
+            actor=OPERATOR,
+        )  # fmt: skip
+        await session.commit()
+        company_id, opportunity_id = company.id, opportunity.id
+
+    worker = build_worker(
+        e2e_settings, session_factory=committed, company_ids=frozenset({company_id}),
+        runtime=runtime,
+    )  # fmt: skip
+    worker.clock = clock
+    worker.scheduler.clock = clock
+    worker.maintenance_interval = 1
+
+    for _ in range(2):  # day one evaluates it, day two writes the proposal
+        await _wind_to_next_start(committed, company_id, clock)
+        clock.advance(minutes=10)
+        await _drive(worker, clock, hours=17)
+
+    async with committed() as session:
+        proposal = await session.scalar(
+            select(BusinessProposal).where(BusinessProposal.opportunity_id == opportunity_id)
+        )
+        exploring = await session.scalar(
+            select(Project).where(Project.opportunity_id == opportunity_id)
+        )
+        human_events = (
+            await session.scalars(
+                select(EventRecord.event_type).where(
+                    EventRecord.company_id == company_id,
+                    EventRecord.actor["kind"].astext == "human",
+                    EventRecord.event_type.in_(["PROPOSAL_DRAFTED", "PROPOSAL_SUBMITTED"]),
+                )
+            )
+        ).all()
+
+    assert proposal is not None, "nobody wrote the proposal"
+    assert proposal.state == ProposalState.SUBMITTED.value, "it was written but never put up"
+    assert proposal.kill_criteria, "a proposal that does not say what would end it"
+    assert proposal.authored_by_run_id is not None, "it came from nowhere"
+    # finding out is an ordinary project, with a budget and a stop-loss like any other work
+    assert (
+        exploring is not None and exploring.kill_criteria["auto_pause_if"]["metric"] == "cost_usd"
+    )
+    assert human_events == [], "a person wrote it after all"
+
+    # and now the one thing that is a person's: opening the business
+    async with committed() as session:
+        asked = await runtime.commands.submit(
+            session,
+            "CreateBusinessUnit",
+            {"proposal_id": str(proposal.id), "capital": "50"},
+            company_id=company_id,
+            actor=Actor.human("founder"),
+            role=None,
+            idempotency_key=f"open-{uuid.uuid4().hex[:8]}",
+        )
+        await session.commit()
+
+    async with committed() as session:
+        unit = await session.scalar(
+            select(BusinessUnit).where(BusinessUnit.company_id == company_id)
+        )
+        decided = await session.get(Opportunity, opportunity_id)
+
+    assert asked.done, "a person's own command should not need approving"
+    assert unit is not None and unit.state == "ACTIVE"
+    assert decided.state == OpportunityState.APPROVED.value
+    assert decided.business_unit_id == unit.id

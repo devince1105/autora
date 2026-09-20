@@ -76,6 +76,9 @@ class Context:
     idempotency_key: str | None = None
     """The key this command was submitted under. A handler that moves money derives its
     transaction's key from it, so a replayed command cannot double the amount (T-611)."""
+    run_id: uuid.UUID | None = None
+    """The agent run that asked, when an agent did. A handler that writes something an agent
+    authored records it, so "which run wrote this" is answerable later (T-611)."""
     policy: PolicyEngine | None = None
     workflows: Any = None
     """The workflow engine, for the verbs that start work. None in a bus built without one —
@@ -148,7 +151,9 @@ class CommandBus:
             known = ", ".join(sorted(self.specs)) or "none"
             raise UnknownCommand(f"no command {name!r} (known: {known})") from None
 
-    def _context(self, session, company_id, actor, role, limit, idempotency_key=None) -> Context:
+    def _context(
+        self, session, company_id, actor, role, limit, idempotency_key=None, run_id=None
+    ) -> Context:
         return Context(
             session=session,
             company_id=company_id,
@@ -156,6 +161,7 @@ class CommandBus:
             role=role,
             limit=limit,
             idempotency_key=idempotency_key,
+            run_id=run_id,
             policy=self.policy,
             workflows=self.workflows,
         )
@@ -308,7 +314,7 @@ class CommandBus:
         task_id: uuid.UUID | None = None,
         run_id: uuid.UUID | None = None,
     ) -> CommandRecord:
-        context = self._context(session, company_id, actor, role, limit, idempotency_key)
+        context = self._context(session, company_id, actor, role, limit, idempotency_key, run_id)
         mark = await _last_seq(session, company_id)
         try:
             result = await spec.handler(context, command)
@@ -354,6 +360,8 @@ class CommandBus:
             return
         spec = self.get(payload["command"])
         command = spec.model.model_validate(payload["args"])
+        # the approved command runs as the person who approved it; the run that asked for it
+        # is on the record, not here — a deferred handler must not attribute writes to it
         context = self._context(
             session,
             approval.company_id,
