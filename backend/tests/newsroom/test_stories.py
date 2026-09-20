@@ -12,6 +12,7 @@ from decimal import Decimal
 from pathlib import Path
 
 import pytest
+from pydantic import ValidationError
 from sqlalchemy import func, select, update
 
 import autora.domains.newsroom as newsroom
@@ -29,7 +30,6 @@ from autora.domains.newsroom.sources import SourcePoller, add_source
 from autora.domains.newsroom.stories import CLUSTER_SCHEDULE, STORY_FSM, StoryDesk, StoryError
 from autora.infra.http import FixtureFetcher
 from autora.infra.search.fixture import FixtureSearchProvider
-from autora.infra.settings import load_settings
 from autora.runtime.actor import Actor
 from autora.runtime.fsm import IllegalTransition
 from autora.runtime.models.embeddings import (
@@ -339,9 +339,15 @@ async def test_select_ignore_drop_and_illegal_moves(db_session):
     }
 
 
-def test_threshold_setting():
-    settings = load_settings(_env_file=None, database_url="postgresql+asyncpg://u:p@h/db")
-    assert settings.story_match_threshold == 0.65
+def test_the_threshold_is_the_newsroom_s_own_setting():
+    """§9: the core parses the environment; what a similarity of 0.65 means is the newsroom's."""
+    from autora.domains.newsroom.settings import NewsroomSettings
+
+    assert NewsroomSettings(_env_file=None).story_match_threshold == 0.65
+    # and it is read from a key that says whose knob it is
+    assert NewsroomSettings(_env_file=None, story_match_threshold=0.8).story_match_threshold == 0.8
+    with pytest.raises(ValidationError):
+        NewsroomSettings(_env_file=None, story_match_threshold=1.5)
 
 
 # --- through the worker's scheduler ---------------------------------------------------------

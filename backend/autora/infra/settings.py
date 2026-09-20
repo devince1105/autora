@@ -23,8 +23,12 @@ class SettingsError(RuntimeError):
     """Raised when required configuration is missing or inconsistent."""
 
 
-def _default_env_file() -> str:
+def env_file() -> str:
     """Locate the .env file regardless of the current working directory.
+
+    Public because a domain reads the same file for its own settings: the core parses what it
+    owns and tells the layer above where the configuration lives, rather than carrying that
+    layer's knobs (ARCHITECTURE_V2_1 §9).
 
     Order: AUTORA_ENV_FILE env var → repo root → ./.env relative to cwd.
     This file sits at <root>/backend/autora/infra/settings.py, so the root is
@@ -40,7 +44,7 @@ def _default_env_file() -> str:
 
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(
-        env_file=_default_env_file(),
+        env_file=env_file(),
         env_file_encoding="utf-8",
         extra="ignore",
         case_sensitive=False,
@@ -86,10 +90,6 @@ class Settings(BaseSettings):
     """fake: deterministic hashing vectors (no network); nvidia: NVIDIA Build's /embeddings."""
     embed_model_id: str | None = None
     """Required unless fake. Its vectors must have the dimension the database stores (2048)."""
-
-    story_match_threshold: float = Field(default=0.65, gt=0, le=1)
-    """Cosine similarity at which a source item joins an existing story (T-504); tuned for
-    EMBED_MODEL_ID (see domains/newsroom/stories.py for how 0.65 was chosen)."""
 
     fetch_timeout_seconds: float = Field(default=15.0, gt=0)
     """Live page and feed fetches (T-501, T-502)."""

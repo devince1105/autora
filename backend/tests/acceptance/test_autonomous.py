@@ -45,6 +45,7 @@ from autora.db.models import (
     WorkflowRun,
 )
 from autora.domains.newsroom.demo import gather_stories, seed_demo
+from autora.domains.newsroom.settings import get_newsroom_settings
 from autora.domains.newsroom.sources import SourcePoller
 from autora.domains.newsroom.stories import StoryDesk
 from autora.runtime.actor import Actor
@@ -192,7 +193,9 @@ async def test_seven_cycles_with_nobody_fixing_anything(committed, e2e_settings)
     poller = SourcePoller(
         fetcher=build_page_fetcher(e2e_settings), search=build_search_provider(e2e_settings)
     )
-    desk = StoryDesk(build_embedder(e2e_settings), threshold=e2e_settings.story_match_threshold)
+    desk = StoryDesk(
+        build_embedder(e2e_settings), threshold=get_newsroom_settings().story_match_threshold
+    )
     slug = f"soak-{uuid.uuid4().hex[:8]}"
 
     async with committed() as session:

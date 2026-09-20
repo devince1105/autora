@@ -30,6 +30,7 @@ from autora.app import (
 )
 from autora.db.session import dispose_engine, get_sessionmaker
 from autora.domains.newsroom.demo import gather_stories, pick, seed_demo, start_demo_story
+from autora.domains.newsroom.settings import get_newsroom_settings
 from autora.domains.newsroom.sources import SourcePoller
 from autora.domains.newsroom.stories import StoryDesk
 from autora.infra.settings import load_settings
@@ -62,7 +63,9 @@ async def seed(
             poller = SourcePoller(
                 fetcher=build_page_fetcher(settings), search=build_search_provider(settings)
             )
-            desk = StoryDesk(build_embedder(settings), threshold=settings.story_match_threshold)
+            desk = StoryDesk(
+                build_embedder(settings), threshold=get_newsroom_settings().story_match_threshold
+            )
             stories = await gather_stories(session, demo.company.id, poller=poller, desk=desk)
             out["stories"] = [s.title for s in stories]
         if start:

@@ -43,6 +43,7 @@ from autora.domains.newsroom.models import (
     Story,
 )
 from autora.domains.newsroom.policy import trust_policy
+from autora.domains.newsroom.settings import get_newsroom_settings
 from autora.domains.newsroom.simulation import DEMO_ISSUE
 from autora.domains.newsroom.sources import SourcePoller
 from autora.domains.newsroom.stories import StoryDesk
@@ -62,7 +63,9 @@ async def test_the_demo_newsroom_publishes_a_story_from_its_feeds(committed, e2e
     poller = SourcePoller(
         fetcher=build_page_fetcher(e2e_settings), search=build_search_provider(e2e_settings)
     )
-    desk = StoryDesk(build_embedder(e2e_settings), threshold=e2e_settings.story_match_threshold)
+    desk = StoryDesk(
+        build_embedder(e2e_settings), threshold=get_newsroom_settings().story_match_threshold
+    )
 
     # seed (idempotent), poll and cluster, pick the microgrid story, start it with the revise branch
     slug = f"newsroom-demo-{uuid.uuid4().hex[:8]}"
@@ -203,7 +206,9 @@ async def test_an_editor_that_never_decides_fails_visibly(committed, e2e_setting
     poller = SourcePoller(
         fetcher=build_page_fetcher(settings), search=build_search_provider(settings)
     )
-    desk = StoryDesk(build_embedder(settings), threshold=settings.story_match_threshold)
+    desk = StoryDesk(
+        build_embedder(settings), threshold=get_newsroom_settings().story_match_threshold
+    )
     async with committed() as session:
         demo = await seed_demo(
             session, actor=OPERATOR, slug=f"newsroom-fail-{uuid.uuid4().hex[:8]}"
@@ -282,7 +287,9 @@ async def test_a_cycle_plans_and_commissions_without_anyone_pressing_anything(
     poller = SourcePoller(
         fetcher=build_page_fetcher(e2e_settings), search=build_search_provider(e2e_settings)
     )
-    desk = StoryDesk(build_embedder(e2e_settings), threshold=e2e_settings.story_match_threshold)
+    desk = StoryDesk(
+        build_embedder(e2e_settings), threshold=get_newsroom_settings().story_match_threshold
+    )
     slug = f"newsroom-cycle-{uuid.uuid4().hex[:8]}"
 
     async with committed() as session:

@@ -67,7 +67,6 @@ async def test_real_embeddings(db_session):
 async def test_the_story_threshold_fits_the_model(db_session):
     """T-504 chose 0.65 from this model's similarities: the same event in two English headlines
     must reach it; a related but different story must not."""
-    from autora.infra.settings import load_settings as _load
 
     run = await running_agent_run(db_session, "embed-threshold")
     embedder = embedder_from_settings(SETTINGS, dim=EMBED_DIM)
@@ -86,6 +85,8 @@ async def test_the_story_threshold_fits_the_model(db_session):
         purpose="passage",
         caller=caller,
     )
-    threshold = _load().story_match_threshold
+    from autora.domains.newsroom.settings import get_newsroom_settings
+
+    threshold = get_newsroom_settings().story_match_threshold
     assert _cos(pilot, same_event) >= threshold
     assert _cos(pilot, related) < threshold and _cos(pilot, unrelated) < threshold

@@ -49,9 +49,7 @@ KNOWN_LEAKS = {
     # than vocabulary, but it does mean the core ships a list of businesses it knows about.
     "db/models/company.py: 'NEWSROOM'",
     "db/models/company.py: 'newsroom'",
-    # A newsroom tuning knob in the core's settings, and the newsroom's name in the user agent
-    # the fetcher sends. Both belong to the domain that uses them.
-    "infra/settings.py: 'story_match_threshold'",
+    # The newsroom's name in the user agent the fetcher sends. It belongs to whoever fetches.
     "infra/http/__init__.py: 'AutoraNewsroom/0.1 (+https://github.com/vince115/autora)'",
 }
 """What §9 found and this repository has not fixed yet (ARCHITECTURE_V2_1 §9, "耦合").

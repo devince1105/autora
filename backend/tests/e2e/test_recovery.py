@@ -165,6 +165,7 @@ async def test_killed_worker_loses_no_draft(committed, e2e_settings, tmp_path):
     from autora.app import build_embedder, build_page_fetcher, build_runtime, build_search_provider
     from autora.domains.newsroom.demo import gather_stories, pick, seed_demo, start_demo_story
     from autora.domains.newsroom.models import Article, ArticleVersion
+    from autora.domains.newsroom.settings import get_newsroom_settings
     from autora.domains.newsroom.sources import SourcePoller
     from autora.domains.newsroom.stories import StoryDesk
 
@@ -172,7 +173,8 @@ async def test_killed_worker_loses_no_draft(committed, e2e_settings, tmp_path):
     poller = SourcePoller(
         fetcher=build_page_fetcher(e2e_settings), search=build_search_provider(e2e_settings)
     )
-    desk = StoryDesk(build_embedder(e2e_settings), threshold=e2e_settings.story_match_threshold)
+    threshold = get_newsroom_settings().story_match_threshold
+    desk = StoryDesk(build_embedder(e2e_settings), threshold=threshold)
     slug = f"recovery-{uuid.uuid4().hex[:8]}"
 
     async with committed() as session:

@@ -35,6 +35,7 @@ from autora.domains.newsroom.demo import gather_stories, pick, seed_demo, start_
 from autora.domains.newsroom.factcheck import check_claim
 from autora.domains.newsroom.models import Article, ArticleVersion, Claim, Distribution, Story
 from autora.domains.newsroom.policy import trust_policy
+from autora.domains.newsroom.settings import get_newsroom_settings
 from autora.domains.newsroom.site import published_article
 from autora.domains.newsroom.sources import SourcePoller
 from autora.domains.newsroom.stories import StoryDesk
@@ -91,7 +92,9 @@ async def test_the_newsroom_line_with_a_real_model(committed, db_settings, tmp_p
             poller=SourcePoller(
                 fetcher=build_page_fetcher(settings), search=build_search_provider(settings)
             ),
-            desk=StoryDesk(build_embedder(settings), threshold=settings.story_match_threshold),
+            desk=StoryDesk(
+                build_embedder(settings), threshold=get_newsroom_settings().story_match_threshold
+            ),
         )
         story = pick(stories, "microgrid")
         assert story is not None, [s.title for s in stories]

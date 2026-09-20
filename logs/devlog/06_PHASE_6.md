@@ -854,6 +854,31 @@ T-611 補上的詞彙掃描列了七處違規，這是其中最實在的一處�
 
 ---
 
+## 修掉 `story_match_threshold` 的耦合 · 核心不該有新聞室的旋鈕
+
+棘輪上的第二條：`infra/settings.py` 裡有 `story_match_threshold`——「兩則新聞像到什麼程度算同一件事」。**對一間賣軟體的公司來說，這個欄位毫無意義**，核心不該帶著它。
+
+### 核心解析環境，領域定義意思
+
+跟 KPI 掛鉤、跟 `approvals.kind` 同一個做法：核心提供**機制**，領域提供**意思**。
+
+`infra.settings` 把「.env 在哪裡」變成公開的 `env_file()`——核心知道設定檔在哪，這是它的事；`domains/newsroom/settings.py` 用同一個檔、自己的前綴 `NEWSROOM_`、自己的驗證，宣告 `story_match_threshold`。第二個領域照做，而且永遠不必碰到 `infra/settings.py`。
+
+環境變數因此從 `STORY_MATCH_THRESHOLD` 改成 **`NEWSROOM_STORY_MATCH_THRESHOLD`**（它沒有出現在 `.env.example`，只是一個預設值，影響面很小；新名字也比較誠實——它說得出這是誰的旋鈕）。`RUNBOOK` 已同步。
+
+### 順手把測試也修對
+
+`test_threshold_setting` 本來是「核心的 Settings 有這個值」。現在它測的是**新聞室自己的設定類別**：預設是 0.65、可以被覆寫、超出範圍會被自己的驗證擋下來。門檻的理由（0.65 是量出來的，不是挑出來的）跟著搬到領域裡，`test_embed_live.py` 換模型時仍然會重新檢查它。
+
+### 棘輪 5 → 4
+
+剩下：`Company.type` 的 `newsroom`（產業分類，比較像資料，該不該動要先有個決定）、fetcher 的 User-Agent。前端審批頁那張 `KIND_LABEL` 字典不在這個掃描範圍內。
+
+### 驗證
+- 後端 1359 個測試通過；六項 check 全過。
+
+---
+
 ## 提交紀錄
 
 | 提交 | 日期 | 內容 | 持續整合 |

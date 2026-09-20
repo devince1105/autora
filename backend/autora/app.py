@@ -147,6 +147,7 @@ def build_scheduler(
     T-516)."""
     from autora.company.cycle import CYCLE_START_SCHEDULE
     from autora.domains.newsroom.analytics import ANALYTICS_SCHEDULE, AnalyticsCollector
+    from autora.domains.newsroom.settings import get_newsroom_settings
     from autora.domains.newsroom.sources import POLL_SCHEDULE, SourcePoller
     from autora.domains.newsroom.stories import CLUSTER_SCHEDULE, StoryDesk
     from autora.runtime.scheduler import Scheduler
@@ -156,9 +157,9 @@ def build_scheduler(
         fetcher=build_page_fetcher(settings), search=build_search_provider(settings)
     )
     scheduler.register(POLL_SCHEDULE, poller.schedule_handler())
+    # the newsroom's own knob, read by the newsroom (ARCHITECTURE_V2_1 §9)
     desk = StoryDesk(
-        build_embedder(settings),
-        threshold=settings.story_match_threshold if settings else 0.65,
+        build_embedder(settings), threshold=get_newsroom_settings().story_match_threshold
     )
     scheduler.register(CLUSTER_SCHEDULE, desk.schedule_handler())
     scheduler.register(ANALYTICS_SCHEDULE, AnalyticsCollector().schedule_handler())
