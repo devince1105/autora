@@ -29,6 +29,8 @@ function agent(state: ActivityState, detail: Record<string, unknown> = {}, extra
     role: "researcher",
     display_name: "Rae",
     avatar_key: "default",
+    department_id: null,
+    department_key: null,
     activity: {
       state,
       stored_state: state,

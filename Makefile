@@ -95,6 +95,7 @@ lint-py:
 
 lint-web:
 	pnpm lint
+	pnpm typecheck  # CI runs it; running it only there costs a round trip
 
 clean: ## Remove venv, node_modules, caches
 	rm -rf $(VENV) node_modules frontend/*/node_modules frontend/web/.next frontend/web/.next-e2e .pytest_cache .ruff_cache

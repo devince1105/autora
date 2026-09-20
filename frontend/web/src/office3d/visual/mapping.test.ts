@@ -90,6 +90,8 @@ describe("visualForAgent", () => {
     id: "a",
     role: "researcher",
     display_name: "Rae",
+    department_id: null,
+    department_key: null,
     avatar_key: "default",
     activity: { state: "IDLE", stored_state: "IDLE", detail: {}, since: "2026-09-19T00:00:00Z", run_id: "r1", task_id: null, last_event_seq: 1, ...activity },
     liveProgress: live,
