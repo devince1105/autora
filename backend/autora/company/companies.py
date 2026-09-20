@@ -9,6 +9,7 @@ from __future__ import annotations
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from autora.company.cycle import ensure_cycle_schedule
 from autora.company.events import CompanyCreated
 from autora.db.models import Company, CompanyType
 from autora.db.repositories import companies
@@ -31,12 +32,21 @@ async def create_company(
     type: CompanyType,
     mission: str | None,
     actor: Actor,
+    timezone: str = "UTC",
 ) -> tuple[Company, EventEnvelope]:
+    """Create a company and give it its daily cycle.
+
+    The schedule is part of being a company, not an extra somebody remembers to switch on
+    (AC-11): from here nobody has to start anything — the schedule opens a cycle, the cycle
+    plans, and the plan starts the day's work. A company with no agents simply spends its days
+    planning nothing, which is the correct amount of work for a company with nobody in it.
+    """
     if await companies.get_company_by_slug(session, slug) is not None:
         raise CompanyAlreadyExists(slug)
     company = await companies.add_company(
         session, Company(slug=slug, name=name, type=type.value, mission=mission)
     )
+    await ensure_cycle_schedule(session, company.id, timezone=timezone)
     envelope = await emit(
         session,
         new_event(

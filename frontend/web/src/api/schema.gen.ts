@@ -1094,6 +1094,10 @@ export interface components {
              * @default []
              */
             goals: components["schemas"]["CycleGoal"][];
+            /** Governance */
+            governance?: {
+                [key: string]: unknown;
+            } | null;
             /**
              * Id
              * Format: uuid

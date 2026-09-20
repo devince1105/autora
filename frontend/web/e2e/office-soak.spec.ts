@@ -12,6 +12,7 @@ import { writeFileSync } from "node:fs";
 
 import type {} from "../src/office3d/perf/StatsProbe";
 import type {} from "../src/office3d/visual/CueRunner";
+import type {} from "../src/realtime/latency";
 import { API_URL, Stack, TOKEN } from "./stack";
 
 const MINUTES = Number(process.env.SOAK_MINUTES ?? 0);
@@ -20,6 +21,7 @@ const SAMPLE_MS = Number(process.env.SOAK_SAMPLE_SECONDS ?? 60) * 1000;
 const WARMUP_MS = 60_000;
 const HEAP_LIMIT_MB = 50;
 const FPS_FLOOR = 30;
+const WS_P95_MS = 100; // AC-S7: handling one socket message must stay under this
 
 interface Sample {
   minute: number;
@@ -32,6 +34,9 @@ interface Sample {
   triangles: number;
   walks: number;
   rounds: number;
+  /** AC-S7: milliseconds to turn one socket message into state, over the last samples. */
+  wsP95: number;
+  wsMessages: number;
 }
 
 let stack: Stack;
@@ -57,7 +62,11 @@ async function heapAfterGc(cdp: CDPSession): Promise<number> {
 }
 
 async function office(page: Page) {
-  return page.evaluate(() => ({ stats: window.__autoraOffice ?? null, walks: window.__autoraOfficeCues?.walks ?? 0 }));
+  return page.evaluate(() => ({
+    stats: window.__autoraOffice ?? null,
+    walks: window.__autoraOfficeCues?.walks ?? 0,
+    ws: window.__autoraRealtime?.stats() ?? null,
+  }));
 }
 
 const percentile = (values: number[], p: number) => {
@@ -102,7 +111,7 @@ test("the office stays lean and smooth for hours (Phase 4 AC)", async ({ page, r
       nextRound += ROUND_MS;
     }
     const m = await metrics(cdp);
-    const { stats, walks } = await office(page);
+    const { stats, walks, ws } = await office(page);
     // every tenth sample also after a GC: the trend without garbage noise
     const gcHeapMB = sampleNo % 10 === 0 ? await heapAfterGc(cdp) : null;
     const sample: Sample = {
@@ -116,6 +125,8 @@ test("the office stays lean and smooth for hours (Phase 4 AC)", async ({ page, r
       triangles: stats?.triangles ?? 0,
       walks,
       rounds,
+      wsP95: ws?.p95 ?? 0,
+      wsMessages: ws?.count ?? 0,
     };
     samples.push(sample);
     console.log(`[soak] ${JSON.stringify(sample)}`);
@@ -125,12 +136,14 @@ test("the office stays lean and smooth for hours (Phase 4 AC)", async ({ page, r
   await page.waitForTimeout(90_000);
   const final = await heapAfterGc(cdp);
   const fps = samples.map((s) => s.fps);
+  const wsFinal = (await office(page)).ws;
   const summary = {
     minutes: MINUTES,
     rounds,
     walks: (await office(page)).walks,
     heap: { baselineMB: +baseline.toFixed(1), finalMB: +final.toFixed(1), growthMB: +(final - baseline).toFixed(1), limitMB: HEAP_LIMIT_MB },
     fps: { min: Math.min(...fps), p10: percentile(fps, 10), median: percentile(fps, 50), floor: FPS_FLOOR },
+    ws: { p95: wsFinal?.p95 ?? 0, p50: wsFinal?.p50 ?? 0, max: wsFinal?.max ?? 0, messages: wsFinal?.count ?? 0, events: wsFinal?.events ?? 0, limitMs: WS_P95_MS },
     nodes: { first: samples[0]?.nodes, last: samples.at(-1)?.nodes },
     listeners: { first: samples[0]?.listeners, last: samples.at(-1)?.listeners },
     pageErrors: errors,
@@ -142,4 +155,7 @@ test("the office stays lean and smooth for hours (Phase 4 AC)", async ({ page, r
   expect(rounds).toBeGreaterThanOrEqual(Math.floor(MINUTES / (ROUND_MS / 60_000)));
   expect(final - baseline).toBeLessThan(HEAP_LIMIT_MB);
   expect(percentile(fps, 10)).toBeGreaterThanOrEqual(FPS_FLOOR);
+  // AC-S7: the events arrived and were handled quickly, for the whole soak
+  expect(wsFinal?.count ?? 0).toBeGreaterThan(0);
+  expect(wsFinal?.p95 ?? Infinity).toBeLessThan(WS_P95_MS);
 });

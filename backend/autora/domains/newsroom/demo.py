@@ -179,6 +179,7 @@ async def start_demo_story(
     pace_seconds: float = 0,
     revise_first_review: bool = False,
     editor_fails: bool = False,
+    pause: dict | None = None,
 ) -> WorkflowRun:
     if story.state == StoryState.DISCOVERED:
         await desk.select(session, story, project_id=project_id, actor=actor, reason="demo")
@@ -186,6 +187,9 @@ async def start_demo_story(
         "pace_seconds": pace_seconds,
         "revise_first_review": revise_first_review,
         "editor_fails": editor_fails,
+        # {"task": "draft", "attempt": 1, "seconds": 120}: hang that attempt after its tool has
+        # written, so a test can kill the worker in that window (AC-S4)
+        "pause": pause or {},
     }
     return await start_story(
         session,

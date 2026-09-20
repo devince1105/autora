@@ -94,18 +94,31 @@ class Breach:
 
 @dataclass
 class Governed:
-    """What governance did this cycle."""
+    """What governance did this cycle — and what it looked at, which is the more common case."""
 
     paused_projects: list[uuid.UUID] = field(default_factory=list)
     paused_units: list[uuid.UUID] = field(default_factory=list)
     paused_agents: list[uuid.UUID] = field(default_factory=list)
     warnings: list[str] = field(default_factory=list)
     breaches: list[Breach] = field(default_factory=list)
+    checked: dict[str, int] = field(default_factory=dict)
+    """How many of each thing the rules were applied to. Zero everywhere is still a record."""
 
     def __bool__(self) -> bool:
         return bool(
             self.paused_projects or self.paused_units or self.paused_agents or self.warnings
         )
+
+    def as_record(self) -> dict[str, Any]:
+        """The cycle's ``governance`` column: small, flat, and true on a quiet day."""
+        return {
+            "checked": dict(self.checked),
+            "paused_projects": [str(i) for i in self.paused_projects],
+            "paused_business_units": [str(i) for i in self.paused_units],
+            "paused_agents": [str(i) for i in self.paused_agents],
+            "warnings": list(self.warnings),
+            "breaches": [str(breach) for breach in self.breaches],
+        }
 
 
 @dataclass
@@ -132,6 +145,10 @@ class Governance:
         await self._kill_criteria(session, cycle, done)
         await self._failing_agents(session, cycle, done)
         await self._near_the_cap(session, cycle, done)
+        # written every cycle, fired or not: otherwise a quiet day and a day nobody governed
+        # look exactly the same afterwards (AC-14)
+        cycle.governance = done.as_record()
+        await session.flush()
         return done
 
     # --- 1. what its own criteria said -------------------------------------------------------
@@ -145,6 +162,7 @@ class Governance:
                 )
             )
         ).all()
+        done.checked["projects"] = len(projects)
         for project in projects:
             breach = await self._breached(
                 session,
@@ -169,6 +187,7 @@ class Governance:
                 )
             )
         ).all()
+        done.checked["business_units"] = len(units)
         for unit in units:
             breach = await self._breached(
                 session,
@@ -282,6 +301,7 @@ class Governance:
                 )
             )
         ).all()
+        done.checked["agents"] = len(agents)
         for agent in agents:
             recent = (
                 await session.scalars(
@@ -322,6 +342,7 @@ class Governance:
             )
         ).all()
         ledger = Ledger()
+        done.checked["budgets"] = len(budgets)
         for budget in budgets:
             if budget.amount <= 0:
                 continue

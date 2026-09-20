@@ -5,7 +5,10 @@
 // event, keyed by seq.
 import { expect, test, type APIRequestContext, type Page } from "@playwright/test";
 
+import type {} from "../src/realtime/latency";
 import { API_URL, Stack, TOKEN } from "./stack";
+
+const WS_P95_MS = 100; // AC-S7
 
 test.describe.configure({ mode: "serial" });
 
@@ -149,6 +152,13 @@ test("two tabs: the agent cards and the events change together, each event once"
   const ofWorkflow = events.filter((e) => e.workflow_run_id === workflowId).map((e) => e.seq);
   expect(ofWorkflow.length).toBeGreaterThan(20);
   for (const seq of ofWorkflow) expect(seenA).toContain(seq);
+
+  // AC-S7: handling what arrives on the socket stays well under 100 ms (the soak test measures
+  // the same number over hours; this is the same check on a real workflow's traffic)
+  const ws = await dashboards[0].evaluate(() => window.__autoraRealtime?.stats() ?? null);
+  expect(ws, "the page never recorded handling a message").not.toBeNull();
+  expect(ws!.count).toBeGreaterThan(0);
+  expect(ws!.p95).toBeLessThan(WS_P95_MS);
 });
 
 test("API down for 20 s: the page recovers by itself and misses nothing", async ({ page, request }) => {

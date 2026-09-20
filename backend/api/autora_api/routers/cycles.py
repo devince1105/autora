@@ -68,6 +68,9 @@ class CycleLine(BaseModel):
 class CycleDetail(CycleLine):
     plan: dict[str, Any] | None = None
     review_detail: dict[str, Any] | None = None
+    governance: dict[str, Any] | None = None
+    """What the deterministic rules looked at that day, and what they did (T-610). Null on a
+    cycle that never reached REVIEWING."""
     kpis: dict[str, Any] = {}
     summary: str | None = None
     """The daily summary, as written at the end of the cycle."""
@@ -113,6 +116,7 @@ async def get_cycle(cycle_id: uuid.UUID, session: Session, _: Operator) -> Cycle
         **line.model_dump(),
         plan=cycle.plan,
         review_detail=review or None,
+        governance=cycle.governance,
         kpis=dict(measured.metrics) if measured else {},
         summary=document.body if document else None,
         timeline=await _timeline(session, cycle),

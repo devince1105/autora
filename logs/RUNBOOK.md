@@ -454,7 +454,7 @@ AUTORA_REQUIRE_DB=1 .venv/bin/pytest backend/tests/e2e -v
 
 | 路徑 | 內容 |
 |---|---|
-| `backend/tests/acceptance/` | 階段 1 驗收 |
+| `backend/tests/acceptance/` | 階段 1 與階段 6 的驗收（`test_autonomous.py`：AC-11、AC-14） |
 | `backend/tests/e2e/test_echo_workflow.py` | 階段 2 驗收：EchoWorkflow 端到端 |
 | `backend/tests/e2e/test_recovery.py` | 當機恢復：真實工作程序被 SIGKILL 後由另一個接手 |
 | `backend/tests/runtime/` | 執行環境各元件（任務管理員、代理執行器、政策、審批…） |
@@ -500,8 +500,20 @@ make soak
 ```
 
 - 預設 120 分鐘；`SOAK_MINUTES=40 make soak` 改長度，環境變數 `SOAK_ROUND_MINUTES`（每幾分鐘一輪，預設 5）、`SOAK_SAMPLE_SECONDS`（取樣間隔，預設 60）。
-- 通過條件：沒有頁面錯誤、回收後 heap 的成長 < 50 MB、FPS 第 10 百分位 ≥ 30。每筆取樣寫在 `frontend/web/test-results/` 下的 `office-soak.json`；要留存就複製到 `logs/perf/`。
+- 通過條件：沒有頁面錯誤、回收後 heap 的成長 < 50 MB、FPS 第 10 百分位 ≥ 30、**處理一則 socket 訊息的 p95 < 100 毫秒**（AC-S7；同一個數字在 `make e2e` 的即時測試裡也會檢查一次）。每筆取樣寫在 `frontend/web/test-results/` 下的 `office-soak.json`；要留存就複製到 `logs/perf/`。
 - 不在 `make e2e` 與 CI 內（沒有設定 `SOAK_MINUTES` 時跳過）。
+
+### 自主運轉驗收（T-610）
+
+階段 6 的驗收：公司自己開工、自己過完七天。用模擬模型與**加速時鐘**，整組約一分鐘，在 `make test-py` 裡就會跑到。
+
+```bash
+make autonomy
+```
+
+- 包含四件事：新公司出生就有每日排程（AC-11 前半）、排程到點自己開出第一輪（AC-11 後半）、**連續七輪沒有人插手**（AC-14）、沒有任何領域的公司照樣過日子（`ARCHITECTURE_V2_1` §9）。
+- `-s` 會把七輪的摘要印出來（每一輪由誰規劃、覆盤有沒有到、規則看了哪些東西），失敗時先看這份。
+- 只有時鐘是假的：排程器、worker、任務管理、代理、帳本、規則都是 worker 進程實際跑的那些。
 
 ### 真實模型測試
 

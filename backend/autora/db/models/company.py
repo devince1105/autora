@@ -144,6 +144,10 @@ class Cycle(IdMixin, TimestampMixin, Base):
     stage: Mapped[str] = mapped_column(server_default=CycleStage.PLANNING.value)
     plan: Mapped[dict[str, Any] | None] = mapped_column(JSONB)
     review: Mapped[dict[str, Any] | None] = mapped_column(JSONB)
+    governance: Mapped[dict[str, Any] | None] = mapped_column(JSONB)
+    """What the deterministic rules looked at that day and what they did (T-610). Written even
+    when nothing fired: a day on which the rules found nothing wrong has to be distinguishable
+    from a day on which nobody ran them."""
     started_at: Mapped[datetime] = mapped_column(server_default=func.now())
     stage_deadline: Mapped[datetime | None]
     """When the current stage is advanced whether or not its work finished."""

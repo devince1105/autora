@@ -329,8 +329,13 @@ def build_worker(
     session_factory: async_sessionmaker[AsyncSession] | None = None,
     blobs: BlobStore | None = None,
     company_ids: frozenset[uuid.UUID] | None = None,
+    runtime: Runtime | None = None,
 ) -> Worker:
-    """Everything a worker process runs: task loop, agent runner, maintenance, scheduler."""
+    """Everything a worker process runs: task loop, agent runner, maintenance, scheduler.
+
+    ``runtime`` lets a caller share one it already built — a soak test drives the same cycle
+    runner the worker advances, so both read the same (accelerated) clock (T-610).
+    """
     from autora.company.cycle import maintenance_job as cycle_maintenance_job
     from autora.db.session import get_sessionmaker
     from autora.infra.blobstore import LocalFSBlobStore
@@ -341,7 +346,7 @@ def build_worker(
     from autora.runtime.services import ServiceDispatcher
     from autora.runtime.worker import Worker
 
-    runtime = build_runtime(settings)
+    runtime = runtime or build_runtime(settings)
     session_factory = session_factory or get_sessionmaker()
     companies = (
         company_ids if company_ids is not None else (frozenset(settings.worker_company_ids) or None)

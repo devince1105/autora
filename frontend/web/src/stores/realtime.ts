@@ -15,6 +15,7 @@ import {
   type EphemeralMessage,
   type RealtimeState,
 } from "@/realtime/reducer";
+import { handling } from "@/realtime/latency";
 import { RealtimeSnapshot } from "@/realtime/snapshot";
 
 // What the 3D office may read (it must not import @/realtime/* itself, 3d-office/04 §1): the
@@ -102,6 +103,7 @@ export function createRealtimeStore(): StoreApi<RealtimeStoreState> {
       },
 
       applyEvents(raws) {
+        const started = performance.now();
         const { company, applied, dropped } = reduce(raws);
         if (applied || dropped) {
           set((state) => ({
@@ -112,6 +114,8 @@ export function createRealtimeStore(): StoreApi<RealtimeStoreState> {
               : state.connection,
           }));
         }
+        // one socket message, one sample: what the browser spent turning it into state (AC-S7)
+        handling.record(performance.now() - started, raws.length);
         return applied;
       },
 

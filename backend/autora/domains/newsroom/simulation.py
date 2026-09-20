@@ -14,6 +14,10 @@ Demo knobs (T-518), from the workflow's ``params.demo`` (``start_story(..., demo
   the second review accepts. Without it, a draft goes back only when the fact-check fails.
 - ``editor_fails``: the editor reports a decision it never took, so every attempt fails its
   validators — the failure a person must be able to see in the office (AC-9).
+- ``pause``: ``{"task": "draft", "attempt": 1, "seconds": 120}`` makes that attempt's final
+  reply slow, *after* its tool call has committed. The crash-recovery test kills the worker in
+  that window, which is the only way to crash a run between "the work is saved" and "the task
+  is finished" (AC-S4).
 """
 
 from __future__ import annotations
@@ -43,10 +47,24 @@ def respond(request: ModelRequest) -> FakeTurn | None:
     if handler is None:
         return None
     turn = handler(request)
-    pace = _demo(request).get("pace_seconds")
+    demo = _demo(request)
+    pace = demo.get("pace_seconds")
     if isinstance(pace, int | float) and pace > 0:
         turn.delay_s = max(turn.delay_s, min(float(pace), MAX_PACE))
+    turn.delay_s = max(turn.delay_s, _paused(demo, request))
     return turn
+
+
+def _paused(demo: dict[str, Any], request: ModelRequest) -> float:
+    """How long this reply should hang (``demo.pause``). Only the reply that carries the
+    result: by then the tool has written its row, which is the state a crash must not lose."""
+    pause = demo.get("pause") or {}
+    ctx = request.context
+    if pause.get("task") != ctx.task_name or pause.get("attempt", 1) != ctx.attempt:
+        return 0.0
+    if not any(result is not None for _, _, result in _calls(request)):
+        return 0.0  # the first reply, before any tool has answered: nothing to lose yet
+    return min(float(pause.get("seconds", 0)), 600.0)
 
 
 def _task_input(request: ModelRequest) -> dict[str, Any]:

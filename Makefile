@@ -10,7 +10,7 @@ COMPOSE := docker compose -f infra/docker-compose.yml
 
 ALEMBIC := cd backend && ../$(VENV)/bin/alembic
 
-.PHONY: help setup dev down up logs migrate migration db-check gen-schema gen-schema-check gen-api gen-api-check phase1-acceptance realtime-fixture test test-py test-web e2e soak lint lint-py lint-web clean
+.PHONY: help setup dev down up logs migrate migration db-check gen-schema gen-schema-check gen-api gen-api-check autonomy phase1-acceptance realtime-fixture test test-py test-web e2e soak lint lint-py lint-web clean
 
 help: ## Show targets
 	@grep -E '^[a-zA-Z_-]+:.*?## ' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-12s\033[0m %s\n", $$1, $$2}'
@@ -55,6 +55,9 @@ gen-schema: ## Regenerate frontend/event-schema from the pydantic event registry
 
 gen-schema-check: ## Fail if frontend/event-schema is stale
 	$(PY) backend/scripts/gen_event_schema.py --check
+
+autonomy: ## Phase 6 AC: cold start (AC-11), seven cycles nobody touches (AC-14), no domain
+	$(PYTEST) backend/tests/acceptance/test_autonomous.py -q -s
 
 phase1-acceptance: ## Phase 1 AC: agent walks 8 states in Postgres; TS parses the real events
 	AUTORA_EVENT_FIXTURE_OUT=$(CURDIR)/frontend/event-schema/test/fixtures/phase1-events.json \

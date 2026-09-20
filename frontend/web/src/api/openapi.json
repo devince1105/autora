@@ -1315,6 +1315,18 @@
       "title": "Goals",
       "type": "array"
      },
+     "governance": {
+      "anyOf": [
+       {
+        "additionalProperties": true,
+        "type": "object"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Governance"
+     },
      "id": {
       "format": "uuid",
       "title": "Id",
