@@ -1744,6 +1744,32 @@
             "state": {
               "title": "State",
               "type": "string"
+            },
+            "proposal_id": {
+              "anyOf": [
+                {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Proposal Id"
+            },
+            "capital": {
+              "anyOf": [
+                {
+                  "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Capital"
             }
           },
           "required": [
@@ -1799,6 +1825,79 @@
             "name"
           ],
           "title": "BusinessUnitPaused",
+          "type": "object"
+        }
+      }
+    },
+    "BUSINESS_UNIT_SCALED": {
+      "1": {
+        "persistence": "persisted",
+        "payload": {
+          "additionalProperties": false,
+          "description": "Capital moved into (or out of) a business that is already running (T-611).",
+          "properties": {
+            "key": {
+              "title": "Key",
+              "type": "string"
+            },
+            "name": {
+              "title": "Name",
+              "type": "string"
+            },
+            "amount": {
+              "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+              "title": "Amount",
+              "type": "string"
+            },
+            "reason": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Reason"
+            }
+          },
+          "required": [
+            "key",
+            "name",
+            "amount"
+          ],
+          "title": "BusinessUnitScaled",
+          "type": "object"
+        }
+      }
+    },
+    "BUSINESS_UNIT_WOUND_DOWN": {
+      "1": {
+        "persistence": "persisted",
+        "payload": {
+          "additionalProperties": false,
+          "description": "The end of a business. Irreversible, so only a person can do it.",
+          "properties": {
+            "key": {
+              "title": "Key",
+              "type": "string"
+            },
+            "name": {
+              "title": "Name",
+              "type": "string"
+            },
+            "reason": {
+              "title": "Reason",
+              "type": "string"
+            }
+          },
+          "required": [
+            "key",
+            "name",
+            "reason"
+          ],
+          "title": "BusinessUnitWoundDown",
           "type": "object"
         }
       }
@@ -2523,6 +2622,257 @@
         }
       }
     },
+    "OPPORTUNITY_ADVANCED": {
+      "1": {
+        "persistence": "persisted",
+        "payload": {
+          "additionalProperties": false,
+          "properties": {
+            "key": {
+              "title": "Key",
+              "type": "string"
+            },
+            "from_state": {
+              "title": "From State",
+              "type": "string"
+            },
+            "to_state": {
+              "title": "To State",
+              "type": "string"
+            },
+            "reason": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Reason"
+            }
+          },
+          "required": [
+            "key",
+            "from_state",
+            "to_state"
+          ],
+          "title": "OpportunityAdvanced",
+          "type": "object"
+        }
+      }
+    },
+    "OPPORTUNITY_DISCOVERED": {
+      "1": {
+        "persistence": "persisted",
+        "payload": {
+          "additionalProperties": false,
+          "description": "Somebody noticed something that might be a business. Nothing has been spent on it yet.",
+          "properties": {
+            "key": {
+              "title": "Key",
+              "type": "string"
+            },
+            "title": {
+              "title": "Title",
+              "type": "string"
+            },
+            "thesis": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Thesis"
+            },
+            "market": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Market"
+            }
+          },
+          "required": [
+            "key",
+            "title"
+          ],
+          "title": "OpportunityDiscovered",
+          "type": "object"
+        }
+      }
+    },
+    "OPPORTUNITY_EXPIRED": {
+      "1": {
+        "persistence": "persisted",
+        "payload": {
+          "additionalProperties": false,
+          "description": "Its conclusion went stale. The market moved on while nobody decided.",
+          "properties": {
+            "key": {
+              "title": "Key",
+              "type": "string"
+            },
+            "from_state": {
+              "title": "From State",
+              "type": "string"
+            }
+          },
+          "required": [
+            "key",
+            "from_state"
+          ],
+          "title": "OpportunityExpired",
+          "type": "object"
+        }
+      }
+    },
+    "OPPORTUNITY_REJECTED": {
+      "1": {
+        "persistence": "persisted",
+        "payload": {
+          "additionalProperties": false,
+          "description": "Kept on purpose: a company that forgets why it said no pays to find out twice.",
+          "properties": {
+            "key": {
+              "title": "Key",
+              "type": "string"
+            },
+            "from_state": {
+              "title": "From State",
+              "type": "string"
+            },
+            "reason": {
+              "title": "Reason",
+              "type": "string"
+            }
+          },
+          "required": [
+            "key",
+            "from_state",
+            "reason"
+          ],
+          "title": "OpportunityRejected",
+          "type": "object"
+        }
+      }
+    },
+    "OPPORTUNITY_SCORED": {
+      "1": {
+        "persistence": "persisted",
+        "payload": {
+          "additionalProperties": false,
+          "description": "A number for comparing opportunities. Not a decision — the decision is its own event.",
+          "properties": {
+            "key": {
+              "title": "Key",
+              "type": "string"
+            },
+            "score": {
+              "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+              "title": "Score",
+              "type": "string"
+            },
+            "previous": {
+              "anyOf": [
+                {
+                  "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Previous"
+            },
+            "reason": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Reason"
+            }
+          },
+          "required": [
+            "key",
+            "score"
+          ],
+          "title": "OpportunityScored",
+          "type": "object"
+        }
+      }
+    },
+    "OPPORTUNITY_SIGNAL_RECORDED": {
+      "1": {
+        "persistence": "persisted",
+        "payload": {
+          "additionalProperties": false,
+          "description": "One observation attached to an opportunity. The company stores it without reading it.",
+          "properties": {
+            "key": {
+              "title": "Key",
+              "type": "string"
+            },
+            "source": {
+              "title": "Source",
+              "type": "string"
+            },
+            "summary": {
+              "title": "Summary",
+              "type": "string"
+            },
+            "metric": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Metric"
+            },
+            "value": {
+              "anyOf": [
+                {
+                  "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Value"
+            }
+          },
+          "required": [
+            "key",
+            "source",
+            "summary"
+          ],
+          "title": "OpportunitySignalRecorded",
+          "type": "object"
+        }
+      }
+    },
     "POLICY_DENIED": {
       "1": {
         "persistence": "persisted",
@@ -2888,6 +3238,153 @@
             "name"
           ],
           "title": "ProjectResumed",
+          "type": "object"
+        }
+      }
+    },
+    "PROPOSAL_DECIDED": {
+      "1": {
+        "persistence": "persisted",
+        "payload": {
+          "additionalProperties": false,
+          "properties": {
+            "opportunity_key": {
+              "title": "Opportunity Key",
+              "type": "string"
+            },
+            "version": {
+              "minimum": 1,
+              "title": "Version",
+              "type": "integer"
+            },
+            "outcome": {
+              "enum": [
+                "APPROVED",
+                "REJECTED"
+              ],
+              "title": "Outcome",
+              "type": "string"
+            },
+            "reason": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Reason"
+            }
+          },
+          "required": [
+            "opportunity_key",
+            "version",
+            "outcome"
+          ],
+          "title": "ProposalDecided",
+          "type": "object"
+        }
+      }
+    },
+    "PROPOSAL_DRAFTED": {
+      "1": {
+        "persistence": "persisted",
+        "payload": {
+          "additionalProperties": false,
+          "properties": {
+            "opportunity_key": {
+              "title": "Opportunity Key",
+              "type": "string"
+            },
+            "version": {
+              "minimum": 1,
+              "title": "Version",
+              "type": "integer"
+            },
+            "title": {
+              "title": "Title",
+              "type": "string"
+            }
+          },
+          "required": [
+            "opportunity_key",
+            "version",
+            "title"
+          ],
+          "title": "ProposalDrafted",
+          "type": "object"
+        }
+      }
+    },
+    "PROPOSAL_SUBMITTED": {
+      "1": {
+        "persistence": "persisted",
+        "payload": {
+          "additionalProperties": false,
+          "description": "Frozen from here: an approval must point at the exact thing that was approved.",
+          "properties": {
+            "opportunity_key": {
+              "title": "Opportunity Key",
+              "type": "string"
+            },
+            "version": {
+              "minimum": 1,
+              "title": "Version",
+              "type": "integer"
+            },
+            "estimated_startup_cost": {
+              "anyOf": [
+                {
+                  "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Estimated Startup Cost"
+            }
+          },
+          "required": [
+            "opportunity_key",
+            "version"
+          ],
+          "title": "ProposalSubmitted",
+          "type": "object"
+        }
+      }
+    },
+    "PROPOSAL_SUPERSEDED": {
+      "1": {
+        "persistence": "persisted",
+        "payload": {
+          "additionalProperties": false,
+          "description": "A newer version of the same proposal was submitted.",
+          "properties": {
+            "opportunity_key": {
+              "title": "Opportunity Key",
+              "type": "string"
+            },
+            "version": {
+              "minimum": 1,
+              "title": "Version",
+              "type": "integer"
+            },
+            "superseded_by_version": {
+              "minimum": 1,
+              "title": "Superseded By Version",
+              "type": "integer"
+            }
+          },
+          "required": [
+            "opportunity_key",
+            "version",
+            "superseded_by_version"
+          ],
+          "title": "ProposalSuperseded",
           "type": "object"
         }
       }

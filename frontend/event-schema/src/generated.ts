@@ -488,6 +488,8 @@ export const BusinessUnitCreatedV1Payload = z.object({
   key: z.string(),
   name: z.string(),
   state: z.string(),
+  proposal_id: z.uuid().nullable().default(null),
+  capital: z.string().regex(new RegExp("^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$")).nullable().default(null),
 });
 export type BusinessUnitCreatedV1Payload = z.infer<typeof BusinessUnitCreatedV1Payload>;
 export const BusinessUnitCreatedV1Event = z.object({
@@ -509,6 +511,33 @@ export const BusinessUnitPausedV1Event = z.object({
   event_type: z.literal("BUSINESS_UNIT_PAUSED"),
   schema_version: z.literal(1),
   payload: BusinessUnitPausedV1Payload,
+});
+
+export const BusinessUnitScaledV1Payload = z.object({
+  key: z.string(),
+  name: z.string(),
+  amount: z.string().regex(new RegExp("^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$")),
+  reason: z.string().nullable().default(null),
+});
+export type BusinessUnitScaledV1Payload = z.infer<typeof BusinessUnitScaledV1Payload>;
+export const BusinessUnitScaledV1Event = z.object({
+  ...envelopeFields,
+  event_type: z.literal("BUSINESS_UNIT_SCALED"),
+  schema_version: z.literal(1),
+  payload: BusinessUnitScaledV1Payload,
+});
+
+export const BusinessUnitWoundDownV1Payload = z.object({
+  key: z.string(),
+  name: z.string(),
+  reason: z.string(),
+});
+export type BusinessUnitWoundDownV1Payload = z.infer<typeof BusinessUnitWoundDownV1Payload>;
+export const BusinessUnitWoundDownV1Event = z.object({
+  ...envelopeFields,
+  event_type: z.literal("BUSINESS_UNIT_WOUND_DOWN"),
+  schema_version: z.literal(1),
+  payload: BusinessUnitWoundDownV1Payload,
 });
 
 export const ClaimCreatedV1Payload = z.object({
@@ -739,6 +768,88 @@ export const KpiSnapshotCreatedV1Event = z.object({
   payload: KpiSnapshotCreatedV1Payload,
 });
 
+export const OpportunityAdvancedV1Payload = z.object({
+  key: z.string(),
+  from_state: z.string(),
+  to_state: z.string(),
+  reason: z.string().nullable().default(null),
+});
+export type OpportunityAdvancedV1Payload = z.infer<typeof OpportunityAdvancedV1Payload>;
+export const OpportunityAdvancedV1Event = z.object({
+  ...envelopeFields,
+  event_type: z.literal("OPPORTUNITY_ADVANCED"),
+  schema_version: z.literal(1),
+  payload: OpportunityAdvancedV1Payload,
+});
+
+export const OpportunityDiscoveredV1Payload = z.object({
+  key: z.string(),
+  title: z.string(),
+  thesis: z.string().nullable().default(null),
+  market: z.string().nullable().default(null),
+});
+export type OpportunityDiscoveredV1Payload = z.infer<typeof OpportunityDiscoveredV1Payload>;
+export const OpportunityDiscoveredV1Event = z.object({
+  ...envelopeFields,
+  event_type: z.literal("OPPORTUNITY_DISCOVERED"),
+  schema_version: z.literal(1),
+  payload: OpportunityDiscoveredV1Payload,
+});
+
+export const OpportunityExpiredV1Payload = z.object({
+  key: z.string(),
+  from_state: z.string(),
+});
+export type OpportunityExpiredV1Payload = z.infer<typeof OpportunityExpiredV1Payload>;
+export const OpportunityExpiredV1Event = z.object({
+  ...envelopeFields,
+  event_type: z.literal("OPPORTUNITY_EXPIRED"),
+  schema_version: z.literal(1),
+  payload: OpportunityExpiredV1Payload,
+});
+
+export const OpportunityRejectedV1Payload = z.object({
+  key: z.string(),
+  from_state: z.string(),
+  reason: z.string(),
+});
+export type OpportunityRejectedV1Payload = z.infer<typeof OpportunityRejectedV1Payload>;
+export const OpportunityRejectedV1Event = z.object({
+  ...envelopeFields,
+  event_type: z.literal("OPPORTUNITY_REJECTED"),
+  schema_version: z.literal(1),
+  payload: OpportunityRejectedV1Payload,
+});
+
+export const OpportunityScoredV1Payload = z.object({
+  key: z.string(),
+  score: z.string().regex(new RegExp("^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$")),
+  previous: z.string().regex(new RegExp("^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$")).nullable().default(null),
+  reason: z.string().nullable().default(null),
+});
+export type OpportunityScoredV1Payload = z.infer<typeof OpportunityScoredV1Payload>;
+export const OpportunityScoredV1Event = z.object({
+  ...envelopeFields,
+  event_type: z.literal("OPPORTUNITY_SCORED"),
+  schema_version: z.literal(1),
+  payload: OpportunityScoredV1Payload,
+});
+
+export const OpportunitySignalRecordedV1Payload = z.object({
+  key: z.string(),
+  source: z.string(),
+  summary: z.string(),
+  metric: z.string().nullable().default(null),
+  value: z.string().regex(new RegExp("^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$")).nullable().default(null),
+});
+export type OpportunitySignalRecordedV1Payload = z.infer<typeof OpportunitySignalRecordedV1Payload>;
+export const OpportunitySignalRecordedV1Event = z.object({
+  ...envelopeFields,
+  event_type: z.literal("OPPORTUNITY_SIGNAL_RECORDED"),
+  schema_version: z.literal(1),
+  payload: OpportunitySignalRecordedV1Payload,
+});
+
 export const PolicyDeniedV1Payload = z.object({
   action: z.string(),
   rule_id: z.string(),
@@ -875,6 +986,59 @@ export const ProjectResumedV1Event = z.object({
   event_type: z.literal("PROJECT_RESUMED"),
   schema_version: z.literal(1),
   payload: ProjectResumedV1Payload,
+});
+
+export const ProposalDecidedV1Payload = z.object({
+  opportunity_key: z.string(),
+  version: z.number().int().min(1),
+  outcome: z.enum(["APPROVED", "REJECTED"]),
+  reason: z.string().nullable().default(null),
+});
+export type ProposalDecidedV1Payload = z.infer<typeof ProposalDecidedV1Payload>;
+export const ProposalDecidedV1Event = z.object({
+  ...envelopeFields,
+  event_type: z.literal("PROPOSAL_DECIDED"),
+  schema_version: z.literal(1),
+  payload: ProposalDecidedV1Payload,
+});
+
+export const ProposalDraftedV1Payload = z.object({
+  opportunity_key: z.string(),
+  version: z.number().int().min(1),
+  title: z.string(),
+});
+export type ProposalDraftedV1Payload = z.infer<typeof ProposalDraftedV1Payload>;
+export const ProposalDraftedV1Event = z.object({
+  ...envelopeFields,
+  event_type: z.literal("PROPOSAL_DRAFTED"),
+  schema_version: z.literal(1),
+  payload: ProposalDraftedV1Payload,
+});
+
+export const ProposalSubmittedV1Payload = z.object({
+  opportunity_key: z.string(),
+  version: z.number().int().min(1),
+  estimated_startup_cost: z.string().regex(new RegExp("^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$")).nullable().default(null),
+});
+export type ProposalSubmittedV1Payload = z.infer<typeof ProposalSubmittedV1Payload>;
+export const ProposalSubmittedV1Event = z.object({
+  ...envelopeFields,
+  event_type: z.literal("PROPOSAL_SUBMITTED"),
+  schema_version: z.literal(1),
+  payload: ProposalSubmittedV1Payload,
+});
+
+export const ProposalSupersededV1Payload = z.object({
+  opportunity_key: z.string(),
+  version: z.number().int().min(1),
+  superseded_by_version: z.number().int().min(1),
+});
+export type ProposalSupersededV1Payload = z.infer<typeof ProposalSupersededV1Payload>;
+export const ProposalSupersededV1Event = z.object({
+  ...envelopeFields,
+  event_type: z.literal("PROPOSAL_SUPERSEDED"),
+  schema_version: z.literal(1),
+  payload: ProposalSupersededV1Payload,
 });
 
 export const RevenueRecordedV1Payload = z.object({
@@ -1256,6 +1420,8 @@ export const EventEnvelope = z.discriminatedUnion("event_type", [
   BudgetWarningV1Event,
   BusinessUnitCreatedV1Event,
   BusinessUnitPausedV1Event,
+  BusinessUnitScaledV1Event,
+  BusinessUnitWoundDownV1Event,
   ClaimCreatedV1Event,
   ClaimRejectedV1Event,
   ClaimVerifiedV1Event,
@@ -1273,6 +1439,12 @@ export const EventEnvelope = z.discriminatedUnion("event_type", [
   GoalCreatedV1Event,
   GoalUpdatedV1Event,
   KpiSnapshotCreatedV1Event,
+  OpportunityAdvancedV1Event,
+  OpportunityDiscoveredV1Event,
+  OpportunityExpiredV1Event,
+  OpportunityRejectedV1Event,
+  OpportunityScoredV1Event,
+  OpportunitySignalRecordedV1Event,
   PolicyDeniedV1Event,
   PolicyUpdatedV1Event,
   ProductCreatedV1Event,
@@ -1284,6 +1456,10 @@ export const EventEnvelope = z.discriminatedUnion("event_type", [
   ProjectProposedV1Event,
   ProjectRejectedV1Event,
   ProjectResumedV1Event,
+  ProposalDecidedV1Event,
+  ProposalDraftedV1Event,
+  ProposalSubmittedV1Event,
+  ProposalSupersededV1Event,
   RevenueRecordedV1Event,
   ScheduleFiredV1Event,
   SourceItemDiscoveredV1Event,
@@ -1348,6 +1524,8 @@ export const EVENT_TYPES = [
   "BUDGET_WARNING",
   "BUSINESS_UNIT_CREATED",
   "BUSINESS_UNIT_PAUSED",
+  "BUSINESS_UNIT_SCALED",
+  "BUSINESS_UNIT_WOUND_DOWN",
   "CLAIM_CREATED",
   "CLAIM_REJECTED",
   "CLAIM_VERIFIED",
@@ -1365,6 +1543,12 @@ export const EVENT_TYPES = [
   "GOAL_CREATED",
   "GOAL_UPDATED",
   "KPI_SNAPSHOT_CREATED",
+  "OPPORTUNITY_ADVANCED",
+  "OPPORTUNITY_DISCOVERED",
+  "OPPORTUNITY_EXPIRED",
+  "OPPORTUNITY_REJECTED",
+  "OPPORTUNITY_SCORED",
+  "OPPORTUNITY_SIGNAL_RECORDED",
   "POLICY_DENIED",
   "POLICY_UPDATED",
   "PRODUCT_CREATED",
@@ -1376,6 +1560,10 @@ export const EVENT_TYPES = [
   "PROJECT_PROPOSED",
   "PROJECT_REJECTED",
   "PROJECT_RESUMED",
+  "PROPOSAL_DECIDED",
+  "PROPOSAL_DRAFTED",
+  "PROPOSAL_SUBMITTED",
+  "PROPOSAL_SUPERSEDED",
   "REVENUE_RECORDED",
   "SCHEDULE_FIRED",
   "SOURCE_ITEM_DISCOVERED",

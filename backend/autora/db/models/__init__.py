@@ -34,6 +34,13 @@ from autora.db.models.finance import (
     TransactionSource,
 )
 from autora.db.models.model_calls import CostReservation, ModelCall, ModelCallStatus
+from autora.db.models.opportunities import (
+    BusinessProposal,
+    Opportunity,
+    OpportunitySignal,
+    OpportunityState,
+    ProposalState,
+)
 from autora.db.models.organization import (
     BusinessUnit,
     BusinessUnitState,
@@ -89,6 +96,11 @@ __all__ = [
     "CommandOutcome",
     "CommandRecord",
     "CostReservation",
+    "BusinessProposal",
+    "Opportunity",
+    "OpportunitySignal",
+    "OpportunityState",
+    "ProposalState",
     "Document",
     "DocumentKind",
     "Department",

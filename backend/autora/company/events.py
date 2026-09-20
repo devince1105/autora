@@ -144,6 +144,98 @@ class CycleCompleted(EventPayload):
     seq: int = Field(ge=1)
 
 
+# --- Opportunities and proposals (T-611, ARCHITECTURE_V2_1 §1-§2) ---------------------------
+
+
+@event("OPPORTUNITY_DISCOVERED")
+class OpportunityDiscovered(EventPayload):
+    """Somebody noticed something that might be a business. Nothing has been spent on it yet."""
+
+    key: str
+    title: str
+    thesis: str | None = None
+    market: str | None = None
+
+
+@event("OPPORTUNITY_SIGNAL_RECORDED")
+class OpportunitySignalRecorded(EventPayload):
+    """One observation attached to an opportunity. The company stores it without reading it."""
+
+    key: str
+    source: str
+    summary: str
+    metric: str | None = None
+    value: Decimal | None = None
+
+
+@event("OPPORTUNITY_SCORED")
+class OpportunityScored(EventPayload):
+    """A number for comparing opportunities. Not a decision — the decision is its own event."""
+
+    key: str
+    score: Decimal
+    previous: Decimal | None = None
+    reason: str | None = None
+
+
+@event("OPPORTUNITY_ADVANCED")
+class OpportunityAdvanced(EventPayload):
+    key: str
+    from_state: str
+    to_state: str
+    reason: str | None = None
+
+
+@event("OPPORTUNITY_REJECTED")
+class OpportunityRejected(EventPayload):
+    """Kept on purpose: a company that forgets why it said no pays to find out twice."""
+
+    key: str
+    from_state: str
+    reason: str
+
+
+@event("OPPORTUNITY_EXPIRED")
+class OpportunityExpired(EventPayload):
+    """Its conclusion went stale. The market moved on while nobody decided."""
+
+    key: str
+    from_state: str
+
+
+@event("PROPOSAL_DRAFTED")
+class ProposalDrafted(EventPayload):
+    opportunity_key: str
+    version: int = Field(ge=1)
+    title: str
+
+
+@event("PROPOSAL_SUBMITTED")
+class ProposalSubmitted(EventPayload):
+    """Frozen from here: an approval must point at the exact thing that was approved."""
+
+    opportunity_key: str
+    version: int = Field(ge=1)
+    estimated_startup_cost: Decimal | None = None
+
+
+@event("PROPOSAL_DECIDED")
+class ProposalDecided(EventPayload):
+    opportunity_key: str
+    version: int = Field(ge=1)
+    outcome: Literal["APPROVED", "REJECTED"]
+    reason: str | None = None
+
+
+@event("PROPOSAL_SUPERSEDED")
+class ProposalSuperseded(EventPayload):
+    """A newer version of the same proposal was submitted."""
+
+    opportunity_key: str
+    version: int = Field(ge=1)
+    superseded_by_version: int = Field(ge=1)
+
+
 # --- Organisation (T-600) ------------------------------------------------------------------
 
 
@@ -152,6 +244,9 @@ class BusinessUnitCreated(EventPayload):
     key: str
     name: str
     state: str
+    proposal_id: uuid.UUID | None = None
+    """The proposal it was opened from (T-611). None for a business a person set up by hand."""
+    capital: Decimal | None = None
 
 
 @event("BUSINESS_UNIT_PAUSED")
@@ -163,6 +258,25 @@ class BusinessUnitPaused(EventPayload):
     name: str
     reason: str | None = None
     trigger: Literal["human", "ceo", "kill_criteria"] = "human"
+
+
+@event("BUSINESS_UNIT_SCALED")
+class BusinessUnitScaled(EventPayload):
+    """Capital moved into (or out of) a business that is already running (T-611)."""
+
+    key: str
+    name: str
+    amount: Decimal
+    reason: str | None = None
+
+
+@event("BUSINESS_UNIT_WOUND_DOWN")
+class BusinessUnitWoundDown(EventPayload):
+    """The end of a business. Irreversible, so only a person can do it."""
+
+    key: str
+    name: str
+    reason: str
 
 
 @event("DEPARTMENT_CREATED")
