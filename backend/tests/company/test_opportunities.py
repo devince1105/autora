@@ -379,3 +379,88 @@ async def test_proposals_and_opportunities_are_per_company(db_session):
         )
         is None
     )
+
+
+# --- what the CEO sees, and what the cycle does on its own -------------------------------------
+
+
+async def test_the_snapshot_carries_what_the_company_might_do(db_session):
+    """T-611: the opportunities reach the decision, with their proposals and what they cost."""
+    from autora.company.ledger import Ledger
+    from autora.company.reporting import Reporting
+    from autora.company.snapshot import SnapshotBuilder
+
+    company = await _company(db_session)
+    weak = await _discover(db_session, company, key="weak")
+    strong = await _discover(db_session, company, key="strong")
+    await opp.score(db_session, weak, value=Decimal("2"), actor=CEO)
+    await opp.score(db_session, strong, value=Decimal("9"), actor=CEO)
+    await opp.add_signal(
+        db_session, strong, source="search", summary="three competitors", actor=CEO
+    )
+    proposal = await opp.draft_proposal(
+        db_session,
+        strong,
+        title="Subscription app",
+        actor=CEO,
+        business_model="subscription",
+        estimated_startup_cost=Decimal("2000"),
+    )
+    await opp.submit(db_session, proposal, actor=CEO)
+    exploring = Project(
+        company_id=company.id,
+        opportunity_id=strong.id,
+        name="Find out",
+        state=ProjectState.ACTIVE.value,
+        kill_criteria={},
+    )
+    ordinary = Project(
+        company_id=company.id, name="Keep the lights on", state="ACTIVE", kill_criteria={}
+    )
+    db_session.add_all([exploring, ordinary])
+    await db_session.flush()
+
+    snapshot = await SnapshotBuilder(Reporting(), Ledger()).build(db_session, company.id)
+
+    assert [o.key for o in snapshot.opportunities] == ["strong", "weak"]  # best first
+    first = snapshot.opportunities[0]
+    assert first.signals == 1 and first.score == Decimal("9.00")
+    assert [(p.version, p.state) for p in first.proposals] == [(1, "SUBMITTED")]
+    assert [p.name for p in first.exploring] == ["Find out"]
+    # the exploration project is shown once, under what it explores
+    assert [p.name for p in snapshot.company_work] == ["Keep the lights on"]
+
+
+async def test_a_rejected_opportunity_leaves_the_snapshot_but_not_the_table(db_session):
+    from autora.company.ledger import Ledger
+    from autora.company.reporting import Reporting
+    from autora.company.snapshot import SnapshotBuilder
+
+    company = await _company(db_session)
+    opportunity = await _discover(db_session, company, key="ai_support")
+    await opp.advance(
+        db_session, opportunity, to=OpportunityState.REJECTED, actor=CEO, reason="too expensive"
+    )
+
+    snapshot = await SnapshotBuilder(Reporting(), Ledger()).build(db_session, company.id)
+    assert snapshot.opportunities == []
+    assert (await opp.by_key(db_session, company.id, "ai_support")).decision_reason
+
+
+async def test_the_cycle_expires_stale_opportunities_by_itself(db_session):
+    """No scheduler of its own: the daily cycle is what moves this, and it costs no model call."""
+    from autora.db.models import Cycle, CycleStage, ModelCall
+
+    company = await _company(db_session)
+    stale = await _discover(
+        db_session, company, key="stale", expires_at=datetime.now(UTC) - timedelta(hours=1)
+    )
+    cycle = Cycle(company_id=company.id, seq=1, stage=CycleStage.REVIEWING.value)
+    db_session.add(cycle)
+    await db_session.flush()
+
+    await opp.stage_hook()(db_session, cycle)
+
+    assert stale.state == OpportunityState.EXPIRED.value
+    calls = await db_session.scalar(select(ModelCall).where(ModelCall.company_id == company.id))
+    assert calls is None, "expiring an opportunity is a date comparison, not a decision"

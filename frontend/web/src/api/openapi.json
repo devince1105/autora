@@ -1222,6 +1222,14 @@
      "last_cycle": {
       "$ref": "#/components/schemas/LastCycle"
      },
+     "opportunities": {
+      "default": [],
+      "items": {
+       "$ref": "#/components/schemas/OpportunityLine"
+      },
+      "title": "Opportunities",
+      "type": "array"
+     },
      "period": {
       "$ref": "#/components/schemas/Period"
      },
@@ -2645,6 +2653,80 @@
     "title": "NewSource",
     "type": "object"
    },
+   "OpportunityLine": {
+    "description": "One thing the company might do, and how far it has got (T-611).\n\nKept short on purpose: the thesis and the evidence are a query away, and a CEO comparing\nfive opportunities needs the shape of each, not the case for it.",
+    "properties": {
+     "exploring": {
+      "default": [],
+      "items": {
+       "$ref": "#/components/schemas/ProjectLine"
+      },
+      "title": "Exploring",
+      "type": "array"
+     },
+     "id": {
+      "format": "uuid",
+      "title": "Id",
+      "type": "string"
+     },
+     "key": {
+      "title": "Key",
+      "type": "string"
+     },
+     "proposals": {
+      "default": [],
+      "items": {
+       "$ref": "#/components/schemas/ProposalLine"
+      },
+      "title": "Proposals",
+      "type": "array"
+     },
+     "score": {
+      "anyOf": [
+       {
+        "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Score"
+     },
+     "signals": {
+      "default": 0,
+      "title": "Signals",
+      "type": "integer"
+     },
+     "state": {
+      "title": "State",
+      "type": "string"
+     },
+     "thesis": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Thesis"
+     },
+     "title": {
+      "title": "Title",
+      "type": "string"
+     }
+    },
+    "required": [
+     "id",
+     "key",
+     "title",
+     "state"
+    ],
+    "title": "OpportunityLine",
+    "type": "object"
+   },
    "OrgOut": {
     "description": "The company's organisation: what it is in, how it is arranged, and who is where.",
     "properties": {
@@ -2865,6 +2947,70 @@
      "state"
     ],
     "title": "ProjectLine",
+    "type": "object"
+   },
+   "ProposalLine": {
+    "properties": {
+     "business_model": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Business Model"
+     },
+     "estimated_startup_cost": {
+      "anyOf": [
+       {
+        "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Estimated Startup Cost"
+     },
+     "expected_margin": {
+      "anyOf": [
+       {
+        "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Expected Margin"
+     },
+     "id": {
+      "format": "uuid",
+      "title": "Id",
+      "type": "string"
+     },
+     "state": {
+      "title": "State",
+      "type": "string"
+     },
+     "title": {
+      "title": "Title",
+      "type": "string"
+     },
+     "version": {
+      "title": "Version",
+      "type": "integer"
+     }
+    },
+    "required": [
+     "id",
+     "version",
+     "state",
+     "title"
+    ],
+    "title": "ProposalLine",
     "type": "object"
    },
    "PublicArticle": {

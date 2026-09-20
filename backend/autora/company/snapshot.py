@@ -44,6 +44,7 @@ from autora.db.models import (
     Cycle,
     GoalStatus,
     KpiScope,
+    OpportunitySignal,
     Product,
     Project,
     ProjectState,
@@ -126,6 +127,35 @@ class BusinessLine(BaseModel):
     projects: list[ProjectLine] = []
 
 
+class OpportunityLine(BaseModel):
+    """One thing the company might do, and how far it has got (T-611).
+
+    Kept short on purpose: the thesis and the evidence are a query away, and a CEO comparing
+    five opportunities needs the shape of each, not the case for it.
+    """
+
+    id: uuid.UUID
+    key: str
+    title: str
+    state: str
+    score: Decimal | None = None
+    signals: int = 0
+    thesis: str | None = None
+    proposals: list[ProposalLine] = []
+    exploring: list[ProjectLine] = []
+    """The projects that are finding out — with their cost, so the CEO can see the bill."""
+
+
+class ProposalLine(BaseModel):
+    id: uuid.UUID
+    version: int
+    state: str
+    title: str
+    business_model: str | None = None
+    estimated_startup_cost: Decimal | None = None
+    expected_margin: Decimal | None = None
+
+
 class LastCycle(BaseModel):
     seq: int | None = None
     stage: str | None = None
@@ -151,7 +181,11 @@ class CompanySnapshot(BaseModel):
     portfolio: list[BusinessLine] = []
     """One line per business the company runs."""
     company_work: list[ProjectLine] = []
-    """Projects that belong to no business: platform work, exploration (v2.1)."""
+    """Projects that belong to no business: platform work. Exploration is listed under the
+    opportunity it explores, never here as well."""
+    opportunities: list[OpportunityLine] = []
+    """What the company might do next, best score first (T-611). Empty is a real answer: a
+    company that has found nothing to look at is not the same as one that stopped looking."""
     last_cycle: LastCycle = Field(default_factory=LastCycle)
     domains: dict[str, Any] = {}
     """What each domain put in front of the decision, under its own name."""
@@ -203,6 +237,7 @@ class SnapshotBuilder:
             goals=await self._goals(session, company_id),
             portfolio=await self._portfolio(session, company_id, now),
             company_work=await self._projects(session, company_id, None, now),
+            opportunities=await self._opportunities(session, company_id, now),
             last_cycle=await self._last_cycle(session, company_id, cycle),
             domains=await self._domains(session, company_id),
             strategy_summary=_text(policies.get(STRATEGY_POLICY)) or company.mission,
@@ -242,6 +277,49 @@ class SnapshotBuilder:
             daily_cap=cap,
             daily_spent=await self.ledger.spent(session, company_id, since=day, until=now),
         )
+
+    async def _opportunities(
+        self, session: AsyncSession, company_id: uuid.UUID, now: datetime
+    ) -> list[OpportunityLine]:
+        """The open ones, best score first, each with its proposals and what it has cost."""
+        from autora.company import opportunities as opportunities_service
+
+        lines = []
+        for opportunity in await opportunities_service.open_opportunities(session, company_id):
+            proposals = await opportunities_service.proposals_for(session, opportunity.id)
+            signals = await session.scalar(
+                select(func.count())
+                .select_from(OpportunitySignal)
+                .where(OpportunitySignal.opportunity_id == opportunity.id)
+            )
+            lines.append(
+                OpportunityLine(
+                    id=opportunity.id,
+                    key=opportunity.key,
+                    title=opportunity.title,
+                    state=opportunity.state,
+                    score=opportunity.score,
+                    signals=int(signals or 0),
+                    thesis=_text(opportunity.thesis),
+                    proposals=[
+                        ProposalLine(
+                            id=proposal.id,
+                            version=proposal.version,
+                            state=proposal.state,
+                            title=proposal.title,
+                            business_model=proposal.business_model,
+                            estimated_startup_cost=proposal.estimated_startup_cost,
+                            expected_margin=proposal.expected_margin,
+                        )
+                        for proposal in proposals
+                        if proposal.state != "SUPERSEDED"
+                    ],
+                    exploring=await self._projects(
+                        session, company_id, None, now, opportunity_id=opportunity.id
+                    ),
+                )
+            )
+        return lines
 
     async def _goals(self, session: AsyncSession, company_id: uuid.UUID) -> list[GoalLine]:
         goals = await session.scalars(
@@ -313,16 +391,28 @@ class SnapshotBuilder:
         company_id: uuid.UUID,
         business_unit_id: uuid.UUID | None,
         now: datetime,
+        *,
+        opportunity_id: uuid.UUID | None = None,
     ) -> list[ProjectLine]:
+        """The live projects of one scope.
+
+        With ``opportunity_id``: the work finding out about that opportunity. Without it: the
+        ordinary work, with exploration left out — it is shown under the opportunity it is for,
+        and a project in two places on the same page is a project counted twice (T-611).
+        """
         stmt = select(Project).where(
             Project.company_id == company_id,
             Project.state.in_([ProjectState.ACTIVE.value, ProjectState.PAUSED.value]),
         )
-        stmt = stmt.where(
-            Project.business_unit_id.is_(None)
-            if business_unit_id is None
-            else Project.business_unit_id == business_unit_id
-        )
+        if opportunity_id is not None:
+            stmt = stmt.where(Project.opportunity_id == opportunity_id)
+        else:
+            stmt = stmt.where(Project.opportunity_id.is_(None))
+            stmt = stmt.where(
+                Project.business_unit_id.is_(None)
+                if business_unit_id is None
+                else Project.business_unit_id == business_unit_id
+            )
         projects = (await session.scalars(stmt.order_by(Project.name))).all()
         lines = []
         for project in projects:
@@ -468,6 +558,14 @@ def _drop_project_kpis(snapshot: CompanySnapshot) -> None:
 @_trim("the failed tasks of the last cycle")
 def _drop_failed(snapshot: CompanySnapshot) -> None:
     snapshot.last_cycle.failed_tasks = snapshot.last_cycle.failed_tasks[:3]
+
+
+@_trim("the detail of opportunities")
+def _drop_opportunity_detail(snapshot: CompanySnapshot) -> None:
+    """The shape stays, the case goes: what it is and how far it got is the decidable part."""
+    for line in snapshot.opportunities:
+        line.thesis = None
+        line.exploring = []
 
 
 @_trim("the projects of every business")

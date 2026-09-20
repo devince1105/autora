@@ -266,6 +266,20 @@ async def expire_due(
     return expired
 
 
+def stage_hook():
+    """Registered on the way into REVIEWING, before the rules and the review.
+
+    Expiring is arithmetic on a date, so it belongs with the other deterministic housekeeping —
+    and it must happen *before* the CEO reads its snapshot, or the company spends a cycle
+    comparing an opportunity whose conclusion has already gone stale.
+    """
+
+    async def expire(session: AsyncSession, cycle) -> None:
+        await expire_due(session, cycle.company_id)
+
+    return expire
+
+
 async def by_key(session: AsyncSession, company_id: uuid.UUID, key: str) -> Opportunity | None:
     return await session.scalar(
         select(Opportunity).where(Opportunity.company_id == company_id, Opportunity.key == key)

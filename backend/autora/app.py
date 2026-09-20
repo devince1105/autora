@@ -259,8 +259,10 @@ class Runtime:
 
 def build_runtime(settings: Settings | None = None) -> Runtime:
     from autora.company import executive as company_executive
+    from autora.company import opportunities as company_opportunities
     from autora.company import summary as daily_summary
     from autora.company import verbs as company_verbs
+    from autora.company import verbs_business as company_business_verbs
     from autora.company.commands import CommandBus
     from autora.company.cycle import CycleRunner, work_is_finished
     from autora.company.governance import Governance
@@ -297,9 +299,11 @@ def build_runtime(settings: Settings | None = None) -> Runtime:
     approvals = ApprovalService(task_manager)
     commands = CommandBus(policy=policy, approvals=approvals, workflows=workflows)
     company_verbs.register(commands)
+    company_business_verbs.register(commands)  # the business loop's eight (T-611)
     commands.install()
-    # governance first: the rules fire before the CEO reads the cycle it is reviewing, so it
-    # sees a company the rules have already acted on rather than arguing with them after
+    # stale opportunities drop out first, then the rules fire, and only then does the CEO read
+    # the cycle it is reviewing: it sees a company the deterministic parts have already acted on
+    cycles.when_entering(CycleStage.REVIEWING, company_opportunities.stage_hook())
     cycles.when_entering(CycleStage.REVIEWING, Governance(commands).stage_hook())
     executive = company_executive.Executive(workflows)
     executive.install(cycles)

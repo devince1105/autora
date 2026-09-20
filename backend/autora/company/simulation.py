@@ -48,8 +48,8 @@ def _plan(request: ModelRequest) -> FakeTurn:
                     input={
                         "command": "CreateCycleGoal",
                         "payload": {
-                            "title": "Publish what the day is worth",
-                            "metric": "newsroom.published_articles",
+                            "title": "Do what the day is worth",
+                            "metric": _goal_metric(snapshot),
                             "target": 3,
                         },
                         "reason": "one measurable thing for the cycle",
@@ -88,8 +88,8 @@ def _plan(request: ModelRequest) -> FakeTurn:
     if _succeeded(request, "CreateCycleGoal"):
         goals.append(
             {
-                "title": "Publish what the day is worth",
-                "metric": "newsroom.published_articles",
+                "title": "Do what the day is worth",
+                "metric": _goal_metric(snapshot),
                 "target": 3,
             }
         )
@@ -192,6 +192,28 @@ def _succeeded(request: ModelRequest, command: str) -> bool:
             if f'"command": "{command}"' in content and '"decision": "done"' in content:
                 return True
     return False
+
+
+DEFAULT_METRIC = "model_calls"
+"""What a company with no business of its own can still count. Core vocabulary only: this
+module stands in for the CEO, and the CEO does not know what industry it is in (T-611)."""
+
+
+def _goal_metric(snapshot: dict[str, Any]) -> str:
+    """The metric to aim at, read from what the company actually measures.
+
+    A newsroom's snapshot carries ``newsroom.published_articles`` because the newsroom
+    registered a KPI hook; a company with no domain carries none, and the goal is about the
+    work itself. Either way the name comes from the data, never from this file.
+    """
+    for unit in snapshot.get("portfolio", []):
+        for metric, value in (unit.get("kpis_last_cycle") or {}).items():
+            if "." in metric and isinstance(value, int):
+                return metric
+    for metric, value in ((snapshot.get("last_cycle") or {}).get("kpis") or {}).items():
+        if "." in metric and isinstance(value, int):
+            return metric
+    return DEFAULT_METRIC
 
 
 def _first_running_business(snapshot: dict[str, Any]) -> dict[str, Any] | None:

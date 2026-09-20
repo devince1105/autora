@@ -63,10 +63,20 @@ MATRIX = {
     "submit_command":       (D, D, D, D, D, D, A, D),
     # Echo domain (T-213), not in platform/07: each echo desk writes its own note.
     "echo_note":            (A, A, A, D, D, D, D, D),
+    # The business loop (T-611, ARCHITECTURE_V2_1 §5-§6). The CEO looks, scores, validates and
+    # walks away on its own; a person decides what is irreversible or spends real capital.
+    "allocate_exploration_budget": (D, D, D, D, D, D, A, D),
+    "score_opportunity":           (D, D, D, D, D, D, A, D),
+    "advance_opportunity":         (D, D, D, D, D, D, A, D),
+    "reject_opportunity":          (D, D, D, D, D, D, A, D),
+    "create_business_unit":        (D, D, D, D, D, D, H, D),
+    "scale_business_unit":         (D, D, D, D, D, D, A, D),
+    "pause_business_unit":         (D, D, D, D, D, D, A, D),
+    "wind_down_business_unit":     (D, D, D, D, D, D, H, D),
 }  # fmt: skip
 
 WITHIN_LIMITS = {
-    "args": {"amount": "1"},
+    "args": {"amount": "1", "to_state": "EVALUATING"},
     "facts": {
         "workflows_in_cycle": 0,
         "article_state": "PUBLISHED",

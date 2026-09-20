@@ -1054,6 +1054,11 @@ export interface components {
             /** Human Notes */
             human_notes?: string | null;
             last_cycle?: components["schemas"]["LastCycle"];
+            /**
+             * Opportunities
+             * @default []
+             */
+            opportunities: components["schemas"]["OpportunityLine"][];
             period: components["schemas"]["Period"];
             /**
              * Portfolio
@@ -1596,6 +1601,45 @@ export interface components {
             url?: string | null;
         };
         /**
+         * OpportunityLine
+         * @description One thing the company might do, and how far it has got (T-611).
+         *
+         *     Kept short on purpose: the thesis and the evidence are a query away, and a CEO comparing
+         *     five opportunities needs the shape of each, not the case for it.
+         */
+        OpportunityLine: {
+            /**
+             * Exploring
+             * @default []
+             */
+            exploring: components["schemas"]["ProjectLine"][];
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Key */
+            key: string;
+            /**
+             * Proposals
+             * @default []
+             */
+            proposals: components["schemas"]["ProposalLine"][];
+            /** Score */
+            score?: string | null;
+            /**
+             * Signals
+             * @default 0
+             */
+            signals: number;
+            /** State */
+            state: string;
+            /** Thesis */
+            thesis?: string | null;
+            /** Title */
+            title: string;
+        };
+        /**
          * OrgOut
          * @description The company's organisation: what it is in, how it is arranged, and who is where.
          */
@@ -1697,6 +1741,26 @@ export interface components {
             open_tasks: number;
             /** State */
             state: string;
+        };
+        /** ProposalLine */
+        ProposalLine: {
+            /** Business Model */
+            business_model?: string | null;
+            /** Estimated Startup Cost */
+            estimated_startup_cost?: string | null;
+            /** Expected Margin */
+            expected_margin?: string | null;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** State */
+            state: string;
+            /** Title */
+            title: string;
+            /** Version */
+            version: number;
         };
         /** PublicArticle */
         PublicArticle: {

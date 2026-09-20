@@ -107,6 +107,7 @@ class Ledger:
         idempotency_key: str,
         actor: Actor | None = None,
         project_id: uuid.UUID | None = None,
+        business_unit_id: uuid.UUID | None = None,
         occurred_at: datetime | None = None,
         source: TransactionSource = TransactionSource.SYSTEM,
         ref_type: str | None = None,
@@ -130,6 +131,7 @@ class Ledger:
         transaction = Transaction(
             company_id=company_id,
             project_id=project_id,
+            business_unit_id=business_unit_id,
             kind=kind.value,
             category=category,
             amount=amount,
