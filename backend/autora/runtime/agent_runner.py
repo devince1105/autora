@@ -28,8 +28,9 @@ from __future__ import annotations
 import asyncio
 import hashlib
 import json
+import logging
 import uuid
-from collections.abc import Awaitable, Callable
+from collections.abc import Awaitable, Callable, Sequence
 from contextlib import suppress
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
@@ -52,6 +53,7 @@ from autora.runtime.events import catalog as ev
 from autora.runtime.events.outbox import emit
 from autora.runtime.events.schema import new_event
 from autora.runtime.lifecycles import AGENT_RUN_FSM
+from autora.runtime.memory import AgentMemory, run_memory
 from autora.runtime.models.gateway import ModelCallFailed, ModelGateway
 from autora.runtime.models.types import (
     CallContext,
@@ -111,6 +113,9 @@ class _State:
         return Actor.agent(self.claim.agent.id)
 
 
+log = logging.getLogger("autora.agent_runner")
+
+
 @dataclass
 class AgentRunner:
     session_factory: async_sessionmaker[AsyncSession]
@@ -121,6 +126,8 @@ class AgentRunner:
     approvals: ApprovalService
     blobs: BlobStore
     behaviors: BehaviorRegistry
+    memory: AgentMemory = field(default_factory=lambda: AgentMemory())
+    """What the agent carries from its last runs into this one (T-609)."""
     progress: ProgressPublisher | None = None
     """Live AGENT_STEP_PROGRESS (ephemeral). None: no live progress."""
     clock: Callable[[], datetime] = field(default=lambda: datetime.now(UTC))
@@ -202,17 +209,52 @@ class AgentRunner:
         return state
 
     async def _observe(self, session: AsyncSession, state: _State) -> str:
+        """The first message: the task, what this agent remembers, then the domain's context.
+
+        The order is platform/08's: the task is what it must do, the recollection is how the
+        last few went, and the domain's context is the material. When something has to go, the
+        recollection goes first — which is why it is assembled separately and not woven in.
+        """
         task = state.ctx.task
         parts = [
             f"Task: {task.display_name} ({task.name})",
             "Input:",
             json.dumps(task.input, ensure_ascii=False, indent=2),
         ]
+        recalled = await self.memory.recall(session, state.ctx.agent.id)
+        if recalled:
+            parts += ["", recalled.text()]
         if state.behavior.context is not None:
             extra = await state.behavior.context(session, state.ctx)
             if extra:
                 parts += ["", extra]
         return "\n".join(parts)
+
+    async def _remember(
+        self,
+        session: AsyncSession,
+        state: _State,
+        *,
+        outcome: str,
+        summary: str | None = None,
+        issues: Sequence[str] = (),
+    ) -> None:
+        """Leave a line for the next run. Never worth failing a finished run over, so a memory
+        that cannot be written is logged and dropped — the work is done either way."""
+        task = state.ctx.task
+        try:
+            await self.memory.remember(
+                session,
+                company_id=task.company_id,
+                agent_id=state.ctx.agent.id,
+                content=run_memory(
+                    task=task.display_name, outcome=outcome, summary=summary, issues=issues
+                ),
+                task_id=task.id,
+                run_id=state.ctx.run_id,
+            )
+        except Exception:  # noqa: BLE001
+            log.exception("could not record what %s just did", state.ctx.agent.id)
 
     async def _resume(self, session: AsyncSession, state: _State, run: AgentRun) -> None:
         await AGENT_RUN_FSM.transition(session, run, AgentRunState.RUNNING, actor=self.actor)
@@ -572,6 +614,7 @@ class AgentRunner:
                     behavior.summarize(parsed) if behavior.summarize else _truncate(response.text)
                 )
                 await self.task_manager.succeed(session, claim, output, output_summary=summary)
+                await self._remember(session, state, outcome="done", summary=summary)
                 await session.commit()
                 return RunOutcome("completed", claim.run.id)
 
@@ -595,6 +638,7 @@ class AgentRunner:
             retry = await self.task_manager.fail(
                 session, claim, error_class="EvaluationFailed", message=message, retryable=True
             )
+            await self._remember(session, state, outcome="sent back", issues=issues)
             await session.commit()
             return RunOutcome("failed", claim.run.id, "EvaluationFailed", message, retry)
 

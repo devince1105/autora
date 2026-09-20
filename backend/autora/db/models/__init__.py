@@ -1,7 +1,14 @@
 """All SQLAlchemy models. Importing this package registers every table on ``Base.metadata``
 (Alembic's env.py relies on that)."""
 
-from autora.db.models.agents import ActivityState, Agent, AgentActivity, AgentStatus
+from autora.db.models.agents import (
+    ActivityState,
+    Agent,
+    AgentActivity,
+    AgentMemoryEntry,
+    AgentStatus,
+    MemoryKind,
+)
 from autora.db.models.company import (
     CommandOutcome,
     CommandRecord,
@@ -60,6 +67,7 @@ __all__ = [
     "ActivityState",
     "Agent",
     "AgentActivity",
+    "AgentMemoryEntry",
     "AgentRun",
     "AgentRunState",
     "AgentStep",
@@ -87,6 +95,7 @@ __all__ = [
     "KpiScope",
     "KpiSnapshot",
     "GoalStatus",
+    "MemoryKind",
     "ModelCall",
     "ModelCallStatus",
     "PolicyDecision",

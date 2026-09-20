@@ -346,5 +346,8 @@ def build_worker(
         poll_interval=settings.worker_poll_seconds,
         maintenance_interval=settings.worker_maintenance_seconds,
         company_ids=companies,
-        maintenance_jobs=[("advance_cycles", cycle_maintenance_job(runtime.cycles, companies))],
+        maintenance_jobs=[
+            ("advance_cycles", cycle_maintenance_job(runtime.cycles, companies)),
+            ("forget_stale_memories", runner.memory.maintenance_job()),
+        ],
     )

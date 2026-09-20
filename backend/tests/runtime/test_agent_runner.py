@@ -667,3 +667,61 @@ async def test_lease_lost_mid_run_writes_nothing_more(world):
     assert [s.kind for s in steps] == ["think"], "the act step was not recorded"
     activity = await _get(world, AgentActivity, world["agent"].id)
     assert activity.state == ActivityState.FAILED and activity.detail["reason"] == "timeout"
+
+
+async def test_a_finished_run_leaves_a_line_for_the_next_one(world, blobs):
+    """T-609: the run writes what it did, and the run after it reads that back."""
+    from sqlalchemy import select
+
+    from autora.db.models import AgentMemoryEntry
+
+    _script(
+        world,
+        1,
+        _use("web_search", query="EU AI Act"),
+        _turn(story="EU AI Act explained", sources=["https://a.example/1"]),
+    )
+    await _task(world)
+    claim = await _claim(world)
+
+    outcome = await world["runner"].run(claim)
+    assert outcome.status == "completed"
+
+    async with world["committed"]() as session:
+        remembered = (
+            await session.scalars(
+                select(AgentMemoryEntry).where(AgentMemoryEntry.agent_id == claim.agent.id)
+            )
+        ).all()
+        assert len(remembered) == 1
+        content = remembered[0].content
+        assert content["outcome"] == "done"
+        assert content["summary"]
+        assert remembered[0].run_id == claim.run.id
+        assert remembered[0].expires_at is not None  # bounded from the moment it is written
+
+        recalled = await world["runner"].memory.recall(session, claim.agent.id)
+        assert "Your recent runs:" in recalled.text()
+
+
+async def test_a_run_that_was_sent_back_remembers_why(world, blobs):
+    bad = _turn(story="s", sources=["nope"])  # fails the validator every time
+    _script(world, 1, bad, bad)  # the first turn and the repair the runner asks for
+    await _task(world, max_attempts=1)
+    claim = await _claim(world)
+
+    outcome = await world["runner"].run(claim)
+    assert outcome.status == "failed"
+
+    from sqlalchemy import select
+
+    from autora.db.models import AgentMemoryEntry
+
+    async with world["committed"]() as session:
+        (entry,) = (
+            await session.scalars(
+                select(AgentMemoryEntry).where(AgentMemoryEntry.agent_id == claim.agent.id)
+            )
+        ).all()
+        assert entry.content["outcome"] == "sent back"
+        assert entry.content["issues"]  # what the validator said, kept for the next attempt
