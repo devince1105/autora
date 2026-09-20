@@ -288,6 +288,7 @@ submit(name, payload)
 
 | 提交 | 日期 | 內容 | 持續整合 |
 |---|---|---|---|
+| `b794a0b` | 2026-09-20 | T-604 命令管線、九個動詞、`commands_log`；補-2 重啟 workflow、補-3 加預算放行被擋的任務 | ✅ 執行編號 `35494906311`（e2e 5 分 2 秒、python 2 分 45 秒、web 1 分 47 秒） |
 | `2c66378` | 2026-09-20 | T-603 第二批：CompanySnapshot、token 上限與裁剪紀錄、`/snapshot` API | ✅ 執行編號 `35493172070`（web 1 分 16 秒、e2e 5 分 53 秒、python 3 分 13 秒） |
 | `c6c8dd4` | 2026-09-20 | T-603 第一批：KPI 與領域掛鉤、`kpi_snapshots`、修掉 `ARTICLE_PUBLISHED` 耦合 | ✅ 執行編號 `35492557724`（web 59 秒、python 2 分 50 秒、e2e 7 分 11 秒） |
 | `278f802` | 2026-09-20 | T-600 第二批：新聞室的組織（AI Media 事業、部門與團隊、產品）、`/api/companies/{id}/org` | ✅ 執行編號 `35491545739`（e2e 6 分 26 秒、python 2 分 49 秒、web 1 分 16 秒） |
