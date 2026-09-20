@@ -160,7 +160,7 @@ async def test_a_story_goes_to_a_person_then_is_published_and_distributed(commit
     [approved] = await room.events("ARTICLE_APPROVED")
     assert approved.payload["by"] == "human"
     publish = tasks["publish"][0]
-    assert publish.output["urls"]["zh-TW"] == f"/zh-TW/articles/{article.slug}"
+    assert publish.output["urls"]["zh-TW"] == f"/news/zh-TW/articles/{article.slug}"
     async with committed() as session:
         channels = {
             d.channel: d.status

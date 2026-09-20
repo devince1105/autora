@@ -180,8 +180,8 @@ async def test_publish_once(newsroom_room):
     result = await publish(room, article_id)
     assert result.newly and result.langs == ["zh-TW", "en"]
     assert result.urls == {
-        "zh-TW": f"/zh-TW/articles/{result.slug}",
-        "en": f"/en/articles/{result.slug}",
+        "zh-TW": f"/news/zh-TW/articles/{result.slug}",
+        "en": f"/news/en/articles/{result.slug}",
     }
     async with room.committed() as session:
         article = await session.get(Article, article_id)

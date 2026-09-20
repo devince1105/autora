@@ -58,6 +58,8 @@ from autora.runtime.events.schema import EventPayload, new_event
 from autora.runtime.policy import PolicyEngine
 
 SITE = "site"
+SITE_PREFIX = "/news"
+"""The public site's place in the web app (the admin pages have the rest of the paths)."""
 
 
 class PublishError(Exception):
@@ -86,7 +88,8 @@ class Published:
 
 
 def article_path(lang: str, slug: str) -> str:
-    return f"/{lang}/articles/{slug}"
+    """The article's page on the public site: everything public lives under ``/news``."""
+    return f"{SITE_PREFIX}/{lang}/articles/{slug}"
 
 
 async def _article(session: AsyncSession, company_id: uuid.UUID, article_id: uuid.UUID) -> Article:

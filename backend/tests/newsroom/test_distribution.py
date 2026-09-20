@@ -41,8 +41,8 @@ async def test_the_copy_is_saved_as_a_draft_with_the_links(newsroom_room):
     assert site.channel == "site" and social.channel == "social_draft"
     assert social.status == "draft"  # nothing is posted
     assert social.copy == {
-        "zh-TW": {"text": POSTS["zh-TW"], "url": f"/zh-TW/articles/{slug}"},
-        "en": {"text": POSTS["en"], "url": f"/en/articles/{slug}"},
+        "zh-TW": {"text": POSTS["zh-TW"], "url": f"/news/zh-TW/articles/{slug}"},
+        "en": {"text": POSTS["en"], "url": f"/news/en/articles/{slug}"},
     }
     assert social.run_id is not None and social.created_by["kind"] == "system"
     assert made.output["distribution_id"] == str(social.id) and made.produced[0].id == social.id

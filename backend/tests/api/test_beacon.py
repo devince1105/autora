@@ -39,10 +39,10 @@ async def test_a_published_article_is_public_in_each_language(public, published)
     body = zh.json()
     assert body["article_id"] == str(published.id) and body["lang"] == "zh-TW"
     assert body["title"] == "流明市首座社區微電網啟用"
-    assert body["path"] == f"/zh-TW/articles/{published.slug}"
+    assert body["path"] == f"/news/zh-TW/articles/{published.slug}"
     assert body["langs"] == {
-        "zh-TW": f"/zh-TW/articles/{published.slug}",
-        "en": f"/en/articles/{published.slug}",
+        "zh-TW": f"/news/zh-TW/articles/{published.slug}",
+        "en": f"/news/en/articles/{published.slug}",
     }
     assert [b["type"] for b in body["blocks"]] == ["paragraph", "paragraph"]
     assert all("claim_ids" not in b for b in body["blocks"])  # readers see text, not internals

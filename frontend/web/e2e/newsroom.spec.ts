@@ -114,7 +114,7 @@ test("a story from the feeds to the public site, and from the office to its draf
     .poll(async () => (await api<Article>(page, `/api/articles/${articleId}`)).public_urls["en"] ?? null, {
       timeout: 60_000,
     })
-    .toBe(`/en/articles/${article.slug}`);
+    .toBe(`/news/en/articles/${article.slug}`);
   await expect
     .poll(async () => {
       const detail = await api<{ distributions: { channel: string }[] }>(page, `/api/articles/${articleId}`);
@@ -123,10 +123,10 @@ test("a story from the feeds to the public site, and from the office to its draf
     .toEqual(["site", "social_draft"]);
 
   // 6. the public site, in both languages
-  await page.goto(`/zh-TW/articles/${article.slug}`);
+  await page.goto(`/news/zh-TW/articles/${article.slug}`);
   await expect(page.getByRole("heading", { level: 1 })).toHaveText(zh.title);
   await page.getByRole("link", { name: "English" }).last().click();
-  await expect(page).toHaveURL(new RegExp(`/en/articles/${article.slug}$`));
+  await expect(page).toHaveURL(new RegExp(`/news/en/articles/${article.slug}$`));
   await expect(page.getByRole("heading", { level: 1 })).toHaveText(article.languages["en"]!.title);
   await page.screenshot({ path: info.outputPath("public-en.png") });
 });

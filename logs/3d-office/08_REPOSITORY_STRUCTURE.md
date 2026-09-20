@@ -36,7 +36,7 @@ autora/
 │   │   └── src/
 │   │       ├── app/
 │   │       │   ├── (admin)/         /office  /dashboard  /newsroom/*  /trace/*  /approvals
-│   │       │   └── (site)/          /[lang]/articles/[slug]  （公開站）
+│   │       │   └── (site)/          /news/[lang]/articles/[slug]  （公開站）
 │   │       ├── office3d/            見 04（只讀 store）
 │   │       ├── realtime/            RealtimeClient(WS)、reducer、hydrate、gap-fill
 │   │       ├── stores/              realtime.ts(Zustand)、ui.ts

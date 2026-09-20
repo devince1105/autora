@@ -315,7 +315,7 @@ class Article(IdMixin, TimestampMixin, Base):
     company_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("companies.id"))
     story_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("stories.id"))
     slug: Mapped[str]
-    """The public URL's name: /{lang}/articles/{slug}."""
+    """The public URL's name: /news/{lang}/articles/{slug}."""
     title: Mapped[str]
     """In the primary language (each version has its own title)."""
     state: Mapped[str] = mapped_column(server_default=ArticleState.DRAFT.value)

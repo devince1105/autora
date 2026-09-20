@@ -58,10 +58,10 @@ describe("describeEvent: newsroom sources and evidence (T-501, T-502)", () => {
     expect(describeEvent("ANALYTICS_DAILY_UPDATED", { date: "2026-09-21", views: 5, read_complete: 2 })).toMatchObject({ label: "讀者統計更新", summary: "2026-09-21 瀏覽 5・讀完 2" });
     expect(describeEvent("ARTICLE_APPROVED", { by: "human" }).summary).toBe("人工核准");
     expect(describeEvent("ARTICLE_APPROVED", { by: "system" }).summary).toBe("查核通過後自動核准");
-    expect(describeEvent("ARTICLE_PUBLISHED", { url: "/zh-TW/articles/x", langs: ["zh-TW", "en"] })).toMatchObject({
+    expect(describeEvent("ARTICLE_PUBLISHED", { url: "/news/zh-TW/articles/x", langs: ["zh-TW", "en"] })).toMatchObject({
       label: "文章發布",
       tone: "ok",
-      summary: "/zh-TW/articles/x・zh-TW / en",
+      summary: "/news/zh-TW/articles/x・zh-TW / en",
     });
     expect(describeEvent("DISTRIBUTION_CREATED", { channel: "site", status: "published" }).summary).toBe("網站・已發布");
     expect(describeEvent("DISTRIBUTION_CREATED", { channel: "social_draft", status: "draft" }).summary).toBe("社群貼文・草稿（未發出）");

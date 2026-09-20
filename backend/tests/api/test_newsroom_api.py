@@ -51,8 +51,8 @@ async def test_article_detail_with_versions_checks_and_distribution(api, newsroo
     [check] = detail["fact_checks"]
     assert check["passed"] and check["version"] == 1 and check["checked"] == 2
     assert [d["channel"] for d in detail["distributions"]] == ["site"]
-    assert detail["distributions"][0]["content"]["en"]["url"].startswith("/en/articles/")
-    assert detail["public_urls"]["zh-TW"] == f"/zh-TW/articles/{summary['slug']}"
+    assert detail["distributions"][0]["content"]["en"]["url"].startswith("/news/en/articles/")
+    assert detail["public_urls"]["zh-TW"] == f"/news/zh-TW/articles/{summary['slug']}"
     assert detail["story_title"] == "Lumen City microgrid" and detail["analytics"] == []
 
     # another version number: nothing to show in it

@@ -60,7 +60,7 @@ const ARTICLE_DETAIL: ArticleDetail = {
   company_id: C,
   primary_lang: "zh-TW",
   published_langs: ["zh-TW", "en"],
-  public_urls: { "zh-TW": "/zh-TW/articles/microgrid-a1b2c3", en: "/en/articles/microgrid-a1b2c3" },
+  public_urls: { "zh-TW": "/news/zh-TW/articles/microgrid-a1b2c3", en: "/news/en/articles/microgrid-a1b2c3" },
   versions: [
     { version: 1, draft_group_id: "g1", langs: ["zh-TW", "en"], created_at: AT, change_summary: null, current: false, published: false },
     { version: 2, draft_group_id: "g2", langs: ["zh-TW", "en"], created_at: AT, change_summary: "補上導言", current: true, published: true },
@@ -98,8 +98,8 @@ const ARTICLE_DETAIL: ArticleDetail = {
     },
   ],
   distributions: [
-    { id: "d1", channel: "site", status: "published", external_ref: "/zh-TW/articles/x", created_at: AT, content: { "zh-TW": { url: "/zh-TW/articles/x", title: "流明市" } } },
-    { id: "d2", channel: "social_draft", status: "draft", external_ref: null, created_at: AT, content: { en: { text: "New: the microgrid.", url: "/en/articles/x" } } },
+    { id: "d1", channel: "site", status: "published", external_ref: "/news/zh-TW/articles/x", created_at: AT, content: { "zh-TW": { url: "/news/zh-TW/articles/x", title: "流明市" } } },
+    { id: "d2", channel: "social_draft", status: "draft", external_ref: null, created_at: AT, content: { en: { text: "New: the microgrid.", url: "/news/en/articles/x" } } },
   ],
   analytics: [{ day: "2026-09-21", lang: "en", views: 5, uniques: 5, read_complete: 2 }],
   workflow_run_ids: ["run1"],
@@ -135,7 +135,7 @@ describe("the model", () => {
 
 describe("an article", () => {
   function show(lang = "zh-TW", onLang = vi.fn()) {
-    render(<ArticleView article={ARTICLE_DETAIL} lang={lang} onLang={onLang} events={[event("ARTICLE_PUBLISHED", { langs: ["zh-TW", "en"], url: "/zh-TW/articles/x" })]} />);
+    render(<ArticleView article={ARTICLE_DETAIL} lang={lang} onLang={onLang} events={[event("ARTICLE_PUBLISHED", { langs: ["zh-TW", "en"], url: "/news/zh-TW/articles/x" })]} />);
     return onLang;
   }
 
@@ -182,7 +182,7 @@ describe("an article", () => {
     expect(distribution.getByText("社群貼文（草稿，未發出）")).toBeTruthy();
     expect(distribution.getByText("New: the microgrid.")).toBeTruthy();
     expect(screen.getByText("讀者（共 7 次瀏覽）")).toBeTruthy();
-    expect(screen.getByRole("link", { name: "公開頁（en）" }).getAttribute("href")).toBe("/en/articles/microgrid-a1b2c3");
+    expect(screen.getByRole("link", { name: "公開頁（en）" }).getAttribute("href")).toBe("/news/en/articles/microgrid-a1b2c3");
     expect(within(document.getElementById("timeline")!).getByText("文章發布")).toBeTruthy();
     expect(screen.getByRole("link", { name: "題材：Lumen City microgrid" }).getAttribute("href")).toBe(`/newsroom/stories/${STORY}`);
   });

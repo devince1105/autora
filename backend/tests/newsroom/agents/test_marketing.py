@@ -122,7 +122,7 @@ async def test_the_context_and_the_policy_facts(newsroom_room):
         "Published in: zh-TW, en",
         f"Site distribution id: {site.id}",
         "[zh-TW] Title: 流明市首座社區微電網啟用",
-        f"  Page: /en/articles/{article.slug}",
+        f"  Page: /news/en/articles/{article.slug}",
         "  Opening: zh-TW paragraph 0",
     ):
         assert expected in text

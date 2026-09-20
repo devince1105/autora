@@ -35,7 +35,7 @@ Fact-check 在 MVP 沒有獨立 agent：**確定性層**（每個 fact/number/qu
 - `articles` 一篇對應一個 story；`article_versions` 增加 `lang`（`zh-TW` / `en`）與 `translation_of_version_id`。
 - Writer 一次產出兩個 version（同一 `draft_group_id`），兩者的 blocks 引用**同一組 claim_ids**——這保證雙語內容的事實基礎一致，fact-check 只需驗證 claims 一次，語意層對兩語言各做一次。
 - Editor 的 review 針對 draft_group（兩語言同時 accept / revise）。
-- 公開站 `/{lang}/articles/{slug}`；`ARTICLE_PUBLISHED.payload.langs = ["zh-TW","en"]`。
+- 公開站 `/news/{lang}/articles/{slug}`（D-015）；`ARTICLE_PUBLISHED.payload.langs = ["zh-TW","en"]`。
 - 語言策略（哪個是主語言、是否允許只發一種）是 company policy，不是程式碼。
 
 ---
@@ -81,7 +81,7 @@ Source ─poll─▶ SourceItem ─(CEO/plan 或 poller 評分)─▶ Story(DISC
 - `/newsroom/stories`、`/newsroom/stories/[id]`（sources、evidence、claims、timeline = `trace(correlation_id)`）
 - `/newsroom/articles`、`/newsroom/articles/[id]`（versions、fact-check、distribution、analytics、trace）
 - `/newsroom/approvals`（與 Dashboard 的 Approval Inbox 共用元件）
-- 公開站 `(site)/[lang]/articles/[slug]`
+- 公開站 `(site)/news/[lang]/articles/[slug]`
 
 這些頁面是普通 server-rendered 頁 + TanStack Query；它們不依賴 3D，也不依賴 WS（可選擇訂閱 realtime store 讓 timeline 自動更新）。
 

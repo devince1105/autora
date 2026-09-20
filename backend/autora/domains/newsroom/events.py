@@ -163,7 +163,7 @@ class ArticlePublished(EventPayload):
     slug: str
     langs: list[str]
     url: str
-    """The primary language's page on the site (a path: /{lang}/articles/{slug})."""
+    """The primary language's page on the site (a path: /news/{lang}/articles/{slug})."""
 
 
 @event("DISTRIBUTION_CREATED")

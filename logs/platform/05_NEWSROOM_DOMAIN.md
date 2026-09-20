@@ -71,7 +71,7 @@ research(Researcher) → analysis(Analyst) → draft(Writer) → review(Editor) 
 - Editor 一次審一個 draft_group（兩語同 verdict）。
 - 發布規則是 policy（D-002）：`newsroom.primary_lang="zh-TW"`、`newsroom.langs=["zh-TW","en"]`、`newsroom.require_all_langs=true`。Writer 先寫 zh-TW，再以同一組 claims 產 en。
 - 審批規則是 policy（D-001）：`newsroom.auto_approve_if_fact_check_passed=false`（MVP 人核准）。
-- 公開站 `/{lang}/articles/{slug}`。
+- 公開站 `/news/{lang}/articles/{slug}`（D-015：公開內容都在 `/news` 底下）。
 
 ---
 

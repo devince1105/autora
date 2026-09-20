@@ -15,7 +15,7 @@ const ARTICLE: PublicArticle = {
   article_id: "0192aaaa-aaaa-7aaa-8aaa-aaaaaaaaaaaa",
   lang: "zh-TW",
   slug: "lumen-city-microgrid-a1b2c3",
-  path: "/zh-TW/articles/lumen-city-microgrid-a1b2c3",
+  path: "/news/zh-TW/articles/lumen-city-microgrid-a1b2c3",
   title: "流明市首座社區微電網啟用",
   summary: "港區 1,200 組屋頂太陽能板串成微電網。",
   published_at: "2026-09-19T04:00:00Z",
@@ -30,8 +30,8 @@ const ARTICLE: PublicArticle = {
     { title: "流明市港區社區微電網啟用", site: "city.fixtures.autora.test", url: "https://city.fixtures.autora.test/b" },
   ],
   langs: {
-    "zh-TW": "/zh-TW/articles/lumen-city-microgrid-a1b2c3",
-    en: "/en/articles/lumen-city-microgrid-a1b2c3",
+    "zh-TW": "/news/zh-TW/articles/lumen-city-microgrid-a1b2c3",
+    en: "/news/en/articles/lumen-city-microgrid-a1b2c3",
   },
 };
 
