@@ -6,6 +6,7 @@ agents working through the real tools, the editor's revision branch, a person ap
 inbox, the publisher. Nothing leaves the machine; nothing but the model's decisions is scripted.
 """
 
+import asyncio
 import uuid
 
 from sqlalchemy import func, select
@@ -18,6 +19,7 @@ from autora.app import (
     build_worker,
 )
 from autora.db.models import (
+    Agent,
     AgentActivity,
     AgentRun,
     Approval,
@@ -184,3 +186,75 @@ async def test_the_demo_newsroom_publishes_a_story_from_its_feeds(committed, e2e
     assert called and called == finished
     assert len(activities) == len(DISPLAY_NAMES)
     assert all(a.detail.get("links") for a in activities.values())
+
+
+async def test_an_editor_that_never_decides_fails_visibly(committed, e2e_settings):
+    """AC-9: when a step cannot be done, a person sees it — the agent shows FAILED with the
+    reason, its task fails for good, and everything downstream is cancelled."""
+    settings = e2e_settings.model_copy(update={"task_retry_base_seconds": 0.1})  # no long waits
+    runtime = build_runtime(settings)
+    poller = SourcePoller(
+        fetcher=build_page_fetcher(settings), search=build_search_provider(settings)
+    )
+    desk = StoryDesk(build_embedder(settings), threshold=settings.story_match_threshold)
+    async with committed() as session:
+        demo = await seed_demo(
+            session, actor=OPERATOR, slug=f"newsroom-fail-{uuid.uuid4().hex[:8]}"
+        )
+        stories = await gather_stories(session, demo.company.id, poller=poller, desk=desk)
+        story = pick(stories, "microgrid")
+        run = await start_demo_story(
+            session,
+            policy=runtime.policy,
+            workflows=runtime.workflows,
+            desk=desk,
+            story=story,
+            project_id=demo.project.id,
+            actor=OPERATOR,
+            editor_fails=True,
+        )
+        await session.commit()
+        company_id = demo.company.id
+
+    worker = build_worker(settings, session_factory=committed, company_ids=frozenset({company_id}))
+
+    async def tasks_of_the_run() -> dict[str, Task]:
+        async with committed() as session:
+            return {
+                t.name: t
+                for t in await session.scalars(select(Task).where(Task.workflow_run_id == run.id))
+            }
+
+    # a failed attempt waits for its retry, so being idle once is not the end of the line
+    async with asyncio.timeout(120):
+        while True:
+            await worker.run_until_idle()
+            tasks = await tasks_of_the_run()
+            if all(t.state in ("SUCCEEDED", "FAILED", "CANCELLED") for t in tasks.values()):
+                break
+            await asyncio.sleep(0.2)
+
+    async with committed() as session:
+        workflow = await session.get(WorkflowRun, run.id)
+        editor = await session.scalar(
+            select(Agent).where(Agent.company_id == company_id, Agent.role == "editor")
+        )
+        activity = await session.get(AgentActivity, editor.id)
+        failed = (
+            await session.scalars(
+                select(EventRecord).where(
+                    EventRecord.task_id == tasks["review"].id,
+                    EventRecord.event_type == "AGENT_RUN_FAILED",
+                )
+            )
+        ).all()
+
+    assert tasks["review"].state == "FAILED" and tasks["review"].attempt == 3  # every retry tried
+    for name in ("approve", "publish", "distribute"):
+        assert tasks[name].state == "CANCELLED", name
+    assert workflow.state == "FAILED"
+    # the office: the editor's lamp is red and the panel can say why (AC-9)
+    assert activity.state == "FAILED"
+    assert activity.detail["error_class"] == "EvaluationFailed"
+    assert "nothing was decided" in activity.detail["message"]
+    assert [e.payload["final"] for e in failed] == [False, False, True]

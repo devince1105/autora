@@ -34,6 +34,19 @@ async function open(page: Page, query = ""): Promise<void> {
   await expect(office(page)).not.toHaveAttribute("data-office-mode", "detecting", { timeout: 30_000 });
 }
 
+test("AC-1: the office draws, says it is live, and seats everyone quickly", async ({ page }, info) => {
+  const started = Date.now();
+  await open(page);
+  // the agents are in the room (echo's three desks), and the page says the stream is live
+  await expect(page.getByTestId(/^head-tag-|^board-agent-/).first()).toBeVisible({ timeout: 30_000 });
+  const seated = Date.now() - started;
+  info.annotations.push({ type: "seated ms", description: String(seated) });
+  await expect(page.locator('[role="status"][data-status="live"]')).toBeVisible({ timeout: 15_000 });
+  // AC-1 asks for 3 s. CI draws with software WebGL, where one frame of this scene takes
+  // hundreds of milliseconds, so there the bound only guards against a hang.
+  expect(seated).toBeLessThan(process.env.CI ? 30_000 : 3_000);
+});
+
 test("desktop: a WebGL 2 canvas that draws", async ({ page }, info) => {
   await open(page);
   await expect(office(page)).toHaveAttribute("data-office-mode", "3d");

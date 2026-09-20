@@ -17,6 +17,7 @@ from a selected story to a published, distributed article (a person approves, D-
 """
 
 import asyncio
+import os
 import uuid
 
 import pytest
@@ -42,9 +43,10 @@ from autora.infra.settings import SettingsError, load_settings
 from autora.runtime.actor import Actor
 
 OPERATOR = Actor.human("smoke-operator")
-MINUTES = 45
+MINUTES = float(os.environ.get("NEWSROOM_SMOKE_MINUTES", "45"))
 """The whole line, model calls included. A free endpoint can take minutes over one call (D-006),
-and a step that fails on a timeout waits for its retry."""
+and a step that fails on a timeout waits for its retry: give it hours with
+``NEWSROOM_SMOKE_MINUTES``."""
 
 
 def _real_provider() -> str | None:

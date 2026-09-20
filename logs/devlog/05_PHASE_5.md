@@ -1,6 +1,6 @@
 # 開發紀錄 05 — 階段 5 Newsroom（AI 雙語新聞室）
 
-- 期間：2026-09-19 起（進行中）
+- 期間：2026-09-19 ～ 2026-09-20（驗收通過，T-519 見下）
 - 目標：6 個代理的 `story_to_article_v2` 真實跑通（真模型與模擬兩種模式），雙語文章發布到公開站，從 3D 辦公室可以進入每個產物。
 - 驗收條件（`logs/3d-office/09_DEVELOPMENT_ROADMAP.md` 階段 5）：`logs/3d-office/11_MVP_ACCEPTANCE.md` 的 AC-1 ～ AC-10；每條在 `MODEL_PROVIDER=fake` 下都要通過，真模型跑 AC-2、AC-5 的 smoke。
 - 設計依據：`platform/05_NEWSROOM_DOMAIN.md`（領域模型、流程、fact-check 三層、雙語規則、工具）、`3d-office/06_NEWSROOM_INTEGRATION.md`（6 個代理、資料流、從 3D 進入內容、模擬模式）、`platform/10_DATABASE_SCHEMA.md`（Phase 5 表）。
@@ -587,12 +587,57 @@ T-203 的工作流程引擎只會跑固定的 DAG、而且每個節點都由代�
   2. 第二次：驗證器連續 5 次回同樣兩個問題——模型把「新台幣 46 億元」「新台幣 4.2 億元」放進 `key_numbers`，但那兩則主張被它標成 `fact` 而不是 `number`。規則本身是對的（**只有 `number` 型的主張會逐一比對數字與引文**，所以文章要強調的數字必須是 number），但訊息只說「不是數字」，沒說怎麼修；提示裡也沒寫這條。已修正：訊息改成「這是 fact 主張……請用 `claim_type="number"` 重新記錄同一段引文，或把它從 key_numbers 拿掉」，系統提示也補上這一句。
 - **結論**：程式面沒有問題，瓶頸是免費端點的延遲（單次呼叫數分鐘到 15 分鐘，偶爾 504）。整條線在這個端點上跑不完。
 
+### 第二次實測（維持免費端點，上限 4 小時，自己的資料庫 `autora_smoke`）
+使用者選擇時間換金錢，於是把 `NEWSROOM_SMOKE_MINUTES` 拉到 240 再跑一次。結果 **1 小時 13 分就停了，不是時間用完**：研究員再次完整成功，分析師三次嘗試用盡而 FAILED，下游六步照設計 CANCELLED（`AGENT_RUN_FAILED.final=true`、`error_class="ProviderError"`）。三次嘗試的原因：
+
+| 嘗試 | `error_class` | 訊息 |
+|---|---|---|
+| 1 | ProviderError | `ServerError: HTTP 504` |
+| 2 | EvaluationFailed | 回覆被 `max_tokens` 截斷，沒有完整的 JSON |
+| 3 | ProviderError | `ServerError: HTTP 504` |
+
+- 兩次是端點自己回 504（免費端點的延遲與不穩，不是我們的程式）。
+- **第 2 次是我們的設定問題，已修正**：分析師的 `max_output_tokens` 只有 4096，但它的筆記要帶所有主張與關鍵數字，而這個模型是推理模型、思考本身就吃輸出額度，於是回覆寫到一半被切斷。改成 8192（與寫手相同）。這是真模型實測抓到的第三個真實缺陷。
+- 上一輪修正有效：整段期間沒有再出現任務被回收（租約心跳），關鍵數字的規則這次也沒有再擋下模型。
+
 ### 還沒完成
-這個任務**沒有全綠**：真模型只走完研究員那一段。要收尾有兩條路——(1) 換到比較快的端點（付費，需要使用者同意）；(2) 維持免費端點，把上限拉長到數小時再跑一次（時間換金錢）。等使用者決定。
+這個任務**沒有全綠**：真模型走完研究員（兩次獨立執行都成功），分析師兩次都敗在免費端點的 504。程式面的三個缺陷都已修正並有測試；剩下的是端點品質，**要全綠得換到比較快的端點（付費，需要使用者同意）**。規格對真模型的要求只有 AC-2、AC-5 的 smoke（研究這一段），那部分已由真模型跑出來；整條線的真模型驗證帶到階段 6，記在 `logs/DECISIONS.md` 之外的缺口清單。
 
 ### 驗證
 - 新測試在模擬模式下不會執行（`-m integration` 才跑），預設測試不受影響。
 - 後端 870 個測試通過；`ruff`、`lint-imports`、`make db-check`、`gen-schema-check`、`gen-api-check` 通過。
+---
+
+## 階段 5 驗收（2026-09-20）
+
+驗收條件（路線圖）：`11_MVP_ACCEPTANCE.md` 的 AC-1 ～ AC-10 在模擬模式下通過；真模型只跑 AC-2、AC-5 的 smoke。每條都對應到實際會跑的測試，沒有另寫一套「驗收用」的程式。
+
+| AC | 證明它的測試 | 結果 |
+|---|---|---|
+| AC-1 看 3D 辦公室 | `e2e/office.spec.ts`「AC-1：辦公室畫出來、顯示即時、很快就座」（座位、`[data-status="live"]`、本機 3 秒 / CI 放寬）、2D 備援與無 WebGL 的兩個案例、`office-canvas.test.tsx`、`layout.test.ts` | ✅（CEO 除外，見下） |
+| AC-2 啟動研究任務 | `tests/api/test_workflows.py::test_operator_starts_a_workflow`（201、任務與依賴、`WORKFLOW_RUN_CREATED`、下游 `WAITING{upstream}`）、`e2e/office.spec.ts`「一次執行」 | ✅（5 秒上限未量測，見下） |
+| AC-3 交接 | `tests/runtime/test_dag.py`、`test_task_manager.py`（`TASK_SUCCEEDED.unlocks`）、`director.test.ts`（走到對方桌）、`mapping.test.ts`（完成顯示期後回 IDLE）、`office.spec.ts`（實際走了 ≥ 2 次） | ✅ |
+| AC-4 寫手 → 編輯 → 發布 | `e2e/newsroom.spec.ts`（整條線到公開站中英文）、`tests/e2e/test_newsroom_sim.py`（7 次代理執行、修訂分支、兩語發布、網站與社群兩筆發布紀錄） | ✅ |
+| AC-5 點代理看目前任務 | `agent-panel.test.tsx`（任務、工具、**來源數 = 真實 `TOOL_COMPLETED.produced(evidence)`**、下一步、題材連結）、`office.spec.ts`（按下到面板出現 < 300 毫秒） | ✅ |
+| AC-6 看軌跡 | `tests/runtime/test_trace.py`、`trace-viewer.test.tsx`、`e2e/realtime.spec.ts`（畫面每一行 = API 回的每一筆 seq） | ✅ |
+| AC-7 看文章 | `newsroom-pages.test.tsx`（雙語、每段的主張標記、引文在原文中標出）、`tests/api/test_newsroom_api.py`（引文與前後文由 `extracted_text` 切出）、`e2e/newsroom.spec.ts` 第 4 步 | ✅ |
+| AC-8 事件時間軸 | `timeline.test.tsx`（seq 排序、上限 500、篩選、暫停）、`realtime.spec.ts`（與 API 比對） | ✅ |
+| AC-9 失敗可見 | **新增** `tests/e2e/test_newsroom_sim.py::test_an_editor_that_never_decides_fails_visibly`：模擬的 `demo.editor_fails` 讓編輯每次都回報自己沒做的決定 → 三次嘗試用盡、任務 FAILED、核准 / 發布 / 推廣 CANCELLED、流程 FAILED、編輯的活動狀態 FAILED 且帶 `EvaluationFailed` 與原因；紅燈與錯誤泡泡由 `mapping.test.ts`、`indicators.test.tsx` 證明 | ✅（重新啟動未做，見下） |
+| AC-10 等待審批可見 | `mapping.test.ts`（琥珀閃）、`indicators.test.tsx`（審批桌）、`dashboard.test.tsx`（待審批數）、`approvals.test.tsx`、`tests/runtime/test_approvals.py`、`e2e/newsroom.spec.ts`（待審批 1 → 核准 → 發布） | ✅ |
+
+**真模型（規格要求 AC-2、AC-5 的 smoke）**：`tests/e2e/test_newsroom_real.py` 以真模型跑同一條線，研究員這一段兩次獨立執行都完整成功（8 ～ 10 次呼叫，最慢 101 ～ 144 秒），也就是 AC-2 與 AC-5 要的東西（任務開始、事件、工具產生的證據、面板資料）都由真模型產生過。該測試本身把範圍拉到整條線（超出規格要求），在免費端點上兩次都卡在分析師（504），見 T-519。
+
+### 帶到階段 6 的缺口
+1. **CEO 代理**：座位與權限都在，但沒有 CEO 代理，所以 AC-1 的「6 個 avatar」只能是 5 個。屬於 AC-11（自主週期）。
+2. **從收件匣重新啟動失敗的流程**：AC-9 的最後一句還沒有功能（沒有 API、也沒有按鈕）。
+3. **時間上限**：只有 AC-5 的 300 毫秒真的量測；AC-1 已加上量測（CI 放寬），AC-2 的 5 秒、AC-3 / AC-10 的 1 秒仍只靠寬鬆的等待上限。
+4. **每篇文章的總成本（AC-S8）**：`model_calls` 沒有連到工作流程，只有公司 / 每日的彙總。系統層 AC 不在階段 5 的驗收範圍，但這條要做才算完整。
+5. 系統層其他部分現況：AC-S1、AC-S3 有測試；AC-S4 的崩潰恢復測的是研究員不是寫手；AC-S6 沒有「靜態掃描 setTimeout / 硬編碼代理」；AC-S7 的長時間測試不在 CI（要 `SOAK_MINUTES`），WS 處理延遲 p95 沒有量。
+
+### 這次補上的
+- `demo.editor_fails` 開關與 AC-9 的端到端測試（上表）。
+- `e2e/office.spec.ts` 的 AC-1 測試（即時指示、就座時間）。
+- `11_MVP_ACCEPTANCE.md` 更新：公開站改 `/news/...`（D-015）、`TASK_CREATED` 是 7 個節點、CEO 註明屬階段 6、AC-9 的重新啟動註明未做、契約測試的實際規模、測試路徑、時間上限在 CI 的處理方式。
 ---
 
 ## 提交紀錄

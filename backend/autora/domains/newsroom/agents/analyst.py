@@ -211,7 +211,9 @@ BEHAVIOR = AgentBehavior(
     validators=(claims_made_here, claims_would_pass),
     max_steps=14,
     repair_limit=2,
-    max_output_tokens=4096,
+    # the note carries every claim and key number, and a reasoning model spends part of this
+    # budget thinking: 4096 cut a real reply off mid-note (T-519)
+    max_output_tokens=8192,
     context=analysis_context,
     summarize=_summary,
 )

@@ -9,7 +9,7 @@ real tools, the fact-check checks, a person approves in the inbox, the publisher
   (idempotent);
 - ``gather_stories``: poll the sources now and cluster the new items;
 - ``start_demo_story``: select a story and start its workflow, with the simulation's demo knobs
-  (``pace_seconds``, ``revise_first_review``; see ``simulation.py``).
+  (``pace_seconds``, ``revise_first_review``, ``editor_fails``; see ``simulation.py``).
 
 ``backend/scripts/seed_newsroom.py`` runs these for a local demo; the e2e test runs them too.
 """
@@ -149,10 +149,15 @@ async def start_demo_story(
     actor: Actor,
     pace_seconds: float = 0,
     revise_first_review: bool = False,
+    editor_fails: bool = False,
 ) -> WorkflowRun:
     if story.state == StoryState.DISCOVERED:
         await desk.select(session, story, project_id=project_id, actor=actor, reason="demo")
-    demo = {"pace_seconds": pace_seconds, "revise_first_review": revise_first_review}
+    demo = {
+        "pace_seconds": pace_seconds,
+        "revise_first_review": revise_first_review,
+        "editor_fails": editor_fails,
+    }
     return await start_story(
         session,
         policy=policy,

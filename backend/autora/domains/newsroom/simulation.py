@@ -12,6 +12,8 @@ Demo knobs (T-518), from the workflow's ``params.demo`` (``start_story(..., demo
 - ``revise_first_review``: the editor sends the first draft back (the lead should say what it
   means for residents) even when the fact-check passed; the writer's revision adds that lead and
   the second review accepts. Without it, a draft goes back only when the fact-check fails.
+- ``editor_fails``: the editor reports a decision it never took, so every attempt fails its
+  validators — the failure a person must be able to see in the office (AC-9).
 """
 
 from __future__ import annotations
@@ -345,6 +347,16 @@ def _review(request: ModelRequest) -> FakeTurn:
             ],
         )
     report = checked[-1]
+    if _demo(request).get("editor_fails"):
+        # a reply that cannot pass: it claims a verdict without deciding through a tool
+        return FakeTurn(
+            structured={
+                "article_id": article_id,
+                "verdict": "accept",
+                "fact_check_report_id": report["report_id"],
+                "issues": [],
+            }
+        )
     issues = [
         {
             "message": f"主張「{r['text'][:80]}」沒有通過事實查核"
