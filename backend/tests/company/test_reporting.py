@@ -102,6 +102,8 @@ async def test_the_core_measures_money_and_nothing_else(db_session):
         "revenue_usd": "10.000000",
         "profit_usd": "8.000000",
         "model_calls": 2,
+        # money, time and how many people are paying: all three mean the same in any industry
+        "customers": 0,
     }
 
 
@@ -260,9 +262,11 @@ async def test_a_company_with_no_domains_still_gets_a_report(db_session):
     written = await Reporting(clock=lambda: END).measure_cycle(db_session, cycle)
 
     assert [s.scope for s in written] == ["company", "business_unit", "project"]
-    assert all(set(s.metrics) == {
-        "cost_usd", "model_cost_usd", "revenue_usd", "profit_usd", "model_calls",
-    } for s in written)  # fmt: skip
+    core = {"cost_usd", "model_cost_usd", "revenue_usd", "profit_usd", "model_calls"}
+    for snapshot in written:
+        # a project has no customers of its own; the company and each business do
+        expected = core if snapshot.scope == "project" else core | {"customers"}
+        assert set(snapshot.metrics) == expected, snapshot.scope
 
 
 # --- measuring a cycle -------------------------------------------------------------------------

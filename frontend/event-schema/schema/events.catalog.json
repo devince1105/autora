@@ -2108,6 +2108,118 @@
         }
       }
     },
+    "CUSTOMER_ACQUIRED": {
+      "1": {
+        "persistence": "persisted",
+        "payload": {
+          "additionalProperties": false,
+          "description": "Somebody started paying (T-612). The payload carries no personal data either: the\nprovider's reference and what kind of customer they are is all the company keeps.",
+          "properties": {
+            "external_ref": {
+              "title": "External Ref",
+              "type": "string"
+            },
+            "kind": {
+              "title": "Kind",
+              "type": "string"
+            },
+            "business_unit_id": {
+              "anyOf": [
+                {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Business Unit Id"
+            },
+            "product_id": {
+              "anyOf": [
+                {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Product Id"
+            }
+          },
+          "required": [
+            "external_ref",
+            "kind"
+          ],
+          "title": "CustomerAcquired",
+          "type": "object"
+        }
+      }
+    },
+    "CUSTOMER_CHURNED": {
+      "1": {
+        "persistence": "persisted",
+        "payload": {
+          "additionalProperties": false,
+          "properties": {
+            "external_ref": {
+              "title": "External Ref",
+              "type": "string"
+            },
+            "kind": {
+              "title": "Kind",
+              "type": "string"
+            },
+            "business_unit_id": {
+              "anyOf": [
+                {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Business Unit Id"
+            },
+            "reason": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Reason"
+            },
+            "days": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Days"
+            }
+          },
+          "required": [
+            "external_ref",
+            "kind"
+          ],
+          "title": "CustomerChurned",
+          "type": "object"
+        }
+      }
+    },
     "CYCLE_COMPLETED": {
       "1": {
         "persistence": "persisted",

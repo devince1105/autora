@@ -34,6 +34,7 @@ from decimal import Decimal
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from autora.company import customers
 from autora.company import events as company_events
 from autora.company.ledger import MODEL_COST, SPENDING
 from autora.db.models import (
@@ -286,13 +287,22 @@ class Reporting:
         )
         cost = (Decimal(model_cost or 0) + Decimal(other_cost or 0)).quantize(MONEY)
         earned = Decimal(revenue or 0).quantize(MONEY)
-        return {
+        metrics = {
             "cost_usd": _plain(cost),
             "model_cost_usd": _plain(Decimal(model_cost or 0).quantize(MONEY)),
             "revenue_usd": _plain(earned),
             "profit_usd": _plain((earned - cost).quantize(MONEY)),
             "model_calls": int(calls or 0),
         }
+        # counted for the scopes a customer can belong to; a project has no customers of its own
+        if window.scope in (KpiScope.COMPANY, KpiScope.BUSINESS_UNIT):
+            metrics["customers"] = await customers.paying(
+                session,
+                window.company_id,
+                business_unit_id=window.business_unit_id,
+                at=window.until,
+            )
+        return metrics
 
     def _scope_filter(self, window: Window) -> list:
         if window.scope is KpiScope.PROJECT:

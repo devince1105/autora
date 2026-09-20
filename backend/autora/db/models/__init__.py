@@ -29,6 +29,8 @@ from autora.db.models.company import (
 from autora.db.models.finance import (
     Budget,
     BudgetPeriod,
+    Customer,
+    CustomerKind,
     Transaction,
     TransactionKind,
     TransactionSource,
@@ -101,6 +103,8 @@ __all__ = [
     "OpportunitySignal",
     "OpportunityState",
     "ProposalState",
+    "Customer",
+    "CustomerKind",
     "Document",
     "DocumentKind",
     "Department",

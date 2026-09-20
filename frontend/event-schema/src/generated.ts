@@ -600,6 +600,35 @@ export const CompanyCreatedV1Event = z.object({
   payload: CompanyCreatedV1Payload,
 });
 
+export const CustomerAcquiredV1Payload = z.object({
+  external_ref: z.string(),
+  kind: z.string(),
+  business_unit_id: z.uuid().nullable().default(null),
+  product_id: z.uuid().nullable().default(null),
+});
+export type CustomerAcquiredV1Payload = z.infer<typeof CustomerAcquiredV1Payload>;
+export const CustomerAcquiredV1Event = z.object({
+  ...envelopeFields,
+  event_type: z.literal("CUSTOMER_ACQUIRED"),
+  schema_version: z.literal(1),
+  payload: CustomerAcquiredV1Payload,
+});
+
+export const CustomerChurnedV1Payload = z.object({
+  external_ref: z.string(),
+  kind: z.string(),
+  business_unit_id: z.uuid().nullable().default(null),
+  reason: z.string().nullable().default(null),
+  days: z.number().int().nullable().default(null),
+});
+export type CustomerChurnedV1Payload = z.infer<typeof CustomerChurnedV1Payload>;
+export const CustomerChurnedV1Event = z.object({
+  ...envelopeFields,
+  event_type: z.literal("CUSTOMER_CHURNED"),
+  schema_version: z.literal(1),
+  payload: CustomerChurnedV1Payload,
+});
+
 export const CycleCompletedV1Payload = z.object({
   seq: z.number().int().min(1),
 });
@@ -1430,6 +1459,8 @@ export const EventEnvelope = z.discriminatedUnion("event_type", [
   ClaimRejectedV1Event,
   ClaimVerifiedV1Event,
   CompanyCreatedV1Event,
+  CustomerAcquiredV1Event,
+  CustomerChurnedV1Event,
   CycleCompletedV1Event,
   CyclePlanFallbackV1Event,
   CycleReviewedV1Event,
@@ -1534,6 +1565,8 @@ export const EVENT_TYPES = [
   "CLAIM_REJECTED",
   "CLAIM_VERIFIED",
   "COMPANY_CREATED",
+  "CUSTOMER_ACQUIRED",
+  "CUSTOMER_CHURNED",
   "CYCLE_COMPLETED",
   "CYCLE_PLAN_FALLBACK",
   "CYCLE_REVIEWED",

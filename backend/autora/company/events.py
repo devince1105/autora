@@ -362,6 +362,27 @@ class RevenueRecorded(_LedgerEvent):
     pass
 
 
+@event("CUSTOMER_ACQUIRED")
+class CustomerAcquired(EventPayload):
+    """Somebody started paying (T-612). The payload carries no personal data either: the
+    provider's reference and what kind of customer they are is all the company keeps."""
+
+    external_ref: str
+    kind: str
+    business_unit_id: uuid.UUID | None = None
+    product_id: uuid.UUID | None = None
+
+
+@event("CUSTOMER_CHURNED")
+class CustomerChurned(EventPayload):
+    external_ref: str
+    kind: str
+    business_unit_id: uuid.UUID | None = None
+    reason: str | None = None
+    days: int | None = None
+    """How long they stayed. The number a business is judged by, kept where it is cheap."""
+
+
 @event("KPI_SNAPSHOT_CREATED")
 class KpiSnapshotCreated(EventPayload):
     snapshot_id: uuid.UUID
