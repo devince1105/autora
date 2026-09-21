@@ -18,11 +18,14 @@ import {
   PlaneGeometry,
 } from "three";
 
+import { useUi } from "@/stores/ui";
+
 import { ROLE_COLOR } from "../palette";
 import { approvalLampSpot, lampSpot, MONITOR, screenSpots } from "../scene/furniture";
 import { allSeats, type Seat } from "../scene/layout";
 import { useCues } from "../visual/CueRunner";
 import { useVisualTracker } from "../visual/tracker";
+import { membersInRoom } from "./Agents";
 import { applyTag, lampColors, screenColor } from "./indicators";
 import { useRoster, type Member } from "./roster";
 
@@ -168,12 +171,13 @@ function HeadTag({ member, seat }: { member: Member; seat: Seat }) {
   );
 }
 
-/** A tag over every seated agent. */
+/** A tag over every seated agent the office is drawing — inside a room, only that room's. */
 export function HeadTags() {
   const { members, seats } = useRoster();
+  const entered = useUi((s) => s.focusedDepartment);
   return (
     <>
-      {members.map((member) => {
+      {membersInRoom(members, entered).map((member) => {
         const seat = seats.get(member.id);
         return seat ? <HeadTag key={member.id} member={member} seat={seat} /> : null;
       })}

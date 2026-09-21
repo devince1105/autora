@@ -390,3 +390,30 @@ test("the office is the organisation: enter a department, and the link says so (
   await page.getByTestId("department-all").click();
   await expect(page).not.toHaveURL(/department=/);
 });
+
+test("inside a department, the office draws its people and nobody else (T-600)", async ({
+  page,
+}) => {
+  await page.goto(`/office?company=${stack.newsroomCompanyId}`);
+  await expect(office(page)).not.toHaveAttribute("data-office-mode", "detecting", {
+    timeout: 30_000,
+  });
+  if ((await office(page).getAttribute("data-office-mode")) !== "3d") {
+    test.skip(true, "no WebGL 2 here: the 2D board lists every room by design");
+  }
+  await page.waitForFunction(() => (window.__autoraOffice?.frames ?? 0) > 0, null, {
+    timeout: 90_000,
+  });
+  const tags = page.getByTestId(/^head-tag-/);
+  const whole = await tags.count();
+  expect(whole).toBeGreaterThan(2);
+
+  // step into the newsroom's research team: two desks, and the rest of the company is not drawn
+  await page.getByTestId("department-newsroom_research").click();
+  await expect(tags).toHaveCount(2, { timeout: 15_000 });
+  await expect(page.getByTestId("department-elsewhere")).toContainText(String(whole - 2));
+
+  // and stepping back out brings everybody back
+  await page.getByTestId("department-all").click();
+  await expect(tags).toHaveCount(whole, { timeout: 15_000 });
+});

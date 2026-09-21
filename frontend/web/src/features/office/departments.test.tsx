@@ -7,7 +7,7 @@ import { afterEach, describe, expect, it } from "vitest";
 import { realtimeStore, type AgentState } from "@/stores/realtime";
 import { uiStore } from "@/stores/ui";
 
-import { DepartmentStrip, departmentsOf } from "./Departments";
+import { DepartmentStrip, departmentsOf, elsewhere } from "./Departments";
 
 afterEach(() => {
   cleanup();
@@ -107,5 +107,33 @@ describe("entering a department", () => {
     hydrate([agent({ id: "a" })]);
     const { container } = strip();
     expect(container.firstChild).toBeNull();
+  });
+});
+
+describe("inside a room, the rest of the company is not on screen", () => {
+  it("says how many people are elsewhere, so nobody silently disappears", () => {
+    hydrate([
+      agent({ id: "a", department_key: "newsroom_research", office_zone_key: "research" }),
+      agent({ id: "b", department_key: "newsroom_research", office_zone_key: "research" }),
+      agent({ id: "c", role: "writer", department_key: "newsroom_writing", office_zone_key: "editorial" }),
+    ]);
+    strip();
+
+    expect(screen.queryByTestId("department-elsewhere")).toBeNull(); // on the whole floor
+    fireEvent.click(screen.getByTestId("department-newsroom_writing"));
+    expect(screen.getByTestId("department-elsewhere").textContent).toContain("2");
+    fireEvent.click(screen.getByTestId("department-all"));
+    expect(screen.queryByTestId("department-elsewhere")).toBeNull();
+  });
+
+  it("counts only the other rooms", () => {
+    const departments = departmentsOf([
+      { department_key: "a", office_zone_key: "research", business_unit_key: null, role: "researcher" },
+      { department_key: "a", office_zone_key: "research", business_unit_key: null, role: "analyst" },
+      { department_key: "b", office_zone_key: "editorial", business_unit_key: null, role: "writer" },
+    ]);
+    expect(elsewhere(departments, { key: "a", zone: "research" })).toBe(1);
+    expect(elsewhere(departments, { key: "b", zone: "editorial" })).toBe(2);
+    expect(elsewhere(departments, null)).toBe(0);
   });
 });

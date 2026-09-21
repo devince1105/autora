@@ -86,6 +86,14 @@ export function departmentNames(org: Org | undefined): Record<string, string> {
   return names;
 }
 
+/** How many people the office is not drawing right now, because they work somewhere else. */
+export function elsewhere(departments: readonly DepartmentEntry[], entered: EnteredDepartment | null): number {
+  if (!entered) return 0;
+  return departments
+    .filter((d) => d.key !== entered.key)
+    .reduce((total, d) => total + d.headcount, 0);
+}
+
 export function DepartmentStrip({ companyId }: { companyId: string }) {
   const agents = useRealtime((s) => s.company?.agents);
   const entered = useUi((s) => s.focusedDepartment);
@@ -142,6 +150,12 @@ export function DepartmentStrip({ companyId }: { companyId: string }) {
           <span className="ml-1.5 tabular-nums opacity-70">{department.headcount}</span>
         </button>
       ))}
+      {/* inside a room the office draws only its people; say who is not on screen (§14.7) */}
+      {entered && elsewhere(departments, entered) > 0 ? (
+        <span data-testid="department-elsewhere" className="ml-1 text-xs text-muted">
+          其他部門 {elsewhere(departments, entered)} 人不在畫面上
+        </span>
+      ) : null}
     </div>
   );
 }
