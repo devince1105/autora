@@ -515,6 +515,20 @@ make autonomy
 - `-s` 會把七輪的摘要印出來（每一輪由誰規劃、覆盤有沒有到、規則看了哪些東西），失敗時先看這份。
 - 只有時鐘是假的：排程器、worker、任務管理、代理、帳本、規則都是 worker 進程實際跑的那些。
 
+### 真實模型的自主運轉 soak（T-610）
+
+用**真的模型**跑完整的七輪自主運轉（公司自己的 CEO 與 strategist；新聞室的生產線不在這間公司裡）。標記 `integration`，預設不跑，而且**要自己的資料庫**——一次 pytest session 會重建測試 schema，會把跑到一半的資料洗掉：
+
+```bash
+DATABASE_URL=postgresql+asyncpg://<user>:<pass>@localhost:5434/autora_soak \
+    .venv/bin/pytest backend -m integration -k autonomous_real -s
+```
+
+- fixture 會自己加上 `_test` 後綴（實際用的是 `autora_soak_test`）。
+- `-s` 會即時印出每一輪；`AUTONOMY_SOAK_CYCLES=2` 可以先跑短一點的。
+- **會花幾個小時**：2026-09-21 在免費的 `z-ai/glm-5.3-flash` 上跑 7 輪花了 4 小時 7 分，41 次呼叫裡 11 次在 909 秒後 504。結果與發現寫在 `devlog/06_PHASE_6.md`〈真實模型的 soak〉。
+- 測試斷言的是**迴圈的承諾**（每輪都 DONE、都有計畫、沒有人介入），不是模型的表現。
+
 ### 真實模型測試
 
 見第六節第 4 點。預設不執行，沒有設定金鑰時會顯示為略過。

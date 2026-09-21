@@ -967,6 +967,66 @@ v2 之後公司是一個**事業組合**：同時經營 AI Media 與 AI Educatio
 
 ---
 
+## 真實模型的 soak · 七天，四小時，一個設計缺口
+
+到目前為止所有「自主」的證據都是模擬模型給的。這一次跑真的：`MODEL_PROVIDER=nvidia`、`z-ai/glm-5.3-flash`（D-006 的免費端點），公司自己的兩個代理（CEO 與 strategist），加速時鐘、真實模型。
+
+`backend/tests/acceptance/test_autonomous_real.py`，標記 `integration`，預設不跑：
+
+```bash
+DATABASE_URL=<dev url, 資料庫改成 autora_soak> \
+    .venv/bin/pytest backend -m integration -k autonomous_real -s
+```
+
+新聞室的生產線**刻意不在這間公司裡**：真跑一篇要幾小時（T-519 給 45 分鐘跑一篇），七天份證明不了這個測試要證明的東西。這裡測的是**公司自己的**代理：規劃、探索、覆盤。
+
+### 結果（7 輪，4 小時 7 分）
+
+```
+cycle 1: DONE plan=ceo      review=ok
+cycle 2: DONE plan=ceo      review=ok
+cycle 3: DONE plan=ceo      review=missing
+cycle 4: DONE plan=ceo      review=missing
+cycle 5: DONE plan=fallback review=missing
+cycle 6: DONE plan=fallback review=missing
+cycle 7: DONE plan=fallback review=missing
+
+41 次模型呼叫：30 成功、11 失敗（全部是 909 秒後 504）
+成功的平均 159 秒，最久 808 秒
+plan 21 成功 / 3 失敗　review 4 / 6　propose 5 / 2
+```
+
+**迴圈撐住了**：七輪全部 DONE，沒有一輪卡住，中途沒有任何人介入。每一輪都有計畫（CEO 的或 fallback 的）、都被規則看過。T-607 的 fallback 與「覆盤不見要說出原因」在真實環境裡真的被用到了——**而且是主要的那條路徑**。
+
+**公司自己的代理在真模型下會動**：四輪由 CEO 規劃、兩輪有覆盤，strategist 寫出並送出了一份真的提案——《AI English Speaking Coach — prepaid 1-week sprint for adults》。那是模型自己想的，通過了 schema 與四個驗證器。
+
+管線也照樣拒絕它：`AllocateBudget` 被拒 5 次、`CreateProject` 4 次要人審 4 次被拒、`DraftProposal` 被拒 2 次。**模型亂要東西的時候，公司說不。**
+
+### 這次 soak 最重要的產出：治理把 CEO 停掉了
+
+第 5 輪之後全部是 fallback，原因不是模型變笨：
+
+```
+AGENT_PAUSED  reason="3 runs in a row failed"  actor=governance
+agents: ceo=paused, strategist=active
+執行失敗分類：ProviderError 11、MaxStepsExceeded 1
+```
+
+**供應商連續逾時三次，公司就把自己的 CEO 停職了。** T-606 的規則是「一個做不好自己工作的代理，停掉比一直重試便宜」——但它現在把**「代理壞了」**和**「端點掛了」**當成同一件事。這兩者要做的決定完全不同：前者該停，後者該等。
+
+這是真實模型才會暴露的缺口，模擬模型永遠不會 504。
+
+**我沒有直接改它**，因為這是一個有判斷成分的語意決定（也有人會說：不管為什麼，一個跑不動的 CEO 就是跑不動）。建議的修法是治理只數**代理自己的失敗**（驗證器、工具、輸出），`ProviderError` 這類基礎設施失敗不計入——需要一筆 D-0xx。
+
+### 另外兩件事
+- **這個免費端點跑不動一整天的迴圈**：成功呼叫平均 159 秒，四分之一的呼叫掛 15 分鐘後 504。D-006 當初在單次呼叫上的結論，在公司規模上又出現一次。
+- **CEO 沒有替機會打分**：它直接把機會推到 EVALUATING（`AdvanceOpportunity done 1`），`score` 仍是 null。模擬的 CEO 會先打分——真模型選了別的做法，而這是允許的。
+
+### 驗證
+- 測試本身斷言的是**迴圈的承諾**（七輪都 DONE、都有計畫、都被治理看過、第一輪之後沒有人介入），對模型的表現只寬鬆斷言「至少有一輪 CEO 真的規劃過、至少有一輪有覆盤」。**一個每輪都失敗的模型是一個結果，不是一個壞掉的測試。**
+
+---
+
 ## 提交紀錄
 
 | 提交 | 日期 | 內容 | 持續整合 |
