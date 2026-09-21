@@ -411,7 +411,24 @@ test("inside a department, the office draws its people and nobody else (T-600)",
   // step into the newsroom's research team: two desks, and the rest of the company is not drawn
   await page.getByTestId("department-newsroom_research").click();
   await expect(tags).toHaveCount(2, { timeout: 15_000 });
-  await expect(page.getByTestId("department-elsewhere")).toContainText(String(whole - 2));
+
+  // "elsewhere" counts the people in the other departments, which is not the same number as
+  // the head tags on the floor (an agent the org chart has not placed is drawn and belongs to
+  // no department). Check it against the strip's own counts: the rooms that are not this one.
+  const others = await page
+    .getByRole("group", { name: "部門" })
+    .getByRole("button")
+    .evaluateAll((buttons) =>
+      buttons
+        .filter(
+          (b) =>
+            b.getAttribute("data-testid") !== "department-all" &&
+            b.getAttribute("aria-pressed") !== "true",
+        )
+        .reduce((total, b) => total + Number(b.textContent?.match(/(\d+)\s*$/)?.[1] ?? 0), 0),
+    );
+  expect(others).toBeGreaterThan(0);
+  await expect(page.getByTestId("department-elsewhere")).toContainText(String(others));
 
   // and stepping back out brings everybody back
   await page.getByTestId("department-all").click();
