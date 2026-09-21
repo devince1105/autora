@@ -304,12 +304,15 @@ async def test_running_the_rules_twice_pauses_once(db_session):
 # --- 2. an agent that keeps failing -----------------------------------------------------------
 
 
-async def _agent_with_runs(db_session, company, project, *states):
+async def _agent_with_runs(db_session, company, project, *states, errors=None):
+    """``states`` oldest first. ``errors`` gives an error_class per run, for the failures whose
+    cause matters (D-020: an outage is not the agent failing)."""
     position = await role_by_key(db_session, company.id, "ceo")
     agent = await hire_agent(
         db_session, company_id=company.id, role="ceo", display_name=f"A{uuid.uuid4().hex[:6]}",
         actor=HUMAN, position=position,
     )  # fmt: skip
+    errors = errors or {}
     for n, state in enumerate(states):
         task = Task(
             company_id=company.id, project_id=project.id, name="plan", display_name="Plan",
@@ -324,6 +327,11 @@ async def _agent_with_runs(db_session, company, project, *states):
                 task_id=task.id,
                 attempt=1,
                 state=state,
+                error=(
+                    {"error_class": errors.get(n, "EvaluationFailed"), "message": "x"}
+                    if state == "FAILED"
+                    else None
+                ),
                 created_at=START + timedelta(minutes=n),
                 started_at=START + timedelta(minutes=n),
                 # the database enforces "finished_at iff terminal"
@@ -483,3 +491,81 @@ async def test_reporting_and_governance_agree_on_the_numbers(db_session):
 
     assert done.paused_projects == [project.id]
     assert done.breaches[0].observed == 2.5
+
+
+# --- whose failure was it? (D-020, found by the first real-model soak) ------------------------
+
+
+async def test_an_outage_is_not_the_agent_failing(db_session):
+    """A bad afternoon at the provider must not suspend the company's executive.
+
+    This is what the 2026-09-21 real-model soak did: three 504s in a row and the CEO was paused
+    for the rest of the week, so every remaining day fell back.
+    """
+    company, unit, project, cycle = await _company(db_session)
+    await bootstrap_executive(db_session, company.id, actor=HUMAN)
+    agent = await _agent_with_runs(
+        db_session,
+        company,
+        project,
+        *(["FAILED"] * 3),
+        errors=dict.fromkeys(range(3), "ProviderError"),
+    )
+
+    done = await _governance().review(db_session, cycle)
+
+    assert done.paused_agents == []
+    assert (await db_session.get(type(agent), agent.id)).status == AgentStatus.ACTIVE.value
+
+
+async def test_the_other_things_that_are_not_the_agent_s_fault(db_session):
+    company, unit, project, cycle = await _company(db_session)
+    await bootstrap_executive(db_session, company.id, actor=HUMAN)
+    agent = await _agent_with_runs(
+        db_session,
+        company,
+        project,
+        *(["FAILED"] * 3),
+        errors={0: "LeaseExpired", 1: "BudgetExhausted", 2: "Aborted:timeout"},
+    )
+
+    assert (await _governance().review(db_session, cycle)).paused_agents == []
+    assert (await db_session.get(type(agent), agent.id)).status == AgentStatus.ACTIVE.value
+
+
+async def test_outages_do_not_hide_the_agent_s_own_failures(db_session):
+    """Skipped, not counted as successes: three of its own in a row still pause it."""
+    company, unit, project, cycle = await _company(db_session)
+    await bootstrap_executive(db_session, company.id, actor=HUMAN)
+    agent = await _agent_with_runs(
+        db_session,
+        company,
+        project,
+        "FAILED",
+        "FAILED",
+        "FAILED",
+        "FAILED",
+        errors={1: "ProviderError"},  # an outage in the middle of its own three
+    )
+
+    done = await _governance().review(db_session, cycle)
+
+    assert done.paused_agents == [agent.id]
+    assert (await db_session.get(type(agent), agent.id)).status == AgentStatus.PAUSED.value
+
+
+async def test_a_success_under_the_outages_still_breaks_the_streak(db_session):
+    company, unit, project, cycle = await _company(db_session)
+    await bootstrap_executive(db_session, company.id, actor=HUMAN)
+    await _agent_with_runs(
+        db_session,
+        company,
+        project,
+        "FAILED",
+        "COMPLETED",
+        "FAILED",
+        "FAILED",
+        errors={2: "ProviderError"},
+    )
+
+    assert (await _governance().review(db_session, cycle)).paused_agents == []

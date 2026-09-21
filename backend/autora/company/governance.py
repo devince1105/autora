@@ -60,6 +60,18 @@ log = logging.getLogger(__name__)
 FAILURES_BEFORE_PAUSE = 3
 """Final failures in a row. Three, because two can be one bad input twice."""
 
+NOT_THE_AGENT_S_FAULT = ("ProviderError", "LeaseExpired", "BudgetExhausted", "Aborted:")
+"""Failures that say nothing about whether the agent can do its job (D-020).
+
+The model provider timed out, the worker was killed and the lease expired, the company ran out
+of budget, the task manager aborted the run. Counting these would mean **a bad afternoon at the
+provider suspends the company's executive** — which is what the first real-model soak did on
+2026-09-21: three 504s in a row and the CEO was paused for the rest of the week.
+
+They are skipped, not counted as successes: three of the agent's own failures in a row still
+pause it, however many outages happened in between. Matched by prefix, because an abort carries
+its reason (``Aborted:timeout``)."""
+
 WARN_AT = 0.8
 """Of a cap. The guard refuses at 1.0; this is the warning before the wall."""
 
@@ -303,17 +315,10 @@ class Governance:
         ).all()
         done.checked["agents"] = len(agents)
         for agent in agents:
-            recent = (
-                await session.scalars(
-                    select(AgentRun.state)
-                    .where(AgentRun.agent_id == agent.id)
-                    .order_by(AgentRun.created_at.desc())
-                    .limit(FAILURES_BEFORE_PAUSE)
-                )
-            ).all()
-            if len(recent) < FAILURES_BEFORE_PAUSE:
+            judged = await self._runs_that_judge(session, agent)
+            if len(judged) < FAILURES_BEFORE_PAUSE:
                 continue
-            if any(state != AgentRunState.FAILED.value for state in recent):
+            if any(state != AgentRunState.FAILED.value for state in judged):
                 continue
             result = await self.commands.submit(
                 session,
@@ -328,6 +333,29 @@ class Governance:
             )
             if result.done:
                 done.paused_agents.append(agent.id)
+
+    async def _runs_that_judge(self, session: AsyncSession, agent: Agent) -> list[str]:
+        """The agent's most recent runs, with the ones that judge nothing left out.
+
+        Reads a few more than it needs and drops the outages, so a streak of the agent's own
+        failures is still found underneath them (D-020).
+        """
+        rows = (
+            await session.execute(
+                select(AgentRun.state, AgentRun.error)
+                .where(AgentRun.agent_id == agent.id)
+                .order_by(AgentRun.created_at.desc())
+                .limit(FAILURES_BEFORE_PAUSE * 4)
+            )
+        ).all()
+        judged = []
+        for state, error in rows:
+            if state == AgentRunState.FAILED.value and _is_infrastructure(error):
+                continue
+            judged.append(state)
+            if len(judged) == FAILURES_BEFORE_PAUSE:
+                break
+        return judged
 
     # --- 3. spending near a cap ------------------------------------------------------------------
 
@@ -393,6 +421,12 @@ class Governance:
             project_id=budget.project_id,
             since=since,
         )
+
+
+def _is_infrastructure(error: dict[str, Any] | None) -> bool:
+    """Did this run fail for a reason that is not the agent's? (D-020)"""
+    name = str((error or {}).get("error_class") or "")
+    return any(name.startswith(prefix) for prefix in NOT_THE_AGENT_S_FAULT)
 
 
 def _number(value: Any) -> float | None:
