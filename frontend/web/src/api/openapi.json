@@ -1128,15 +1128,11 @@
       "pattern": "^[a-z0-9][a-z0-9-]{1,62}$",
       "title": "Slug",
       "type": "string"
-     },
-     "type": {
-      "$ref": "#/components/schemas/CompanyType"
      }
     },
     "required": [
      "slug",
-     "name",
-     "type"
+     "name"
     ],
     "title": "CompanyCreate",
     "type": "object"
@@ -1180,17 +1176,12 @@
      "status": {
       "title": "Status",
       "type": "string"
-     },
-     "type": {
-      "title": "Type",
-      "type": "string"
      }
     },
     "required": [
      "id",
      "slug",
      "name",
-     "type",
      "mission",
      "status",
      "created_at"
@@ -1295,17 +1286,6 @@
     ],
     "title": "CompanySnapshot",
     "type": "object"
-   },
-   "CompanyType": {
-    "enum": [
-     "newsroom",
-     "saas",
-     "research",
-     "ecommerce",
-     "software_studio"
-    ],
-    "title": "CompanyType",
-    "type": "string"
    },
    "CycleDetail": {
     "properties": {

@@ -9,7 +9,7 @@ from autora.runtime.activity import initialize_activity, set_activity
 from autora.runtime.actor import Actor
 from autora.runtime.events import catalog as ev
 
-NEWSROOM = {"slug": "ai-bilingual-newsroom", "name": "AI Bilingual Newsroom", "type": "newsroom"}
+NEWSROOM = {"slug": "ai-bilingual-newsroom", "name": "AI Bilingual Newsroom"}
 
 
 async def _create(api, **overrides):
@@ -34,11 +34,11 @@ async def test_admin_endpoints_require_bearer_token(api, header):
 
 
 async def test_validation_errors_are_problem_json(api):
-    response = await _create(api, type="bank", slug="Bad Slug")
+    response = await _create(api, slug="Bad Slug", name="")
     assert response.status_code == 422
     body = response.json()
     assert body["title"] == "Unprocessable Entity"
-    assert {tuple(e["loc"]) for e in body["errors"]} >= {("body", "type"), ("body", "slug")}
+    assert {tuple(e["loc"]) for e in body["errors"]} >= {("body", "name"), ("body", "slug")}
 
 
 # --- companies ---------------------------------------------------------------------------
@@ -65,7 +65,8 @@ async def test_create_company_emits_company_created(api):
     assert event["payload"] == {
         "slug": NEWSROOM["slug"],
         "name": NEWSROOM["name"],
-        "type": "newsroom",
+        # a company is a portfolio; which industry it is in belongs to its businesses (D-019)
+        "type": None,
     }
     assert event["actor"] == {"kind": "human", "id": "operator"}
     assert event["seq"] >= 1

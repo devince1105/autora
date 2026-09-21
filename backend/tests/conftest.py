@@ -131,7 +131,7 @@ async def unique_company(session: AsyncSession, prefix: str = "co"):
 
     from autora.db.models import Company
 
-    company = Company(slug=f"{prefix}-{uuid.uuid4().hex[:12]}", name=prefix, type="newsroom")
+    company = Company(slug=f"{prefix}-{uuid.uuid4().hex[:12]}", name=prefix)
     session.add(company)
     await session.flush()
     return company

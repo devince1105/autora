@@ -29,7 +29,7 @@ def _envelope(company_id, payload=None, **kw):
 
 
 async def _company(session: AsyncSession) -> Company:
-    company = Company(slug=f"evt-{uuid.uuid4().hex[:12]}", name="Events Co", type="newsroom")
+    company = Company(slug=f"evt-{uuid.uuid4().hex[:12]}", name="Events Co")
     session.add(company)
     await session.flush()
     return company

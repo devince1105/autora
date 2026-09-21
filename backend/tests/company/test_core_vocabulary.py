@@ -21,11 +21,12 @@ import pytest
 import autora
 
 ROOT = Path(autora.__file__).parent
-CLEAN = ("company", "realtime")
-"""Layers that must name nothing of any domain. The company layer is the one §9 is about."""
+CLEAN = ("company", "realtime", "runtime", "db", "infra")
+"""Every layer below the domains. All of them name nothing of any domain.
 
-BELOW = ("runtime", "db", "infra")
-"""Layers that still have leaks, listed one by one below. The list may shrink, never grow."""
+They did not always: this started as a list of seven known leaks with a ratchet around it, and
+the list reached zero on 2026-09-21 (the approval kind, the newsroom's clustering threshold,
+the fetcher's user agent, and companies.type — D-018, D-019). What is left is the rule."""
 
 VOCABULARY = (
     "article",
@@ -43,19 +44,6 @@ VOCABULARY = (
 )
 """Words whose meaning is a newsroom's. A company that moved into SaaS would have to redefine
 every one of them, which is the test §3 gives for what belongs in a domain."""
-
-KNOWN_LEAKS = {
-    # The company type taxonomy names the industries a company can be in. Arguably data rather
-    # than vocabulary, but it does mean the core ships a list of businesses it knows about.
-    "db/models/company.py: 'NEWSROOM'",
-    "db/models/company.py: 'newsroom'",
-}
-"""What §9 found and this repository has not fixed yet (ARCHITECTURE_V2_1 §9, "耦合").
-
-Every entry is a place where a layer below the domains names one. They are listed instead of
-ignored so that the count can only go down: adding a new one fails this test, and fixing an
-old one fails it too, which is the moment to delete the line.
-"""
 
 MIGRATIONS = "migrations"
 """Left out entirely: one database has one history, and a domain's tables are created in it.
@@ -138,22 +126,11 @@ def _named(layer: str) -> set[str]:
 
 
 @pytest.mark.parametrize("layer", CLEAN)
-def test_the_company_layer_does_not_know_what_business_it_is_in(layer):
+def test_no_layer_below_the_domains_knows_what_business_it_is_in(layer):
     assert _named(layer) == set(), (
         "the core named a domain's things:\n  "
         + "\n  ".join(sorted(_named(layer))[:10])
         + "\n\nCore stores the number; the domain defines what it counts (ARCHITECTURE_V2_1 §9)."
-    )
-
-
-def test_what_the_layers_below_still_name_is_the_list_we_know_about():
-    """A ratchet, not a pass: this fails when a leak is added *and* when one is fixed."""
-    found = set().union(*(_named(layer) for layer in BELOW))
-    new = found - KNOWN_LEAKS
-    fixed = KNOWN_LEAKS - found
-    assert not new, "a new domain word below the company layer:\n  " + "\n  ".join(sorted(new))
-    assert not fixed, "these are fixed — delete them from KNOWN_LEAKS:\n  " + "\n  ".join(
-        sorted(fixed)
     )
 
 

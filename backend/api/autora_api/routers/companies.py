@@ -15,7 +15,7 @@ from autora.company.agents import resume_agent as agent_resume
 from autora.company.agents import retire_agent as agent_retire
 from autora.company.companies import CompanyAlreadyExists, create_company
 from autora.company.organization import org_chart
-from autora.db.models import Agent, Company, CompanyType, Department
+from autora.db.models import Agent, Company, Department
 from autora.db.repositories import agents as agent_repo
 from autora.db.repositories import companies as company_repo
 from autora.runtime.activity import effective_state, get_activity
@@ -27,7 +27,6 @@ router = APIRouter(prefix="/api/companies", tags=["companies"])
 class CompanyCreate(BaseModel):
     slug: str = Field(pattern=r"^[a-z0-9][a-z0-9-]{1,62}$")
     name: str = Field(min_length=1, max_length=200)
-    type: CompanyType
     mission: str | None = None
 
 
@@ -35,7 +34,6 @@ class CompanyOut(BaseModel):
     id: uuid.UUID
     slug: str
     name: str
-    type: str
     mission: str | None
     status: str
     created_at: datetime
@@ -96,7 +94,6 @@ async def post_company(body: CompanyCreate, session: Session, operator: Operator
             session,
             slug=body.slug,
             name=body.name,
-            type=body.type,
             mission=body.mission,
             actor=operator,
         )

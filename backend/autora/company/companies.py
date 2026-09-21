@@ -11,7 +11,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from autora.company.cycle import ensure_cycle_schedule
 from autora.company.events import CompanyCreated
-from autora.db.models import Company, CompanyType
+from autora.db.models import Company
 from autora.db.repositories import companies
 from autora.runtime.actor import Actor
 from autora.runtime.events.outbox import emit
@@ -29,7 +29,6 @@ async def create_company(
     *,
     slug: str,
     name: str,
-    type: CompanyType,
     mission: str | None,
     actor: Actor,
     timezone: str = "UTC",
@@ -43,14 +42,12 @@ async def create_company(
     """
     if await companies.get_company_by_slug(session, slug) is not None:
         raise CompanyAlreadyExists(slug)
-    company = await companies.add_company(
-        session, Company(slug=slug, name=name, type=type.value, mission=mission)
-    )
+    company = await companies.add_company(session, Company(slug=slug, name=name, mission=mission))
     await ensure_cycle_schedule(session, company.id, timezone=timezone)
     envelope = await emit(
         session,
         new_event(
-            CompanyCreated(slug=slug, name=name, type=type.value),
+            CompanyCreated(slug=slug, name=name),
             company_id=company.id,
             actor=actor,
             aggregate_type="company",

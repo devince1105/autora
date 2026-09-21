@@ -22,9 +22,7 @@ HUMAN = {"kind": "human", "id": "operator"}
 
 
 async def _company(session, slug="ai-newsroom") -> Company:
-    return await companies.add_company(
-        session, Company(slug=slug, name="AI Bilingual Newsroom", type="newsroom")
-    )
+    return await companies.add_company(session, Company(slug=slug, name="AI Bilingual Newsroom"))
 
 
 async def _expect_integrity_error(session, coro, constraint: str):
@@ -52,12 +50,11 @@ async def test_company_defaults_and_lookup(db_session):
     ("field", "value", "constraint"),
     [
         ("slug", "Bad Slug", "ck_companies_slug_format"),
-        ("type", "bank", "ck_companies_type_valid"),
         ("status", "deleted", "ck_companies_status_valid"),
     ],
 )
 async def test_company_checks(db_session, field, value, constraint):
-    data = {"slug": "ok-slug", "name": "x", "type": "newsroom", field: value}
+    data = {"slug": "ok-slug", "name": "x", field: value}
     await _expect_integrity_error(
         db_session, companies.add_company(db_session, Company(**data)), constraint
     )

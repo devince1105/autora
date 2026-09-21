@@ -127,7 +127,7 @@ PROJECT_TEST_FSM = StateMachine(
 
 
 async def _project(session, **kw) -> Project:
-    company = Company(slug="fsm-co", name="FSM Co", type="newsroom")
+    company = Company(slug="fsm-co", name="FSM Co")
     session.add(company)
     await session.flush()
     project = Project(company_id=company.id, name="p", state="PROPOSED", **kw)

@@ -1000,7 +1000,6 @@ export interface components {
             name: string;
             /** Slug */
             slug: string;
-            type: components["schemas"]["CompanyType"];
         };
         /** CompanyOut */
         CompanyOut: {
@@ -1027,8 +1026,6 @@ export interface components {
             slug: string;
             /** Status */
             status: string;
-            /** Type */
-            type: string;
         };
         /**
          * CompanySnapshot
@@ -1082,11 +1079,6 @@ export interface components {
              */
             trimmed: string[];
         };
-        /**
-         * CompanyType
-         * @enum {string}
-         */
-        CompanyType: "newsroom" | "saas" | "research" | "ecommerce" | "software_studio";
         /** CycleDetail */
         CycleDetail: {
             /** Cost Usd */

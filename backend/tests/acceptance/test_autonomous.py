@@ -30,7 +30,6 @@ from autora.db.models import (
     BusinessUnit,
     CommandRecord,
     Company,
-    CompanyType,
     Cycle,
     CycleStage,
     EventRecord,
@@ -107,7 +106,7 @@ async def test_a_new_company_is_born_with_a_daily_cycle(committed):
     slug = f"cold-{uuid.uuid4().hex[:8]}"
     async with committed() as session:
         company, _ = await create_company(
-            session, slug=slug, name="Cold Start", type=CompanyType.NEWSROOM,
+            session, slug=slug, name="Cold Start",
             mission=None, actor=OPERATOR,
         )  # fmt: skip
         await session.commit()
@@ -135,7 +134,7 @@ async def test_the_schedule_opens_the_first_cycle_with_nobody_watching(committed
 
     async with committed() as session:
         company, _ = await create_company(
-            session, slug=slug, name="Cold Start", type=CompanyType.NEWSROOM,
+            session, slug=slug, name="Cold Start",
             mission=None, actor=OPERATOR,
         )  # fmt: skip
         await session.commit()
@@ -302,7 +301,7 @@ async def test_a_company_with_no_domain_runs_the_same_days(committed, e2e_settin
 
     async with committed() as session:
         company, _ = await create_company(
-            session, slug=slug, name="A Company", type=CompanyType.NEWSROOM,
+            session, slug=slug, name="A Company",
             mission="do something", actor=OPERATOR,
         )  # fmt: skip
         _, ceo_role = await bootstrap_executive(session, company.id, actor=OPERATOR)
@@ -375,7 +374,7 @@ async def test_the_company_decides_about_an_opportunity_by_itself(committed, e2e
 
     async with committed() as session:
         company, _ = await create_company(
-            session, slug=slug, name="A Curious Company", type=CompanyType.NEWSROOM,
+            session, slug=slug, name="A Curious Company",
             mission="find something worth doing", actor=OPERATOR,
         )  # fmt: skip
         _, ceo_role = await bootstrap_executive(session, company.id, actor=OPERATOR)
@@ -462,7 +461,7 @@ async def test_an_opportunity_becomes_a_proposal_a_person_can_decide(committed, 
 
     async with committed() as session:
         company, _ = await create_company(
-            session, slug=slug, name="A Company With An Idea", type=CompanyType.NEWSROOM,
+            session, slug=slug, name="A Company With An Idea",
             mission="find something worth doing", actor=OPERATOR,
         )  # fmt: skip
         department, ceo_role = await bootstrap_executive(session, company.id, actor=OPERATOR)

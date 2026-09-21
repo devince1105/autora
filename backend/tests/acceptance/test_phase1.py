@@ -23,7 +23,7 @@ from autora.runtime.events.outbox import load_events
 
 
 async def test_agent_walks_all_eight_states(db_session):
-    company = Company(slug=f"phase1-{uuid.uuid4().hex[:8]}", name="AI Newsroom", type="newsroom")
+    company = Company(slug=f"phase1-{uuid.uuid4().hex[:8]}", name="AI Newsroom")
     db_session.add(company)
     await db_session.flush()
     agent = Agent(company_id=company.id, role="researcher", display_name="Researcher")

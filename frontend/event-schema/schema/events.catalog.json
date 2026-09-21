@@ -2062,14 +2062,21 @@
               "type": "string"
             },
             "type": {
-              "title": "Type",
-              "type": "string"
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Type"
             }
           },
           "required": [
             "slug",
-            "name",
-            "type"
+            "name"
           ],
           "title": "CompanyCreated",
           "type": "object"

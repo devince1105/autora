@@ -22,7 +22,7 @@ from autora.db.models import (
 
 @pytest.fixture
 async def world(db_session):
-    company = Company(slug=f"t201-{uuid.uuid4().hex[:8]}", name="Newsroom", type="newsroom")
+    company = Company(slug=f"t201-{uuid.uuid4().hex[:8]}", name="Newsroom")
     db_session.add(company)
     await db_session.flush()
     project = Project(company_id=company.id, name="Daily AI news")

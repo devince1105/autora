@@ -590,7 +590,7 @@ export const ClaimVerifiedV1Event = z.object({
 export const CompanyCreatedV1Payload = z.object({
   slug: z.string(),
   name: z.string(),
-  type: z.string(),
+  type: z.string().nullable().default(null),
 });
 export type CompanyCreatedV1Payload = z.infer<typeof CompanyCreatedV1Payload>;
 export const CompanyCreatedV1Event = z.object({

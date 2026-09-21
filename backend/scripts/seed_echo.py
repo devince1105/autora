@@ -22,7 +22,7 @@ from sqlalchemy import select
 
 from autora.app import build_runtime
 from autora.company.companies import create_company
-from autora.db.models import CompanyType, Project, ProjectState
+from autora.db.models import Project, ProjectState
 from autora.db.repositories.companies import get_company_by_slug, get_policies, upsert_policy
 from autora.db.session import dispose_engine, get_sessionmaker
 from autora.domains import echo
@@ -45,7 +45,6 @@ async def seed(approval: str | None = None) -> dict[str, object]:
                 session,
                 slug=SLUG,
                 name="Echo Demo",
-                type=CompanyType.NEWSROOM,
                 mission="Pass a note down three desks.",
                 actor=ACTOR,
             )

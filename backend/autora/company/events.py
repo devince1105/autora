@@ -25,7 +25,10 @@ CycleStage = Literal["PLANNING", "EXECUTING", "MEASURING", "REVIEWING", "DONE"]
 class CompanyCreated(EventPayload):
     slug: str
     name: str
-    type: str
+    type: str | None = None
+    """No longer written (D-019): a company is a portfolio, and the industry belongs to its
+    business units. Kept and declared optional rather than deleted, because events already
+    recorded carry it and a reader must be able to tell "absent" from "wrong"."""
 
 
 @event("GOAL_CREATED")

@@ -22,14 +22,6 @@ from autora.db.base import (
 )
 
 
-class CompanyType(StrEnum):
-    NEWSROOM = "newsroom"
-    SAAS = "saas"
-    RESEARCH = "research"
-    ECOMMERCE = "ecommerce"
-    SOFTWARE_STUDIO = "software_studio"
-
-
 class CompanyStatus(StrEnum):
     ACTIVE = "active"
     PAUSED = "paused"
@@ -54,14 +46,14 @@ class Company(IdMixin, TimestampMixin, Base):
     __table_args__ = (
         UniqueConstraint("slug"),
         check_regex("slug", "^[a-z0-9][a-z0-9-]{1,62}$"),
-        check_in("type", CompanyType),
         check_in("status", CompanyStatus),
     )
 
     slug: Mapped[str]
     name: Mapped[str]
-    type: Mapped[str]
     mission: Mapped[str | None]
+    """What it is for, in its own words. What business it is *in* belongs to its business
+    units, not here: a company that runs two of them is in two industries (D-019)."""
     strategy_doc: Mapped[dict[str, Any]] = mapped_column(server_default=text("'{}'::jsonb"))
     status: Mapped[str] = mapped_column(server_default=CompanyStatus.ACTIVE.value)
 

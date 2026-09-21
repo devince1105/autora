@@ -23,7 +23,7 @@ RUNTIME = Actor.system("agent_runner")
 
 
 async def _agent(session, role="researcher") -> Agent:
-    company = Company(slug=f"act-{uuid.uuid4().hex[:12]}", name="Activity Co", type="newsroom")
+    company = Company(slug=f"act-{uuid.uuid4().hex[:12]}", name="Activity Co")
     session.add(company)
     await session.flush()
     agent = Agent(company_id=company.id, role=role, display_name=role.title())
@@ -168,7 +168,7 @@ async def test_rejected_changes_write_nothing(db_session, setup, payload, messag
 
 
 async def test_uninitialized_agent_rejected(db_session):
-    company = Company(slug=f"act-{uuid.uuid4().hex[:12]}", name="x", type="newsroom")
+    company = Company(slug=f"act-{uuid.uuid4().hex[:12]}", name="x")
     db_session.add(company)
     await db_session.flush()
     agent = Agent(company_id=company.id, role="writer", display_name="Writer")

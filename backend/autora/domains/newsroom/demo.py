@@ -29,7 +29,6 @@ from autora.company.organization import bootstrap_executive, business_unit_by_ke
 from autora.db.models import (
     Agent,
     Company,
-    CompanyType,
     Project,
     ProjectState,
     WorkflowRun,
@@ -80,7 +79,6 @@ async def seed_demo(
             session,
             slug=slug,
             name=name,
-            type=CompanyType.NEWSROOM,
             mission="用有來源、查核過的中英雙語報導，讓流明市民知道城市裡發生了什麼。",
             actor=actor,
         )
