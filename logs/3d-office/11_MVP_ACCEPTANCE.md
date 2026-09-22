@@ -34,7 +34,7 @@ Phase 6（自主 Cycle）的 AC-11~14 列於末尾，作為「完整 MVP」的�
 | **AC-S4** 崩潰恢復 | Writer 執行中 `kill -9` worker | 重啟後 lease 回收、新 attempt 完成、只有一組 draft、3D 中 Writer 從 Failed/Working 正確恢復 |
 | **AC-S5** 邊界 | `lint-imports`、ESLint | `office3d/**` 無 fetch/WS import；`runtime` 不 import `domains`；刪除 `domains/newsroom` 後 runtime/company/realtime 測試全綠 |
 | **AC-S6** 無假資料 | 靜態掃描 + review | 前端無 `setTimeout` 驅動的狀態變更；無硬編碼 agent 列表；simulation 的 trace 中每筆 TOOL_CALLED 都對應真實 tool 執行 |
-| **AC-S7** 效能 | 2 小時 soak（simulation 每 5 分鐘一輪） | FPS ≥ 30（桌機）；heap 增長 < 50MB；WS 事件處理延遲 p95 < 100ms |
+| **AC-S7** 效能 | 2 小時 soak（simulation 每 5 分鐘一輪，每分鐘進出一個部門） | FPS ≥ 30（桌機）；heap 增長 < 50MB；WS 事件處理延遲 p95 < 100ms。**2026-09-22 在 T-600 之後的場景（部門分區、事業色帶、房間隔離）重量：通過**——25 輪、走路 50 趟、進出房間 60 次（六個房間都去過）；回收後 heap 15.6 → 18.3 MB（**+2.7**）；FPS 最低 58、第 10 百分位與中位數 60；WS p95 **0.7 毫秒**（1051 則）；DOM 節點與監聽數四等分平均持平（節點 610→595、監聽 3207→3144）；無頁面錯誤。完整取樣：`logs/perf/2026-09-22-office-soak-120min.json` |
 | **AC-S8** 成本歸屬 | 真模型跑一輪 | 每篇文章可查總成本 = Σ model_calls(run ∈ workflow)；Dashboard Expenses 含此值 |
 
 ## Phase 6（完整 MVP）

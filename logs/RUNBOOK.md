@@ -500,6 +500,8 @@ make soak
 ```
 
 - 預設 120 分鐘；`SOAK_MINUTES=40 make soak` 改長度，環境變數 `SOAK_ROUND_MINUTES`（每幾分鐘一輪，預設 5）、`SOAK_SAMPLE_SECONDS`（取樣間隔，預設 60）。
+- **盯的是有組織圖的公司**（示範新聞室），而且每一次取樣都會進或出一個部門——房間隔離會整批掛載／卸載頭頂標籤，那是最可能漏的地方，所以讓它真的發生。
+- 讀結果時看**四等分平均**，不要看第一筆對最後一筆：節點數與監聽數相鄰兩筆就能差三分之一，端點之差講不出趨勢（2026-09-22 的教訓，見 `devlog/06_PHASE_6.md`〈尾-1〉）。
 - 通過條件：沒有頁面錯誤、回收後 heap 的成長 < 50 MB、FPS 第 10 百分位 ≥ 30、**處理一則 socket 訊息的 p95 < 100 毫秒**（AC-S7；同一個數字在 `make e2e` 的即時測試裡也會檢查一次）。每筆取樣寫在 `frontend/web/test-results/` 下的 `office-soak.json`；要留存就複製到 `logs/perf/`。
 - 不在 `make e2e` 與 CI 內（沒有設定 `SOAK_MINUTES` 時跳過）。
 

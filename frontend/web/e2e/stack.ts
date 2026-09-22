@@ -111,6 +111,10 @@ export class Stack {
     return this.seeded.newsroom_company_id;
   }
 
+  get newsroomProjectId(): string {
+    return this.seeded.newsroom_project_id;
+  }
+
   static async start(): Promise<Stack> {
     if (await reachable(`${API_URL}/health`)) throw new Error(`port ${API_PORT} is already in use`);
     const out = execFileSync(PYTHON, [join(REPO, "backend/scripts/e2e_prepare.py")], { encoding: "utf8" });

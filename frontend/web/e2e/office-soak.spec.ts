@@ -2,6 +2,14 @@
 // every few minutes — memory must not keep growing (heap after GC, end vs start < 50 MB) and it
 // must keep drawing at >= 30 FPS. Real browser (local Chrome, real GPU), real stack.
 //
+// **It watches the company that has an org chart** (the demo newsroom), because that is the
+// office T-600 built: departments as zones, business colour bands, and rooms you can step into.
+// Measuring the three-desk echo company would measure a scene nobody looks at any more.
+//
+// **It steps in and out of a department every sample.** Entering a room unmounts the head tags of
+// everyone else and mounts them again on the way out — hundreds of times over two hours. That is
+// exactly the shape of thing that leaks, so the soak does it rather than assuming it is free.
+//
 //   SOAK_MINUTES=120 pnpm -F web e2e office-soak     (or: make soak)
 //   SOAK_ROUND_MINUTES=5 (default)  SOAK_SAMPLE_SECONDS=60 (default)
 //
@@ -34,6 +42,10 @@ interface Sample {
   triangles: number;
   walks: number;
   rounds: number;
+  /** The department the office is standing in when this sample was taken, if any. */
+  room: string | null;
+  /** Head tags drawn right now: fewer inside a room, everyone outside it. */
+  tags: number;
   /** AC-S7: milliseconds to turn one socket message into state, over the last samples. */
   wsP95: number;
   wsMessages: number;
@@ -69,6 +81,20 @@ async function office(page: Page) {
   }));
 }
 
+type Counted = "nodes" | "listeners";
+const least = (rows: Sample[], key: Counted) => Math.min(...rows.map((r) => r[key]));
+const most = (rows: Sample[], key: Counted) => Math.max(...rows.map((r) => r[key]));
+
+/** The mean of each quarter of the soak: four numbers that show a drift, or the lack of one. */
+function quarterMeans(rows: Sample[], key: Counted): number[] {
+  const size = Math.floor(rows.length / 4);
+  if (!size) return [];
+  return [0, 1, 2, 3].map((q) => {
+    const slice = rows.slice(q * size, (q + 1) * size);
+    return Math.round(slice.reduce((total, r) => total + r[key], 0) / slice.length);
+  });
+}
+
 const percentile = (values: number[], p: number) => {
   const sorted = [...values].sort((a, b) => a - b);
   return sorted[Math.min(sorted.length - 1, Math.floor((p / 100) * sorted.length))];
@@ -80,19 +106,41 @@ test("the office stays lean and smooth for hours (Phase 4 AC)", async ({ page, r
   await page.addInitScript((token) => window.localStorage.setItem("autora.operatorToken", token), TOKEN);
   const errors: string[] = [];
   page.on("pageerror", (e) => errors.push(e.message));
-  await page.goto(`/office?company=${stack.companyId}`);
+  await page.goto(`/office?company=${stack.newsroomCompanyId}`);
   await expect(page.locator('[data-office-mode="3d"] canvas')).toHaveCount(1, { timeout: 60_000 });
   const cdp = await page.context().newCDPSession(page);
   await cdp.send("Performance.enable");
 
+  // the rooms come from the org chart, so ask the strip which ones this company has
+  const strip = page.getByRole("group", { name: "部門" });
+  await expect(strip).toBeVisible({ timeout: 60_000 });
+  const rooms = await strip.getByRole("button").evaluateAll((buttons) =>
+    buttons
+      .map((b) => b.getAttribute("data-testid") ?? "")
+      .filter((id) => id.startsWith("department-") && id !== "department-all"),
+  );
+  expect(rooms.length).toBeGreaterThan(1);
+
   let rounds = 0;
   const startRound = async () => {
-    const res = await request.post(`${API_URL}/api/companies/${stack.companyId}/workflows`, {
+    const res = await request.post(`${API_URL}/api/companies/${stack.newsroomCompanyId}/workflows`, {
       headers: { Authorization: `Bearer ${TOKEN}` },
-      data: { template: "echo.chain_v1", project_id: stack.projectId, params: { topic: `soak ${rounds + 1}` } },
+      data: {
+        template: "echo.chain_v1",
+        project_id: stack.newsroomProjectId,
+        params: { topic: `soak ${rounds + 1}` },
+      },
     });
     expect(res.status()).toBe(201);
     rounds++;
+  };
+
+  /** Step into the next room, then out again on the sample after that. */
+  let room: string | null = null;
+  const walkTheFloor = async (sampleNo: number) => {
+    const next = sampleNo % 2 === 1 ? rooms[(sampleNo >> 1) % rooms.length] : "department-all";
+    await page.getByTestId(next).click();
+    room = next === "department-all" ? null : next.replace("department-", "");
   };
 
   await startRound();
@@ -110,8 +158,10 @@ test("the office stays lean and smooth for hours (Phase 4 AC)", async ({ page, r
       await startRound();
       nextRound += ROUND_MS;
     }
+    await walkTheFloor(sampleNo);
     const m = await metrics(cdp);
     const { stats, walks, ws } = await office(page);
+    const tags = await page.getByTestId(/^head-tag-/).count();
     // every tenth sample also after a GC: the trend without garbage noise
     const gcHeapMB = sampleNo % 10 === 0 ? await heapAfterGc(cdp) : null;
     const sample: Sample = {
@@ -125,6 +175,8 @@ test("the office stays lean and smooth for hours (Phase 4 AC)", async ({ page, r
       triangles: stats?.triangles ?? 0,
       walks,
       rounds,
+      room,
+      tags,
       wsP95: ws?.p95 ?? 0,
       wsMessages: ws?.count ?? 0,
     };
@@ -132,10 +184,14 @@ test("the office stays lean and smooth for hours (Phase 4 AC)", async ({ page, r
     console.log(`[soak] ${JSON.stringify(sample)}`);
   }
 
+  // back to the whole floor, so the end is measured in the same state as the start
+  await page.getByTestId("department-all").click();
+  room = null;
   // let the last round finish, then measure the heap the same way as at the start
   await page.waitForTimeout(90_000);
   const final = await heapAfterGc(cdp);
   const fps = samples.map((s) => s.fps);
+  const floor = samples.filter((s) => s.room === null);
   const wsFinal = (await office(page)).ws;
   const summary = {
     minutes: MINUTES,
@@ -144,8 +200,23 @@ test("the office stays lean and smooth for hours (Phase 4 AC)", async ({ page, r
     heap: { baselineMB: +baseline.toFixed(1), finalMB: +final.toFixed(1), growthMB: +(final - baseline).toFixed(1), limitMB: HEAP_LIMIT_MB },
     fps: { min: Math.min(...fps), p10: percentile(fps, 10), median: percentile(fps, 50), floor: FPS_FLOOR },
     ws: { p95: wsFinal?.p95 ?? 0, p50: wsFinal?.p50 ?? 0, max: wsFinal?.max ?? 0, messages: wsFinal?.count ?? 0, events: wsFinal?.events ?? 0, limitMs: WS_P95_MS },
-    nodes: { first: samples[0]?.nodes, last: samples.at(-1)?.nodes },
-    listeners: { first: samples[0]?.listeners, last: samples.at(-1)?.listeners },
+    rooms: {
+      entered: samples.filter((s) => s.room !== null).length,
+      visited: [...new Set(samples.map((s) => s.room).filter(Boolean))],
+      tagsInside: Math.max(...samples.filter((s) => s.room !== null).map((s) => s.tags), 0),
+      tagsOutside: Math.max(...samples.filter((s) => s.room === null).map((s) => s.tags), 0),
+    },
+    // DOM nodes and listeners rise inside a room and fall again outside it, so read the samples
+    // taken in the same state — the whole floor. And read the *trend*, not the first and last
+    // sample: both numbers swing by a third between consecutive samples (head tags and panels
+    // mount and unmount), so first-vs-last says whichever story the two endpoints happened to
+    // land on. Quarter means show whether it is drifting up; the band shows how noisy it is.
+    nodes: { quarters: quarterMeans(floor, "nodes"), min: least(floor, "nodes"), max: most(floor, "nodes") },
+    listeners: {
+      quarters: quarterMeans(floor, "listeners"),
+      min: least(floor, "listeners"),
+      max: most(floor, "listeners"),
+    },
     pageErrors: errors,
   };
   console.log(`[soak] summary ${JSON.stringify(summary)}`);
@@ -153,6 +224,9 @@ test("the office stays lean and smooth for hours (Phase 4 AC)", async ({ page, r
 
   expect(errors).toEqual([]);
   expect(rounds).toBeGreaterThanOrEqual(Math.floor(MINUTES / (ROUND_MS / 60_000)));
+  // the rooms were really stepped into: fewer people drawn inside one than on the whole floor
+  expect(summary.rooms.entered).toBeGreaterThan(0);
+  expect(summary.rooms.tagsInside).toBeLessThan(summary.rooms.tagsOutside);
   expect(final - baseline).toBeLessThan(HEAP_LIMIT_MB);
   expect(percentile(fps, 10)).toBeGreaterThanOrEqual(FPS_FLOOR);
   // AC-S7: the events arrived and were handled quickly, for the whole soak
