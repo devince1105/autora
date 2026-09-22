@@ -629,6 +629,20 @@ export const CustomerChurnedV1Event = z.object({
   payload: CustomerChurnedV1Payload,
 });
 
+export const CustomerReturnedV1Payload = z.object({
+  external_ref: z.string(),
+  kind: z.string(),
+  business_unit_id: z.uuid().nullable().default(null),
+  days_away: z.number().int().nullable().default(null),
+});
+export type CustomerReturnedV1Payload = z.infer<typeof CustomerReturnedV1Payload>;
+export const CustomerReturnedV1Event = z.object({
+  ...envelopeFields,
+  event_type: z.literal("CUSTOMER_RETURNED"),
+  schema_version: z.literal(1),
+  payload: CustomerReturnedV1Payload,
+});
+
 export const CycleCompletedV1Payload = z.object({
   seq: z.number().int().min(1),
 });
@@ -801,6 +815,37 @@ export const KpiSnapshotCreatedV1Event = z.object({
   payload: KpiSnapshotCreatedV1Payload,
 });
 
+export const MembershipExpiredV1Payload = z.object({
+  customer_id: z.uuid(),
+  business_unit_id: z.uuid(),
+  product_id: z.uuid(),
+  expired_at: z.iso.datetime({ offset: true }),
+});
+export type MembershipExpiredV1Payload = z.infer<typeof MembershipExpiredV1Payload>;
+export const MembershipExpiredV1Event = z.object({
+  ...envelopeFields,
+  event_type: z.literal("MEMBERSHIP_EXPIRED"),
+  schema_version: z.literal(1),
+  payload: MembershipExpiredV1Payload,
+});
+
+export const MembershipGrantedV1Payload = z.object({
+  customer_id: z.uuid(),
+  business_unit_id: z.uuid(),
+  product_id: z.uuid(),
+  payment_id: z.uuid(),
+  grants_from: z.iso.datetime({ offset: true }),
+  grants_until: z.iso.datetime({ offset: true }),
+  extended: z.boolean().default(false),
+});
+export type MembershipGrantedV1Payload = z.infer<typeof MembershipGrantedV1Payload>;
+export const MembershipGrantedV1Event = z.object({
+  ...envelopeFields,
+  event_type: z.literal("MEMBERSHIP_GRANTED"),
+  schema_version: z.literal(1),
+  payload: MembershipGrantedV1Payload,
+});
+
 export const OpportunityAdvancedV1Payload = z.object({
   key: z.string(),
   from_state: z.string(),
@@ -888,7 +933,7 @@ export const PaymentReceivedV1Payload = z.object({
   transaction_id: z.uuid(),
   customer_id: z.uuid(),
   business_unit_id: z.uuid(),
-  subscription_id: z.uuid().nullable().default(null),
+  membership_id: z.uuid().nullable().default(null),
   provider: z.string(),
   amount: z.string().regex(new RegExp("^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$")),
   currency: z.string(),
@@ -1214,38 +1259,6 @@ export const StrategyUpdatedV1Event = z.object({
   payload: StrategyUpdatedV1Payload,
 });
 
-export const SubscriptionStartedV1Payload = z.object({
-  customer_id: z.uuid(),
-  business_unit_id: z.uuid(),
-  product_id: z.uuid(),
-  price_id: z.uuid(),
-  state: z.string(),
-  provider: z.string(),
-  external_ref: z.string(),
-});
-export type SubscriptionStartedV1Payload = z.infer<typeof SubscriptionStartedV1Payload>;
-export const SubscriptionStartedV1Event = z.object({
-  ...envelopeFields,
-  event_type: z.literal("SUBSCRIPTION_STARTED"),
-  schema_version: z.literal(1),
-  payload: SubscriptionStartedV1Payload,
-});
-
-export const SubscriptionStateChangedV1Payload = z.object({
-  customer_id: z.uuid(),
-  business_unit_id: z.uuid(),
-  from_state: z.string(),
-  to_state: z.string(),
-  reason: z.string().nullable().default(null),
-});
-export type SubscriptionStateChangedV1Payload = z.infer<typeof SubscriptionStateChangedV1Payload>;
-export const SubscriptionStateChangedV1Event = z.object({
-  ...envelopeFields,
-  event_type: z.literal("SUBSCRIPTION_STATE_CHANGED"),
-  schema_version: z.literal(1),
-  payload: SubscriptionStateChangedV1Payload,
-});
-
 export const TaskBlockedV1Payload = z.object({
   reason: z.literal("budget"),
 });
@@ -1511,6 +1524,7 @@ export const EventEnvelope = z.discriminatedUnion("event_type", [
   CompanyCreatedV1Event,
   CustomerAcquiredV1Event,
   CustomerChurnedV1Event,
+  CustomerReturnedV1Event,
   CycleCompletedV1Event,
   CyclePlanFallbackV1Event,
   CycleReviewedV1Event,
@@ -1524,6 +1538,8 @@ export const EventEnvelope = z.discriminatedUnion("event_type", [
   GoalCreatedV1Event,
   GoalUpdatedV1Event,
   KpiSnapshotCreatedV1Event,
+  MembershipExpiredV1Event,
+  MembershipGrantedV1Event,
   OpportunityAdvancedV1Event,
   OpportunityDiscoveredV1Event,
   OpportunityExpiredV1Event,
@@ -1555,8 +1571,6 @@ export const EventEnvelope = z.discriminatedUnion("event_type", [
   StoryDroppedV1Event,
   StorySelectedV1Event,
   StrategyUpdatedV1Event,
-  SubscriptionStartedV1Event,
-  SubscriptionStateChangedV1Event,
   TaskBlockedV1Event,
   TaskCancelledV1Event,
   TaskCreatedV1Event,
@@ -1620,6 +1634,7 @@ export const EVENT_TYPES = [
   "COMPANY_CREATED",
   "CUSTOMER_ACQUIRED",
   "CUSTOMER_CHURNED",
+  "CUSTOMER_RETURNED",
   "CYCLE_COMPLETED",
   "CYCLE_PLAN_FALLBACK",
   "CYCLE_REVIEWED",
@@ -1633,6 +1648,8 @@ export const EVENT_TYPES = [
   "GOAL_CREATED",
   "GOAL_UPDATED",
   "KPI_SNAPSHOT_CREATED",
+  "MEMBERSHIP_EXPIRED",
+  "MEMBERSHIP_GRANTED",
   "OPPORTUNITY_ADVANCED",
   "OPPORTUNITY_DISCOVERED",
   "OPPORTUNITY_EXPIRED",
@@ -1664,8 +1681,6 @@ export const EVENT_TYPES = [
   "STORY_DROPPED",
   "STORY_SELECTED",
   "STRATEGY_UPDATED",
-  "SUBSCRIPTION_STARTED",
-  "SUBSCRIPTION_STATE_CHANGED",
   "TASK_BLOCKED",
   "TASK_CANCELLED",
   "TASK_CREATED",

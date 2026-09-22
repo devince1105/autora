@@ -2195,6 +2195,56 @@
         }
       }
     },
+    "CUSTOMER_RETURNED": {
+      "1": {
+        "persistence": "persisted",
+        "payload": {
+          "additionalProperties": false,
+          "description": "Somebody who had left started paying again (D-024). Their row is reopened, not\nduplicated: what they paid before and after is one customer's.",
+          "properties": {
+            "external_ref": {
+              "title": "External Ref",
+              "type": "string"
+            },
+            "kind": {
+              "title": "Kind",
+              "type": "string"
+            },
+            "business_unit_id": {
+              "anyOf": [
+                {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Business Unit Id"
+            },
+            "days_away": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Days Away"
+            }
+          },
+          "required": [
+            "external_ref",
+            "kind"
+          ],
+          "title": "CustomerReturned",
+          "type": "object"
+        }
+      }
+    },
     "CYCLE_COMPLETED": {
       "1": {
         "persistence": "persisted",
@@ -2757,6 +2807,100 @@
         }
       }
     },
+    "MEMBERSHIP_EXPIRED": {
+      "1": {
+        "persistence": "persisted",
+        "payload": {
+          "additionalProperties": false,
+          "properties": {
+            "customer_id": {
+              "format": "uuid",
+              "title": "Customer Id",
+              "type": "string"
+            },
+            "business_unit_id": {
+              "format": "uuid",
+              "title": "Business Unit Id",
+              "type": "string"
+            },
+            "product_id": {
+              "format": "uuid",
+              "title": "Product Id",
+              "type": "string"
+            },
+            "expired_at": {
+              "format": "date-time",
+              "title": "Expired At",
+              "type": "string"
+            }
+          },
+          "required": [
+            "customer_id",
+            "business_unit_id",
+            "product_id",
+            "expired_at"
+          ],
+          "title": "MembershipExpired",
+          "type": "object"
+        }
+      }
+    },
+    "MEMBERSHIP_GRANTED": {
+      "1": {
+        "persistence": "persisted",
+        "payload": {
+          "additionalProperties": false,
+          "description": "A payment bought a stretch of access (D-024): a first purchase, a renewal that extends\nit, or a return after it lapsed. ``extended`` tells the first two apart.",
+          "properties": {
+            "customer_id": {
+              "format": "uuid",
+              "title": "Customer Id",
+              "type": "string"
+            },
+            "business_unit_id": {
+              "format": "uuid",
+              "title": "Business Unit Id",
+              "type": "string"
+            },
+            "product_id": {
+              "format": "uuid",
+              "title": "Product Id",
+              "type": "string"
+            },
+            "payment_id": {
+              "format": "uuid",
+              "title": "Payment Id",
+              "type": "string"
+            },
+            "grants_from": {
+              "format": "date-time",
+              "title": "Grants From",
+              "type": "string"
+            },
+            "grants_until": {
+              "format": "date-time",
+              "title": "Grants Until",
+              "type": "string"
+            },
+            "extended": {
+              "default": false,
+              "title": "Extended",
+              "type": "boolean"
+            }
+          },
+          "required": [
+            "customer_id",
+            "business_unit_id",
+            "product_id",
+            "payment_id",
+            "grants_from",
+            "grants_until"
+          ],
+          "title": "MembershipGranted",
+          "type": "object"
+        }
+      }
+    },
     "OPPORTUNITY_ADVANCED": {
       "1": {
         "persistence": "persisted",
@@ -3035,7 +3179,7 @@
               "title": "Business Unit Id",
               "type": "string"
             },
-            "subscription_id": {
+            "membership_id": {
               "anyOf": [
                 {
                   "format": "uuid",
@@ -3046,7 +3190,7 @@
                 }
               ],
               "default": null,
-              "title": "Subscription Id"
+              "title": "Membership Id"
             },
             "provider": {
               "title": "Provider",
@@ -3920,108 +4064,6 @@
             "summary"
           ],
           "title": "StrategyUpdated",
-          "type": "object"
-        }
-      }
-    },
-    "SUBSCRIPTION_STARTED": {
-      "1": {
-        "persistence": "persisted",
-        "payload": {
-          "additionalProperties": false,
-          "description": "A customer began paying a price (T-701). Provider references only, as for customers.",
-          "properties": {
-            "customer_id": {
-              "format": "uuid",
-              "title": "Customer Id",
-              "type": "string"
-            },
-            "business_unit_id": {
-              "format": "uuid",
-              "title": "Business Unit Id",
-              "type": "string"
-            },
-            "product_id": {
-              "format": "uuid",
-              "title": "Product Id",
-              "type": "string"
-            },
-            "price_id": {
-              "format": "uuid",
-              "title": "Price Id",
-              "type": "string"
-            },
-            "state": {
-              "title": "State",
-              "type": "string"
-            },
-            "provider": {
-              "title": "Provider",
-              "type": "string"
-            },
-            "external_ref": {
-              "title": "External Ref",
-              "type": "string"
-            }
-          },
-          "required": [
-            "customer_id",
-            "business_unit_id",
-            "product_id",
-            "price_id",
-            "state",
-            "provider",
-            "external_ref"
-          ],
-          "title": "SubscriptionStarted",
-          "type": "object"
-        }
-      }
-    },
-    "SUBSCRIPTION_STATE_CHANGED": {
-      "1": {
-        "persistence": "persisted",
-        "payload": {
-          "additionalProperties": false,
-          "properties": {
-            "customer_id": {
-              "format": "uuid",
-              "title": "Customer Id",
-              "type": "string"
-            },
-            "business_unit_id": {
-              "format": "uuid",
-              "title": "Business Unit Id",
-              "type": "string"
-            },
-            "from_state": {
-              "title": "From State",
-              "type": "string"
-            },
-            "to_state": {
-              "title": "To State",
-              "type": "string"
-            },
-            "reason": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "default": null,
-              "title": "Reason"
-            }
-          },
-          "required": [
-            "customer_id",
-            "business_unit_id",
-            "from_state",
-            "to_state"
-          ],
-          "title": "SubscriptionStateChanged",
           "type": "object"
         }
       }

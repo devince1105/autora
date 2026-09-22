@@ -267,6 +267,7 @@ class Runtime:
 def build_runtime(settings: Settings | None = None) -> Runtime:
     from autora.company import executive as company_executive
     from autora.company import exploration as company_exploration
+    from autora.company import memberships as company_memberships
     from autora.company import opportunities as company_opportunities
     from autora.company import summary as daily_summary
     from autora.company import verbs as company_verbs
@@ -299,7 +300,9 @@ def build_runtime(settings: Settings | None = None) -> Runtime:
     ledger = Ledger()
     reporting = Reporting()
     reporting.register(newsroom_kpis.NAME, newsroom_kpis.kpis)
-    # order matters: the ledger settles the cycle's costs, then reporting measures them
+    # order matters: lapsed memberships churn their customers, the ledger settles the cycle's
+    # costs, and only then does reporting measure — so it counts who is actually still paying
+    cycles.when_entering(CycleStage.MEASURING, company_memberships.stage_hook())
     cycles.when_entering(CycleStage.MEASURING, ledger.stage_hook())
     cycles.when_entering(CycleStage.MEASURING, reporting.stage_hook())
     snapshots = SnapshotBuilder(reporting, ledger)

@@ -388,26 +388,37 @@ class CustomerChurned(EventPayload):
     """How long they stayed. The number a business is judged by, kept where it is cheap."""
 
 
-@event("SUBSCRIPTION_STARTED")
-class SubscriptionStarted(EventPayload):
-    """A customer began paying a price (T-701). Provider references only, as for customers."""
+@event("CUSTOMER_RETURNED")
+class CustomerReturned(EventPayload):
+    """Somebody who had left started paying again (D-024). Their row is reopened, not
+    duplicated: what they paid before and after is one customer's."""
+
+    external_ref: str
+    kind: str
+    business_unit_id: uuid.UUID | None = None
+    days_away: int | None = None
+
+
+@event("MEMBERSHIP_GRANTED")
+class MembershipGranted(EventPayload):
+    """A payment bought a stretch of access (D-024): a first purchase, a renewal that extends
+    it, or a return after it lapsed. ``extended`` tells the first two apart."""
 
     customer_id: uuid.UUID
     business_unit_id: uuid.UUID
     product_id: uuid.UUID
-    price_id: uuid.UUID
-    state: str
-    provider: str
-    external_ref: str
+    payment_id: uuid.UUID
+    grants_from: datetime
+    grants_until: datetime
+    extended: bool = False
 
 
-@event("SUBSCRIPTION_STATE_CHANGED")
-class SubscriptionStateChanged(EventPayload):
+@event("MEMBERSHIP_EXPIRED")
+class MembershipExpired(EventPayload):
     customer_id: uuid.UUID
     business_unit_id: uuid.UUID
-    from_state: str
-    to_state: str
-    reason: str | None = None
+    product_id: uuid.UUID
+    expired_at: datetime
 
 
 @event("PAYMENT_RECEIVED")
@@ -419,7 +430,7 @@ class PaymentReceived(EventPayload):
     transaction_id: uuid.UUID
     customer_id: uuid.UUID
     business_unit_id: uuid.UUID
-    subscription_id: uuid.UUID | None = None
+    membership_id: uuid.UUID | None = None
     provider: str
     amount: Decimal
     currency: str

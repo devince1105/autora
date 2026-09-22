@@ -118,6 +118,43 @@ async def churn(
     return customer
 
 
+async def reactivate(
+    session: AsyncSession,
+    customer: Customer,
+    *,
+    actor: Actor,
+    returned_at: datetime | None = None,
+) -> Customer:
+    """They left and came back. The same row, reopened (D-024).
+
+    Known cost: ``churned_at`` is cleared, so ``paying(at=...)`` for a moment inside the gap
+    counts them as paying. The gap itself is still on record — in CUSTOMER_CHURNED and
+    CUSTOMER_RETURNED, and in the periods their payments bought — for the day a report needs it.
+    """
+    if customer.churned_at is None:
+        return customer
+    returned_at = returned_at or datetime.now(UTC)
+    away = returned_at - customer.churned_at
+    customer.churned_at = None
+    await session.flush()
+    await emit(
+        session,
+        new_event(
+            company_events.CustomerReturned(
+                external_ref=customer.external_ref,
+                kind=customer.kind,
+                business_unit_id=customer.business_unit_id,
+                days_away=max(0, away.days),
+            ),
+            company_id=customer.company_id,
+            actor=actor,
+            aggregate_type="customer",
+            aggregate_id=customer.id,
+        ),
+    )
+    return customer
+
+
 async def by_external_ref(
     session: AsyncSession, company_id: uuid.UUID, external_ref: str
 ) -> Customer | None:

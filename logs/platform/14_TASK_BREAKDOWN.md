@@ -35,7 +35,7 @@
 ## 2. Phase 7 — Revenue
 
 **T-701 · Business schema** — products, customers, leads, opportunities, subscriptions, orders, payments, campaigns, campaign_spend / Deps: T-103 / Validate: `pytest tests/db/test_business_models.py`
-  > 實作註記（2026-09-22，D-022）：營收模型定為訂閱，範圍收斂為 `prices`、`subscriptions`、`payments`（migration 0035、`company/subscriptions.py`）。`products`（T-600）、`customers`（T-612）、`opportunities`（T-611）已存在；`leads`、`orders`、`campaigns`、`campaign_spend` 刻意不做，理由見 D-022。另有 `tests/company/test_subscriptions.py`。
+  > 實作註記（2026-09-22，D-022 → D-024）：範圍收斂為 `prices`、`memberships`、`payments`（migration 0035 建立、0037 把 `subscriptions` 換成 `memberships`；`company/memberships.py`）。營收模型最後定為**一次付款買一年使用權**（統一金流），不是定期訂閱。`products`（T-600）、`customers`（T-612）、`opportunities`（T-611）已存在；`leads`、`orders`、`campaigns`、`campaign_spend` 刻意不做，理由見 D-022。另有 `tests/company/test_memberships.py`。
 **T-702 · Payment webhook (provider adapter, 冪等, → Ledger revenue)** / Deps: T-701, T-602 / AC: 重複 webhook 不重複入帳 / Validate: `pytest tests/business/test_webhook.py`
 **T-703 · Campaign cap + spend_ad_budget policy (LIMITED → HUMAN)** / Deps: T-205, T-701 / Validate: `pytest tests/business/test_campaign_policy.py`
   > 延後（D-022）：只用自有網站、沒有付費廣告，沒有要設上限的花費。要買廣告時連同 `campaigns` 表一起做。
