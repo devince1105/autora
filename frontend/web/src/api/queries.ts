@@ -24,6 +24,7 @@ export const queryKeys = {
   roles: () => ["roles"] as const,
   /** The company's days (T-608). */
   org: (companyId: string) => ["org", companyId] as const,
+  failedWorkflows: (companyId: string) => ["workflows", "failed", companyId] as const,
   cycles: (companyId: string) => ["cycles", companyId] as const,
   cycle: (cycleId: string) => ["cycle", cycleId] as const,
 };
@@ -224,6 +225,33 @@ export async function decideApproval(
     await api.POST("/api/approvals/{approval_id}/decide", {
       params: { path: { approval_id: approvalId } },
       body: { decision, reason },
+    }),
+  );
+}
+
+/** Runs that ended badly and could be started again (AC-9). */
+export function failedWorkflowsQuery(companyId: string, api: ApiClient = defaultApi) {
+  return queryOptions({
+    queryKey: queryKeys.failedWorkflows(companyId),
+    queryFn: async () =>
+      unwrap(
+        await api.GET("/api/companies/{company_id}/workflows/failed", {
+          params: { path: { company_id: companyId } },
+        }),
+      ),
+    refetchInterval: 30_000,
+  });
+}
+
+/** Start a failed run again. The company may still refuse: read the decision in the result. */
+export async function restartWorkflow(
+  companyId: string,
+  workflowRunId: string,
+  api: ApiClient = defaultApi,
+) {
+  return unwrap(
+    await api.POST("/api/companies/{company_id}/workflows/{workflow_run_id}/restart", {
+      params: { path: { company_id: companyId, workflow_run_id: workflowRunId } },
     }),
   );
 }

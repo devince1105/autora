@@ -140,3 +140,99 @@ async def test_agents_are_held_to_their_policy(db_session, setup, runtime):
         await db_session.scalar(select(WorkflowRun).where(WorkflowRun.company_id == company.id))
         is None
     )
+
+
+# --- starting a failed one again (AC-9) -------------------------------------------------------
+
+
+async def _failed_run(db_session, company, project, *, topic="EU AI Act"):
+    """A run that ended badly, the way one does: its first task failed for good."""
+    from autora.app import build_runtime
+    from autora.db.models import TaskState, WorkflowRunState
+
+    runtime = build_runtime()
+    run, tasks = await start_workflow(
+        db_session,
+        policy=runtime.policy,
+        workflows=runtime.workflows,
+        company_id=company.id,
+        project_id=project.id,
+        template=echo.TEMPLATE.name,
+        params={"topic": topic},
+        actor=Actor.human("setup"),
+    )
+    first = tasks["echo_research"]
+    first.state = TaskState.FAILED.value
+    first.output = {"error_class": "Boom", "message": "it broke"}
+    run.state = WorkflowRunState.FAILED.value
+    await db_session.flush()
+    return run
+
+
+async def test_the_inbox_lists_what_could_be_started_again(api, db_session, setup):
+    company, project, agents = setup
+    failed = await _failed_run(db_session, company, project)
+    await db_session.commit()
+
+    response = await api.get(URL.format(company.id) + "/failed")
+
+    assert response.status_code == 200, response.text
+    [row] = response.json()
+    assert row["id"] == str(failed.id)
+    assert row["template_name"] == "echo.chain_v1"
+    assert row["failed_tasks"] == ["Echo: gather (EU AI Act)"]
+    assert row["restarted"] is False
+    assert row["params"] == {"topic": "EU AI Act"}
+
+
+async def test_a_person_starts_it_again_through_the_pipeline(api, db_session, setup):
+    """Not a back door: the restart is a command, decided and recorded like any other."""
+    from autora.db.models import CommandRecord
+
+    company, project, agents = setup
+    failed = await _failed_run(db_session, company, project)
+    await db_session.commit()
+
+    response = await api.post(URL.format(company.id) + f"/{failed.id}/restart")
+
+    assert response.status_code == 200, response.text
+    body = response.json()
+    assert body["outcome"] == "done" and body["workflow_run_id"]
+    fresh = await db_session.get(WorkflowRun, uuid.UUID(body["workflow_run_id"]))
+    assert fresh.id != failed.id
+    assert fresh.template_name == failed.template_name and fresh.params == failed.params
+    # the old run keeps its history: what failed and why is the reason to keep it
+    assert (await db_session.get(WorkflowRun, failed.id)).state == "FAILED"
+    record = await db_session.scalar(
+        select(CommandRecord).where(
+            CommandRecord.company_id == company.id, CommandRecord.command == "RestartWorkflow"
+        )
+    )
+    assert record.actor == {"kind": "human", "id": "operator"}
+    assert record.outcome == "done"
+
+    # and the list now says somebody already did
+    again = await api.get(URL.format(company.id) + "/failed")
+    assert [row["restarted"] for row in again.json()] == [True]
+
+
+async def test_a_run_that_is_still_going_is_not_restarted(api, db_session, setup):
+    """Restarting a live run would leave two of the same work going at once."""
+    company, project, agents = setup
+    started = await api.post(URL.format(company.id), json=_body(project))
+    running = started.json()["id"]
+
+    response = await api.post(URL.format(company.id) + f"/{running}/restart")
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["outcome"] == "refused" and "still RUNNING" in body["reason"]
+    assert body["workflow_run_id"] is None
+
+
+async def test_restarting_something_that_is_not_this_company_s_is_refused(api, db_session, setup):
+    company, project, agents = setup
+    response = await api.post(URL.format(company.id) + f"/{uuid.uuid4()}/restart")
+    assert response.status_code == 200
+    body = response.json()
+    assert body["outcome"] == "refused" and "no workflow run" in body["reason"]

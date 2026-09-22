@@ -21,7 +21,7 @@ Phase 6（自主 Cycle）的 AC-11~14 列於末尾，作為「完整 MVP」的�
 | **AC-6** 看 Trace | 面板按 View Trace | 每一行對應 `events WHERE run_id` 的一筆（測試逐行比對 DB）；無前端合成行；包含 TOOL_CALLED/COMPLETED 與 AGENT_* |
 | **AC-7** 看 Article | 點 Writer → Draft 連結 | 顯示雙語 version；每段落標示 claim；每個 claim 可展開 evidence quote，quote 在 evidence.extracted_text 中可定位 |
 | **AC-8** 看 Event Timeline | 開 timeline | 事件依 seq 排序；暫停/篩選有效；長度上限 500 |
-| **AC-9** 失敗可見 | simulation 的 `demo.editor_fails`：編輯每次都回報自己沒做的決定，驗證器每次都擋下 | Editor 桌燈紅、badge Failed、面板顯示 error_class；task FAILED（用完重試）；下游 CANCELLED。**「人可從 Inbox 重新啟動 workflow」還沒做**，帶到階段 6 |
+| **AC-9** 失敗可見 | simulation 的 `demo.editor_fails`：編輯每次都回報自己沒做的決定，驗證器每次都擋下 | Editor 桌燈紅、badge Failed、面板顯示 error_class；task FAILED（用完重試）；下游 CANCELLED。人可從 Inbox 重新啟動失敗的 workflow（階段 6 補上：`GET /workflows/failed` + `POST /workflows/{id}/restart`，走命令管線） |
 | **AC-10** 等待審批可見 | policy=human | Editor 為 WAITING{approval}；Approval Desk 燈 amber；Dashboard「Pending approvals」= 1；核准後 ≤1 秒恢復 |
 
 ## 系統層

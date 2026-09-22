@@ -4,7 +4,13 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import Link from "next/link";
 import { useState } from "react";
 
-import { approvalsQuery, decideApproval } from "@/api/queries";
+import {
+  approvalsQuery,
+  decideApproval,
+  failedWorkflowsQuery,
+  queryKeys,
+  restartWorkflow,
+} from "@/api/queries";
 import { CompanyScope, withCompany, type Company } from "@/features/company/CompanyScope";
 import { useCompanyStream } from "@/features/company/useCompanyStream";
 import { ConnectionBadge } from "@/features/dashboard/DashboardView";
@@ -14,6 +20,7 @@ import type { AgentState } from "@/realtime/reducer";
 import { useRealtime } from "@/stores/realtime";
 
 import { ApprovalInbox } from "./ApprovalInbox";
+import { FailedRuns } from "./FailedRuns";
 import { approvalCard, type ApprovalState } from "./model";
 
 const NO_AGENTS: Record<string, AgentState> = {};
@@ -27,6 +34,7 @@ function CompanyApprovals({ company }: { company: Company }) {
   useCompanyStream(company.id);
   const [state, setState] = useState<ApprovalState>("PENDING");
   const approvals = useQuery(approvalsQuery(company.id, state));
+  const failed = useQuery(failedWorkflowsQuery(company.id));
   const queryClient = useQueryClient();
   const current = useRealtime((s) => (s.company?.companyId === company.id ? s.company : null));
   const connection = useRealtime((s) => s.connection);
@@ -55,6 +63,15 @@ function CompanyApprovals({ company }: { company: Company }) {
         decide={(id, decision, reason) => decideApproval(id, decision, reason)}
         live={connection.status === "live"}
         refresh={() => queryClient.invalidateQueries({ queryKey: ["approvals", company.id] })}
+      />
+      {/* the other thing the inbox is for: work that failed and could be run again (AC-9) */}
+      <FailedRuns
+        runs={failed.data}
+        onRestart={async (runId) => {
+          const result = await restartWorkflow(company.id, runId);
+          await queryClient.invalidateQueries({ queryKey: queryKeys.failedWorkflows(company.id) });
+          return result;
+        }}
       />
     </main>
   );

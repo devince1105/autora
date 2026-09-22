@@ -2174,6 +2174,62 @@
     "title": "FactCheckView",
     "type": "object"
    },
+   "FailedRunOut": {
+    "description": "A run a person could start again, and enough about it to decide whether to.",
+    "properties": {
+     "created_at": {
+      "format": "date-time",
+      "title": "Created At",
+      "type": "string"
+     },
+     "failed_tasks": {
+      "default": [],
+      "items": {
+       "type": "string"
+      },
+      "title": "Failed Tasks",
+      "type": "array"
+     },
+     "id": {
+      "format": "uuid",
+      "title": "Id",
+      "type": "string"
+     },
+     "params": {
+      "additionalProperties": true,
+      "default": {},
+      "title": "Params",
+      "type": "object"
+     },
+     "project_id": {
+      "format": "uuid",
+      "title": "Project Id",
+      "type": "string"
+     },
+     "restarted": {
+      "default": false,
+      "title": "Restarted",
+      "type": "boolean"
+     },
+     "state": {
+      "title": "State",
+      "type": "string"
+     },
+     "template_name": {
+      "title": "Template Name",
+      "type": "string"
+     }
+    },
+    "required": [
+     "id",
+     "template_name",
+     "project_id",
+     "state",
+     "created_at"
+    ],
+    "title": "FailedRunOut",
+    "type": "object"
+   },
    "GoalLine": {
     "properties": {
      "current": {
@@ -3309,6 +3365,47 @@
      "recent_events"
     ],
     "title": "RealtimeSnapshot",
+    "type": "object"
+   },
+   "RestartOut": {
+    "properties": {
+     "decision": {
+      "title": "Decision",
+      "type": "string"
+     },
+     "outcome": {
+      "title": "Outcome",
+      "type": "string"
+     },
+     "reason": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Reason"
+     },
+     "workflow_run_id": {
+      "anyOf": [
+       {
+        "format": "uuid",
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Workflow Run Id"
+     }
+    },
+    "required": [
+     "decision",
+     "outcome"
+    ],
+    "title": "RestartOut",
     "type": "object"
    },
    "RoleOut": {
@@ -5861,6 +5958,128 @@
      }
     ],
     "summary": "Post Workflow",
+    "tags": [
+     "workflows"
+    ]
+   }
+  },
+  "/api/companies/{company_id}/workflows/failed": {
+   "get": {
+    "description": "Runs that ended badly and could be started again, newest first (AC-9).",
+    "operationId": "list_failed_api_companies__company_id__workflows_failed_get",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "company_id",
+      "required": true,
+      "schema": {
+       "format": "uuid",
+       "title": "Company Id",
+       "type": "string"
+      }
+     },
+     {
+      "in": "query",
+      "name": "limit",
+      "required": false,
+      "schema": {
+       "default": 20,
+       "title": "Limit",
+       "type": "integer"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "items": {
+          "$ref": "#/components/schemas/FailedRunOut"
+         },
+         "title": "Response List Failed Api Companies  Company Id  Workflows Failed Get",
+         "type": "array"
+        }
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "security": [
+     {
+      "HTTPBearer": []
+     }
+    ],
+    "summary": "List Failed",
+    "tags": [
+     "workflows"
+    ]
+   }
+  },
+  "/api/companies/{company_id}/workflows/{workflow_run_id}/restart": {
+   "post": {
+    "description": "Run a failed workflow again, from the top, as a new run (AC-9).\n\nThe old run keeps its history: what failed and why is the reason to keep it. The company\nmay still refuse — the per-cycle cap on new work applies to a person's restart as much as\nto the CEO's, because a runaway is a runaway whoever started it.",
+    "operationId": "post_restart_api_companies__company_id__workflows__workflow_run_id__restart_post",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "company_id",
+      "required": true,
+      "schema": {
+       "format": "uuid",
+       "title": "Company Id",
+       "type": "string"
+      }
+     },
+     {
+      "in": "path",
+      "name": "workflow_run_id",
+      "required": true,
+      "schema": {
+       "format": "uuid",
+       "title": "Workflow Run Id",
+       "type": "string"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/RestartOut"
+        }
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "security": [
+     {
+      "HTTPBearer": []
+     }
+    ],
+    "summary": "Post Restart",
     "tags": [
      "workflows"
     ]

@@ -364,6 +364,50 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/companies/{company_id}/workflows/failed": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Failed
+         * @description Runs that ended badly and could be started again, newest first (AC-9).
+         */
+        get: operations["list_failed_api_companies__company_id__workflows_failed_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/companies/{company_id}/workflows/{workflow_run_id}/restart": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Post Restart
+         * @description Run a failed workflow again, from the top, as a new run (AC-9).
+         *
+         *     The old run keeps its history: what failed and why is the reason to keep it. The company
+         *     may still refuse — the per-cycle cap on new work applies to a person's restart as much as
+         *     to the CEO's, because a runaway is a runaway whoever started it.
+         */
+        post: operations["post_restart_api_companies__company_id__workflows__workflow_run_id__restart_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/cycles/{cycle_id}": {
         parameters: {
             query?: never;
@@ -1421,6 +1465,48 @@ export interface components {
             /** Version */
             version: number | null;
         };
+        /**
+         * FailedRunOut
+         * @description A run a person could start again, and enough about it to decide whether to.
+         */
+        FailedRunOut: {
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /**
+             * Failed Tasks
+             * @default []
+             */
+            failed_tasks: string[];
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /**
+             * Params
+             * @default {}
+             */
+            params: {
+                [key: string]: unknown;
+            };
+            /**
+             * Project Id
+             * Format: uuid
+             */
+            project_id: string;
+            /**
+             * Restarted
+             * @default false
+             */
+            restarted: boolean;
+            /** State */
+            state: string;
+            /** Template Name */
+            template_name: string;
+        };
         /** GoalLine */
         GoalLine: {
             /** Current */
@@ -1875,6 +1961,17 @@ export interface components {
             server_time: string;
             /** Tasks */
             tasks: components["schemas"]["TaskView"][];
+        };
+        /** RestartOut */
+        RestartOut: {
+            /** Decision */
+            decision: string;
+            /** Outcome */
+            outcome: string;
+            /** Reason */
+            reason?: string | null;
+            /** Workflow Run Id */
+            workflow_run_id?: string | null;
         };
         /** RoleOut */
         RoleOut: {
@@ -3132,6 +3229,71 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["WorkflowRunOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_failed_api_companies__company_id__workflows_failed_get: {
+        parameters: {
+            query?: {
+                limit?: number;
+            };
+            header?: never;
+            path: {
+                company_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FailedRunOut"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    post_restart_api_companies__company_id__workflows__workflow_run_id__restart_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                company_id: string;
+                workflow_run_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RestartOut"];
                 };
             };
             /** @description Validation Error */
