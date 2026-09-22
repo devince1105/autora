@@ -35,9 +35,12 @@
 ## 2. Phase 7 — Revenue
 
 **T-701 · Business schema** — products, customers, leads, opportunities, subscriptions, orders, payments, campaigns, campaign_spend / Deps: T-103 / Validate: `pytest tests/db/test_business_models.py`
+  > 實作註記（2026-09-22，D-022）：營收模型定為訂閱，範圍收斂為 `prices`、`subscriptions`、`payments`（migration 0035、`company/subscriptions.py`）。`products`（T-600）、`customers`（T-612）、`opportunities`（T-611）已存在；`leads`、`orders`、`campaigns`、`campaign_spend` 刻意不做，理由見 D-022。另有 `tests/company/test_subscriptions.py`。
 **T-702 · Payment webhook (provider adapter, 冪等, → Ledger revenue)** / Deps: T-701, T-602 / AC: 重複 webhook 不重複入帳 / Validate: `pytest tests/business/test_webhook.py`
 **T-703 · Campaign cap + spend_ad_budget policy (LIMITED → HUMAN)** / Deps: T-205, T-701 / Validate: `pytest tests/business/test_campaign_policy.py`
+  > 延後（D-022）：只用自有網站、沒有付費廣告，沒有要設上限的花費。要買廣告時連同 `campaigns` 表一起做。
 **T-704 · Distribution channel adapter #1**（依 Open Question 決定通路；介面 `DistributionChannel.publish(article, copy) -> external_ref`） / Deps: T-513 / Validate: `pytest -m integration tests/business/test_channel.py`
+  > 方向（D-022）：Instagram / Threads，每週固定時間產出（adapter + 每週排程）。目前通路仍只有自有網站，開做時另立決策。
 **T-705 · Finance Agent (read-only + BudgetProposal → approval)** / Deps: T-211, T-603 / AC: 無任何寫 transactions 的路徑 / Validate: `pytest tests/business/agents/test_finance.py`
 **T-706 · Business Agent (OpportunityProposal → PROJECT_PROPOSED → HUMAN)** / Deps: T-211, T-604 / Validate: `pytest tests/business/agents/test_business.py`
 **T-707 · Revenue KPIs in snapshot & dashboard** / Deps: T-603, T-309 / Validate: `pytest tests/company/test_reporting_revenue.py && pnpm -F web test dashboard-revenue`

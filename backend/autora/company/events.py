@@ -386,6 +386,43 @@ class CustomerChurned(EventPayload):
     """How long they stayed. The number a business is judged by, kept where it is cheap."""
 
 
+@event("SUBSCRIPTION_STARTED")
+class SubscriptionStarted(EventPayload):
+    """A customer began paying a price (T-701). Provider references only, as for customers."""
+
+    customer_id: uuid.UUID
+    business_unit_id: uuid.UUID
+    product_id: uuid.UUID
+    price_id: uuid.UUID
+    state: str
+    provider: str
+    external_ref: str
+
+
+@event("SUBSCRIPTION_STATE_CHANGED")
+class SubscriptionStateChanged(EventPayload):
+    customer_id: uuid.UUID
+    business_unit_id: uuid.UUID
+    from_state: str
+    to_state: str
+    reason: str | None = None
+
+
+@event("PAYMENT_RECEIVED")
+class PaymentReceived(EventPayload):
+    """Money a provider says arrived (T-701). The ledger's REVENUE_RECORDED follows it in the
+    same transaction; this one says where the money came from, that one what it counts as."""
+
+    payment_id: uuid.UUID
+    transaction_id: uuid.UUID
+    customer_id: uuid.UUID
+    business_unit_id: uuid.UUID
+    subscription_id: uuid.UUID | None = None
+    provider: str
+    amount: Decimal
+    currency: str
+
+
 @event("KPI_SNAPSHOT_CREATED")
 class KpiSnapshotCreated(EventPayload):
     snapshot_id: uuid.UUID

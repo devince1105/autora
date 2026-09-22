@@ -147,3 +147,116 @@ class Transaction(IdMixin, CreatedAtMixin, Base):
     source: Mapped[str]
     idempotency_key: Mapped[str]
     memo: Mapped[str | None]
+
+
+class PriceInterval(StrEnum):
+    MONTH = "month"
+    YEAR = "year"
+
+
+class PriceState(StrEnum):
+    ACTIVE = "ACTIVE"
+    RETIRED = "RETIRED"
+
+
+class SubscriptionState(StrEnum):
+    TRIALING = "TRIALING"
+    ACTIVE = "ACTIVE"
+    PAST_DUE = "PAST_DUE"
+    CANCELED = "CANCELED"
+
+
+class Price(IdMixin, TimestampMixin, Base):
+    """What a product costs, per interval (T-701, D-022).
+
+    Not a column on ``products``: a price changes and a product does not. Raising the monthly
+    price retires one row and adds another, so every subscription keeps pointing at the price it
+    was sold at — which is the price its payments were for.
+    """
+
+    __tablename__ = "prices"
+    __table_args__ = (
+        UniqueConstraint("company_id", "provider", "external_ref"),
+        check_in("interval", PriceInterval),
+        check_in("state", PriceState),
+        check_regex("currency", "^[A-Z]{3}$"),
+        check_regex("provider", "^[a-z][a-z0-9_]*$"),
+        CheckConstraint("amount > 0", name="amount_positive"),
+    )
+
+    company_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("companies.id"), index=True)
+    product_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("products.id"), index=True)
+    amount: Mapped[Decimal]
+    currency: Mapped[str] = mapped_column(server_default="USD")
+    interval: Mapped[str]
+    state: Mapped[str] = mapped_column(server_default=PriceState.ACTIVE.value)
+    provider: Mapped[str]
+    """Which payment provider sells it, as a token (``stripe``). The core never branches on it."""
+    external_ref: Mapped[str | None]
+    """The provider's id for this price. NULL until it exists there."""
+
+
+class Subscription(IdMixin, TimestampMixin, Base):
+    """A customer paying a price, again and again, until they stop (T-701, D-022).
+
+    The provider owns the truth — it bills, retries and cancels — and this row is the company's
+    copy of what it said, kept so agents and reports can read it without calling anybody.
+    Payments are separate rows: a subscription is a promise, a payment is money that arrived.
+    """
+
+    __tablename__ = "subscriptions"
+    __table_args__ = (
+        UniqueConstraint("company_id", "provider", "external_ref"),
+        check_in("state", SubscriptionState),
+        check_regex("provider", "^[a-z][a-z0-9_]*$"),
+        CheckConstraint(
+            "state <> 'CANCELED' OR canceled_at IS NOT NULL", name="canceled_has_a_date"
+        ),
+    )
+
+    company_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("companies.id"), index=True)
+    business_unit_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("business_units.id"))
+    customer_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("customers.id"), index=True)
+    product_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("products.id"))
+    price_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("prices.id"))
+    state: Mapped[str]
+    provider: Mapped[str]
+    external_ref: Mapped[str]
+    started_at: Mapped[datetime]
+    current_period_end: Mapped[datetime | None]
+    """When the provider will next try to charge. What "paid up until" means for this row."""
+    canceled_at: Mapped[datetime | None]
+
+
+class Payment(IdMixin, CreatedAtMixin, Base):
+    """Money a provider says arrived, and the ledger row it became (T-701, D-022).
+
+    Written only by an integration, never by an agent (platform/06 §1). Append-only like the
+    ledger it feeds: a refund will be its own row, not an edit to this one. The unique
+    ``(provider, external_ref)`` is what makes a webhook delivered twice one payment.
+    """
+
+    __tablename__ = "payments"
+    __table_args__ = (
+        UniqueConstraint("provider", "external_ref"),
+        UniqueConstraint("transaction_id"),
+        check_regex("currency", "^[A-Z]{3}$"),
+        check_regex("provider", "^[a-z][a-z0-9_]*$"),
+        CheckConstraint("amount > 0", name="amount_positive"),
+    )
+
+    company_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("companies.id"), index=True)
+    business_unit_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("business_units.id"))
+    customer_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("customers.id"), index=True)
+    subscription_id: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey("subscriptions.id"), index=True
+    )
+    """NULL for a one-off payment. Every payment today is a subscription's, but the ledger
+    should not have to change the day one is not."""
+    transaction_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("transactions.id"))
+    provider: Mapped[str]
+    external_ref: Mapped[str]
+    """The provider's id for the charge (a Stripe invoice). The idempotency key, in effect."""
+    amount: Mapped[Decimal]
+    currency: Mapped[str] = mapped_column(server_default="USD")
+    paid_at: Mapped[datetime]

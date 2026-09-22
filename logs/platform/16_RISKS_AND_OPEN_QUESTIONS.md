@@ -24,7 +24,7 @@
 ## 2. Open Questions
 
 **P0（Phase 1 前）** — 已決定者見 `logs/DECISIONS.md`
-1. 發布通路：只用自有網站是否接受？若一開始就要外部通路，Distribution adapter 提前到 Phase 5。— **未決，暫用自有網站**
+1. 發布通路：只用自有網站是否接受？若一開始就要外部通路，Distribution adapter 提前到 Phase 5。— ✅ **只用自有網站（D-022）**；之後方向是 Instagram / Threads 每週固定時間產出（T-704）
 2. Web search 供應商。— ✅ **Tavily（D-003）**
 3. Embedding 供應商。— **未決，暫用抽象 `embed` alias + OpenAI-compatible adapter**
 4. 文章主語言、垂直領域、是否允許只發一種語言。— ✅ **主語言 zh-TW（D-002）**；垂直領域與單語發布仍未決，暫用「兩語皆需」
@@ -32,7 +32,7 @@
 6. MVP 的發布審批是否一定要人。— ✅ **人核准（D-001）**
 
 **P1（Phase 6–7）**
-7. 第一條營收模型（訂閱 / 贊助 / 聯盟 / API）。
+7. 第一條營收模型（訂閱 / 贊助 / 聯盟 / API）。— ✅ **付費訂閱，Stripe（D-022）**
 8. 人類審批可接受延遲（影響 stage deadline）。
 9. 是否需要圖片（圖片生成成本與 asset 類型）。
 10. 幣別 / 稅務是否需區分。

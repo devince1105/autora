@@ -3008,6 +3008,74 @@
         }
       }
     },
+    "PAYMENT_RECEIVED": {
+      "1": {
+        "persistence": "persisted",
+        "payload": {
+          "additionalProperties": false,
+          "description": "Money a provider says arrived (T-701). The ledger's REVENUE_RECORDED follows it in the\nsame transaction; this one says where the money came from, that one what it counts as.",
+          "properties": {
+            "payment_id": {
+              "format": "uuid",
+              "title": "Payment Id",
+              "type": "string"
+            },
+            "transaction_id": {
+              "format": "uuid",
+              "title": "Transaction Id",
+              "type": "string"
+            },
+            "customer_id": {
+              "format": "uuid",
+              "title": "Customer Id",
+              "type": "string"
+            },
+            "business_unit_id": {
+              "format": "uuid",
+              "title": "Business Unit Id",
+              "type": "string"
+            },
+            "subscription_id": {
+              "anyOf": [
+                {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Subscription Id"
+            },
+            "provider": {
+              "title": "Provider",
+              "type": "string"
+            },
+            "amount": {
+              "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+              "title": "Amount",
+              "type": "string"
+            },
+            "currency": {
+              "title": "Currency",
+              "type": "string"
+            }
+          },
+          "required": [
+            "payment_id",
+            "transaction_id",
+            "customer_id",
+            "business_unit_id",
+            "provider",
+            "amount",
+            "currency"
+          ],
+          "title": "PaymentReceived",
+          "type": "object"
+        }
+      }
+    },
     "POLICY_DENIED": {
       "1": {
         "persistence": "persisted",
@@ -3852,6 +3920,108 @@
             "summary"
           ],
           "title": "StrategyUpdated",
+          "type": "object"
+        }
+      }
+    },
+    "SUBSCRIPTION_STARTED": {
+      "1": {
+        "persistence": "persisted",
+        "payload": {
+          "additionalProperties": false,
+          "description": "A customer began paying a price (T-701). Provider references only, as for customers.",
+          "properties": {
+            "customer_id": {
+              "format": "uuid",
+              "title": "Customer Id",
+              "type": "string"
+            },
+            "business_unit_id": {
+              "format": "uuid",
+              "title": "Business Unit Id",
+              "type": "string"
+            },
+            "product_id": {
+              "format": "uuid",
+              "title": "Product Id",
+              "type": "string"
+            },
+            "price_id": {
+              "format": "uuid",
+              "title": "Price Id",
+              "type": "string"
+            },
+            "state": {
+              "title": "State",
+              "type": "string"
+            },
+            "provider": {
+              "title": "Provider",
+              "type": "string"
+            },
+            "external_ref": {
+              "title": "External Ref",
+              "type": "string"
+            }
+          },
+          "required": [
+            "customer_id",
+            "business_unit_id",
+            "product_id",
+            "price_id",
+            "state",
+            "provider",
+            "external_ref"
+          ],
+          "title": "SubscriptionStarted",
+          "type": "object"
+        }
+      }
+    },
+    "SUBSCRIPTION_STATE_CHANGED": {
+      "1": {
+        "persistence": "persisted",
+        "payload": {
+          "additionalProperties": false,
+          "properties": {
+            "customer_id": {
+              "format": "uuid",
+              "title": "Customer Id",
+              "type": "string"
+            },
+            "business_unit_id": {
+              "format": "uuid",
+              "title": "Business Unit Id",
+              "type": "string"
+            },
+            "from_state": {
+              "title": "From State",
+              "type": "string"
+            },
+            "to_state": {
+              "title": "To State",
+              "type": "string"
+            },
+            "reason": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Reason"
+            }
+          },
+          "required": [
+            "customer_id",
+            "business_unit_id",
+            "from_state",
+            "to_state"
+          ],
+          "title": "SubscriptionStateChanged",
           "type": "object"
         }
       }

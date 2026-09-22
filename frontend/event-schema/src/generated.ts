@@ -883,6 +883,24 @@ export const OpportunitySignalRecordedV1Event = z.object({
   payload: OpportunitySignalRecordedV1Payload,
 });
 
+export const PaymentReceivedV1Payload = z.object({
+  payment_id: z.uuid(),
+  transaction_id: z.uuid(),
+  customer_id: z.uuid(),
+  business_unit_id: z.uuid(),
+  subscription_id: z.uuid().nullable().default(null),
+  provider: z.string(),
+  amount: z.string().regex(new RegExp("^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$")),
+  currency: z.string(),
+});
+export type PaymentReceivedV1Payload = z.infer<typeof PaymentReceivedV1Payload>;
+export const PaymentReceivedV1Event = z.object({
+  ...envelopeFields,
+  event_type: z.literal("PAYMENT_RECEIVED"),
+  schema_version: z.literal(1),
+  payload: PaymentReceivedV1Payload,
+});
+
 export const PolicyDeniedV1Payload = z.object({
   action: z.string(),
   rule_id: z.string(),
@@ -1196,6 +1214,38 @@ export const StrategyUpdatedV1Event = z.object({
   payload: StrategyUpdatedV1Payload,
 });
 
+export const SubscriptionStartedV1Payload = z.object({
+  customer_id: z.uuid(),
+  business_unit_id: z.uuid(),
+  product_id: z.uuid(),
+  price_id: z.uuid(),
+  state: z.string(),
+  provider: z.string(),
+  external_ref: z.string(),
+});
+export type SubscriptionStartedV1Payload = z.infer<typeof SubscriptionStartedV1Payload>;
+export const SubscriptionStartedV1Event = z.object({
+  ...envelopeFields,
+  event_type: z.literal("SUBSCRIPTION_STARTED"),
+  schema_version: z.literal(1),
+  payload: SubscriptionStartedV1Payload,
+});
+
+export const SubscriptionStateChangedV1Payload = z.object({
+  customer_id: z.uuid(),
+  business_unit_id: z.uuid(),
+  from_state: z.string(),
+  to_state: z.string(),
+  reason: z.string().nullable().default(null),
+});
+export type SubscriptionStateChangedV1Payload = z.infer<typeof SubscriptionStateChangedV1Payload>;
+export const SubscriptionStateChangedV1Event = z.object({
+  ...envelopeFields,
+  event_type: z.literal("SUBSCRIPTION_STATE_CHANGED"),
+  schema_version: z.literal(1),
+  payload: SubscriptionStateChangedV1Payload,
+});
+
 export const TaskBlockedV1Payload = z.object({
   reason: z.literal("budget"),
 });
@@ -1480,6 +1530,7 @@ export const EventEnvelope = z.discriminatedUnion("event_type", [
   OpportunityRejectedV1Event,
   OpportunityScoredV1Event,
   OpportunitySignalRecordedV1Event,
+  PaymentReceivedV1Event,
   PolicyDeniedV1Event,
   PolicyUpdatedV1Event,
   ProductCreatedV1Event,
@@ -1504,6 +1555,8 @@ export const EventEnvelope = z.discriminatedUnion("event_type", [
   StoryDroppedV1Event,
   StorySelectedV1Event,
   StrategyUpdatedV1Event,
+  SubscriptionStartedV1Event,
+  SubscriptionStateChangedV1Event,
   TaskBlockedV1Event,
   TaskCancelledV1Event,
   TaskCreatedV1Event,
@@ -1586,6 +1639,7 @@ export const EVENT_TYPES = [
   "OPPORTUNITY_REJECTED",
   "OPPORTUNITY_SCORED",
   "OPPORTUNITY_SIGNAL_RECORDED",
+  "PAYMENT_RECEIVED",
   "POLICY_DENIED",
   "POLICY_UPDATED",
   "PRODUCT_CREATED",
@@ -1610,6 +1664,8 @@ export const EVENT_TYPES = [
   "STORY_DROPPED",
   "STORY_SELECTED",
   "STRATEGY_UPDATED",
+  "SUBSCRIPTION_STARTED",
+  "SUBSCRIPTION_STATE_CHANGED",
   "TASK_BLOCKED",
   "TASK_CANCELLED",
   "TASK_CREATED",
