@@ -45,6 +45,9 @@ class Price(BaseModel):
 
 FREE = Price(input=Decimal(0), output=Decimal(0))
 
+FAKE_MODEL_ID = "fake-frontier"
+"""The model id simulation runs on. Priced through MODEL_PRICES like any other."""
+
 
 class ModelBinding(BaseModel):
     model_config = ConfigDict(frozen=True)
@@ -110,10 +113,21 @@ class ModelRouter:
 def router_from_settings(settings: Settings) -> ModelRouter:
     """Build the router from configuration. Model ids only ever come from settings."""
     if settings.model_provider == "fake":
-        # Deterministic simulation: everything routes to the scripted fake provider, free.
+        # Deterministic simulation: everything routes to the scripted fake provider, free —
+        # unless MODEL_PRICES says what the simulated model costs.
+        #
+        # **A free model cannot exhaust a budget.** The guard refuses a call when spend plus its
+        # estimate passes a cap, and both are zero at every price of zero, so the budget gate
+        # (AC-13) could never fire in simulation. Letting the configuration price the simulated
+        # model is what makes that gate testable without spending real money.
+        priced = settings.model_prices.get(FAKE_MODEL_ID)
         return ModelRouter(
             aliases={
-                "frontier": ModelBinding(provider="fake", model_id="fake-frontier", price=FREE)
+                "frontier": ModelBinding(
+                    provider="fake",
+                    model_id=FAKE_MODEL_ID,
+                    price=Price(**priced) if priced else FREE,
+                )
             },
             routes={"*.*": "frontier"},
         )

@@ -43,5 +43,5 @@ Phase 6（自主 Cycle）的 AC-11~14 列於末尾，作為「完整 MVP」的�
 |---|---|---|
 | **AC-11** 冷啟動自主 | 建公司 + sources + project + 預算 | 下一個排程點 Cycle 自動建立；CEO THINKING；CyclePlan 實例化 ≤ max_workflows 個 workflow；無人介入 |
 | **AC-12** Today's Goal 真實 | Dashboard | 「Publish N bilingual articles」來自 `cycles.plan`，「3 / 5」來自真實 published 計數 |
-| **AC-13** 預算閘門 | project 預算設極低 | 下一次 model call 被拒 → run ABORTED → agent FAILED{BudgetExceeded} → BUDGET_EXHAUSTED 在 timeline；加預算後恢復 |
+| **AC-13** 預算閘門 | project 預算設極低（模擬時要用 `MODEL_PRICES` 給模擬模型定價，**免費的模型不可能把預算用完**） | 下一次 model call 在發出**之前**被拒（不會抵達供應商）→ BUDGET_EXHAUSTED 在 timeline 且帶得出上限與這次要花多少 → run ABORTED{budget}、task BLOCKED_BUDGET、agent **WAITING{budget}**（錢用完不是代理工作失敗，同 D-020）→ 透過命令管線 `AllocateBudget` 加預算，**被擋住的任務由這個命令自己放回佇列**（沒有人去重新啟動）→ 工作完成。2026-09-22 端到端測試通過：`backend/tests/acceptance/test_budget_gate.py` |
 | **AC-14** 7 cycle 無人修復 | 加速時鐘 | 7 個 cycle DONE；每個 cycle 有 plan 與 review；auto-pause 規則至少被評估一次並記錄 |
