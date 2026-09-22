@@ -281,3 +281,4 @@ Dashboard 本來就用 `Intl.NumberFormat` 並帶入 API 回傳的幣別，所�
 |---|---|---|---|
 | `c870c87` | 2026-09-22 | T-701：價格、訂閱、付款三張表（migration 0035）、`company/subscriptions.py`；D-022 | ✅ 執行編號 `35728147255`（e2e 7 分 26 秒、python 4 分 3 秒、web 1 分 21 秒） |
 | `d9646ee` | 2026-09-22 | D-023：新台幣為主幣別（計量維持美元、結算時換算）、migration 0036；記下 D-024 | ✅ 執行編號 `35732693591`（e2e 6 分 56 秒、python 3 分 35 秒、web 52 秒） |
+| `82542a5` | 2026-09-22 | D-024：一次付款買一年使用權，`memberships` 取代 `subscriptions`（migration 0037） | ✅ 執行編號 `35734051682`（e2e 5 分 3 秒、python 3 分 50 秒、web 1 分 21 秒） |
