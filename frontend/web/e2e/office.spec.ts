@@ -391,6 +391,30 @@ test("the office is the organisation: enter a department, and the link says so (
   await expect(page).not.toHaveURL(/department=/);
 });
 
+/** Who has a head tag right now, by test id. */
+async function tagIds(page: Page): Promise<string[]> {
+  return page
+    .getByTestId(/^head-tag-/)
+    .evaluateAll((tags) => tags.map((tag) => tag.getAttribute("data-testid") ?? ""));
+}
+
+/** The tags on the floor once the roster has stopped filling in. */
+async function settledTags(page: Page): Promise<string[]> {
+  let seen: string[] = [];
+  await expect
+    .poll(
+      async () => {
+        const now = await tagIds(page);
+        const settled = now.length > 0 && now.length === seen.length;
+        seen = now;
+        return settled;
+      },
+      { timeout: 30_000, intervals: [500] },
+    )
+    .toBe(true);
+  return seen;
+}
+
 test("inside a department, the office draws its people and nobody else (T-600)", async ({
   page,
 }) => {
@@ -405,8 +429,8 @@ test("inside a department, the office draws its people and nobody else (T-600)",
     timeout: 90_000,
   });
   const tags = page.getByTestId(/^head-tag-/);
-  const whole = await tags.count();
-  expect(whole).toBeGreaterThan(2);
+  const whole = await settledTags(page);
+  expect(whole.length).toBeGreaterThan(2);
 
   // step into the newsroom's research team: two desks, and the rest of the company is not drawn
   await page.getByTestId("department-newsroom_research").click();
@@ -430,7 +454,16 @@ test("inside a department, the office draws its people and nobody else (T-600)",
   expect(others).toBeGreaterThan(0);
   await expect(page.getByTestId("department-elsewhere")).toContainText(String(others));
 
-  // and stepping back out brings everybody back
+  // and stepping back out brings everybody back.
+  //
+  // "Everybody" is the people who were on the floor, not the number that was on the floor: the
+  // company is live while the test runs, and the roster can still be filling in (CI saw 5 tags
+  // and then 7). A count taken a minute ago is not a promise the office ever made; that everyone
+  // it stopped drawing is drawn again, is.
   await page.getByTestId("department-all").click();
-  await expect(tags).toHaveCount(whole, { timeout: 15_000 });
+  await expect
+    .poll(async () => (await tagIds(page)).filter((id) => whole.includes(id)).length, {
+      timeout: 15_000,
+    })
+    .toBe(whole.length);
 });
