@@ -349,7 +349,7 @@ async def test_exploring_is_an_ordinary_project(db_session):
         opportunity_id=opportunity.id,
         name="Validate AI English",
         state=ProjectState.ACTIVE.value,
-        kill_criteria={"auto_pause_if": {"metric": "cost_usd", "op": ">", "value": 50}},
+        kill_criteria={"auto_pause_if": {"metric": "cost", "op": ">", "value": 50}},
     )
     db_session.add(project)
     await db_session.flush()

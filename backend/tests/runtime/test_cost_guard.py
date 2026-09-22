@@ -170,10 +170,11 @@ async def test_project_daily_hard_cap_ignores_yesterday_and_soft_caps(committed,
     ctx = world["ctx"]
     await _add(
         committed,
+        # budgets are TWD (D-023); the guard compares them in the meter's USD, at 32:
         Budget(company_id=ctx.company_id, project_id=ctx.project_id, period="day",
-               amount=Decimal("0.10")),
+               amount=Decimal("3.20")),  # = $0.10
         Budget(company_id=ctx.company_id, project_id=ctx.project_id, period="month",
-               amount=Decimal("0.01"), hard_cap=False),
+               amount=Decimal("0.32"), hard_cap=False),  # = $0.01
         _call(ctx, "5.00", created_at=datetime.now(UTC) - timedelta(days=1)),
     )  # fmt: skip
     guard = DbCostGuard(committed)
@@ -185,6 +186,27 @@ async def test_project_daily_hard_cap_ignores_yesterday_and_soft_caps(committed,
     assert exc.value.scope == "project"
 
 
+async def test_a_budget_is_compared_in_the_meter_s_currency_not_by_its_number(committed, world):
+    """D-023: NT$1.50 is a bigger number than a $0.05 call and a smaller amount of money.
+    Comparing the numbers as they stand would let the call through."""
+    ctx = world["ctx"]
+    assert Decimal("0.04") < estimate_cost(_request(ctx), BINDING) < Decimal("0.06")
+    await _add(committed, Budget(company_id=ctx.company_id, period="day", amount=Decimal("1.50")))
+    with pytest.raises(BudgetExceeded) as exc:
+        await DbCostGuard(committed).reserve(_request(ctx), BINDING)
+    assert exc.value.scope == "company"
+
+    await _set_budget(committed, ctx.company_id, Decimal("2.00"))  # = $0.0625, room for one
+    assert await DbCostGuard(committed).reserve(_request(ctx), BINDING) is not None
+
+
+async def _set_budget(committed, company_id, amount):
+    async with committed() as session:
+        budget = await session.scalar(select(Budget).where(Budget.company_id == company_id))
+        budget.amount = amount
+        await session.commit()
+
+
 async def test_company_cap_spans_projects(committed, world):
     ctx = world["ctx"]
     async with committed() as session:
@@ -193,7 +215,7 @@ async def test_company_cap_spans_projects(committed, world):
         await session.commit()
     await _add(
         committed,
-        Budget(company_id=ctx.company_id, period="day", amount=Decimal("0.08")),
+        Budget(company_id=ctx.company_id, period="day", amount=Decimal("2.56")),  # = $0.08
         _call(ctx, "0.04", project_id=other.id),
     )
     with pytest.raises(BudgetExceeded) as exc:
@@ -295,7 +317,7 @@ async def test_a_cycle_budget_is_spent_against_the_cycle_not_the_calendar_day(co
         await session.commit()
     await _add(
         committed,
-        Budget(company_id=ctx.company_id, period="cycle", amount=Decimal("0.08")),
+        Budget(company_id=ctx.company_id, period="cycle", amount=Decimal("2.56")),  # = $0.08
         _call(ctx, "0.50", created_at=now - timedelta(hours=3)),  # before this cycle began
     )
 
@@ -312,7 +334,7 @@ async def test_without_an_open_cycle_a_cycle_budget_falls_back_to_the_day(commit
     now = datetime.now(UTC)
     await _add(
         committed,
-        Budget(company_id=ctx.company_id, period="cycle", amount=Decimal("0.08")),
+        Budget(company_id=ctx.company_id, period="cycle", amount=Decimal("2.56")),  # = $0.08
         _call(ctx, "0.04", created_at=now.replace(hour=0, minute=1)),
     )
     with pytest.raises(BudgetExceeded) as exc:

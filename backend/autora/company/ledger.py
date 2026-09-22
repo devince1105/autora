@@ -44,6 +44,7 @@ from autora.db.models import (
     TransactionKind,
     TransactionSource,
 )
+from autora.infra.money import METER_CURRENCY, Fx
 from autora.runtime.actor import Actor
 from autora.runtime.events.outbox import emit
 from autora.runtime.events.schema import new_event
@@ -55,6 +56,7 @@ MODEL_COST = "model_cost"
 
 MONEY = Decimal("0.000001")
 """Six decimal places, the precision ``transactions.amount`` and ``model_calls.cost_usd`` keep."""
+# (autora.infra.money.MONEY is the same value; this name stays because callers import it here.)
 
 SPENDING = (TransactionKind.EXPENSE, TransactionKind.CAPITAL_OUT)
 EARNING = (TransactionKind.REVENUE, TransactionKind.CAPITAL_IN)
@@ -78,6 +80,8 @@ class Settlement:
     cycle_id: uuid.UUID
     transactions: tuple[Transaction, ...]
     total: Decimal
+    """What the meter said, in its own currency (USD). The rows hold it converted to the base,
+    with this amount kept as each row's ``source_amount`` (D-023)."""
     already_settled: bool = False
 
     def __bool__(self) -> bool:
@@ -89,6 +93,7 @@ class Ledger:
     """Writes to ``transactions``; reads balances and spend. Does not commit."""
 
     clock: Callable[[], datetime] = field(default=lambda: datetime.now(UTC))
+    fx: Fx = field(default_factory=Fx.from_settings)
 
     @property
     def actor(self) -> Actor:
@@ -115,14 +120,19 @@ class Ledger:
         ref_type: str | None = None,
         ref_id: uuid.UUID | None = None,
         memo: str | None = None,
-        currency: str = "USD",
+        currency: str | None = None,
     ) -> Transaction | None:
         """Post one transaction, or return None when its key was already used.
 
         The key is how a caller says "this is the same fact, not another one": settling a cycle
         twice, or a webhook delivered twice, must not double the money.
+
+        ``currency`` is what the money arrived in, the base when omitted. Anything else is
+        converted here and the row keeps the original and the rate (D-023): the ledger has one
+        currency, and this is the only door into it.
         """
-        amount = Decimal(amount).quantize(MONEY)
+        converted = self.fx.to_base(Decimal(amount), currency or self.fx.base)
+        amount = converted.amount
         if amount <= 0:
             raise LedgerError(f"a transaction must move money, got {amount}")
         existing = await session.scalar(
@@ -139,7 +149,10 @@ class Ledger:
             kind=kind.value,
             category=category,
             amount=amount,
-            currency=currency,
+            currency=self.fx.base,
+            source_amount=converted.source_amount,
+            source_currency=converted.source_currency,
+            fx_rate=converted.rate,
             ref_type=ref_type,
             ref_id=ref_id,
             occurred_at=occurred_at or self.clock(),
@@ -160,7 +173,7 @@ class Ledger:
                     project_id=project_id,
                     category=category,
                     amount=amount,
-                    currency=currency,
+                    currency=self.fx.base,
                 ),
                 company_id=company_id,
                 actor=actor or self.actor,
@@ -207,6 +220,7 @@ class Ledger:
                 ref_type="cycle",
                 ref_id=cycle.id,
                 memo=f"model calls of cycle {cycle.seq}",
+                currency=METER_CURRENCY,
             )
             if transaction is None:
                 skipped = True
@@ -229,7 +243,9 @@ class Ledger:
     async def balance(
         self, session: AsyncSession, company_id: uuid.UUID, *, at: datetime | None = None
     ) -> Decimal:
-        """What the company has: everything that came in, less everything that went out."""
+        """What the company has: everything that came in, less everything that went out.
+
+        A sum, never a conversion: every row is already in the base currency (D-023)."""
         rows = (
             await session.execute(
                 select(Transaction.kind, func.sum(Transaction.amount))
@@ -279,7 +295,8 @@ class Ledger:
         """What one piece of work cost end to end — for the newsroom, one article (AC-S8).
 
         Straight from the meter, not the ledger: a workflow is finer than a cycle, and the
-        ledger deliberately does not keep a row per call.
+        ledger deliberately does not keep a row per call. So it is in the meter's USD, like
+        every per-run and per-task cost the office shows (D-023).
         """
         total = await session.scalar(
             select(func.sum(ModelCall.cost_usd)).where(
@@ -290,10 +307,11 @@ class Ledger:
         return Decimal(total or 0).quantize(MONEY)
 
     async def metered(self, session: AsyncSession, *, cycle_id: uuid.UUID) -> Decimal:
-        """What the cycle's model calls cost, read from the meter.
+        """What the cycle's model calls cost, read from the meter (USD).
 
-        P-7 is the statement that this equals the cycle's settled expenses; the test asserts it
-        against a run rather than trusting either side.
+        P-7 is the statement that this equals the cycle's settled expenses — their
+        ``source_amount``, the USD before conversion; the test asserts it against a run rather
+        than trusting either side.
         """
         total = await session.scalar(
             select(func.sum(ModelCall.cost_usd)).where(

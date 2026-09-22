@@ -30,6 +30,7 @@ from autora.db.models import (
     TaskState,
     WorkflowRun,
 )
+from autora.infra.money import base_currency
 from autora.runtime.events.outbox import to_envelope
 from autora.runtime.events.schema import EventEnvelope
 from autora_api.deps import Operator, Session
@@ -62,7 +63,9 @@ class CycleLine(BaseModel):
     review_missing: str | None = None
     workflows: int = 0
     failed_tasks: int = 0
-    cost_usd: str | None = None
+    cost: str | None = None
+    """What the cycle cost, in ``currency`` — the base (D-023)."""
+    currency: str
 
 
 class CycleDetail(CycleLine):
@@ -162,7 +165,8 @@ async def _line(session: Session, cycle: Cycle) -> CycleLine:
         review_missing=review.get("reason") if review.get("missing") else None,
         workflows=workflows,
         failed_tasks=failed,
-        cost_usd=metrics.get("cost_usd"),
+        cost=metrics.get("cost"),
+        currency=base_currency(),
     )
 
 

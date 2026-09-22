@@ -22,14 +22,17 @@ from autora.db.models import (
     TransactionSource,
     WorkflowRun,
 )
+from autora.infra.money import Fx, FxError
 from tests.conftest import unique_company
 
 NOW = datetime(2026, 9, 21, 20, 0, tzinfo=UTC)
 K = TransactionKind
+FX = Fx(base="TWD", rates={"USD": Decimal("32")})
+"""Fixed here rather than read from settings, so the arithmetic below is the test's own."""
 
 
 def _ledger() -> Ledger:
-    return Ledger(clock=lambda: NOW)
+    return Ledger(clock=lambda: NOW, fx=FX)
 
 
 async def _world(session, *, projects: int = 1):
@@ -76,12 +79,17 @@ async def test_a_cycle_settles_into_one_expense_per_project(db_session):
 
     settlement = await _ledger().settle_cycle(db_session, cycle)
 
-    assert settlement.total == Decimal("0.750000")
+    assert settlement.total == Decimal("0.750000")  # what the meter said, in USD
     assert not settlement.already_settled
     rows = await _expenses(db_session, company.id)
-    assert [(r.project_id, r.amount) for r in rows] == [
-        (second.id, Decimal("0.250000")),
-        (first.id, Decimal("0.500000")),
+    # booked in TWD, each row keeping the USD it came from and the rate (D-023)
+    assert [(r.project_id, r.amount, r.currency) for r in rows] == [
+        (second.id, Decimal("8.000000"), "TWD"),
+        (first.id, Decimal("16.000000"), "TWD"),
+    ]
+    assert [(r.source_amount, r.source_currency, r.fx_rate) for r in rows] == [
+        (Decimal("0.250000"), "USD", Decimal("32")),
+        (Decimal("0.500000"), "USD", Decimal("32")),
     ]
     assert all(r.kind == K.EXPENSE and r.ref_type == "cycle" and r.ref_id == cycle.id for r in rows)
     assert all(r.occurred_at == NOW for r in rows)  # the cycle has not ended: settled now
@@ -100,7 +108,7 @@ async def test_settling_twice_writes_nothing_the_second_time(db_session):
     assert first and not again
     assert again.already_settled
     assert len(await _expenses(db_session, company.id)) == 1
-    assert await ledger.spent(db_session, company.id) == Decimal("0.300000")
+    assert await ledger.spent(db_session, company.id) == Decimal("9.600000")  # 0.30 USD
 
 
 async def test_a_call_made_after_the_settlement_is_picked_up_by_the_next_one(db_session):
@@ -117,7 +125,7 @@ async def test_a_call_made_after_the_settlement_is_picked_up_by_the_next_one(db_
     again = await ledger.settle_cycle(db_session, cycle)
 
     assert again.already_settled and not again.transactions
-    assert await ledger.spent(db_session, company.id) == Decimal("0.300000")
+    assert await ledger.spent(db_session, company.id) == Decimal("9.600000")  # 0.30 USD
     # the meter still knows the truth, and it no longer matches the books
     assert await ledger.metered(db_session, cycle_id=cycle.id) == Decimal("0.350000")
 
@@ -207,8 +215,13 @@ async def test_what_a_cycle_cost_equals_what_it_was_charged(db_session):
     settlement = await ledger.settle_cycle(db_session, cycle)
 
     metered = await ledger.metered(db_session, cycle_id=cycle.id)
+    rows = await _expenses(db_session, company.id)
+    booked_usd = sum((row.source_amount for row in rows), Decimal(0))
+    assert metered == booked_usd == settlement.total == Decimal("1.050001")
+    # and in the books' own currency, each row converted once at the rate it records
     booked = await ledger.spent(db_session, company.id, category=MODEL_COST)
-    assert metered == booked == settlement.total == Decimal("1.050001")
+    assert booked == sum((row.source_amount * row.fx_rate for row in rows), Decimal(0))
+    assert booked == Decimal("33.600032")
 
 
 async def test_what_one_article_cost_end_to_end(db_session):
@@ -312,7 +325,8 @@ async def test_every_posting_says_so_in_an_event(db_session):
     assert [e.event_type for e in events] == ["EXPENSE_RECORDED", "REVENUE_RECORDED"]
     expense, revenue = events
     assert expense.payload["category"] == MODEL_COST
-    assert Decimal(str(expense.payload["amount"])) == Decimal("0.300000")
+    assert Decimal(str(expense.payload["amount"])) == Decimal("9.600000")  # 0.30 USD, in TWD
+    assert expense.payload["currency"] == "TWD"
     assert expense.payload["project_id"] == str(project.id)
     assert revenue.payload["project_id"] is None
     assert all(e.actor["id"] == "ledger" for e in events)
@@ -388,3 +402,42 @@ async def test_an_unknown_cycle_settles_to_nothing(db_session):
 
 async def test_a_company_with_no_money_has_a_zero_balance(db_session):
     assert await _ledger().balance(db_session, uuid.uuid4()) == 0
+
+
+# --- one currency (D-023) -----------------------------------------------------------------
+
+
+async def test_money_in_the_base_is_booked_as_it_came(db_session):
+    company, _, _ = await _world(db_session, projects=0)
+    row = await _ledger().record(
+        db_session, company_id=company.id, kind=K.REVENUE, category="subscription",
+        amount=Decimal("1200"), idempotency_key=f"twd-{uuid.uuid4().hex[:8]}",
+    )  # fmt: skip
+    assert (row.amount, row.currency) == (Decimal("1200.000000"), "TWD")
+    assert (row.source_amount, row.source_currency, row.fx_rate) == (None, None, None)
+
+
+async def test_a_rate_changed_later_does_not_rewrite_what_was_booked(db_session):
+    """The past was converted at the rate of its day, and the row says which."""
+    company, _, _ = await _world(db_session, projects=0)
+    then = await _ledger().record(
+        db_session, company_id=company.id, kind=K.EXPENSE, category="tool_cost",
+        amount=Decimal("1"), currency="USD", idempotency_key=f"then-{uuid.uuid4().hex[:8]}",
+    )  # fmt: skip
+    later = Ledger(clock=lambda: NOW, fx=Fx(base="TWD", rates={"USD": Decimal("30")}))
+    now = await later.record(
+        db_session, company_id=company.id, kind=K.EXPENSE, category="tool_cost",
+        amount=Decimal("1"), currency="USD", idempotency_key=f"now-{uuid.uuid4().hex[:8]}",
+    )  # fmt: skip
+    assert (then.amount, then.fx_rate) == (Decimal("32.000000"), Decimal("32"))
+    assert (now.amount, now.fx_rate) == (Decimal("30.000000"), Decimal("30"))
+    assert await later.spent(db_session, company.id) == Decimal("62.000000")
+
+
+async def test_a_currency_without_a_rate_is_refused_not_guessed(db_session):
+    company, _, _ = await _world(db_session, projects=0)
+    with pytest.raises(FxError, match="JPY"):
+        await _ledger().record(
+            db_session, company_id=company.id, kind=K.REVENUE, category="subscription",
+            amount=Decimal("100"), currency="JPY", idempotency_key="jpy",
+        )  # fmt: skip

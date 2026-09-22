@@ -45,6 +45,7 @@ from autora.db.models import (
     TransactionSource,
 )
 from autora.infra.ids import uuid7
+from autora.infra.money import base_currency
 from autora.runtime.actor import Actor
 from autora.runtime.events.outbox import emit
 from autora.runtime.events.schema import new_event
@@ -93,7 +94,7 @@ async def add_price(
     amount: Decimal,
     interval: PriceInterval,
     provider: str,
-    currency: str = "USD",
+    currency: str | None = None,
     external_ref: str | None = None,
 ) -> Price:
     """Offer a product at a price. A retired product is not for sale at any price."""
@@ -106,7 +107,7 @@ async def add_price(
         company_id=product.company_id,
         product_id=product.id,
         amount=amount,
-        currency=currency,
+        currency=currency or base_currency(),
         interval=interval.value,
         provider=provider,
         external_ref=external_ref,
@@ -304,7 +305,7 @@ async def record_payment(
     external_ref: str,
     amount: Decimal,
     actor: Actor,
-    currency: str = "USD",
+    currency: str | None = None,
     paid_at: datetime | None = None,
     ledger: Ledger | None = None,
 ) -> tuple[Payment, bool]:
@@ -315,6 +316,7 @@ async def record_payment(
     price: prorations and discounts make them differ, and the ledger records what happened.
     """
     provider = subscription.provider
+    currency = currency or base_currency()
     existing = await session.scalar(
         select(Payment).where(Payment.provider == provider, Payment.external_ref == external_ref)
     )

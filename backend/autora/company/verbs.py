@@ -48,6 +48,7 @@ from autora.db.models import (
     WorkflowRun,
 )
 from autora.db.repositories.companies import upsert_policy
+from autora.infra.money import base_currency, format_money
 from autora.runtime.events.outbox import emit
 from autora.runtime.events.schema import new_event
 from autora.runtime.lifecycles import WORKFLOW_RUN_FSM
@@ -68,7 +69,9 @@ class CreateCycleGoal(BaseModel):
 
 
 class AllocateBudget(BaseModel):
-    """Put money behind something. Exactly one of the two ids, or neither for the company."""
+    """Put money behind something. Exactly one of the two ids, or neither for the company.
+
+    ``amount`` is in the base currency (D-023), like every budget."""
 
     amount: Decimal = Field(ge=0)
     period: Literal["cycle", "day", "month"] = "cycle"
@@ -191,6 +194,7 @@ async def allocate_budget(ctx: Context, command: AllocateBudget) -> dict[str, An
             business_unit_id=command.business_unit_id,
             period=command.period,
             amount=command.amount,
+            currency=base_currency(),
             hard_cap=command.hard_cap,
         )
         ctx.session.add(budget)
@@ -207,6 +211,7 @@ async def allocate_budget(ctx: Context, command: AllocateBudget) -> dict[str, An
                 project_id=command.project_id,
                 period=command.period,
                 amount=command.amount,
+                currency=budget.currency,
             ),
             company_id=ctx.company_id,
             actor=ctx.actor,
@@ -495,7 +500,7 @@ def register(bus: CommandBus) -> None:
             AllocateBudget,
             "allocate_budget",
             allocate_budget,
-            summary=lambda c: f"Allocate ${c.amount} per {c.period}",
+            summary=lambda c: f"Allocate {format_money(c.amount)} per {c.period}",
         ),
         CommandSpec(
             "InstantiateWorkflow",

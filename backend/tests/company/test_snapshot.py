@@ -60,7 +60,7 @@ async def _company(session, *, businesses=("ai_media",)):
                 name=key.replace("_", " ").title(),
                 actor=ACTOR,
                 state=BusinessUnitState.ACTIVE,
-                kill_criteria={"auto_pause_if": {"metric": "cost_usd", "op": ">", "value": 9}},
+                kill_criteria={"auto_pause_if": {"metric": "cost", "op": ">", "value": 9}},
             )
         )
     return company, units
@@ -104,7 +104,7 @@ async def test_the_portfolio_is_the_spine(db_session):
     assert (line.key, line.state) == ("ai_media", "ACTIVE")
     assert [p.name for p in line.projects] == [project.name]
     assert [p.key for p in line.products] == ["daily_english_world"]
-    assert line.kill_criteria["auto_pause_if"]["metric"] == "cost_usd"
+    assert line.kill_criteria["auto_pause_if"]["metric"] == "cost"
     # work that belongs to no business sits beside the portfolio, not inside it
     assert [p.name for p in snapshot.company_work] == [platform.name]
 

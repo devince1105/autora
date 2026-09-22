@@ -80,7 +80,7 @@ async def _submitted_proposal(session, opportunity, **fields):
         actor=CEO,
         business_model="subscription",
         estimated_startup_cost=Decimal("2000"),
-        kill_criteria={"auto_pause_if": {"metric": "revenue_usd", "op": "<", "value": 100}},
+        kill_criteria={"auto_pause_if": {"metric": "revenue", "op": "<", "value": 100}},
         proposed_product={"key": "daily_english", "name": "Daily English"},
         **fields,
     )
@@ -186,7 +186,7 @@ async def test_exploration_money_goes_to_exploration_projects(db_session, bus):
         opportunity_id=opportunity.id,
         name="Validate AI English",
         state=ProjectState.ACTIVE.value,
-        kill_criteria={"auto_pause_if": {"metric": "cost_usd", "op": ">", "value": 20}},
+        kill_criteria={"auto_pause_if": {"metric": "cost", "op": ">", "value": 20}},
     )
     ordinary = Project(
         company_id=company.id,

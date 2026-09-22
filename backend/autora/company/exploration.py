@@ -47,9 +47,10 @@ from autora.runtime.dag import NodeSpec, TemplateRegistry, WorkflowEngine, Workf
 log = logging.getLogger(__name__)
 
 PROPOSAL_TEMPLATE = "company.business_proposal_v1"
-DEFAULT_EXPLORATION_CAP_USD = 2
-"""What one exploration may spend before it pauses itself. Small: it is a document, and a
-company that can spend freely on finding out can fund a business by calling it research."""
+DEFAULT_EXPLORATION_CAP = 64
+"""What one exploration may spend before it pauses itself, in the base currency (D-023).
+Small: it is a document, and a company that can spend freely on finding out can fund a
+business by calling it research."""
 
 TEMPLATES = (
     WorkflowTemplate(
@@ -91,9 +92,9 @@ async def exploration_project(
         state=ProjectState.ACTIVE.value,
         kill_criteria={
             "auto_pause_if": {
-                "metric": "cost_usd",
+                "metric": "cost",
                 "op": ">",
-                "value": DEFAULT_EXPLORATION_CAP_USD,
+                "value": DEFAULT_EXPLORATION_CAP,
             },
             "note": "exploring is meant to be cheap; past this it needs a decision, not more work",
         },

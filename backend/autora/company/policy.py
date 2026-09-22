@@ -13,12 +13,14 @@ from typing import Any
 from autora.runtime.policy import Limit, PolicyEngine, Rule, allow, needs_approval
 
 DEFAULT_MAX_WORKFLOWS_PER_CYCLE = 5
-DEFAULT_CEO_BUDGET_ALLOCATION_LIMIT_USD = Decimal("5")
-DEFAULT_EXPLORATION_BUDGET_LIMIT_USD = Decimal("2")
+DEFAULT_CEO_BUDGET_ALLOCATION_LIMIT = Decimal("160")
+"""All limits here are in the base currency (D-023); these are the USD 5 / 2 / 50 of before
+at 32 to the dollar."""
+DEFAULT_EXPLORATION_BUDGET_LIMIT = Decimal("64")
 """What the CEO may spend finding out, per allocation, before a person is asked. Smaller than
 the ordinary limit on purpose: exploring is meant to be cheap, and a company that can fund a
 large exploration alone can fund a business by calling it one (ARCHITECTURE_V2_1 §6)."""
-DEFAULT_CEO_SCALE_LIMIT_USD = Decimal("50")
+DEFAULT_CEO_SCALE_LIMIT = Decimal("1600")
 """Capital the CEO may move into a business it already runs, per command."""
 
 
@@ -40,8 +42,8 @@ def _allocation_limit(args: Mapping[str, Any], facts, policies) -> str | None:
     limit = Decimal(
         str(
             policies.get(
-                "governance.ceo_budget_allocation_limit_usd",
-                DEFAULT_CEO_BUDGET_ALLOCATION_LIMIT_USD,
+                "governance.ceo_budget_allocation_limit",
+                DEFAULT_CEO_BUDGET_ALLOCATION_LIMIT,
             )
         )
     )
@@ -49,22 +51,20 @@ def _allocation_limit(args: Mapping[str, Any], facts, policies) -> str | None:
         amount = Decimal(str(args.get("amount")))
     except (InvalidOperation, TypeError):
         return "amount missing or not a number"
-    return None if amount <= limit else f"${amount} is above the ${limit} limit"
+    return None if amount <= limit else f"{amount} is above the {limit} limit"
 
 
 def _exploration_limit(args: Mapping[str, Any], facts, policies) -> str | None:
     return _under(
         args,
         policies,
-        key="governance.exploration_budget_limit_usd",
-        default=DEFAULT_EXPLORATION_BUDGET_LIMIT_USD,
+        key="governance.exploration_budget_limit",
+        default=DEFAULT_EXPLORATION_BUDGET_LIMIT,
     )
 
 
 def _scale_limit(args: Mapping[str, Any], facts, policies) -> str | None:
-    return _under(
-        args, policies, key="governance.ceo_scale_limit_usd", default=DEFAULT_CEO_SCALE_LIMIT_USD
-    )
+    return _under(args, policies, key="governance.ceo_scale_limit", default=DEFAULT_CEO_SCALE_LIMIT)
 
 
 def _under(args: Mapping[str, Any], policies, *, key: str, default: Decimal) -> str | None:
@@ -73,7 +73,7 @@ def _under(args: Mapping[str, Any], policies, *, key: str, default: Decimal) -> 
         amount = abs(Decimal(str(args.get("amount"))))
     except (InvalidOperation, TypeError):
         return "amount missing or not a number"
-    return None if amount <= limit else f"${amount} is above the ${limit} limit"
+    return None if amount <= limit else f"{amount} is above the {limit} limit"
 
 
 def _reversible_step(args: Mapping[str, Any], facts, policies) -> str | None:

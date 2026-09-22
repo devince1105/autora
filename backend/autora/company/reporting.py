@@ -3,14 +3,14 @@
 Run in MEASURING, after the ledger has settled, and **never by a model**. A KPI is arithmetic
 over rows that already exist, so it is reproducible, cheap to redo, and cannot be argued with.
 
-**The core counts money; domains count their own work.** This module knows what a dollar is and
+**The core counts money; domains count their own work.** This module knows what money is and
 what a cycle is. It does not know what a published article is, and it must not learn: a company
 that runs two businesses would then need the core to learn both. So a domain registers a hook:
 
     reporting.register("newsroom", newsroom_kpis)
 
 and gets back a window to measure. Whatever numbers it returns are stored under its own name
-(``newsroom.published_articles``), while the core's own stay bare (``cost_usd``). Reading a
+(``newsroom.published_articles``), while the core's own stay bare (``cost``). Reading a
 metric therefore tells you who computed it — and deleting a domain deletes its metrics, leaving
 the rest of the report standing.
 
@@ -49,6 +49,7 @@ from autora.db.models import (
     Transaction,
     TransactionKind,
 )
+from autora.infra.money import Fx
 from autora.runtime.actor import Actor
 from autora.runtime.events.outbox import emit
 from autora.runtime.events.schema import new_event
@@ -92,6 +93,7 @@ class Reporting:
 
     clock: Callable[[], datetime] = field(default=lambda: datetime.now(UTC))
     hooks: dict[str, KpiHook] = field(default_factory=dict)
+    fx: Fx = field(default_factory=Fx.from_settings)
 
     @property
     def actor(self) -> Actor:
@@ -285,13 +287,15 @@ class Reporting:
                 *self._calls_filter(window),
             )
         )
-        cost = (Decimal(model_cost or 0) + Decimal(other_cost or 0)).quantize(MONEY)
+        # the meter is in USD, the ledger in the base; the report is in the base (D-023)
+        model_cost = self.fx.metered(model_cost)
+        cost = (model_cost + Decimal(other_cost or 0)).quantize(MONEY)
         earned = Decimal(revenue or 0).quantize(MONEY)
         metrics = {
-            "cost_usd": _plain(cost),
-            "model_cost_usd": _plain(Decimal(model_cost or 0).quantize(MONEY)),
-            "revenue_usd": _plain(earned),
-            "profit_usd": _plain((earned - cost).quantize(MONEY)),
+            "cost": _plain(cost),
+            "model_cost": _plain(model_cost),
+            "revenue": _plain(earned),
+            "profit": _plain((earned - cost).quantize(MONEY)),
             "model_calls": int(calls or 0),
         }
         # counted for the scopes a customer can belong to; a project has no customers of its own

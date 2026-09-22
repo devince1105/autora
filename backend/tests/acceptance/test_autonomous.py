@@ -315,7 +315,7 @@ async def test_a_company_with_no_domain_runs_the_same_days(committed, e2e_settin
                 name="Whatever it does",
                 state=ProjectState.ACTIVE.value,
                 kill_criteria={
-                    "auto_pause_if": {"metric": "cost_usd", "op": ">", "value": 1000},
+                    "auto_pause_if": {"metric": "cost", "op": ">", "value": 1000},
                 },
             )
         )
@@ -524,9 +524,7 @@ async def test_an_opportunity_becomes_a_proposal_a_person_can_decide(committed, 
     assert proposal.kill_criteria, "a proposal that does not say what would end it"
     assert proposal.authored_by_run_id is not None, "it came from nowhere"
     # finding out is an ordinary project, with a budget and a stop-loss like any other work
-    assert (
-        exploring is not None and exploring.kill_criteria["auto_pause_if"]["metric"] == "cost_usd"
-    )
+    assert exploring is not None and exploring.kill_criteria["auto_pause_if"]["metric"] == "cost"
     assert human_events == [], "a person wrote it after all"
 
     # and now the one thing that is a person's: opening the business

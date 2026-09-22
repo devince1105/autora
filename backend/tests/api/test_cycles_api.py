@@ -85,7 +85,7 @@ async def week(committed):
                     cycle_id=cycle.id,
                     scope=KpiScope.COMPANY.value,
                     metrics={
-                        "cost_usd": f"{seq}.000000",
+                        "cost": f"{seq}.000000",
                         "model_calls": seq,
                         "newsroom.published_articles": published,
                     },
@@ -172,7 +172,7 @@ async def test_the_list_counts_the_work_and_what_broke(api, week):
 
     assert by_seq[1]["workflows"] == 1 and by_seq[1]["failed_tasks"] == 0
     assert by_seq[2]["failed_tasks"] == 1
-    assert by_seq[1]["cost_usd"] == "1.000000"
+    assert by_seq[1]["cost"] == "1.000000" and by_seq[1]["currency"] == "TWD"
 
 
 async def test_one_day_in_full(api, week):
@@ -278,4 +278,4 @@ async def test_cost_is_reported_as_measured_not_recomputed(api, committed, week)
 
     days = (await api.get(f"/api/companies/{company.id}/cycles")).json()
 
-    assert next(d for d in days if d["seq"] == 1)["cost_usd"] == "1.000000"
+    assert next(d for d in days if d["seq"] == 1)["cost"] == "1.000000"

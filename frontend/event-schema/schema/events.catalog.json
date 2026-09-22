@@ -1571,7 +1571,6 @@
               "type": "string"
             },
             "currency": {
-              "default": "USD",
               "title": "Currency",
               "type": "string"
             }
@@ -1579,7 +1578,8 @@
           "required": [
             "budget_id",
             "period",
-            "amount"
+            "amount",
+            "currency"
           ],
           "title": "BudgetAllocated",
           "type": "object"
@@ -2568,7 +2568,6 @@
               "type": "string"
             },
             "currency": {
-              "default": "USD",
               "title": "Currency",
               "type": "string"
             }
@@ -2576,7 +2575,8 @@
           "required": [
             "transaction_id",
             "category",
-            "amount"
+            "amount",
+            "currency"
           ],
           "title": "ExpenseRecorded",
           "type": "object"
@@ -3626,7 +3626,6 @@
               "type": "string"
             },
             "currency": {
-              "default": "USD",
               "title": "Currency",
               "type": "string"
             }
@@ -3634,7 +3633,8 @@
           "required": [
             "transaction_id",
             "category",
-            "amount"
+            "amount",
+            "currency"
           ],
           "title": "RevenueRecorded",
           "type": "object"

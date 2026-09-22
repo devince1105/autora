@@ -151,7 +151,7 @@ async def test_a_metric_nobody_measured_is_not_a_breach(db_session):
     company, unit, project, cycle = await _company(
         db_session, project_criteria={"auto_pause_if": PAUSE_IF}
     )
-    await _measured(db_session, company, cycle, project=project, cost_usd="9.99")
+    await _measured(db_session, company, cycle, project=project, cost="9.99")
 
     done = await _governance().review(db_session, cycle)
 
@@ -387,7 +387,7 @@ async def test_a_budget_most_of_the_way_spent_is_announced(db_session):
     db_session.add(
         Budget(company_id=company.id, project_id=project.id, period="cycle", amount=Decimal("10"))
     )
-    await _measured(db_session, company, cycle, project=project, cost_usd="8.50")
+    await _measured(db_session, company, cycle, project=project, cost="8.50")
 
     done = await _governance().review(db_session, cycle)
 
@@ -406,7 +406,7 @@ async def test_a_budget_barely_touched_says_nothing(db_session):
     db_session.add(
         Budget(company_id=company.id, project_id=project.id, period="cycle", amount=Decimal("10"))
     )
-    await _measured(db_session, company, cycle, project=project, cost_usd="1.00")
+    await _measured(db_session, company, cycle, project=project, cost="1.00")
 
     assert not (await _governance().review(db_session, cycle)).warnings
 
@@ -417,7 +417,7 @@ async def test_a_budget_already_at_the_wall_is_the_guard_s_business_not_this_one
     db_session.add(
         Budget(company_id=company.id, project_id=project.id, period="cycle", amount=Decimal("10"))
     )
-    await _measured(db_session, company, cycle, project=project, cost_usd="10.00")
+    await _measured(db_session, company, cycle, project=project, cost="10.00")
 
     assert not (await _governance().review(db_session, cycle)).warnings
 
@@ -468,7 +468,7 @@ async def test_reporting_and_governance_agree_on_the_numbers(db_session):
     """Governance reads what Reporting wrote: one measurement, one decision."""
     company, unit, project, cycle = await _company(
         db_session,
-        project_criteria={"auto_pause_if": {"metric": "cost_usd", "op": ">", "value": 1}},
+        project_criteria={"auto_pause_if": {"metric": "cost", "op": ">", "value": 1}},
     )
     db_session.add(
         ModelCall(
@@ -490,7 +490,7 @@ async def test_reporting_and_governance_agree_on_the_numbers(db_session):
     done = await _governance().review(db_session, cycle)
 
     assert done.paused_projects == [project.id]
-    assert done.breaches[0].observed == 2.5
+    assert done.breaches[0].observed == 80  # the meter's $2.50, reported in TWD at 32
 
 
 # --- whose failure was it? (D-020, found by the first real-model soak) ------------------------

@@ -288,9 +288,9 @@ async def test_the_summary_says_what_the_day_did(db_session):
 
     assert summary.title == "Cycle 1"
     assert "aimed at published 3" in summary.body
-    assert "allocated $5" in summary.body
+    assert "allocated NT$5" in summary.body
     assert "1 workflow(s) ran" in summary.body
-    assert "cost $0.4" in summary.body
+    assert "cost NT$12.8" in summary.body  # the meter's $0.40, in TWD
     assert "Steady." in summary.body
 
 

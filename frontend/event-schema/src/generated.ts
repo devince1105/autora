@@ -444,7 +444,7 @@ export const BudgetAllocatedV1Payload = z.object({
   project_id: z.uuid().nullable().default(null),
   period: z.enum(["cycle", "day", "month"]),
   amount: z.string().regex(new RegExp("^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$")),
-  currency: z.string().default("USD"),
+  currency: z.string(),
 });
 export type BudgetAllocatedV1Payload = z.infer<typeof BudgetAllocatedV1Payload>;
 export const BudgetAllocatedV1Event = z.object({
@@ -748,7 +748,7 @@ export const ExpenseRecordedV1Payload = z.object({
   project_id: z.uuid().nullable().default(null),
   category: z.string(),
   amount: z.string().regex(new RegExp("^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$")),
-  currency: z.string().default("USD"),
+  currency: z.string(),
 });
 export type ExpenseRecordedV1Payload = z.infer<typeof ExpenseRecordedV1Payload>;
 export const ExpenseRecordedV1Event = z.object({
@@ -1097,7 +1097,7 @@ export const RevenueRecordedV1Payload = z.object({
   project_id: z.uuid().nullable().default(null),
   category: z.string(),
   amount: z.string().regex(new RegExp("^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$")),
-  currency: z.string().default("USD"),
+  currency: z.string(),
 });
 export type RevenueRecordedV1Payload = z.infer<typeof RevenueRecordedV1Payload>;
 export const RevenueRecordedV1Event = z.object({

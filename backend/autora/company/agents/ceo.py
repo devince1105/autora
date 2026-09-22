@@ -36,6 +36,7 @@ from autora.db.models import (
     Project,
     ProjectState,
 )
+from autora.infra.money import format_money
 from autora.runtime.behaviors import AgentBehavior, BehaviorRegistry, RunContext
 
 ROLE = "ceo"
@@ -127,7 +128,8 @@ if it affects the decision.
 
 Your only tool is submit_command. Use it for everything you decide:
 - CreateCycleGoal {title, metric, target} — at most %(max_goals)d, each measurable
-- AllocateBudget {amount, period, business_unit_id|project_id} — money for one scope
+- AllocateBudget {amount, period, business_unit_id|project_id} — money for one scope, in the
+  snapshot's `capital.currency`; every amount you read and write is in that currency
 - PauseProject {project_id, reason} — stop work that is not paying for itself
 - KillProject {project_id, reason} — a person must approve it
 - UpdateStrategy {summary} — a person must approve it
@@ -415,7 +417,7 @@ def _plan_summary(plan: BaseModel) -> str:
         parts.append(f"{len(plan.goals)} goal(s): " + ", ".join(g.metric for g in plan.goals))
     if plan.allocations:
         total = sum((a.amount for a in plan.allocations), Decimal(0))
-        parts.append(f"${total} allocated")
+        parts.append(f"{format_money(total)} allocated")
     if plan.priorities:
         parts.append(f"{len(plan.priorities)} project(s) prioritised")
     return "; ".join(parts) or "nothing to do this cycle"

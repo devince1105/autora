@@ -25,6 +25,7 @@ from autora.db.models import (
     Transaction,
     TransactionKind,
 )
+from autora.infra.money import Fx
 from autora.runtime.actor import Actor
 from tests.conftest import unique_company
 
@@ -33,8 +34,13 @@ START = datetime(2026, 9, 21, 6, 0, tzinfo=UTC)
 END = START + timedelta(hours=14)
 
 
-def _reporting() -> Reporting:
-    return Reporting(clock=lambda: END)
+PAR = Fx(base="TWD", rates={"USD": Decimal(1)})
+"""One to one. Almost every test here is about *which* calls and rows a scope counts, and that
+arithmetic reads better unconverted. The conversion itself is the first test's, at 32."""
+
+
+def _reporting(fx: Fx = PAR) -> Reporting:
+    return Reporting(clock=lambda: END, fx=fx)
 
 
 async def _world(db_session, *, with_unit: bool = True):
@@ -54,7 +60,7 @@ async def _world(db_session, *, with_unit: bool = True):
         business_unit_id=unit.id if unit else None,
         name="p",
         state=ProjectState.ACTIVE.value,
-        kill_criteria={"max_cost_usd": 5},
+        kill_criteria={"max_cost": 5},
     )
     cycle = Cycle(company_id=company.id, seq=1, stage="MEASURING", started_at=START)
     db_session.add_all([project, cycle])
@@ -92,15 +98,17 @@ async def test_the_core_measures_money_and_nothing_else(db_session):
     ])  # fmt: skip
     await db_session.flush()
 
-    metrics = await _reporting().metrics_for(
+    fx = Fx(base="TWD", rates={"USD": Decimal("32")})
+    metrics = await _reporting(fx).metrics_for(
         db_session, Window(company_id=company.id, since=START, until=END)
     )
 
+    # the meter's 0.50 USD becomes 16 TWD; the ledger's rows are TWD already (D-023)
     assert metrics == {
-        "cost_usd": "2.000000",
-        "model_cost_usd": "0.500000",
-        "revenue_usd": "10.000000",
-        "profit_usd": "8.000000",
+        "cost": "17.500000",
+        "model_cost": "16.000000",
+        "revenue": "10.000000",
+        "profit": "-7.500000",
         "model_calls": 2,
         # money, time and how many people are paying: all three mean the same in any industry
         "customers": 0,
@@ -122,7 +130,7 @@ async def test_settled_model_costs_are_not_counted_twice(db_session):
         db_session, Window(company_id=company.id, since=START, until=END)
     )
 
-    assert metrics["cost_usd"] == "0.500000"
+    assert metrics["cost"] == "0.500000"
 
 
 async def test_work_outside_the_window_is_not_this_cycle_s(db_session):
@@ -138,7 +146,7 @@ async def test_work_outside_the_window_is_not_this_cycle_s(db_session):
         db_session, Window(company_id=company.id, since=START, until=END)
     )
 
-    assert metrics["cost_usd"] == "0.200000"
+    assert metrics["cost"] == "0.200000"
 
 
 async def test_a_business_is_measured_through_its_projects(db_session):
@@ -169,9 +177,9 @@ async def test_a_business_is_measured_through_its_projects(db_session):
         db_session, Window(company_id=company.id, since=START, until=END)
     )
 
-    assert unit_metrics["cost_usd"] == "0.300000"
-    assert unit_metrics["revenue_usd"] == "12.000000"
-    assert company_metrics["cost_usd"] == "5.300000"  # the whole company, both projects
+    assert unit_metrics["cost"] == "0.300000"
+    assert unit_metrics["revenue"] == "12.000000"
+    assert company_metrics["cost"] == "5.300000"  # the whole company, both projects
 
 
 # --- domain hooks ------------------------------------------------------------------------------
@@ -204,7 +212,7 @@ async def test_a_hook_is_handed_what_the_core_measured(db_session):
 
     async def ratio(session, window, core):
         seen.update(core)
-        return {"per_unit": str(Decimal(core["cost_usd"]) / 4)}
+        return {"per_unit": str(Decimal(core["cost"]) / 4)}
 
     reporting.register("factory", ratio)
 
@@ -212,7 +220,7 @@ async def test_a_hook_is_handed_what_the_core_measured(db_session):
         db_session, Window(company_id=company.id, since=START, until=END)
     )
 
-    assert seen["cost_usd"] == "2.000000"
+    assert seen["cost"] == "2.000000"
     assert metrics["factory.per_unit"] == "0.500000"  # Decimal keeps the core's scale
 
 
@@ -235,7 +243,7 @@ async def test_a_broken_hook_loses_its_own_numbers_and_nothing_else(db_session):
         db_session, Window(company_id=company.id, since=START, until=END)
     )
 
-    assert metrics["cost_usd"] == "1.000000"
+    assert metrics["cost"] == "1.000000"
     assert metrics["working.ok"] == 1
     assert not any(key.startswith("broken.") for key in metrics)
 
@@ -259,10 +267,10 @@ async def test_a_company_with_no_domains_still_gets_a_report(db_session):
     db_session.add(_call(company, project, "0.75"))
     await db_session.flush()
 
-    written = await Reporting(clock=lambda: END).measure_cycle(db_session, cycle)
+    written = await _reporting().measure_cycle(db_session, cycle)
 
     assert [s.scope for s in written] == ["company", "business_unit", "project"]
-    core = {"cost_usd", "model_cost_usd", "revenue_usd", "profit_usd", "model_calls"}
+    core = {"cost", "model_cost", "revenue", "profit", "model_calls"}
     for snapshot in written:
         # a project has no customers of its own; the company and each business do
         expected = core if snapshot.scope == "project" else core | {"customers"}
@@ -289,7 +297,7 @@ async def test_a_cycle_is_measured_at_three_scopes(db_session):
     assert by_scope["project"].project_id == project.id
     assert all(s.cycle_id == cycle.id for s in written)
     assert all(s.period_start == START for s in written)
-    assert by_scope["project"].metrics["revenue_usd"] == "3.000000"
+    assert by_scope["project"].metrics["revenue"] == "3.000000"
 
 
 async def test_measuring_twice_updates_in_place(db_session):
@@ -309,7 +317,7 @@ async def test_measuring_twice_updates_in_place(db_session):
     ).all()
     assert len(rows) == 3  # one per scope, not six
     company_row = next(r for r in rows if r.scope == "company")
-    assert company_row.metrics["cost_usd"] == "0.150000"  # recomputed, not added
+    assert company_row.metrics["cost"] == "0.150000"  # recomputed, not added
 
 
 async def test_each_new_measurement_says_so_once(db_session):
@@ -384,8 +392,8 @@ async def test_the_latest_and_the_history_of_a_scope(db_session):
     newest = await latest(db_session, company.id)
     trend = await history(db_session, company.id, limit=2)
 
-    assert newest.metrics["cost_usd"] == "0.300000"
-    assert [row.metrics["cost_usd"] for row in trend] == ["0.300000", "0.200000"]
+    assert newest.metrics["cost"] == "0.300000"
+    assert [row.metrics["cost"] for row in trend] == ["0.300000", "0.200000"]
 
 
 async def test_an_unmeasured_company_has_nothing_to_read(db_session):

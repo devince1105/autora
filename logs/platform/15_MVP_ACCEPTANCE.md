@@ -11,8 +11,8 @@
 | **P-4** Human approval | policy=human | publish 前 WAITING_APPROVAL；核准 60 秒內發布；拒絕 → REJECTED、task CANCELLED |
 | **P-5** 預算閘門 | project 預算極低 | 下一個 model call 被拒 → ABORTED → BLOCKED_BUDGET → BUDGET_EXHAUSTED；加預算後自動恢復 |
 | **P-6** 崩潰恢復 | 執行中 `kill -9` worker | lease 過期 → READY → 新 attempt 完成；無重複 article / evidence / transaction |
-| **P-7** 成本歸屬 | 任一 cycle 結束 | Σ model_calls.cost_usd（cycle）== 該 cycle expense transactions 總額；每篇文章可查總成本 |
-| **P-8** Analytics 閉環 | 公開站瀏覽 | analytics_events → analytics_daily → 隔日 snapshot `views_per_usd` 有值且 CycleReview 引用 |
+| **P-7** 成本歸屬 | 任一 cycle 結束 | Σ model_calls.cost_usd（cycle）== 該 cycle expense transactions 的 `source_amount` 總額（帳本是新台幣，換算前的美元留在同一列，D-023）；每篇文章可查總成本 |
+| **P-8** Analytics 閉環 | 公開站瀏覽 | analytics_events → analytics_daily → 隔日 snapshot `views_per_cost_unit` 有值且 CycleReview 引用 |
 | **P-9** 無限循環防護 | 強制 CEO 提案 100 workflows；強制 agent tool-call 循環 | 截斷至 max_workflows；max_steps 停止 |
 | **P-10** 審計 | 任一文章 | cycle → plan → workflow → tasks → runs → steps → model_calls → evidence 全鏈可查 |
 | **P-11** Domain 隔離 | `lint-imports` | 通過；刪除 `domains/newsroom` 後 runtime/company/realtime 測試全綠 |

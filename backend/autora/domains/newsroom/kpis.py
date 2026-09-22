@@ -1,12 +1,13 @@
-"""What the newsroom counts, and how much of it a dollar bought (T-603).
+"""What the newsroom counts, and how much of it the money bought (T-603).
 
 The company layer measures money and time; it does not know what an article is. So the numbers
 that need that word are computed here and handed over under the ``newsroom.`` prefix.
 
 Two of them are ratios that mix a newsroom unit with the company's money —
-``cost_per_published_article`` and ``views_per_usd``. They belong here rather than in the core
-for the same reason: only the newsroom knows what its unit is. The hook is handed the core's
-own figures for the same window, so the two sides of a ratio always come from one measurement.
+``cost_per_published_article`` and ``views_per_cost_unit``, both in the base currency (D-023).
+They belong here rather than in the core for the same reason: only the newsroom knows what its
+unit is. The hook is handed the core's own figures for the same window, so the two sides of a
+ratio always come from one measurement.
 
 ``cost_per_published_article`` is what AI Media's kill criteria are written against
 (ARCHITECTURE_V2 §16), so it has to mean exactly one thing: the scope's cost for the window
@@ -69,11 +70,11 @@ async def kpis(
         "views": int(views or 0),
         "read_complete": int(read_complete or 0),
     }
-    cost = _money(core.get("cost_usd"))
+    cost = _money(core.get("cost"))
     if published and cost is not None:
         metrics["cost_per_published_article"] = str((cost / Decimal(published)).quantize(RATIO))
     if cost and views:
-        metrics["views_per_usd"] = str((Decimal(int(views)) / cost).quantize(RATIO))
+        metrics["views_per_cost_unit"] = str((Decimal(int(views)) / cost).quantize(RATIO))
     return metrics
 
 

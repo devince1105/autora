@@ -74,7 +74,7 @@ Project 在 APPROVED 時必須帶結構化 kill criteria：
 ```json
 { "evaluate_after_cycles": 7,
   "auto_pause_if":     {"metric": "cost_per_published_article", "op": ">", "value": 3.0},
-  "kill_proposal_if":  {"metric": "views_per_usd", "op": "<", "value": 20, "consecutive_cycles": 3} }
+  "kill_proposal_if":  {"metric": "views_per_cost_unit", "op": "<", "value": 0.625, "consecutive_cycles": 3} }
 ```
 
 - `auto_pause` 由 Governance 在 MEASURING/REVIEWING 之間確定性觸發。

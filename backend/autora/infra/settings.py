@@ -75,6 +75,15 @@ class Settings(BaseSettings):
     anthropic_server_fallbacks: bool = True
     """Server-side refusal fallbacks (``fallbacks: "default"``); see T-208."""
 
+    # --- Money (D-023) ---
+    base_currency: str = Field(default="TWD", pattern="^[A-Z]{3}$")
+    """The one currency the ledger, budgets and reports are kept in. The meter (model calls,
+    tool costs, per-run caps) stays in USD, because that is what providers charge in."""
+    fx_rates: dict[str, Decimal] = {"USD": Decimal("32")}
+    """Units of the base currency per one unit of each other currency, from FX_RATES as JSON,
+    e.g. {"USD": "32"}. Fixed and updated by hand; every converted ledger row keeps the rate
+    it was converted at, so changing it never rewrites the past."""
+
     # --- Tools (T-500, D-003) ---
     tools_profile: Literal["fixture", "live"] = "fixture"
     """fixture: tools read local fixtures (tests, simulation); live: real web (Tavily, fetch)."""

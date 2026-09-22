@@ -29,6 +29,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from autora.company.ledger import Ledger
 from autora.db.models import Budget, BusinessUnit, Project
 from autora.domains.newsroom.models import Article, ArticleState, Story, StoryState
+from autora.infra.money import format_money
 from autora.runtime.behaviors import AgentBehavior, RunContext
 
 ROLE = "editor_in_chief"
@@ -226,7 +227,7 @@ async def _budget(session: AsyncSession, company_id: uuid.UUID) -> str | None:
     ledger = Ledger()
     for project_id in projects:
         spent += await ledger.spent(session, company_id, project_id=project_id)
-    return f"${amount} allocated, ${spent} spent so far"
+    return f"{format_money(amount)} allocated, {format_money(spent)} spent so far"
 
 
 def _summary(plan: BaseModel) -> str:

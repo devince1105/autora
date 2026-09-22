@@ -81,7 +81,8 @@ class Capital(BaseModel):
     balance: Decimal
     daily_cap: Decimal | None = None
     daily_spent: Decimal
-    currency: str = "USD"
+    currency: str
+    """The base currency (D-023); every figure above is in it."""
 
 
 class GoalLine(BaseModel):
@@ -276,6 +277,7 @@ class SnapshotBuilder:
             balance=await self.ledger.balance(session, company_id),
             daily_cap=cap,
             daily_spent=await self.ledger.spent(session, company_id, since=day, until=now),
+            currency=self.ledger.fx.base,
         )
 
     async def _opportunities(

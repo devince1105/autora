@@ -24,7 +24,8 @@ from autora.runtime.models.types import ModelRequest, ToolResultBlock, ToolUseBl
 
 ROLE = "ceo"
 STRATEGIST = "strategist"
-DEFAULT_ALLOCATION = Decimal("5")
+DEFAULT_ALLOCATION = Decimal("160")
+"""In the base currency (D-023): the USD 5 of before, at 32."""
 
 
 def respond(request: ModelRequest) -> FakeTurn | None:
@@ -80,7 +81,7 @@ def _propose(request: ModelRequest) -> FakeTurn:
                             },
                             "kill_criteria": {
                                 "auto_pause_if": {
-                                    "metric": "revenue_usd",
+                                    "metric": "revenue",
                                     "op": "<",
                                     "value": 1,
                                     "consecutive_cycles": 3,

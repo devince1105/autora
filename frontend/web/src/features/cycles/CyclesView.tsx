@@ -7,6 +7,7 @@ import {
   STAGE_LABEL,
   type CycleLine,
 } from "./model";
+import { formatMoney } from "@/features/dashboard/model";
 
 function Goal({ goal }: { goal: ReturnType<typeof goalProgress> }) {
   const progress =
@@ -67,7 +68,7 @@ export function CyclesView({ cycles }: { cycles: readonly CycleLine[] }) {
                     {cycle.failed_tasks} 個任務失敗
                   </span>
                 ) : null}
-                {cost !== null ? <span>US${cost.toFixed(4)}</span> : null}
+                {cost !== null ? <span>{formatMoney(cost, cycle.currency)}</span> : null}
               </span>
               {cycle.review_missing ? (
                 <span

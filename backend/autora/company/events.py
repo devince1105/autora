@@ -327,7 +327,8 @@ class BudgetAllocated(EventPayload):
     project_id: uuid.UUID | None = None
     period: Literal["cycle", "day", "month"]
     amount: Decimal = Field(ge=0)
-    currency: str = "USD"
+    currency: str
+    """The base currency (D-023)."""
 
 
 class _LedgerEvent(EventPayload):
@@ -335,7 +336,8 @@ class _LedgerEvent(EventPayload):
     project_id: uuid.UUID | None = None
     category: str
     amount: Decimal = Field(gt=0)
-    currency: str = "USD"
+    currency: str
+    """Always the base (D-023). A converted row's original is on the transaction, not here."""
 
 
 @event("BUDGET_WARNING")

@@ -43,6 +43,7 @@ from autora.db.models import (
     TransactionKind,
     TransactionSource,
 )
+from autora.infra.money import format_money
 from autora.runtime.events.outbox import emit
 from autora.runtime.events.schema import new_event
 
@@ -502,7 +503,7 @@ def register(bus: CommandBus) -> None:
             AllocateExplorationBudget,
             "allocate_exploration_budget",
             allocate_exploration_budget,
-            summary=lambda c: f"${c.amount} per {c.period} to explore",
+            summary=lambda c: f"{format_money(c.amount)} per {c.period} to explore",
         ),
         CommandSpec(
             "ScoreOpportunity",
@@ -544,14 +545,16 @@ def register(bus: CommandBus) -> None:
             CreateBusinessUnit,
             "create_business_unit",
             create_business_unit,
-            summary=lambda c: f"Open a business from proposal {c.proposal_id} with ${c.capital}",
+            summary=lambda c: (
+                f"Open a business from proposal {c.proposal_id} with {format_money(c.capital)}"
+            ),
         ),
         CommandSpec(
             "ScaleBusinessUnit",
             ScaleBusinessUnit,
             "scale_business_unit",
             scale_business_unit,
-            summary=lambda c: f"Move ${c.amount} of capital in {c.business_unit_id}",
+            summary=lambda c: f"Move {format_money(c.amount)} of capital in {c.business_unit_id}",
         ),
         CommandSpec(
             "PauseBusinessUnit",

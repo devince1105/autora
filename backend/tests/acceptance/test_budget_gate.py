@@ -50,8 +50,11 @@ OPERATOR = Actor.human("acceptance-operator")
 PRICE = {"input": 10.0, "output": 50.0}
 """Dollars per million tokens. Enough that one call's estimate is worth cents, not fractions."""
 
-CAP = Decimal("0.0001")
-"""A cap the first call cannot fit under: small enough that nothing has to be spent first."""
+CAP = Decimal("0.0032")
+"""A cap the first call cannot fit under: small enough that nothing has to be spent first.
+In TWD, like every budget (D-023) — $0.0001 at 32."""
+CAP_USD = Decimal("0.0001")
+"""The same cap as the guard sees it. The refusal is in the meter's currency, and says so."""
 
 
 @pytest.fixture
@@ -104,8 +107,8 @@ async def test_the_budget_gate_stops_the_work_and_money_starts_it_again(
     assert len(refusals) == 1, "the guard should refuse once, not once per retry"
     refusal = refusals[0].payload
     assert refusal["scope"] == "project"
-    assert Decimal(str(refusal["limit"])) == CAP
-    assert Decimal(str(refusal["requested"])) > CAP, "the call that did not fit"
+    assert (Decimal(str(refusal["limit"])), refusal["currency"]) == (CAP_USD, "USD")
+    assert Decimal(str(refusal["requested"])) > CAP_USD, "the call that did not fit"
     async with committed() as session:
         calls = list(
             await session.scalars(select(ModelCall).where(ModelCall.company_id == company_id))
@@ -129,7 +132,7 @@ async def test_the_budget_gate_stops_the_work_and_money_starts_it_again(
         result = await runtime.commands.submit(
             session,
             "AllocateBudget",
-            {"amount": "5.00", "period": "day", "project_id": str(project_id)},
+            {"amount": "160", "period": "day", "project_id": str(project_id)},  # = $5
             company_id=company_id,
             actor=OPERATOR,
             role="human",

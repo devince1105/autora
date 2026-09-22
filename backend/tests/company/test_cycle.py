@@ -539,5 +539,6 @@ async def test_the_cycle_settles_its_own_costs_on_the_way_through(db_session):
     expense = await db_session.scalar(
         select(Transaction).where(Transaction.company_id == company.id)
     )
-    assert (expense.category, expense.amount) == (MODEL_COST, Decimal("0.420000"))
+    assert (expense.category, expense.amount) == (MODEL_COST, Decimal("13.440000"))  # TWD
+    assert (expense.source_amount, expense.source_currency) == (Decimal("0.420000"), "USD")
     assert expense.ref_id == cycle.id

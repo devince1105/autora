@@ -9,7 +9,9 @@ Budget scopes, checked before every call (logs/platform/02_COMPANY_MODEL.md §5,
 | project | ``budgets`` rows of the project, hard   | project's calls in the period window |
 | company | ``budgets`` rows with no project, hard  | company's calls in the period window |
 
-Spend = recorded ``model_calls.cost_usd`` + open reservations (in-flight calls). A call is
+Spend = recorded ``model_calls.cost_usd`` + open reservations (in-flight calls), all in USD.
+``budgets`` are in the base currency (TWD, D-023) and are converted to USD before comparing;
+run and task caps are meter figures and already USD. A call is
 refused if spend + its estimated cost exceeds any limit; the refusal is recorded as a
 BUDGET_EXHAUSTED event (committed even though the call does not happen) and raised as
 ``BudgetExceeded``. Soft caps (``hard_cap = false``) are not enforced here; reporting uses them.
@@ -49,6 +51,7 @@ from autora.db.models import (
     ModelCallStatus,
     Task,
 )
+from autora.infra.money import METER_CURRENCY, Fx
 from autora.runtime.actor import Actor
 from autora.runtime.events import catalog as ev
 from autora.runtime.events.outbox import emit
@@ -136,6 +139,7 @@ class DbCostGuard:
     session_factory: async_sessionmaker[AsyncSession]
     reservation_ttl: timedelta = timedelta(minutes=15)
     clock: Callable[[], datetime] = field(default=lambda: datetime.now(UTC))
+    fx: Fx = field(default_factory=Fx.from_settings)
 
     async def reserve(self, request: ModelRequest, binding: ModelBinding) -> Reservation | None:
         ctx = request.context
@@ -227,7 +231,7 @@ class DbCostGuard:
                 limits.append(
                     _Limit(
                         "project",
-                        budget.amount,
+                        self._metered(budget),
                         _window_start(budget.period, now, cycle_start),
                         project_id=ctx.project_id,
                     )
@@ -236,9 +240,18 @@ class DbCostGuard:
             select(Budget).where(*budget_filter, Budget.project_id.is_(None))
         ):
             limits.append(
-                _Limit("company", budget.amount, _window_start(budget.period, now, cycle_start))
+                _Limit(
+                    "company",
+                    self._metered(budget),
+                    _window_start(budget.period, now, cycle_start),
+                )
             )
         return limits
+
+    def _metered(self, budget: Budget) -> Decimal:
+        """A budget is written in the base currency, spend is metered in USD (D-023). Compare
+        like with like: the budget moves, because it is one number and the meter is many."""
+        return self.fx.convert(budget.amount, source=budget.currency, target=METER_CURRENCY)
 
     async def _spent(
         self, session: AsyncSession, company_id: uuid.UUID, limit: _Limit, now: datetime

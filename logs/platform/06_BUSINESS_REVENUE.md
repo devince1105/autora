@@ -10,7 +10,7 @@
 | **Transaction** | MVP | 唯一財務事實表：kind(expense/revenue/capital_in/capital_out/transfer), amount, currency, category(model_cost/tool_cost/ads/subscription/sponsorship/…), project_id?, ref_type/ref_id, occurred_at, source(system/human/integration), idempotency_key |
 | **Revenue / Expense** | MVP | `transactions` 的視圖 |
 | **CapitalAllocation** | MVP | `AllocateBudget` command 的結果（budgets row + transfer transaction） |
-| **KPI / ROI** | MVP | `kpi_snapshots`：per project per cycle：cost, revenue, views, published_count, cost_per_article, views_per_usd, revisions_rate |
+| **KPI / ROI** | MVP | `kpi_snapshots`：per project per cycle：cost, revenue, views, published_count, cost_per_article, views_per_cost_unit, revisions_rate（金額一律是主幣別新台幣，D-023） |
 | **Product** | P5 | kind(subscription/one_time/sponsorship), price, status |
 | **Customer / Lead / Opportunity** | P5 | Lead(來源、狀態) → Opportunity(金額、機率) → Customer |
 | **Subscription / Order / Payment** | P5 | Payment 一律由外部整合 webhook 寫入；Agent 只能讀 |

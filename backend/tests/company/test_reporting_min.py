@@ -44,13 +44,14 @@ async def test_kpis_count_each_cost_once(db_session):
     await db_session.flush()
 
     kpis = await load_kpis(db_session, cid, now=NOW)
-    # 100 + 12.5 + 3 - 2 - 10 - (0.40 + 0.10) = 103
-    assert kpis.cash == Decimal("103.00")
+    # ledger rows are TWD; the meter's $0.40 + $0.10 is NT$16 at 32 (D-023)
+    # 100 + 12.5 + 3 - 2 - 10 - 16 = 87.5
+    assert kpis.cash == Decimal("87.50")
     assert kpis.revenue_today == Decimal("12.5")
-    assert kpis.model_cost_today == Decimal("0.40")
-    assert kpis.expenses_today == Decimal("2.40")
+    assert kpis.model_cost_today == Decimal("12.80")  # $0.40
+    assert kpis.expenses_today == Decimal("14.80")
     assert kpis.domain_metrics == {}  # no domain hooks registered: the core counts only money
-    assert kpis.goal is None and kpis.currency == "USD" and kpis.as_of == NOW
+    assert kpis.goal is None and kpis.currency == "TWD" and kpis.as_of == NOW
 
 
 async def test_empty_company_and_isolation(db_session):
@@ -89,7 +90,7 @@ async def test_kpis_endpoint(api, db_session):
     await db_session.flush()
     body = (await api.get(f"/api/companies/{company.id}/kpis")).json()
     assert isinstance(body["revenue_today"], str), "money stays a decimal string"
-    assert Decimal(body["revenue_today"]) == Decimal("4.5") and body["currency"] == "USD"
+    assert Decimal(body["revenue_today"]) == Decimal("4.5") and body["currency"] == "TWD"
     assert body["goal"] is None
     # the endpoint carries whatever the registered domains counted; the newsroom has no work here
     assert body["domain_metrics"] == {

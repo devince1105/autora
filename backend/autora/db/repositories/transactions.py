@@ -14,6 +14,7 @@ from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from autora.db.models import Transaction, TransactionKind
+from autora.infra.money import base_currency
 
 _INFLOW = (TransactionKind.REVENUE, TransactionKind.CAPITAL_IN)
 _OUTFLOW = (TransactionKind.EXPENSE, TransactionKind.CAPITAL_OUT)
@@ -44,7 +45,7 @@ async def record(session: AsyncSession, tx: Transaction) -> tuple[Transaction, b
 
 
 async def balance(
-    session: AsyncSession, company_id: uuid.UUID, *, currency: str = "USD"
+    session: AsyncSession, company_id: uuid.UUID, *, currency: str | None = None
 ) -> Decimal:
     """Cash position: inflows minus outflows. Transfers are internal and net to zero."""
     signed = case(
@@ -54,7 +55,8 @@ async def balance(
     )
     total = await session.scalar(
         select(func.coalesce(func.sum(signed), 0)).where(
-            Transaction.company_id == company_id, Transaction.currency == currency
+            Transaction.company_id == company_id,
+            Transaction.currency == (currency or base_currency()),
         )
     )
     return Decimal(total)

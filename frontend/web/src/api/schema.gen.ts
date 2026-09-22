@@ -1010,10 +1010,7 @@ export interface components {
         Capital: {
             /** Balance */
             balance: string;
-            /**
-             * Currency
-             * @default USD
-             */
+            /** Currency */
             currency: string;
             /** Daily Cap */
             daily_cap?: string | null;
@@ -1125,8 +1122,10 @@ export interface components {
         };
         /** CycleDetail */
         CycleDetail: {
-            /** Cost Usd */
-            cost_usd?: string | null;
+            /** Cost */
+            cost?: string | null;
+            /** Currency */
+            currency: string;
             /** Ended At */
             ended_at: string | null;
             /**
@@ -1209,8 +1208,10 @@ export interface components {
         };
         /** CycleLine */
         CycleLine: {
-            /** Cost Usd */
-            cost_usd?: string | null;
+            /** Cost */
+            cost?: string | null;
+            /** Currency */
+            currency: string;
             /** Ended At */
             ended_at: string | null;
             /**
@@ -1559,10 +1560,7 @@ export interface components {
             as_of: string;
             /** Cash */
             cash: string;
-            /**
-             * Currency
-             * @default USD
-             */
+            /** Currency */
             currency: string;
             /**
              * Domain Metrics

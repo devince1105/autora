@@ -45,7 +45,7 @@ export function todaysGoal(cycles: readonly CycleLine[]): GoalProgress | null {
 }
 
 export function cycleCost(cycle: CycleLine): number | null {
-  if (cycle.cost_usd === null || cycle.cost_usd === undefined) return null;
-  const cost = Number(cycle.cost_usd);
+  if (cycle.cost === null || cycle.cost === undefined) return null;
+  const cost = Number(cycle.cost);
   return Number.isFinite(cost) ? cost : null;
 }

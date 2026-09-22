@@ -23,7 +23,7 @@ const line = (over: Partial<CycleLine> = {}): CycleLine => ({
   review_missing: null,
   workflows: 4,
   failed_tasks: 0,
-  cost_usd: "1.250000",
+  cost: "1.250000", currency: "TWD",
   ...over,
 });
 
@@ -52,8 +52,8 @@ describe("what a day is worth reading", () => {
 
   it("a cost that is not a number is no cost at all", () => {
     expect(cycleCost(line())).toBeCloseTo(1.25);
-    expect(cycleCost(line({ cost_usd: null }))).toBeNull();
-    expect(cycleCost(line({ cost_usd: "nonsense" }))).toBeNull();
+    expect(cycleCost(line({ cost: null }))).toBeNull();
+    expect(cycleCost(line({ cost: "nonsense" }))).toBeNull();
   });
 });
 
@@ -66,6 +66,8 @@ describe("the list of days", () => {
     expect(within(today).getByTestId("cycle-goal").textContent).toContain("5 / 5");
     expect(within(today).getByText("4 條流程")).toBeTruthy();
     expect(within(today).getByText("產量達標，成本偏高。")).toBeTruthy();
+    // the day's cost is the company's money, in its own currency (D-023), not the meter's US$
+    expect(within(today).getByText("$1.25")).toBeTruthy();
     expect(screen.getByTestId("cycle-1")).toBeTruthy();
   });
 
@@ -99,7 +101,7 @@ describe("one day in full", () => {
     ...line(),
     plan: { by: "ceo", goals: [{ metric: "published_articles", target: 5 }] },
     review_detail: { summary: "產量達標，成本偏高。", projects: [] },
-    kpis: { cost_usd: "1.250000", "newsroom.published_articles": 5 },
+    kpis: { cost: "1.250000", "newsroom.published_articles": 5 },
     summary: "The CEO aimed at published_articles 5.\nIt cost $1.25 across 12 model call(s).",
     timeline: [],
     ...over,

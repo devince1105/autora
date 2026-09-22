@@ -45,7 +45,7 @@ const planned = (goals: { metric: string; title?: string; target?: number; curre
   [{
     id: "01a0b900-0000-7000-8000-000000000001", seq: 7, stage, started_at: "2026-09-20T00:00:00Z",
     ended_at: null, stage_deadline: null, planned_by: "ceo", goals, review: null,
-    review_missing: null, workflows: 2, failed_tasks: 0, cost_usd: "1.500000",
+    review_missing: null, workflows: 2, failed_tasks: 0, cost: "1.500000", currency: "TWD",
   }] as Parameters<typeof dashboardModel>[4];
 
 afterEach(cleanup);

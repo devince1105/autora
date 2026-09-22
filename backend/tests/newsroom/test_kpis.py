@@ -138,9 +138,9 @@ async def test_the_ratios_use_the_same_cost_the_core_measured(db_session):
 
     metrics = await _measure(db_session, company)
 
-    assert metrics["cost_usd"] == "3.000000"
-    assert metrics["newsroom.cost_per_published_article"] == "1.5000"
-    assert metrics["newsroom.views_per_usd"] == "16.6667"
+    assert metrics["cost"] == "96.000000"  # the meter's $3, in TWD at 32 (D-023)
+    assert metrics["newsroom.cost_per_published_article"] == "48.0000"
+    assert metrics["newsroom.views_per_cost_unit"] == "0.5208"  # 50 views per NT$96
 
 
 async def test_a_window_that_published_nothing_has_no_cost_per_article(db_session):
@@ -153,7 +153,7 @@ async def test_a_window_that_published_nothing_has_no_cost_per_article(db_sessio
 
     assert metrics["newsroom.published_articles"] == 0
     assert "newsroom.cost_per_published_article" not in metrics
-    assert "newsroom.views_per_usd" not in metrics
+    assert "newsroom.views_per_cost_unit" not in metrics
 
 
 async def test_an_article_published_in_another_cycle_is_not_counted(db_session):

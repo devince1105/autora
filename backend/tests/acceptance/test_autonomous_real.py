@@ -112,7 +112,7 @@ async def test_seven_cycles_with_a_real_model(committed, db_settings, tmp_path, 
                 company_id=company.id,
                 name="Keep the lights on",
                 state=ProjectState.ACTIVE.value,
-                kill_criteria={"auto_pause_if": {"metric": "cost_usd", "op": ">", "value": 5}},
+                kill_criteria={"auto_pause_if": {"metric": "cost", "op": ">", "value": 5}},
             )
         )
         opportunity = await opportunities.discover(

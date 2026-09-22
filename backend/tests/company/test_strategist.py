@@ -26,7 +26,7 @@ from autora.company.agents.strategist import (
 )
 from autora.company.commands import CommandBus
 from autora.company.exploration import (
-    DEFAULT_EXPLORATION_CAP_USD,
+    DEFAULT_EXPLORATION_CAP,
     PROPOSAL_TEMPLATE,
     Exploration,
     exploration_project,
@@ -48,7 +48,7 @@ from autora.runtime.task_manager import TaskManager
 from tests.conftest import unique_company
 
 HUMAN = Actor.human("founder")
-KILL = {"auto_pause_if": {"metric": "revenue_usd", "op": "<", "value": 1}}
+KILL = {"auto_pause_if": {"metric": "revenue", "op": "<", "value": 1}}
 
 
 def _bus() -> CommandBus:
@@ -304,7 +304,7 @@ async def test_one_proposal_a_cycle_for_the_best_opportunity_that_has_none(db_se
     assert run is not None and run.template_name == PROPOSAL_TEMPLATE
     project = await db_session.get(Project, run.project_id)
     assert project.opportunity_id == second.id, "the best-scored one goes first"
-    assert project.kill_criteria["auto_pause_if"]["value"] == DEFAULT_EXPLORATION_CAP_USD
+    assert project.kill_criteria["auto_pause_if"]["value"] == DEFAULT_EXPLORATION_CAP
 
     # the same cycle again starts nothing: one step a day
     assert await exploration.start_one(db_session, cycle) is None

@@ -412,7 +412,7 @@ class Governance:
             business_unit_id=budget.business_unit_id,
         )
         if measured is not None and measured.cycle_id == cycle.id:
-            cost = _number(measured.metrics.get("cost_usd"))
+            cost = _number(measured.metrics.get("cost"))
             if cost is not None:
                 return Decimal(str(cost))
         return await ledger.spent(

@@ -1039,7 +1039,6 @@
       "type": "string"
      },
      "currency": {
-      "default": "USD",
       "title": "Currency",
       "type": "string"
      },
@@ -1063,7 +1062,8 @@
     },
     "required": [
      "balance",
-     "daily_spent"
+     "daily_spent",
+     "currency"
     ],
     "title": "Capital",
     "type": "object"
@@ -1289,7 +1289,7 @@
    },
    "CycleDetail": {
     "properties": {
-     "cost_usd": {
+     "cost": {
       "anyOf": [
        {
         "type": "string"
@@ -1298,7 +1298,11 @@
         "type": "null"
        }
       ],
-      "title": "Cost Usd"
+      "title": "Cost"
+     },
+     "currency": {
+      "title": "Currency",
+      "type": "string"
      },
      "ended_at": {
       "anyOf": [
@@ -1461,7 +1465,8 @@
      "stage",
      "started_at",
      "ended_at",
-     "stage_deadline"
+     "stage_deadline",
+     "currency"
     ],
     "title": "CycleDetail",
     "type": "object"
@@ -1515,7 +1520,7 @@
    },
    "CycleLine": {
     "properties": {
-     "cost_usd": {
+     "cost": {
       "anyOf": [
        {
         "type": "string"
@@ -1524,7 +1529,11 @@
         "type": "null"
        }
       ],
-      "title": "Cost Usd"
+      "title": "Cost"
+     },
+     "currency": {
+      "title": "Currency",
+      "type": "string"
      },
      "ended_at": {
       "anyOf": [
@@ -1626,7 +1635,8 @@
      "stage",
      "started_at",
      "ended_at",
-     "stage_deadline"
+     "stage_deadline",
+     "currency"
     ],
     "title": "CycleLine",
     "type": "object"
@@ -2373,7 +2383,6 @@
       "type": "string"
      },
      "currency": {
-      "default": "USD",
       "title": "Currency",
       "type": "string"
      },
@@ -2411,6 +2420,7 @@
     },
     "required": [
      "as_of",
+     "currency",
      "cash",
      "revenue_today",
      "expenses_today",

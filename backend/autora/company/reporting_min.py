@@ -37,6 +37,7 @@ from autora.db.models import (
     Transaction,
     TransactionKind,
 )
+from autora.infra.money import Fx
 
 MODEL_COST_CATEGORY = "model_cost"
 ZERO = Decimal(0)
@@ -53,7 +54,8 @@ class GoalView(BaseModel):
 
 class Kpis(BaseModel):
     as_of: datetime
-    currency: str = "USD"
+    currency: str
+    """The base currency (D-023). Model costs are converted into it from the meter's USD."""
     cash: Decimal
     revenue_today: Decimal
     expenses_today: Decimal
@@ -155,8 +157,11 @@ async def load_kpis(
         .limit(1)
     )
 
+    fx = Fx.from_settings()
+    model_total, model_today = fx.metered(model_total), fx.metered(model_today)
     return Kpis(
         as_of=now,
+        currency=fx.base,
         cash=balance - model_total,
         revenue_today=revenue,
         expenses_today=expenses + model_today,

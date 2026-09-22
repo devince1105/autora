@@ -109,7 +109,8 @@ class Budget(IdMixin, TimestampMixin, Base):
     project_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("projects.id"))
     period: Mapped[str]
     amount: Mapped[Decimal]
-    currency: Mapped[str] = mapped_column(server_default="USD")
+    currency: Mapped[str] = mapped_column(server_default="TWD")
+    """The base currency (D-023). The cost guard converts it to the meter's USD to compare."""
     hard_cap: Mapped[bool] = mapped_column(server_default="true")
 
 
@@ -123,6 +124,12 @@ class Transaction(IdMixin, CreatedAtMixin, Base):
         check_regex("currency", "^[A-Z]{3}$"),
         # The sign lives in `kind`; amounts are always positive.
         CheckConstraint("amount > 0", name="amount_positive"),
+        CheckConstraint(
+            "(source_amount IS NULL) = (source_currency IS NULL) "
+            "AND (source_amount IS NULL) = (fx_rate IS NULL)",
+            name="conversion_complete",
+        ),
+        CheckConstraint("fx_rate IS NULL OR fx_rate > 0", name="fx_rate_positive"),
         Index("ix_transactions_company_occurred", "company_id", "occurred_at"),
         Index("ix_transactions_project_occurred", "project_id", "occurred_at"),
     )
@@ -140,7 +147,16 @@ class Transaction(IdMixin, CreatedAtMixin, Base):
     category: Mapped[str]
     """model_cost, tool_cost, ads, subscription, sponsorship, ..."""
     amount: Mapped[Decimal]
-    currency: Mapped[str] = mapped_column(server_default="USD")
+    """In ``currency``, which is always the base (D-023): the ledger has one currency, so a
+    balance is a sum and never a conversion."""
+    currency: Mapped[str] = mapped_column(server_default="TWD")
+    source_amount: Mapped[Decimal | None]
+    """What arrived, before conversion — the model calls' USD, say. NULL when it arrived in
+    the base. Kept so the row can be checked against the meter it came from."""
+    source_currency: Mapped[str | None]
+    fx_rate: Mapped[Decimal | None]
+    """Base units per source unit, as used on this row. Changing ``FX_RATES`` later does not
+    touch it: the past was converted at the rate of its day."""
     ref_type: Mapped[str | None]
     ref_id: Mapped[uuid.UUID | None]
     occurred_at: Mapped[datetime]
@@ -187,7 +203,7 @@ class Price(IdMixin, TimestampMixin, Base):
     company_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("companies.id"), index=True)
     product_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("products.id"), index=True)
     amount: Mapped[Decimal]
-    currency: Mapped[str] = mapped_column(server_default="USD")
+    currency: Mapped[str] = mapped_column(server_default="TWD")
     interval: Mapped[str]
     state: Mapped[str] = mapped_column(server_default=PriceState.ACTIVE.value)
     provider: Mapped[str]
@@ -258,5 +274,5 @@ class Payment(IdMixin, CreatedAtMixin, Base):
     external_ref: Mapped[str]
     """The provider's id for the charge (a Stripe invoice). The idempotency key, in effect."""
     amount: Mapped[Decimal]
-    currency: Mapped[str] = mapped_column(server_default="USD")
+    currency: Mapped[str] = mapped_column(server_default="TWD")
     paid_at: Mapped[datetime]

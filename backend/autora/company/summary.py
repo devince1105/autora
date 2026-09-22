@@ -36,6 +36,7 @@ from autora.db.models import (
     TaskState,
     WorkflowRun,
 )
+from autora.infra.money import format_money
 
 REF = "cycle"
 
@@ -135,7 +136,7 @@ def _planned(plan: dict[str, Any]) -> str:
         )
     if allocations:
         total = sum((_money(a.get("amount")) or Decimal(0) for a in allocations), Decimal(0))
-        parts.append(f"allocated ${total:g}")
+        parts.append(f"allocated {format_money(total)}")
     return "The CEO " + (" and ".join(parts) if parts else "planned nothing in particular") + "."
 
 
@@ -151,12 +152,12 @@ def _did(workflows: dict[str, int], failed: list[str]) -> str:
 
 
 def _cost(metrics: dict[str, Any]) -> str:
-    cost = _money(metrics.get("cost_usd")) or Decimal(0)
-    revenue = _money(metrics.get("revenue_usd")) or Decimal(0)
+    cost = _money(metrics.get("cost")) or Decimal(0)
+    revenue = _money(metrics.get("revenue")) or Decimal(0)
     calls = metrics.get("model_calls") or 0
-    line = f"It cost ${cost:g} across {calls} model call(s)"
+    line = f"It cost {format_money(cost)} across {calls} model call(s)"
     if revenue:
-        line += f" and earned ${revenue:g}"
+        line += f" and earned {format_money(revenue)}"
     produced = [
         f"{key.rsplit('.', 1)[-1].replace('_', ' ')} {value}"
         for key, value in sorted(metrics.items())
