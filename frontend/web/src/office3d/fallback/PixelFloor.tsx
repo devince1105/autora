@@ -9,15 +9,38 @@
 // What is drawn comes from ``tiles.buildScene``, which is pure and tested; this file only paints.
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect, useMemo, useRef } from "react";
 
 import { uiStore } from "@/stores/ui";
 
+import { useRoster } from "../agents/roster";
+import { CueDirector, routeFor } from "../visual/CueRunner";
 import type { BoardCard, FloorPlan } from "./board";
 import { CONSOLE } from "./console";
-import { at, buildScene, hitTest, NPC, TILE, zoneAt, type Prop, type Scene, type TileKind } from "./tiles";
+import { at, buildScene, hitTest, metresToPixels, NPC, TILE, zoneAt, type Prop, type Scene, type TileKind } from "./tiles";
+import { walkersNow, type Walker } from "./walkers";
 
 const DIM = 0.4;
+
+declare global {
+  interface Window {
+    /** Who is walking across the 2D floor right now, for browser tests; not an API. The 3D
+     * office publishes the same thing under ``__autoraOfficeCues``. */
+    __autoraOfficeFloor?: { walking: string[]; walks: number };
+  }
+}
+
+let lastWalking = "";
+
+function probe(walking: Walker[]): void {
+  if (typeof window === "undefined") return;
+  const ids = walking.map((walker) => walker.agentId);
+  const key = ids.join(",");
+  if (key === lastWalking) return;
+  const started = ids.filter((id) => !lastWalking.includes(id)).length;
+  window.__autoraOfficeFloor = { walking: ids, walks: (window.__autoraOfficeFloor?.walks ?? 0) + started };
+  lastWalking = key;
+}
 
 const TILE_INK: Record<TileKind, string | null> = {
   outside: CONSOLE.bg,
@@ -158,8 +181,18 @@ function paintProp(ctx: CanvasRenderingContext2D, prop: Prop) {
   }
 }
 
-/** A person, 10×14 pixels: hair, face, body in the role's colour, two legs. */
-function paintNpc(ctx: CanvasRenderingContext2D, x: number, y: number, color: string, selected: boolean) {
+/** A person, 10×14 pixels: hair, face, body in the role's colour, two legs.
+ *
+ * ``step`` alternates the legs while they walk: two frames, like the sprite sheets this is
+ * pretending to be. A walker carries a page when they are taking something somewhere. */
+function paintNpc(
+  ctx: CanvasRenderingContext2D,
+  x: number,
+  y: number,
+  color: string,
+  selected: boolean,
+  options: { step?: 0 | 1; carrying?: boolean } = {},
+) {
   if (selected) {
     ctx.fillStyle = CONSOLE.accent;
     ctx.fillRect(x - 2, y - 2, NPC.w + 4, NPC.h + 4);
@@ -174,8 +207,37 @@ function paintNpc(ctx: CanvasRenderingContext2D, x: number, y: number, color: st
   ctx.fillStyle = color;
   ctx.fillRect(x, y + 7, NPC.w, 5); // body
   ctx.fillStyle = "#132a24";
-  ctx.fillRect(x + 1, y + 12, 3, 2); // legs
-  ctx.fillRect(x + NPC.w - 4, y + 12, 3, 2);
+  const step = options.step ?? 0;
+  ctx.fillRect(x + 1, y + 12, 3, step === 0 ? 2 : 1); // legs, mid-stride on the odd frame
+  ctx.fillRect(x + NPC.w - 4, y + 12, 3, step === 0 ? 1 : 2);
+  if (options.carrying) {
+    ctx.fillStyle = "#e8e2cf";
+    ctx.fillRect(x + NPC.w - 2, y + 7, 4, 5);
+    ctx.fillStyle = "#9aa08c";
+    ctx.fillRect(x + NPC.w - 2, y + 9, 4, 1);
+  }
+}
+
+/** Somebody between desks: on the corridor where the route says, legs alternating. */
+function paintWalker(
+  ctx: CanvasRenderingContext2D,
+  walker: Walker,
+  scene: Scene,
+  plan: FloorPlan,
+  cards: Map<string, BoardCard>,
+  selected: string | null,
+  time: number,
+) {
+  const card = cards.get(walker.agentId);
+  if (!card) return;
+  const spot = metresToPixels(walker.position[0], walker.position[1], plan);
+  const x = Math.round(spot.x - NPC.w / 2);
+  const y = Math.round(spot.y - NPC.h + 4);
+  if (x < 0 || y < 0 || x > scene.width || y > scene.height) return;
+  paintNpc(ctx, x, y, card.color, walker.agentId === selected, {
+    step: Math.floor(time / 180) % 2 === 0 ? 0 : 1,
+    carrying: walker.carrying,
+  });
 }
 
 export function PixelFloor({
@@ -194,28 +256,50 @@ export function PixelFloor({
   const canvas = useRef<HTMLCanvasElement>(null);
   const scene = useRef<Scene | null>(null);
   scene.current = buildScene(plan, cards);
+  const roster = useRoster();
+  const latest = useRef({ roster, selected, focused, plan });
+  latest.current = { roster, selected, focused, plan };
+
+  // The 3D office walks its couriers with a frame hook inside its canvas. This one has no such
+  // hook, so it runs the same queue itself: one director per board, stepped every frame.
+  const director = useMemo(() => new CueDirector(), []);
+  useEffect(() => () => director.dispose(), [director]);
 
   useEffect(() => {
     const element = canvas.current;
-    const current = scene.current;
     const ctx = element?.getContext?.("2d");
-    if (!element || !current || !ctx) return; // no canvas in this environment: the tests' case
-    element.width = current.width;
-    element.height = current.height;
-    ctx.imageSmoothingEnabled = false;
-    ctx.fillStyle = CONSOLE.bg;
-    ctx.fillRect(0, 0, current.width, current.height);
-    paintTiles(ctx, current, focused);
-    for (const prop of current.props) {
-      ctx.globalAlpha = focused && prop.zone && prop.zone !== focused ? DIM : 1;
-      paintProp(ctx, prop);
-    }
-    for (const npc of current.npcs) {
-      ctx.globalAlpha = focused && npc.zone && npc.zone !== focused ? DIM : 1;
-      paintNpc(ctx, npc.x, npc.y, npc.color, npc.agentId === selected);
-    }
-    ctx.globalAlpha = 1;
-  });
+    if (!element || !ctx) return; // no canvas in this environment: the tests' case
+    let frame = 0;
+    const draw = (time: number) => {
+      const current = scene.current;
+      const { roster: members, selected: chosen, focused: room, plan: floor } = latest.current;
+      if (!current) return;
+      director.queue.step(time, (cue) => routeFor(cue, members)?.durationMs ?? null);
+      const walking = walkersNow(director, members, time);
+      const moving = new Set(walking.map((walker) => walker.agentId));
+      element.width = current.width;
+      element.height = current.height;
+      ctx.imageSmoothingEnabled = false;
+      ctx.fillStyle = CONSOLE.bg;
+      ctx.fillRect(0, 0, current.width, current.height);
+      paintTiles(ctx, current, room);
+      for (const prop of current.props) {
+        ctx.globalAlpha = room && prop.zone && prop.zone !== room ? DIM : 1;
+        paintProp(ctx, prop);
+      }
+      for (const npc of current.npcs) {
+        if (moving.has(npc.agentId)) continue; // they are out of their chair
+        ctx.globalAlpha = room && npc.zone && npc.zone !== room ? DIM : 1;
+        paintNpc(ctx, npc.x, npc.y, npc.color, npc.agentId === chosen);
+      }
+      ctx.globalAlpha = 1;
+      for (const walker of walking) paintWalker(ctx, walker, current, floor, cards, chosen, time);
+      probe(walking);
+      frame = requestAnimationFrame(draw);
+    };
+    frame = requestAnimationFrame(draw);
+    return () => cancelAnimationFrame(frame);
+  }, [director, cards]);
 
   const room = focused ? (plan.rooms.find((r) => r.id === focused)?.label ?? focused) : null;
   return (

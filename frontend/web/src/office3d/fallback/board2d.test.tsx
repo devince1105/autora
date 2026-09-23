@@ -10,7 +10,10 @@ import { uiStore } from "@/stores/ui";
 
 import { arcBetween, boardModel, floorPlan, handoffsAfter } from "./board";
 import { buildScene, hitTest, TILE } from "./tiles";
+import { walkersNow } from "./walkers";
+import { CueDirector, routeFor } from "../visual/CueRunner";
 import { assignSeats } from "../scene/layout";
+import type { Member } from "../agents/roster";
 import { HANDOFF_MS, OfficeBoard2D } from "./OfficeBoard2D";
 
 // A randomised real runtime history (the T-302 contract fixture): six agents, three roles.
@@ -167,6 +170,54 @@ describe("the floor as tiles", () => {
     const someone = built.npcs[0];
     expect(hitTest(built, someone.x + 4, someone.y + 6)).toBe(someone.agentId);
     expect(hitTest(built, 1, 1)).toBeNull();
+  });
+});
+
+describe("walking on the 2D floor (T-408)", () => {
+  function roster() {
+    const company = replay(0);
+    const agents = Object.values(company.agents);
+    return {
+      members: agents.map((agent) => ({
+        id: agent.id,
+        role: agent.role,
+        name: agent.display_name,
+        character: "character-female-a" as Member["character"],
+        department: null,
+        office_zone_key: null,
+        business_unit: null,
+      })),
+      seats: assignSeats(agents).seats,
+    };
+  }
+
+  it("somebody handing work over is on the floor, not in their chair", () => {
+    const people = roster();
+    const walker = people.members[0];
+    const colleague = people.members.find((m) => m.role !== walker.role)!;
+    const director = new CueDirector({ getState: () => ({}) as never, subscribe: () => () => {} });
+    director.queue.apply([{ kind: "walk", agentId: walker.id, target: { role: colleague.role }, carry: "document", returnAfter: true, seq: 1 }], 0);
+    director.queue.step(0, (cue) => routeFor(cue, people)?.durationMs ?? null);
+
+    const started = walkersNow(director, people, 0);
+    const midway = walkersNow(director, people, 1500);
+
+    expect(started.map((w) => w.agentId)).toEqual([walker.id]);
+    expect(midway[0].position).not.toEqual(started[0].position); // they moved
+    expect(started[0].carrying).toBe(true); // the document goes with them on the way there
+    expect(started[0].phase).toBe("going");
+  });
+
+  it("nobody is walking when nothing is running, and an agent with no route stays put", () => {
+    const people = roster();
+    const director = new CueDirector({ getState: () => ({}) as never, subscribe: () => () => {} });
+    expect(walkersNow(director, people, 0)).toEqual([]);
+    expect(walkersNow(null, people, 0)).toEqual([]);
+
+    // a hand-off to a role nobody holds and nobody sits in: no route, so no walk
+    director.queue.apply([{ kind: "walk", agentId: people.members[0].id, target: { role: "nobody" }, carry: "document", returnAfter: true, seq: 2 }], 0);
+    director.queue.step(0, (cue) => routeFor(cue, people)?.durationMs ?? null);
+    expect(walkersNow(director, people, 100)).toEqual([]);
   });
 });
 

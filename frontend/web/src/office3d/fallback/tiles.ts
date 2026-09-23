@@ -75,6 +75,11 @@ export interface Scene {
 
 export const NPC = { w: 10, h: 14 } as const;
 
+/** Where a point of the floor plan lands on the canvas, in internal pixels. */
+export function metresToPixels(x: number, z: number, plan: { origin: { x: number; z: number } }): { x: number; y: number } {
+  return { x: pxOf(x - plan.origin.x), y: pxOf(z - plan.origin.z) };
+}
+
 const tileOf = (metres: number) => Math.floor(metres) + MARGIN;
 const pxOf = (metres: number) => Math.round((metres + MARGIN) * TILE);
 

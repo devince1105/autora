@@ -226,6 +226,8 @@ export interface FloorPlan {
   /** The drawing's own units (the floor's metres, moved so the room starts at 0). */
   width: number;
   height: number;
+  /** The floor-plan metres that ``0, 0`` of the drawing stands for (T-408 walks use them). */
+  origin: { x: number; z: number };
   rooms: PlanRoom[];
   corridors: Box[];
   desks: PlanDesk[];
@@ -274,6 +276,7 @@ export function floorPlan(agentIds: readonly string[], seats: ReadonlyMap<string
   return {
     width: ROOM.maxX - ROOM.minX + WALL * 2,
     height: ROOM.maxZ - ROOM.minZ + WALL * 2,
+    origin: { x: minX, z: minY },
     rooms,
     corridors: Object.values(CORRIDORS).map((area) =>
       box({ minX: ROOM.minX, maxX: ROOM.maxX, minZ: area.minZ, maxZ: area.maxZ }, minX, minY),

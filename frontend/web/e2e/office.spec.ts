@@ -6,6 +6,7 @@
 import { expect, test, type Page } from "@playwright/test";
 
 import type {} from "../src/office3d/perf/StatsProbe"; // window.__autoraOffice
+import type {} from "../src/office3d/fallback/PixelFloor"; // window.__autoraOfficeFloor
 import type {} from "../src/office3d/visual/CueRunner"; // window.__autoraOfficeCues
 import { API_URL, Stack, TOKEN } from "./stack";
 
@@ -376,6 +377,22 @@ test("a run in the office: badges move in order, hand-offs are walked, the strip
   // the strip follows the store and the API
   await expect(page.getByTestId("mini-agents")).toContainText("/ 3");
   await expect(page.getByTestId("mini-tasks")).toContainText(/\d/);
+});
+
+test("a hand-off walks across the 2D floor too (T-408)", async ({ page, request }) => {
+  await open(page, "&view=2d");
+  await expect(page.getByTestId("room-plan")).toBeVisible({ timeout: 30_000 });
+
+  const res = await request.post(`${API_URL}/api/companies/${stack.companyId}/workflows`, {
+    headers: { Authorization: `Bearer ${TOKEN}` },
+    data: { template: "echo.chain_v1", project_id: stack.projectId, params: { topic: "2d walk" } },
+  });
+  expect(res.status()).toBe(201);
+
+  // the board runs the same cue queue as the 3D office, with its own frame loop
+  await expect
+    .poll(() => page.evaluate(() => window.__autoraOfficeFloor?.walks ?? 0), { timeout: 30_000 })
+    .toBeGreaterThanOrEqual(1);
 });
 
 test("the 2D board opens the same panel", async ({ page }) => {
