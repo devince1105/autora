@@ -5,7 +5,22 @@ import type { EventEnvelope } from "@autora/event-schema";
 import type { AgentState, RealtimeState } from "@/stores/realtime";
 
 import { businessColors, ROLE_COLOR } from "../palette";
-import { assignSeats, CHAIR, DESK, seatsInZone, type Seat, type ZoneId } from "../scene/layout";
+import {
+  allSeats,
+  APPROVAL_DESK,
+  assignSeats,
+  CEO_OFFICE,
+  CHAIR,
+  CORRIDORS,
+  DESK,
+  ENTRANCE,
+  MEETING_ROOM,
+  PANTRY,
+  ROOM,
+  ZONES,
+  type Area,
+  type Seat,
+} from "../scene/layout";
 import { ROLE_LABEL, visualForAgent, type VisualState } from "../visual/mapping";
 
 export type RowId = string;
@@ -21,6 +36,7 @@ export const DEPARTMENT_LABEL: Record<string, string> = {
   editorial: "編輯區",
   growth: "行銷區",
   spare: "彈性座位",
+  lobby: "接待區",
 };
 
 /**
@@ -186,56 +202,99 @@ export function arcBetween(from: Box, to: Box, lift = 36): { d: string; peakY: n
   return { d: `M ${x1} ${y1} Q ${(x1 + x2) / 2} ${peakY} ${x2} ${y2}`, peakY };
 }
 
-// --- the room, seen from above (T-410 stage 1) --------------------------------------------------
+// --- the floor, seen from above (T-410) ---------------------------------------------------------
 
 export interface PlanDesk {
   key: string;
   /** Who sits here, when somebody does. An empty desk is part of the room too. */
   agentId: string | null;
+  /** Which room it stands in, so a chosen room can be picked out of the floor. */
+  zone: string;
   desk: Box;
   chair: { cx: number; cy: number; r: number };
 }
 
-export interface RoomPlan {
+export interface PlanRoom {
+  id: string;
+  label: string;
+  box: Box;
+  /** ``open``: a carpeted zone of the open plan; ``walled``: a room with its own walls. */
+  kind: "open" | "walled";
+}
+
+export interface FloorPlan {
   /** The drawing's own units (the floor's metres, moved so the room starts at 0). */
   width: number;
   height: number;
+  rooms: PlanRoom[];
+  corridors: Box[];
   desks: PlanDesk[];
+  /** The reception counter, which is also the approval desk. */
+  reception: Box;
+  /** Where people come in, on the right-hand wall. */
+  entrance: Box;
 }
 
-const PAD = 1.2;
+const WALL = 0.4;
+
+const box = (area: Area, minX: number, minY: number): Box => ({
+  left: area.minX - minX,
+  top: area.minZ - minY,
+  width: area.maxX - area.minX,
+  height: area.maxZ - area.minZ,
+});
 
 /**
- * The desks of the rooms these agents work in, as a drawing (T-410).
+ * The whole floor as a drawing (T-410): its rooms, its corridors, every desk, and who is at one.
  *
- * The same seat layout the 3D office uses (``scene/layout``), flattened: x stays x, the floor's
- * z becomes y. Every desk of those rooms is drawn, not only the taken ones — a room with two
- * people and six desks is a different room from one with two desks, and the office shows what
- * is there. Zones come from the seats the agents actually hold, so a company whose departments
- * are not on the floor plan still gets the rooms its people are sitting in.
+ * The same layout the 3D office is built from (``scene/layout``), flattened — x stays x, the
+ * floor's z becomes y. The floor is drawn whole whatever room is being looked at, because a
+ * room means something by where it is: the newsroom's two benches face each other across the
+ * work row, and the lobby is by the door. A chosen room is picked out of it, not cut out of it.
  */
-export function roomPlan(agentIds: readonly string[], seats: ReadonlyMap<string, Seat>): RoomPlan {
+export function floorPlan(agentIds: readonly string[], seats: ReadonlyMap<string, Seat>): FloorPlan {
   const byAgent = new Map<string, string>(); // seat key -> agent
-  const zones = new Set<ZoneId>();
   for (const id of agentIds) {
     const seat = seats.get(id);
-    if (!seat) continue;
-    zones.add(seat.zone);
-    byAgent.set(seat.key, id);
+    if (seat) byAgent.set(seat.key, id);
   }
-  const all = [...zones].flatMap((zone) => seatsInZone(zone));
-  if (!all.length) return { width: 0, height: 0, desks: [] };
-  const xs = all.flatMap((s) => [s.desk[0], s.chair[0]]);
-  const ys = all.flatMap((s) => [s.desk[1], s.chair[1]]);
-  const minX = Math.min(...xs) - PAD;
-  const minY = Math.min(...ys) - PAD;
+  const minX = ROOM.minX - WALL;
+  const minY = ROOM.minZ - WALL;
+  const rooms: PlanRoom[] = [
+    ...Object.entries(ZONES).map(([id, area]) => ({
+      id,
+      label: DEPARTMENT_LABEL[id] ?? id,
+      box: box(area, minX, minY),
+      kind: "open" as const,
+    })),
+    { id: "ceo", label: DEPARTMENT_LABEL.ceo, box: box(CEO_OFFICE, minX, minY), kind: "walled" as const },
+    { id: "meeting", label: "會議室", box: box(MEETING_ROOM, minX, minY), kind: "walled" as const },
+    { id: "pantry", label: "茶水間", box: box(PANTRY, minX, minY), kind: "walled" as const },
+  ];
   return {
-    width: Math.max(...xs) - minX + PAD,
-    height: Math.max(...ys) - minY + PAD,
-    desks: all
+    width: ROOM.maxX - ROOM.minX + WALL * 2,
+    height: ROOM.maxZ - ROOM.minZ + WALL * 2,
+    rooms,
+    corridors: Object.values(CORRIDORS).map((area) =>
+      box({ minX: ROOM.minX, maxX: ROOM.maxX, minZ: area.minZ, maxZ: area.maxZ }, minX, minY),
+    ),
+    reception: {
+      left: APPROVAL_DESK.center[0] - minX - APPROVAL_DESK.width / 2,
+      top: APPROVAL_DESK.center[1] - minY - APPROVAL_DESK.depth / 2,
+      width: APPROVAL_DESK.width,
+      height: APPROVAL_DESK.depth,
+    },
+    entrance: {
+      left: ENTRANCE.x - minX - WALL / 2,
+      top: ENTRANCE.minZ - minY,
+      width: WALL,
+      height: ENTRANCE.maxZ - ENTRANCE.minZ,
+    },
+    desks: allSeats()
       .map((seat) => ({
         key: seat.key,
         agentId: byAgent.get(seat.key) ?? null,
+        zone: seat.zone as string,
         desk: {
           left: seat.desk[0] - minX - DESK.width / 2,
           top: seat.desk[1] - minY - DESK.depth / 2,

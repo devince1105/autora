@@ -181,6 +181,35 @@ describe("OfficeBoard2D", () => {
     expect(uiStore.getState().selectedAgentId).toBe(people[0].getAttribute("data-testid")!.slice("plan-agent-".length));
   });
 
+  it("the whole floor is drawn: every room, the door, and desks nobody is at", () => {
+    realtimeStore.getState().hydrate(fixture.snapshot_before);
+    render(<OfficeBoard2D />);
+    const plan = screen.getByTestId("room-plan");
+
+    // the open-plan zones and the three rooms with walls, by the names the floor gives them
+    for (const room of ["research", "editorial", "growth", "spare", "lobby", "ceo", "meeting", "pantry"]) {
+      expect(within(plan).getByTestId(`plan-room-${room}`)).toBeTruthy();
+    }
+    expect(within(plan).getByTestId("plan-entrance")).toBeTruthy();
+    // this company has six people; the floor has more desks than that, and shows them
+    expect(within(plan).getAllByTestId(/^plan-desk-/).length).toBeGreaterThan(6);
+  });
+
+  it("choosing a room lights it and dims the rest; the floor is never cut away", () => {
+    realtimeStore.getState().hydrate(fixture.snapshot_before);
+    render(<OfficeBoard2D />);
+    const plan = screen.getByTestId("room-plan");
+    const dim = (id: string) => within(plan).getByTestId(`plan-room-${id}`).getAttribute("opacity");
+    expect(dim("research")).toBe("1");
+    expect(dim("editorial")).toBe("1");
+
+    fireEvent.click(screen.getByTestId("room-tab-research"));
+
+    expect(dim("research")).toBe("1");
+    expect(Number(dim("editorial"))).toBeLessThan(1);
+    expect(within(plan).getByTestId("plan-room-editorial")).toBeTruthy(); // still there
+  });
+
   it("the log column says what just happened, newest first", () => {
     const company = replay(20);
     realtimeStore.setState({ company });

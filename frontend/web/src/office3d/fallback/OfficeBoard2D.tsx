@@ -19,7 +19,7 @@ import { useRealtime, type RealtimeState } from "@/stores/realtime";
 import { uiStore, useUi } from "@/stores/ui";
 
 import { assignSeats } from "../scene/layout";
-import { arcBetween, boardModel, handoffsAfter, roomPlan, type BoardCard, type Box } from "./board";
+import { arcBetween, boardModel, floorPlan, handoffsAfter, type BoardCard, type Box } from "./board";
 import { LogColumn, RosterColumn } from "./BoardSideColumns";
 import { BADGE_INK, CONSOLE, consoleVars } from "./console";
 import { RoomPlanView } from "./RoomPlanView";
@@ -126,15 +126,18 @@ export function OfficeBoard2D({
   // a room that empties out (its last agent left, or the company changed) is not a room to stand in
   const shown = rows.some((row) => row.id === room) ? room : ALL_ROOMS;
   const visible = shown === ALL_ROOMS ? rows : rows.filter((row) => row.id === shown);
-  const cards = visible.flatMap((row) => row.cards);
-  const byId = useMemo(() => new Map(cards.map((card) => [card.id, card])), [cards]);
+  // the floor is drawn whole, always: the tab lights a room rather than cutting the rest away
   const plan = useMemo(() => {
     const agents = Object.values(company?.agents ?? {});
-    return roomPlan(
-      cards.map((card) => card.id),
+    return floorPlan(
+      agents.map((agent) => agent.id),
       assignSeats(agents).seats,
     );
-  }, [company?.agents, cards]);
+  }, [company?.agents]);
+  const everyone = useMemo(
+    () => new Map(rows.flatMap((row) => row.cards).map((card) => [card.id, card])),
+    [rows],
+  );
 
   const container = useRef<HTMLDivElement>(null);
   const cardRefs = useRef(new Map<string, HTMLElement>());
@@ -200,12 +203,7 @@ export function OfficeBoard2D({
         </div>
 
         <div ref={container} className="relative grid gap-6 p-3 pt-6">
-          <RoomPlanView
-            plan={plan}
-            cards={byId}
-            selected={selected}
-            label={shown === ALL_ROOMS ? "全部" : (rows.find((row) => row.id === shown)?.label ?? shown)}
-          />
+          <RoomPlanView plan={plan} cards={everyone} selected={selected} focused={shown === ALL_ROOMS ? null : shown} />
           {visible.map((row) => (
             <section key={row.id} aria-label={row.label}>
               <h3 className="mb-2 flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.2em] text-[color:var(--console-text-dim)]">
