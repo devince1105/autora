@@ -76,8 +76,16 @@ async def request_link(session: AsyncSession, email: str, *, now: datetime | Non
         await session.flush()
     token = secrets.token_urlsafe(32)
     expires_at = now + LINK_VALID_FOR
+    # created_at from the same clock as expires_at, not the database's own: the table checks
+    # expires_at > created_at, and two clocks — a caller's ``now``, the server's now() — can
+    # disagree by more than the fifteen minutes a link lives
     session.add(
-        LoginToken(reader_id=reader.id, token_hash=hash_token(token), expires_at=expires_at)
+        LoginToken(
+            reader_id=reader.id,
+            token_hash=hash_token(token),
+            created_at=now,
+            expires_at=expires_at,
+        )
     )
     await session.flush()
     return Link(reader=reader, token=token, expires_at=expires_at)
@@ -106,6 +114,7 @@ async def redeem(
         ReaderSession(
             reader_id=reader.id,
             token_hash=hash_token(session_token),
+            created_at=now,  # one clock, as for the link
             expires_at=now + SESSION_VALID_FOR,
         )
     )

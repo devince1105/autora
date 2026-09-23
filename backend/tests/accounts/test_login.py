@@ -106,3 +106,28 @@ async def test_the_company_knows_a_reader_by_reference_never_by_address(db_sessi
     ref = service.customer_ref(link.reader.id)
     assert ref == f"reader:{link.reader.id}"
     assert "@" not in ref
+
+
+async def test_a_link_and_a_session_keep_one_clock(db_session):
+    """Whatever time the caller says it is, the row agrees with itself.
+
+    The table checks ``expires_at > created_at``. When ``created_at`` came from the database's own
+    clock and ``expires_at`` from the caller's, every test here with a fixed time broke fifteen
+    minutes after that time — on the day it was written. A time years ago must work as well as
+    now does.
+    """
+    long_ago = datetime(2020, 1, 1, tzinfo=UTC)
+    link = await service.request_link(db_session, "then@example.com", now=long_ago)
+    token_row = await db_session.scalar(
+        select(models.LoginToken).where(models.LoginToken.reader_id == link.reader.id)
+    )
+    assert token_row.created_at == long_ago
+    assert token_row.expires_at == long_ago + service.LINK_VALID_FOR
+
+    _, session_token = await service.redeem(db_session, link.token, now=long_ago)
+    session_row = await db_session.scalar(
+        select(models.ReaderSession).where(
+            models.ReaderSession.token_hash == service.hash_token(session_token)
+        )
+    )
+    assert session_row.created_at == long_ago
