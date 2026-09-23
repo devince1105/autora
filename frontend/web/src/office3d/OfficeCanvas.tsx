@@ -57,8 +57,10 @@ export function OfficeCanvas({
 }: OfficeCanvasProps) {
   const empty = useRoster().members.length === 0;
   const [caps, setCaps] = useState<Capabilities | null>(null);
-  const [lost, setLost] = useState(false);
   const [generation, setGeneration] = useState(0);
+  const [lostAt, setLostAt] = useState<number | null>(null);
+  /** Which canvas reported the loss: a report from one that is gone is not about this one. */
+  const lost = lostAt === generation;
   const [theme, setTheme] = useOfficeTheme();
   const [settingsOpen, setSettingsOpen] = useState(false);
   const visible = usePageVisible();
@@ -78,9 +80,9 @@ export function OfficeCanvas({
 
   useEffect(() => {
     // Handing over to the board destroys the 3D canvas, and the browser reports that the only
-    // way it can: a lost context. That is this canvas ending, not the next one failing, so the
-    // flag is cleared whenever 3D is not on screen — coming back builds a fresh one.
-    if (decision?.mode !== "3d") setLost(false);
+    // way it can: a lost context, delivered after React has moved on. Leaving 3D gives the next
+    // visit its own number, so a report from the canvas that just died lands on nothing.
+    if (decision?.mode !== "3d") setGeneration((n) => n + 1);
   }, [decision?.mode]);
 
   if (!caps || !decision) return <div data-office-mode="detecting" className="h-full" />;
@@ -110,8 +112,8 @@ export function OfficeCanvas({
         frameloop={visible && !lost ? "always" : "never"}
         insetRight={selectionInsetRight}
         theme={theme}
-        onContextLost={() => setLost(true)}
-        onContextRestored={() => setLost(false)}
+        onContextLost={() => setLostAt(generation)}
+        onContextRestored={() => setLostAt(null)}
       />
       <OfficeSettings theme={theme} onTheme={setTheme} open={settingsOpen} onOpen={setSettingsOpen} />
       {empty ? (
@@ -134,10 +136,7 @@ export function OfficeCanvas({
           <div className="flex justify-center gap-2">
             <button
               type="button"
-              onClick={() => {
-                setLost(false);
-                setGeneration((n) => n + 1);
-              }}
+              onClick={() => setGeneration((n) => n + 1)}
               className="rounded-lg bg-accent px-4 py-1.5 text-sm font-medium text-canvas"
             >
               重新建立 3D

@@ -2,7 +2,8 @@
 
 // The WebGL part of the office, loaded only on the client (next/dynamic, ssr: false) and only
 // when 3D was chosen: the canvas, camera and context-loss wiring; the scene is OfficeScene.
-import { Canvas } from "@react-three/fiber";
+import { Canvas, useThree } from "@react-three/fiber";
+import { useEffect } from "react";
 import { NeutralToneMapping } from "three";
 
 import { uiStore } from "@/stores/ui";
@@ -24,6 +25,37 @@ export interface Canvas3DProps {
   onContextRestored: () => void;
 }
 
+/** Report this canvas losing its context — and stop reporting the moment it is taken down.
+ *
+ * Tearing the canvas down *is* a lost context as far as the browser is concerned, and the event
+ * arrives after React has moved on: switching to the 2D board and back used to put "3D 暫停"
+ * over a canvas that had only just been built, because the dying one was still being listened
+ * to. Listening from inside the canvas gives the listener the canvas's own lifetime.
+ */
+function ContextWatch({ onLost, onRestored }: { onLost: () => void; onRestored: () => void }) {
+  const gl = useThree((state) => state.gl);
+  useEffect(() => {
+    const canvas = gl.domElement;
+    let alive = true;
+    const lost = (event: Event) => {
+      event.preventDefault(); // allow a restore instead of a dead canvas
+      if (alive) onLost();
+    };
+    const restored = () => {
+      if (alive) onRestored();
+    };
+    canvas.addEventListener("webglcontextlost", lost);
+    canvas.addEventListener("webglcontextrestored", restored);
+    return () => {
+      alive = false;
+      canvas.removeEventListener("webglcontextlost", lost);
+      canvas.removeEventListener("webglcontextrestored", restored);
+    };
+  }, [gl, onLost, onRestored]);
+  return null;
+}
+
+
 export default function Canvas3D({ frameloop, insetRight, theme, onContextLost, onContextRestored }: Canvas3DProps) {
   return (
     <Canvas
@@ -39,14 +71,9 @@ export default function Canvas3D({ frameloop, insetRight, theme, onContextLost, 
       onCreated={({ gl }) => {
         // Neutral tone mapping keeps the palette's colours (filmic ACES greys them out).
         gl.toneMapping = NeutralToneMapping;
-        const canvas = gl.domElement;
-        canvas.addEventListener("webglcontextlost", (event) => {
-          event.preventDefault(); // allow a restore instead of a dead canvas
-          onContextLost();
-        });
-        canvas.addEventListener("webglcontextrestored", onContextRestored);
       }}
     >
+      <ContextWatch onLost={onContextLost} onRestored={onContextRestored} />
       <OfficeScene insetRight={insetRight} theme={theme} />
     </Canvas>
   );

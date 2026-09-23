@@ -191,6 +191,25 @@ describe("OfficeCanvas", () => {
     expect(container.querySelector("[data-context-lost]")?.getAttribute("data-context-lost")).toBe("false");
   });
 
+  it("a canvas that has already gone cannot report on the one that replaced it", () => {
+    // React mounts, unmounts and mounts again in development, and the browser delivers the old
+    // canvas's lost context afterwards — landing "3D 暫停" on a canvas that is drawing fine.
+    const { Scene, seen } = sceneStub();
+    const props = { detect: () => DESKTOP, Scene };
+    const { container, rerender } = render(<OfficeCanvas view="3d" {...props} />);
+    const reportFromTheOldCanvas = seen.props!.onContextLost;
+
+    rerender(<OfficeCanvas view="2d" {...props} />);
+    rerender(<OfficeCanvas view="3d" {...props} />);
+    act(() => reportFromTheOldCanvas());
+
+    expect(screen.queryByRole("alert")).toBeNull();
+    expect(container.querySelector("[data-context-lost]")?.getAttribute("data-context-lost")).toBe("false");
+    // and the canvas that is actually on screen is still heard
+    act(() => seen.props!.onContextLost());
+    expect(screen.getByRole("alert")).toBeTruthy();
+  });
+
   it("the settings dialog closes with Escape, the backdrop and its own button", () => {
     const { Scene } = sceneStub();
     render(<OfficeCanvas detect={() => DESKTOP} Scene={Scene} />);

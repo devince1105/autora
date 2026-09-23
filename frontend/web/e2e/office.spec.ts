@@ -174,6 +174,25 @@ test("?view=2d, a narrow screen, or no WebGL 2: the 2D board with the company's 
   await noGl.close();
 });
 
+test("the 2D board and back to 3D: the office draws again", async ({ page }) => {
+  // What this holds is the round trip in a real browser. It does *not* reproduce the stale
+  // context report that made the overlay appear in development (this runs a production build,
+  // where React does not mount twice) — that one is held by office-canvas.test.tsx.
+  await open(page, "&view=3d");
+  await expect(office(page)).toHaveAttribute("data-office-mode", "3d");
+  const views = page.getByRole("group", { name: "顯示方式" });
+
+  await views.getByRole("button", { name: "2D", exact: true }).click();
+  await expect(office(page)).toHaveAttribute("data-office-mode", "2d");
+  await views.getByRole("button", { name: "3D", exact: true }).click();
+  await expect(office(page)).toHaveAttribute("data-office-mode", "3d");
+
+  await expect(paused(page)).toHaveCount(0);
+  await expect(office(page)).toHaveAttribute("data-context-lost", "false");
+  // and it is drawing: the agents are back in their seats
+  await expect(page.getByTestId(/^head-tag-/).first()).toBeVisible({ timeout: 30_000 });
+});
+
 const panel = (page: Page) =>
   page.locator('[role="dialog"][aria-label$="的詳細資訊"]');
 
