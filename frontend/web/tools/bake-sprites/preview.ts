@@ -112,21 +112,42 @@ const STAFF = [
   { id: "marketing-1", role: "marketing" },
 ];
 
+/** People out of their chairs, so one picture shows every way a figure is drawn. */
+const WALKERS = [
+  { agentId: "walker-right", position: [-1.5, -2.2] as const, heading: Math.PI / 2, carrying: true },
+  { agentId: "walker-left", position: [3.5, 2.4] as const, heading: -Math.PI / 2 },
+  { agentId: "walker-toward", position: [0, 0.2] as const, heading: 0 },
+  { agentId: "walker-away", position: [7.2, -2.6] as const, heading: Math.PI },
+];
+
 function floor(theme: ThemeId, focused: string | null = null, zoom = 2): HTMLCanvasElement {
   const plan = floorPlan(
     STAFF.map((s) => s.id),
     assignSeats(STAFF).seats,
   );
-  const cards = new Map(STAFF.map((s) => [s.id, { id: s.id, color: ROLE_COLOR[s.role] } as unknown as BoardCard]));
-  const scene = buildScene(plan, cards);
+  // the marketer is done and has stood up behind the chair
+  const cards = new Map(
+    STAFF.map((s) => [
+      s.id,
+      { id: s.id, color: ROLE_COLOR[s.role], visual: { pose: s.role === "marketing" ? "stand" : "sit_idle" } } as unknown as BoardCard,
+    ]),
+  );
+  const characters = new Map<string, string>([
+    ...STAFF.map((s) => [s.id, characterFor(s.id)] as [string, string]),
+    ["walker-right", "character-female-c"],
+    ["walker-left", "character-male-e"],
+    ["walker-toward", "character-female-b"],
+    ["walker-away", "character-male-c"],
+  ]);
+  const scene = buildScene(plan, cards, characters);
   const frame = document.createElement("canvas");
   frame.width = scene.width;
   frame.height = scene.height;
   paintFloor(frame.getContext("2d")!, scene, new Pictures(theme), {
     selected: focused ? "editor-1" : null,
     focused,
-    walking: [],
-    colours: new Map(),
+    walking: WALKERS,
+    characters,
     time: 0,
   });
   const big = document.createElement("canvas");
@@ -149,4 +170,59 @@ window.previewFloors = () => {
   for (const id of Object.keys(THEMES) as ThemeId[]) out[`floor-${id}.png`] = floor(id).toDataURL("image/png");
   out["floor-muji-editorial-chosen.png"] = floor("muji", "editorial").toDataURL("image/png");
   return out;
+};
+
+// --- the people ------------------------------------------------------------------------------------
+
+import { CHARACTERS, characterFor } from "@/office3d/assets/characters";
+
+import { bakePeople, personKey, WALK_FRAMES } from "./people";
+
+declare global {
+  interface Window {
+    previewPeople: () => Promise<string>;
+  }
+}
+
+/** Every character in every pose, at four times size: the sheet the people are judged by. */
+window.previewPeople = async () => {
+  const { sprites } = await bakePeople();
+  const byName = new Map(sprites.map((s) => [s.name, asPiece(s)]));
+  const columns: [string, string, number][] = [["sit", "away", 0]];
+  for (const dir of ["toward", "away", "side"]) {
+    for (let f = 0; f < WALK_FRAMES; f++) columns.push(["walk", dir, f]);
+    columns.push(["stand", dir, 0]);
+  }
+  const zoom = 4;
+  const cell = 48 * zoom;
+  const canvas = document.createElement("canvas");
+  canvas.width = 160 + columns.length * cell;
+  canvas.height = 40 + CHARACTERS.length * cell;
+  const ctx = canvas.getContext("2d")!;
+  ctx.imageSmoothingEnabled = false;
+  ctx.fillStyle = THEMES.muji.palette.floors.base.color;
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+  columns.forEach(([pose, dir, f], c) => {
+    ctx.fillStyle = "#333";
+    ctx.font = "12px ui-monospace, Menlo, monospace";
+    ctx.fillText(`${pose} ${dir}${pose === "walk" ? ` ${f}` : ""}`, 160 + c * cell + 4, 24);
+  });
+  CHARACTERS.forEach((character, r) => {
+    ctx.fillStyle = "#333";
+    ctx.fillText(character.replace("character-", ""), 8, 40 + r * cell + cell / 2);
+    columns.forEach(([pose, dir, f], c) => {
+      const piece = byName.get(personKey(character, pose, dir, f));
+      if (!piece) return;
+      const art = paint(piece, THEMES.muji.palette);
+      const shadow = paintShadow(piece);
+      const scratch = document.createElement("canvas");
+      scratch.width = piece.w;
+      scratch.height = piece.h;
+      const sctx = scratch.getContext("2d")!;
+      if (shadow) drawSprite(sctx, shadow, 0, 0, { alpha: SHADOW_ALPHA });
+      drawSprite(sctx, art, 0, 0);
+      ctx.drawImage(scratch, 160 + c * cell + (cell - piece.w * zoom) / 2, 40 + r * cell + (cell - piece.h * zoom) / 2, piece.w * zoom, piece.h * zoom);
+    });
+  });
+  return canvas.toDataURL("image/png");
 };

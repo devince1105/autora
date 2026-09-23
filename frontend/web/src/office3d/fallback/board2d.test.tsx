@@ -186,6 +186,29 @@ describe("the floor, as the 3D office has it", () => {
     }
   });
 
+  it("dresses each agent as the 3D office does: in the character the roster gives them", () => {
+    const people = plan().desks.filter((d) => d.agentId).map((d) => d.agentId!);
+    const wearing = new Map(people.map((id, i) => [id, i % 2 ? "character-female-c" : "character-male-d"]));
+    const built = buildScene(plan(), cards(), wearing);
+    for (const npc of built.npcs) expect(npc.character).toBe(wearing.get(npc.agentId));
+    // and somebody the roster does not know yet still wears somebody, the same one every time
+    const bare = buildScene(plan(), cards());
+    expect(bare.npcs.map((n) => n.character)).toEqual(buildScene(plan(), cards()).npcs.map((n) => n.character));
+    expect(bare.npcs.every((n) => n.character.startsWith("character-"))).toBe(true);
+  });
+
+  it("stands a finished agent up behind their chair, as in 3D", () => {
+    const base = cards();
+    const someone = [...base.values()][0];
+    const standing = new Map(base);
+    standing.set(someone.id, { ...someone, visual: { ...someone.visual, pose: "stand" } });
+    const seated = buildScene(plan(), base).npcs.find((n) => n.agentId === someone.id)!;
+    const up = buildScene(plan(), standing).npcs.find((n) => n.agentId === someone.id)!;
+    expect(seated.sitting).toBe(true);
+    expect(up.sitting).toBe(false);
+    expect(up.spot.y).toBeGreaterThan(seated.spot.y); // further forward: behind the chair, from here
+  });
+
   it("clicking the floor is not clicking a person", () => {
     const built = scene();
     const someone = built.npcs[0];

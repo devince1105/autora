@@ -9,11 +9,12 @@
 // chosen one.
 import { THEMES, type ThemeId } from "../palette";
 import * as atlas from "./art/atlas";
+import { facingOf, figure, placeFigure, type Figure } from "./art/people";
 import { BACKDROP_KEY, piece } from "./art/pieces";
 import { drawSprite } from "./art/sprites";
 import { paint, paintShadow, SHADOW_ALPHA } from "./art/theme";
 import { CONSOLE } from "./console";
-import { NPC, PERSON_SCALE, worldToPixels, type Scene } from "./tiles";
+import { worldToPixels, type Scene } from "./tiles";
 
 /** How dark the veil over the rooms that are not chosen is. */
 const VEIL = "rgba(4, 10, 9, 0.55)";
@@ -61,6 +62,18 @@ export class Pictures {
     return this.canvasOf(`art|${bake}|${accent ?? ""}`, (ctx) => drawSprite(ctx, art, 0, 0), found.w, found.h);
   }
 
+  /** A baked figure, mirrored when it faces left. People keep their own colours in every style. */
+  person(f: Figure): HTMLCanvasElement | null {
+    const art = paint(f.piece, THEMES[this.theme].palette);
+    return this.canvasOf(`person|${f.key}|${f.flip}`, (ctx) => drawSprite(ctx, art, 0, 0, { flip: f.flip }), f.piece.w, f.piece.h);
+  }
+
+  personShadow(f: Figure): HTMLCanvasElement | null {
+    const art = paintShadow(f.piece);
+    if (!art) return null;
+    return this.canvasOf(`person-shadow|${f.key}|${f.flip}`, (ctx) => drawSprite(ctx, art, 0, 0, { flip: f.flip }), f.piece.w, f.piece.h);
+  }
+
   shadow(bake: string): HTMLCanvasElement | null {
     const found = piece(bake);
     const art = found ? paintShadow(found) : null;
@@ -74,6 +87,10 @@ export interface WalkerNow {
   agentId: string;
   /** World metres. */
   position: readonly [number, number];
+  /** 0 toward the viewer, π/2 to the right (the 3D office's courier heading). */
+  heading: number;
+  /** Handing the document over: standing, not walking. */
+  phase?: string;
   carrying?: boolean;
 }
 
@@ -82,38 +99,41 @@ export interface FrameOptions {
   focused: string | null;
   /** Who is out of their chair and where; they are drawn walking, not seated. */
   walking: readonly WalkerNow[];
-  /** Colour by agent, for the ones walking. */
-  colours: ReadonlyMap<string, string>;
+  /** Character by agent, for the ones walking. */
+  characters: ReadonlyMap<string, string>;
   /** Milliseconds, for the walking frame. */
   time: number;
 }
 
-/** A person in their role's colours, with a frame for whoever is selected. */
+/** How long each frame of the walk shows: the 3D walk clip is 0.67 s for the four of them. */
+const WALK_FRAME_MS = 167;
+
+/** A figure standing (or sitting) at ``spot``, its shadow under it, a frame round it if chosen. */
 export function paintPerson(
   ctx: CanvasRenderingContext2D,
-  x: number,
-  y: number,
-  color: string,
-  options: { step?: 0 | 1; carrying?: boolean; selected?: boolean } = {},
+  pictures: Pictures,
+  f: Figure,
+  spot: { x: number; y: number },
+  options: { carrying?: boolean; selected?: boolean } = {},
 ) {
-  const { step = 0, carrying, selected } = options;
-  if (selected) {
-    ctx.fillStyle = CONSOLE.accent;
-    ctx.fillRect(x - 2, y - 2, NPC.w + 4, 2);
-    ctx.fillRect(x - 2, y + NPC.h, NPC.w + 4, 2);
-    ctx.fillRect(x - 2, y, 2, NPC.h);
-    ctx.fillRect(x + NPC.w, y, 2, NPC.h);
+  const { x, y } = placeFigure(f, spot);
+  const shadow = pictures.personShadow(f);
+  if (shadow) {
+    ctx.globalAlpha = SHADOW_ALPHA;
+    ctx.drawImage(shadow, x, y);
+    ctx.globalAlpha = 1;
   }
-  drawSprite(ctx, atlas.PERSON[step], x, y, { recolor: { S: color, H: shadeOf(color) }, scale: PERSON_SCALE });
-  if (carrying) drawSprite(ctx, atlas.DOCUMENT, x + NPC.w - 4, y + 16, { scale: PERSON_SCALE });
-}
-
-/** A darker step of a role's colour, for hair against the shirt. */
-function shadeOf(color: string): string {
-  const value = Number.parseInt(color.replace("#", ""), 16);
-  if (Number.isNaN(value)) return "#2a1d16";
-  const dark = [(value >> 16) & 255, (value >> 8) & 255, value & 255].map((c) => Math.round(c * 0.45));
-  return `#${dark.map((c) => c.toString(16).padStart(2, "0")).join("")}`;
+  const picture = pictures.person(f);
+  if (picture) ctx.drawImage(picture, x, y);
+  if (options.carrying) drawSprite(ctx, atlas.DOCUMENT, spot.x + 3, spot.y - 20, { scale: 2 });
+  if (options.selected) {
+    const { w, h } = f.piece;
+    ctx.fillStyle = CONSOLE.accent;
+    ctx.fillRect(x - 2, y - 2, w + 4, 2);
+    ctx.fillRect(x - 2, y + h, w + 4, 2);
+    ctx.fillRect(x - 2, y, 2, h);
+    ctx.fillRect(x + w, y, 2, h);
+  }
 }
 
 /** Darken every room but the chosen one; nothing when the whole floor is shown. */
@@ -132,7 +152,7 @@ function veil(ctx: CanvasRenderingContext2D, scene: Scene, focused: string | nul
 
 /** One frame of the floor. The canvas is expected to be ``scene.width`` × ``scene.height``. */
 export function paintFloor(ctx: CanvasRenderingContext2D, scene: Scene, pictures: Pictures, frame: FrameOptions): void {
-  const { selected, focused, walking, colours, time } = frame;
+  const { selected, focused, walking, characters, time } = frame;
   const moving = new Set(walking.map((walker) => walker.agentId));
 
   ctx.imageSmoothingEnabled = false;
@@ -158,22 +178,19 @@ export function paintFloor(ctx: CanvasRenderingContext2D, scene: Scene, pictures
   }
   for (const npc of scene.npcs) {
     if (moving.has(npc.agentId)) continue; // out of their chair
-    standing.push({ foot: npc.foot, paint: () => paintPerson(ctx, npc.x, npc.y, npc.color, { selected: npc.agentId === selected }) });
+    const f = figure(npc.character, npc.sitting ? "sit" : "stand", "away");
+    if (f) standing.push({ foot: npc.foot, paint: () => paintPerson(ctx, pictures, f, npc.spot, { selected: npc.agentId === selected }) });
   }
   for (const walker of walking) {
-    const colour = colours.get(walker.agentId);
-    if (!colour) continue;
+    const character = characters.get(walker.agentId);
+    if (!character) continue;
     const spot = worldToPixels(walker.position[0], walker.position[1]);
-    const x = Math.round(spot.x - NPC.w / 2);
-    const y = Math.round(spot.y - NPC.h + 10);
+    const handing = walker.phase === "handover";
+    const f = figure(character, handing ? "stand" : "walk", facingOf(walker.heading), Math.floor(time / WALK_FRAME_MS));
+    if (!f) continue;
     standing.push({
       foot: spot.y,
-      paint: () =>
-        paintPerson(ctx, x, y, colour, {
-          step: Math.floor(time / 170) % 2 === 0 ? 0 : 1,
-          carrying: walker.carrying,
-          selected: walker.agentId === selected,
-        }),
+      paint: () => paintPerson(ctx, pictures, f, spot, { carrying: walker.carrying, selected: walker.agentId === selected }),
     });
   }
   standing.sort((left, right) => left.foot - right.foot);

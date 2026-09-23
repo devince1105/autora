@@ -13,8 +13,10 @@
 // The camera looks down from about 61°, so a metre of floor is ``TILE`` pixels across and
 // ``TILE_DEPTH`` deep, and a thing's height shows as its face above its footprint. Depth is by
 // feet: whatever stands further forward is painted later and covers what is behind.
+import { STAND_BACK } from "../agents/body";
+import { characterFor } from "../assets/characters";
 import { ROLE_COLOR } from "../palette";
-import * as atlas from "./art/atlas";
+import { figure, placeFigure } from "./art/people";
 import { BACKDROP_KEY, piece, PLACED } from "./art/pieces";
 import type { BoardCard, FloorPlan, PlanRoom } from "./board";
 
@@ -22,9 +24,6 @@ import type { BoardCard, FloorPlan, PlanRoom } from "./board";
 export const TILE = 32;
 /** Pixels per metre of floor going back: 32 × sin(61.04°). */
 export const TILE_DEPTH = 28;
-
-/** How much bigger the people are drawn than their sprite, until they are baked too. */
-export const PERSON_SCALE = 2;
 
 /** A baked piece where it stands on the canvas. */
 export interface Prop {
@@ -44,10 +43,16 @@ export interface Prop {
 
 export interface Npc {
   agentId: string;
-  /** Top-left of the person sprite as drawn (scaled), canvas pixels. */
+  /** The floor under them: the seat when seated, behind the chair when standing. Canvas pixels. */
+  spot: { x: number; y: number };
+  /** The box their figure covers — what a click hits and the selection frame goes round. */
   x: number;
   y: number;
+  w: number;
+  h: number;
   foot: number;
+  /** Which of the 3D office's characters they wear (``assets/characters``): the same one as in 3D. */
+  character: string;
   color: string;
   zone: string | null;
   sitting: boolean;
@@ -72,9 +77,6 @@ export interface Scene {
   props: Prop[];
   npcs: Npc[];
 }
-
-/** The person sprite as drawn: what a chair seats and what a click has to hit. */
-export const NPC = { w: atlas.PERSON[0].w * PERSON_SCALE, h: atlas.PERSON[0].h * PERSON_SCALE } as const;
 
 const BACK = piece(BACKDROP_KEY);
 
@@ -122,7 +124,12 @@ const FRONT_ROOM = ["ceo", "meeting"] as const;
  * The floor: the backdrop, every piece of furniture where the 3D office puts it, and the people
  * at their desks.
  */
-export function buildScene(plan: FloorPlan, cards: Map<string, BoardCard>): Scene {
+export function buildScene(
+  plan: FloorPlan,
+  cards: Map<string, BoardCard>,
+  /** agent -> character, from the roster; an agent missing from it wears ``characterFor(id)``. */
+  characters: ReadonlyMap<string, string> = new Map(),
+): Scene {
   const seats = new Map(plan.desks.map((desk) => [desk.key, desk]));
   const props: Prop[] = [];
 
@@ -148,22 +155,27 @@ export function buildScene(plan: FloorPlan, cards: Map<string, BoardCard>): Scen
     });
   }
 
-  // the people at their desks: behind their chair's back, facing their screens, as in 3D
+  // the people at their desks, in their own characters: seated behind their chair's back, facing
+  // their screens as in 3D; or, when done, standing up behind the chair
   const npcs: Npc[] = [];
   for (const desk of plan.desks) {
     const card = desk.agentId ? cards.get(desk.agentId) : undefined;
     if (!card) continue;
-    const seat = planToPixels(desk.chair.cx, desk.chair.cy, plan);
-    const y = seat.y - NPC.h + 10;
+    const sitting = card.visual.pose !== "stand";
+    const character = characters.get(card.id) ?? characterFor(card.id);
+    const spot = planToPixels(desk.chair.cx, desk.chair.cy + (sitting ? 0 : STAND_BACK), plan);
+    const drawn = figure(character, sitting ? "sit" : "stand", "away");
+    const box = drawn ? { ...placeFigure(drawn, spot), w: drawn.piece.w, h: drawn.piece.h } : { x: spot.x - 12, y: spot.y - 40, w: 24, h: 44 };
     npcs.push({
       agentId: card.id,
-      x: seat.x - NPC.w / 2,
-      y,
+      spot,
+      ...box,
       // the seat's middle, not its front: the chair's back is further forward and covers them
-      foot: seat.y,
+      foot: spot.y,
+      character,
       color: card.color,
       zone: desk.zone,
-      sitting: true,
+      sitting,
     });
   }
 
@@ -181,10 +193,9 @@ export function buildScene(plan: FloorPlan, cards: Map<string, BoardCard>): Scen
 
 /** Who was clicked, in canvas pixels. Null when it was the floor. */
 export function hitTest(scene: Scene, x: number, y: number): string | null {
+  // a few pixels of slack: at this size a figure is a small target
   for (const npc of scene.npcs) {
-    if (x >= npc.x - 3 && x <= npc.x + NPC.w + 3 && y >= npc.y - 3 && y <= npc.y + NPC.h + 5) {
-      return npc.agentId;
-    }
+    if (x >= npc.x - 3 && x <= npc.x + npc.w + 3 && y >= npc.y - 3 && y <= npc.y + npc.h + 3) return npc.agentId;
   }
   return null;
 }

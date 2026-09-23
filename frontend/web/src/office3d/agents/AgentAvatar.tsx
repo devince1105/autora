@@ -15,17 +15,14 @@ import { routeFor, useCues, type Route } from "../visual/CueRunner";
 import { visualForAgent, type Pose } from "../visual/mapping";
 import { avatarHandlers } from "../interaction/picking";
 import { AvatarController } from "./AvatarController";
+import { AVATAR_SCALE, SEAT_LIFT, STAND_BACK } from "./body";
+
+export { AVATAR_SCALE, SEAT_LIFT };
 import { courierState } from "./courier";
 import { useRoster } from "./roster";
 
-/** Kenney's characters are 0.67 units tall; 2 makes a 1.35 m chibi whose head clears the chair back. */
-export const AVATAR_SCALE = 2;
 /** The click target around a figure, in model units (the group is scaled by AVATAR_SCALE). */
 const HIT_BOX: [number, number, number] = [0.5, 0.95, 0.5];
-/** Seated, the body is lifted so the hips rest on the chair (seat top 0.46 m). */
-export const SEAT_LIFT = 0.41;
-/** Standing up (done), the avatar steps behind its chair. */
-const STAND_BACK = 0.6;
 /** Without events, re-read the store this often (COMPLETED turns IDLE on the clock). */
 const RECHECK_MS = 1000;
 

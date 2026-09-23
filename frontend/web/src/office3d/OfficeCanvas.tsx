@@ -9,7 +9,6 @@ import { useEffect, useState, type ComponentType } from "react";
 
 import type { Canvas3DProps } from "./Canvas3D";
 import { chooseMode, detectCapabilities, type Capabilities, type ModeReason, type OfficeView } from "./capabilities";
-import { OfficeBoard2D } from "./fallback/OfficeBoard2D";
 import { useRoster } from "./agents/roster";
 import { onOfficeKey } from "./interaction/picking";
 import { THEMES } from "./palette";
@@ -28,6 +27,18 @@ export { businessColors } from "./palette";
 const Loading = () => <p className="p-4 text-sm text-muted">載入 3D 辦公室…</p>;
 
 const LazyCanvas3D = dynamic(() => import("./Canvas3D"), { ssr: false, loading: Loading });
+
+const Loading2D = () => <p className="p-4 text-sm text-muted">載入 2D 看板…</p>;
+
+/**
+ * The 2D board, loaded only when it is shown: its baked pictures — the office's shell, its
+ * furniture and twelve characters in every pose (D-027) — are most of a hundred kilobytes that
+ * nobody looking at the 3D office should have to download.
+ */
+const LazyBoard2D = dynamic(() => import("./fallback/OfficeBoard2D").then((m) => m.OfficeBoard2D), {
+  ssr: false,
+  loading: Loading2D,
+});
 
 const REASON: Record<ModeReason, string | null> = {
   selected: null,
@@ -104,7 +115,7 @@ export function OfficeCanvas({
     return (
       <div data-office-mode="2d" data-office-theme={theme} className="relative h-full overflow-y-auto">
         {REASON[reason] ? <p className="px-4 pt-4 text-sm text-muted">{REASON[reason]}</p> : null}
-        <OfficeBoard2D departmentNames={departmentNames} theme={theme} />
+        <LazyBoard2D departmentNames={departmentNames} theme={theme} />
         <OfficeSettings theme={theme} onTheme={setTheme} open={settingsOpen} onOpen={setSettingsOpen} />
       </div>
     );

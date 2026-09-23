@@ -35,6 +35,7 @@ import {
   WebGLRenderer,
   WebGLRenderTarget,
 } from "three";
+import type { ColorSpace } from "three";
 
 import { BACKDROP, BAKEABLE, placedPieces, type PlacedPiece } from "@/office3d/scene/furniture";
 import { buildGeometry, type Part } from "@/office3d/scene/kit";
@@ -162,7 +163,7 @@ interface Framing {
  */
 const LIGHT_TRAVELS = new Vector3(0.4, -1.6, 0.28).normalize();
 
-function camera(elevation: number): OrthographicCamera {
+export function camera(elevation: number): OrthographicCamera {
   const radians = (elevation * Math.PI) / 180;
   const cam = new OrthographicCamera(-1, 1, 1, -1, -100, 100);
   cam.position.set(0, Math.sin(radians), Math.cos(radians)).multiplyScalar(20);
@@ -224,7 +225,7 @@ function frame(parts: Part[], depth: number, elevation: number, ppm: number): Fr
   return { camera: cam, width, height, originX: origin.x, originY: origin.y, anchor: front.y };
 }
 
-function renderer(width: number, height: number): WebGLRenderer {
+export function renderer(width: number, height: number): WebGLRenderer {
   const gl = new WebGLRenderer({ canvas: document.createElement("canvas"), antialias: false, alpha: true });
   gl.setPixelRatio(1);
   gl.setSize(width, height, false);
@@ -241,11 +242,18 @@ function renderer(width: number, height: number): WebGLRenderer {
  * is applied, so pass one gives back the probe colour that went in and pass two gives back the
  * light itself.
  */
-function read(gl: WebGLRenderer, scene: Scene, cam: OrthographicCamera, width: number, height: number): Uint8Array {
+export function read(
+  gl: WebGLRenderer,
+  scene: Scene,
+  cam: OrthographicCamera,
+  width: number,
+  height: number,
+  colorSpace: ColorSpace = LinearSRGBColorSpace,
+): Uint8Array {
   const target = new WebGLRenderTarget(width, height, {
     minFilter: NearestFilter,
     magFilter: NearestFilter,
-    colorSpace: LinearSRGBColorSpace,
+    colorSpace,
   });
   gl.setRenderTarget(target);
   gl.clear();
@@ -264,7 +272,7 @@ function read(gl: WebGLRenderer, scene: Scene, cam: OrthographicCamera, width: n
  * a ramp into one tone. Deliberately **not** the theme's own lighting — shading is form, and form
  * does not change when the office is redecorated.
  */
-function lights(scene: Scene): void {
+export function lights(scene: Scene): void {
   const key = new DirectionalLight(0xffffff, 2.8);
   key.position.copy(LIGHT_TRAVELS).multiplyScalar(-10);
   const fill = new DirectionalLight(0xffffff, 0.55);
@@ -305,9 +313,11 @@ export function bakeOne(name: string, elevation: number = ELEVATION, ppm: number
   gl.dispose();
   geometry.dispose();
 
+  const table = slotTable(slotOf);
   return assemble({
-    name, width, height, slotPixels, tonePixels, shadowPixels, slotOf,
-    originX, originY, anchor, footprint: piece.footprint,
+    name, width, height, tonePixels, originX, originY, anchor, footprint: piece.footprint,
+    slotAt: (i) => (slotPixels[i + 3] < 128 ? null : nearestSlot(slotPixels[i], slotPixels[i + 1], slotPixels[i + 2], table)),
+    shadowAt: (i) => shadowPixels[i + 3] >= 128,
   }); // prettier-ignore
 }
 
@@ -348,21 +358,22 @@ function nearestSlot(r: number, g: number, b: number, table: ReturnType<typeof s
   return best;
 }
 
-interface Assembly {
+export interface Assembly {
   name: string;
   width: number;
   height: number;
-  slotPixels: Uint8Array;
+  /** Which material the pixel at RGBA index ``i`` is, or null where there is nothing. */
+  slotAt: (i: number) => string | null;
   tonePixels: Uint8Array;
-  shadowPixels: Uint8Array;
-  slotOf: Map<string, string>;
+  /** Whether the floor at RGBA index ``i`` is in the piece's shadow. */
+  shadowAt: (i: number) => boolean;
   originX: number;
   originY: number;
   anchor: number;
   footprint: readonly [number, number];
 }
 
-function assemble(a: Assembly): BakedSprite {
+export function assemble(a: Assembly): BakedSprite {
   const keys: Record<string, { slot: string; tone: number }> = {};
   const keyOf = new Map<string, string>();
   const keyFor = (slot: string, tone: number): string => {
@@ -376,7 +387,6 @@ function assemble(a: Assembly): BakedSprite {
     }
     return key;
   };
-  const table = slotTable(a.slotOf);
 
   // what each pixel is: a slot, or nothing
   const slots: (string | null)[][] = [];
@@ -389,8 +399,8 @@ function assemble(a: Assembly): BakedSprite {
     const shadowRow: boolean[] = [];
     for (let col = 0; col < a.width; col++) {
       const i = (y * a.width + col) * 4;
-      shadowRow.push(a.shadowPixels[i + 3] >= 128);
-      const slot = a.slotPixels[i + 3] < 128 ? null : nearestSlot(a.slotPixels[i], a.slotPixels[i + 1], a.slotPixels[i + 2], table);
+      shadowRow.push(a.shadowAt(i));
+      const slot = a.slotAt(i);
       slotRow.push(slot);
       if (slot === null) {
         line.push(".");

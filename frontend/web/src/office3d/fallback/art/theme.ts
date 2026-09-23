@@ -50,6 +50,8 @@ function lookUp(palette: OfficePalette, slot: string): string | undefined {
 /** A slot is a path into the style's palette: ``deskTop``, ``books.3``, ``floors.base.color``. */
 export function slotColour(palette: OfficePalette, slot: string, accent?: string): string | undefined {
   if (slot === ACCENT_SLOT) return accent;
+  // already a colour: a person's clothes come from their character's texture, not the style
+  if (/^#[0-9a-f]{6}$/i.test(slot)) return slot;
   const direct = lookUp(palette, slot);
   if (direct !== undefined) return direct;
   const instead = fallbackOf(slot);

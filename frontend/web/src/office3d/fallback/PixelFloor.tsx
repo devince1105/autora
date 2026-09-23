@@ -63,11 +63,12 @@ export function PixelFloor({
 }) {
   const canvas = useRef<HTMLCanvasElement>(null);
   const scene = useRef<Scene | null>(null);
-  scene.current = buildScene(plan, cards);
   const roster = useRoster();
+  const characters = useMemo(() => new Map(roster.members.map((m) => [m.id, m.character as string])), [roster.members]);
+  scene.current = buildScene(plan, cards, characters);
   const pictures = useMemo(() => new Pictures(theme), [theme]);
-  const latest = useRef({ roster, selected, focused, cards, pictures });
-  latest.current = { roster, selected, focused, cards, pictures };
+  const latest = useRef({ roster, selected, focused, characters, pictures });
+  latest.current = { roster, selected, focused, characters, pictures };
 
   // The 3D office walks its couriers from a frame hook inside its canvas. This one has no such
   // hook, so it runs the same queue itself: one director per board, stepped every frame.
@@ -81,7 +82,7 @@ export function PixelFloor({
     let frame = 0;
     const draw = (time: number) => {
       const current = scene.current;
-      const { roster: members, selected: chosen, focused: room, cards: people, pictures: art } = latest.current;
+      const { roster: members, selected: chosen, focused: room, characters: wearing, pictures: art } = latest.current;
       if (!current) return;
       director.queue.step(time, (cue) => routeFor(cue, members)?.durationMs ?? null);
       const walking = walkersNow(director, members, time);
@@ -92,7 +93,7 @@ export function PixelFloor({
         selected: chosen,
         focused: room,
         walking,
-        colours: new Map([...people].map(([id, card]) => [id, card.color])),
+        characters: wearing,
         time,
       });
       probe(walking, art.theme);

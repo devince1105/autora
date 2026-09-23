@@ -17,6 +17,8 @@ export interface Walker {
   phase: CourierPhase;
   /** True while the document is in their hands: on the way there, not on the way back. */
   carrying: boolean;
+  /** Which way they are going, as the 3D office turns them: 0 toward the viewer, π/2 to the right. */
+  heading: number;
 }
 
 /**
@@ -44,6 +46,7 @@ export function walkersNow(
       position: state.position,
       phase: state.phase,
       carrying: state.carrying,
+      heading: state.heading,
     });
   }
   return out;
