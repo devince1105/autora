@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 // T-515: the public site — article and list rendering, the reader beacon, the public API client.
-import { cleanup, render, screen, within } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { fetchArticle, fetchArticles, type PublicArticle } from "./api";
@@ -113,14 +113,26 @@ describe("the article page", () => {
     expect(disconnect).toHaveBeenCalled();
   });
 
-  it("a members-only article shows its opening and the way in (D-025)", () => {
+  it("a members-only article shows its opening and both ways in (D-025)", () => {
     render(<ArticleView article={MEMBERS_ONLY} lang="zh-TW" />);
 
     expect(screen.getByText(MEMBERS_ONLY.blocks[0].text)).toBeTruthy();
     expect(screen.queryByText(ARTICLE.blocks[2].text)).toBeNull();
     const notice = screen.getByTestId("members-only");
+    expect(notice.textContent).toContain("$360"); // the price, said once and from one place
+    expect(notice.textContent).toContain("已經是會員？請先登入。");
     const link = within(notice).getByRole("link", { name: "登入" });
     expect(link.getAttribute("href")).toBe(`/news/zh-TW/login?next=${encodeURIComponent(ARTICLE.path)}`);
+  });
+
+  it("paying is not open yet, and the button says so rather than doing nothing (T-702)", () => {
+    render(<ArticleView article={MEMBERS_ONLY} lang="zh-TW" />);
+    const notice = screen.getByTestId("members-only");
+    expect(within(notice).queryByRole("status")).toBeNull();
+
+    fireEvent.click(within(notice).getByRole("button", { name: "成為會員" }));
+
+    expect(within(notice).getByRole("status").textContent).toContain("即將開放");
   });
 
   it("a free article says nothing about membership", () => {
