@@ -9,7 +9,7 @@ import { createRealtimeStore, realtimeStore, type RealtimeState } from "@/stores
 import { uiStore } from "@/stores/ui";
 
 import { arcBetween, boardModel, floorPlan, handoffsAfter } from "./board";
-import { buildScene, hitTest, TILE } from "./tiles";
+import { buildScene, hitTest, TILE, type Npc, type Prop } from "./tiles";
 import { walkersNow } from "./walkers";
 import { CueDirector, routeFor } from "../visual/CueRunner";
 import { assignSeats } from "../scene/layout";
@@ -131,13 +131,13 @@ describe("the floor as tiles", () => {
 
   it("every room is on the map, walled ones with walls around them", () => {
     const { map } = scene();
-    const zones = new Set(map.zone.filter(Boolean));
+    const zones = new Set(map.zone.filter((zone): zone is string => zone !== null));
     for (const room of ["research", "editorial", "growth", "spare", "lobby", "ceo", "meeting", "pantry"]) {
       expect(zones.has(room)).toBe(true);
     }
     // the three rooms at the back have walls; the open-plan zones are carpet
     const kindsOf = (zone: string) =>
-      new Set(map.tiles.filter((_, i) => map.zone[i] === zone));
+      new Set(map.tiles.filter((_tile, index) => map.zone[index] === zone));
     expect(kindsOf("ceo").has("wall")).toBe(true);
     expect(kindsOf("meeting").has("wall")).toBe(true);
     expect(kindsOf("research").has("wall")).toBe(false);
@@ -146,23 +146,23 @@ describe("the floor as tiles", () => {
 
   it("a desk for every seat, a person at the taken ones, and each knows its room", () => {
     const built = scene();
-    const desks = built.props.filter((prop) => prop.kind === "desk");
+    const desks = built.props.filter((prop: Prop) => prop.kind === "desk");
     expect(desks.length).toBeGreaterThan(built.npcs.length);
     expect(built.npcs).toHaveLength(6);
-    expect(built.npcs.every((npc) => npc.zone !== null)).toBe(true);
-    expect(new Set(built.npcs.map((npc) => npc.color)).size).toBeGreaterThan(1);
+    expect(built.npcs.every((npc: Npc) => npc.zone !== null)).toBe(true);
+    expect(new Set(built.npcs.map((npc: Npc) => npc.color)).size).toBeGreaterThan(1);
   });
 
   it("each room has the furniture that makes it that room", () => {
     const kinds = (zone: string) =>
-      new Set(scene().props.filter((prop) => prop.zone === zone).map((prop) => prop.kind));
+      new Set(scene().props.filter((prop: Prop) => prop.zone === zone).map((prop: Prop) => prop.kind));
     expect(kinds("lobby")).toContain("counter"); // reception, which is also the approval desk
     expect(kinds("lobby")).toContain("sofa");
     expect(kinds("pantry")).toContain("fridge");
     expect(kinds("pantry")).toContain("stove");
     expect(kinds("meeting")).toContain("whiteboard");
     expect(kinds("ceo")).toContain("shelf");
-    expect(scene().props.some((prop) => prop.kind === "door")).toBe(true);
+    expect(scene().props.some((prop: Prop) => prop.kind === "door")).toBe(true);
   });
 
   it("clicking the floor is not clicking a person", () => {
