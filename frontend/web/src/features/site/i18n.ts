@@ -48,7 +48,7 @@ const WORDS = {
     membersOnly: "This story is for members",
     membersOnlyWhy: (price: string) => `Membership is ${price} a year and opens every members-only story.`,
     membersOnlyAlready: "Already a member? Sign in.",
-    membersSoon: "Paying is not open yet; it will be possible here.",
+    membersSoon: "Paying is not open yet — this is where it will be.",
     signIn: "Sign in",
     signOut: "Sign out",
     signedInAs: "Signed in",
