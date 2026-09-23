@@ -71,6 +71,64 @@ function sceneStub() {
 
 const mode = (container: HTMLElement) => container.querySelector("[data-office-mode]")?.getAttribute("data-office-mode");
 
+describe("fetching the 2D board ahead of need", () => {
+  // jsdom has no idle callbacks, so the page falls back to a delay; the 3D scene here is a stub
+  const Scene = () => <div data-testid="scene" />;
+
+  it("in 3D, fetches the board once the page is quiet — so a switch to 2D does not wait for it", () => {
+    vi.useFakeTimers();
+    try {
+      const preload = vi.fn();
+      render(<OfficeCanvas detect={() => DESKTOP} Scene={Scene} preload={preload} />);
+      expect(preload).not.toHaveBeenCalled(); // not during start-up
+      act(() => void vi.advanceTimersByTime(2000));
+      expect(preload).toHaveBeenCalledTimes(1);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("asks once per visit, however often the view goes back and forth", () => {
+    vi.useFakeTimers();
+    try {
+      const preload = vi.fn();
+      const { rerender } = render(<OfficeCanvas view="3d" detect={() => DESKTOP} Scene={Scene} preload={preload} />);
+      act(() => void vi.advanceTimersByTime(2000));
+      rerender(<OfficeCanvas view="2d" detect={() => DESKTOP} Scene={Scene} preload={preload} />);
+      rerender(<OfficeCanvas view="3d" detect={() => DESKTOP} Scene={Scene} preload={preload} />);
+      act(() => void vi.advanceTimersByTime(2000));
+      expect(preload).toHaveBeenCalledTimes(1);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("in 2D, does not: the board is already loading because it is on screen", () => {
+    vi.useFakeTimers();
+    try {
+      const preload = vi.fn();
+      render(<OfficeCanvas view="2d" detect={() => DESKTOP} Scene={Scene} preload={preload} />);
+      act(() => void vi.advanceTimersByTime(5000));
+      expect(preload).not.toHaveBeenCalled();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("leaving before the page is quiet fetches nothing", () => {
+    vi.useFakeTimers();
+    try {
+      const preload = vi.fn();
+      const { unmount } = render(<OfficeCanvas detect={() => DESKTOP} Scene={Scene} preload={preload} />);
+      unmount();
+      act(() => void vi.advanceTimersByTime(5000));
+      expect(preload).not.toHaveBeenCalled();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+});
+
 describe("OfficeCanvas", () => {
   it("without WebGL 2: the 2D board, and why", () => {
     const { Scene } = sceneStub();

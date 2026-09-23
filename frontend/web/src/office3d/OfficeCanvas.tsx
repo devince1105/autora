@@ -5,7 +5,7 @@
 // hidden, and turns a lost WebGL context into an overlay with a manual rebuild (no automatic
 // retry loop) — 3d-office/04 §7.
 import dynamic from "next/dynamic";
-import { useEffect, useState, type ComponentType } from "react";
+import { useEffect, useRef, useState, type ComponentType } from "react";
 
 import type { Canvas3DProps } from "./Canvas3D";
 import { chooseMode, detectCapabilities, type Capabilities, type ModeReason, type OfficeView } from "./capabilities";
@@ -40,6 +40,31 @@ const LazyBoard2D = dynamic(() => import("./fallback/OfficeBoard2D").then((m) =>
   loading: Loading2D,
 });
 
+/**
+ * Fetch the 2D board ahead of need: the same module the lazy board loads, so the same chunk, and a
+ * later switch to 2D finds it already there. The user chose this: a switch to 2D while the 3D
+ * office is still starting up should not also wait for the board to download — at the cost of
+ * everybody fetching it once, whether they look at 2D or not.
+ */
+export const preloadBoard2D = (): void => {
+  void import("./fallback/OfficeBoard2D");
+};
+
+/** How long to wait for the page to have a quiet moment before fetching anyway. */
+const IDLE_TIMEOUT_MS = 4000;
+/** Where the browser has no idle callbacks (Safari): a plain delay, long enough to be after start-up. */
+const IDLE_FALLBACK_MS = 1500;
+
+/** Run ``work`` when the page is quiet — after the 3D office's heavy first frames, not during them. */
+function whenIdle(work: () => void): () => void {
+  if (typeof window.requestIdleCallback === "function") {
+    const id = window.requestIdleCallback(() => work(), { timeout: IDLE_TIMEOUT_MS });
+    return () => window.cancelIdleCallback(id);
+  }
+  const id = window.setTimeout(work, IDLE_FALLBACK_MS);
+  return () => window.clearTimeout(id);
+}
+
 const REASON: Record<ModeReason, string | null> = {
   selected: null,
   auto: null,
@@ -57,9 +82,10 @@ export interface OfficeCanvasProps {
   selectionInsetRight?: number;
   /** key -> name for the company's departments, from the org chart (T-600 batch 3). */
   departmentNames?: Readonly<Record<string, string>>;
-  /** Test seams: capability probe and the WebGL scene. */
+  /** Test seams: capability probe, the WebGL scene, and fetching the 2D board ahead of need. */
   detect?: () => Capabilities;
   Scene?: ComponentType<Canvas3DProps>;
+  preload?: () => void;
 }
 
 export function OfficeCanvas({
@@ -70,6 +96,7 @@ export function OfficeCanvas({
   selectionInsetRight = 0,
   detect = detectCapabilities,
   Scene = LazyCanvas3D,
+  preload = preloadBoard2D,
 }: OfficeCanvasProps) {
   const empty = useRoster().members.length === 0;
   const [caps, setCaps] = useState<Capabilities | null>(null);
@@ -97,6 +124,17 @@ export function OfficeCanvas({
   useEffect(() => {
     if (decision) onMode?.(decision.mode);
   }, [decision?.mode, onMode]);
+
+  // In 3D, fetch the 2D board once the page is quiet, so switching to it is instant. In 2D it is
+  // already loading; and once fetched it stays fetched, so this asks at most once per visit.
+  const preloaded = useRef(false);
+  useEffect(() => {
+    if (decision?.mode !== "3d" || preloaded.current) return;
+    return whenIdle(() => {
+      preloaded.current = true;
+      preload();
+    });
+  }, [decision?.mode, preload]);
 
   useEffect(() => {
     // Handing over to the board destroys the 3D canvas, and the browser reports that the only
