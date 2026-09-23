@@ -74,9 +74,18 @@ export function OfficeCanvas({
     setCaps(detect());
   }, []);
 
-  if (!caps) return <div data-office-mode="detecting" className="h-full" />;
+  const decision = caps ? chooseMode(caps, view) : null;
 
-  const { mode, reason } = chooseMode(caps, view);
+  useEffect(() => {
+    // Handing over to the board destroys the 3D canvas, and the browser reports that the only
+    // way it can: a lost context. That is this canvas ending, not the next one failing, so the
+    // flag is cleared whenever 3D is not on screen — coming back builds a fresh one.
+    if (decision?.mode !== "3d") setLost(false);
+  }, [decision?.mode]);
+
+  if (!caps || !decision) return <div data-office-mode="detecting" className="h-full" />;
+
+  const { mode, reason } = decision;
 
   if (mode === "2d") {
     return (

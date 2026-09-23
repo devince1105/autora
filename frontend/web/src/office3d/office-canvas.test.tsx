@@ -172,6 +172,25 @@ describe("OfficeCanvas", () => {
     expect(again.seen.props!.theme).toBe("industrial");
   });
 
+  it("the board and back: the old canvas ending is not the new one failing", () => {
+    // Switching to 2D destroys the 3D canvas, and the browser reports that as a lost context.
+    // Coming back used to land on "3D 暫停" for a canvas that had only just been built.
+    const { Scene, seen } = sceneStub();
+    const props = { detect: () => DESKTOP, Scene };
+    const { container, rerender } = render(<OfficeCanvas view="3d" {...props} />);
+    act(() => seen.props!.onContextLost());
+    expect(screen.getByRole("alert")).toBeTruthy();
+
+    rerender(<OfficeCanvas view="2d" {...props} />);
+    expect(mode(container)).toBe("2d");
+    rerender(<OfficeCanvas view="3d" {...props} />);
+
+    expect(mode(container)).toBe("3d");
+    expect(screen.queryByRole("alert")).toBeNull();
+    expect(screen.getByTestId("scene").getAttribute("data-frameloop")).toBe("always");
+    expect(container.querySelector("[data-context-lost]")?.getAttribute("data-context-lost")).toBe("false");
+  });
+
   it("the settings dialog closes with Escape, the backdrop and its own button", () => {
     const { Scene } = sceneStub();
     render(<OfficeCanvas detect={() => DESKTOP} Scene={Scene} />);
