@@ -8,7 +8,9 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { createRealtimeStore, realtimeStore, type RealtimeState } from "@/stores/realtime";
 import { uiStore } from "@/stores/ui";
 
-import { arcBetween, boardModel, handoffsAfter } from "./board";
+import { arcBetween, boardModel, floorPlan, handoffsAfter } from "./board";
+import { buildScene, hitTest, TILE } from "./tiles";
+import { assignSeats } from "../scene/layout";
 import { HANDOFF_MS, OfficeBoard2D } from "./OfficeBoard2D";
 
 // A randomised real runtime history (the T-302 contract fixture): six agents, three roles.
@@ -37,6 +39,18 @@ function replay(until = events.length): RealtimeState {
   store.getState().hydrate(fixture.snapshot_before);
   store.getState().applyEvents(fixture.events.slice(0, until));
   return store.getState().company!;
+}
+
+function plan() {
+  const company = replay(0);
+  const agents = Object.values(company.agents);
+  return floorPlan(agents.map((agent) => agent.id), assignSeats(agents).seats);
+}
+
+function cards() {
+  return new Map(
+    boardModel(replay(0), new Date()).flatMap((row) => row.cards).map((card) => [card.id, card]),
+  );
 }
 
 afterEach(() => {
@@ -109,6 +123,53 @@ describe("board model", () => {
   });
 });
 
+describe("the floor as tiles", () => {
+  const scene = () => buildScene(plan(), cards());
+
+  it("every room is on the map, walled ones with walls around them", () => {
+    const { map } = scene();
+    const zones = new Set(map.zone.filter(Boolean));
+    for (const room of ["research", "editorial", "growth", "spare", "lobby", "ceo", "meeting", "pantry"]) {
+      expect(zones.has(room)).toBe(true);
+    }
+    // the three rooms at the back have walls; the open-plan zones are carpet
+    const kindsOf = (zone: string) =>
+      new Set(map.tiles.filter((_, i) => map.zone[i] === zone));
+    expect(kindsOf("ceo").has("wall")).toBe(true);
+    expect(kindsOf("meeting").has("wall")).toBe(true);
+    expect(kindsOf("research").has("wall")).toBe(false);
+    expect(kindsOf("research").has("carpet")).toBe(true);
+  });
+
+  it("a desk for every seat, a person at the taken ones, and each knows its room", () => {
+    const built = scene();
+    const desks = built.props.filter((prop) => prop.kind === "desk");
+    expect(desks.length).toBeGreaterThan(built.npcs.length);
+    expect(built.npcs).toHaveLength(6);
+    expect(built.npcs.every((npc) => npc.zone !== null)).toBe(true);
+    expect(new Set(built.npcs.map((npc) => npc.color)).size).toBeGreaterThan(1);
+  });
+
+  it("each room has the furniture that makes it that room", () => {
+    const kinds = (zone: string) =>
+      new Set(scene().props.filter((prop) => prop.zone === zone).map((prop) => prop.kind));
+    expect(kinds("lobby")).toContain("counter"); // reception, which is also the approval desk
+    expect(kinds("lobby")).toContain("sofa");
+    expect(kinds("pantry")).toContain("fridge");
+    expect(kinds("pantry")).toContain("stove");
+    expect(kinds("meeting")).toContain("whiteboard");
+    expect(kinds("ceo")).toContain("shelf");
+    expect(scene().props.some((prop) => prop.kind === "door")).toBe(true);
+  });
+
+  it("clicking the floor is not clicking a person", () => {
+    const built = scene();
+    const someone = built.npcs[0];
+    expect(hitTest(built, someone.x + 4, someone.y + 6)).toBe(someone.agentId);
+    expect(hitTest(built, 1, 1)).toBeNull();
+  });
+});
+
 describe("hand-off arrow geometry", () => {
   it("arcs from the top of one card to the top of the other, above both", () => {
     const a = { left: 0, top: 100, width: 200, height: 100 };
@@ -167,47 +228,34 @@ describe("OfficeBoard2D", () => {
     expect(within(floor).getAllByTestId(/^board-agent-/)).toHaveLength(6);
   });
 
-  it("the floor is drawn from above: a desk per seat, a dot for whoever is at it", () => {
+  it("the floor is one canvas of pixels, and clicking a person selects them", () => {
     realtimeStore.getState().hydrate(fixture.snapshot_before);
     render(<OfficeBoard2D />);
+    const floor = screen.getByTestId("room-plan") as HTMLCanvasElement;
 
-    const plan = screen.getByTestId("room-plan");
-    const desks = within(plan).getAllByTestId(/^plan-desk-/);
-    const people = within(plan).getAllByTestId(/^plan-agent-/);
+    // its own low resolution: one tile is one metre of the floor the 3D office is built from
+    expect(floor.tagName).toBe("CANVAS");
+    expect(floor.width % TILE).toBe(0);
+    expect(floor.width).toBeGreaterThan(floor.height); // the floor is wider than it is deep
 
-    expect(people).toHaveLength(6);
-    expect(desks.length).toBeGreaterThanOrEqual(people.length); // empty desks are part of the room
-    fireEvent.click(people[0]);
-    expect(uiStore.getState().selectedAgentId).toBe(people[0].getAttribute("data-testid")!.slice("plan-agent-".length));
+    const scene = buildScene(plan(), cards());
+    const someone = scene.npcs[0];
+    floor.getBoundingClientRect = () => ({ left: 0, top: 0, width: scene.width, height: scene.height }) as DOMRect;
+    fireEvent.click(floor, { clientX: someone.x + 5, clientY: someone.y + 7 });
+
+    expect(uiStore.getState().selectedAgentId).toBe(someone.agentId);
   });
 
-  it("the whole floor is drawn: every room, the door, and desks nobody is at", () => {
-    realtimeStore.getState().hydrate(fixture.snapshot_before);
+  it("the ticker says what the store knows, and nothing it does not", () => {
+    realtimeStore.setState({ company: replay(30) });
     render(<OfficeBoard2D />);
-    const plan = screen.getByTestId("room-plan");
+    const ticker = screen.getByTestId("office-ticker");
 
-    // the open-plan zones and the three rooms with walls, by the names the floor gives them
-    for (const room of ["research", "editorial", "growth", "spare", "lobby", "ceo", "meeting", "pantry"]) {
-      expect(within(plan).getByTestId(`plan-room-${room}`)).toBeTruthy();
-    }
-    expect(within(plan).getByTestId("plan-entrance")).toBeTruthy();
-    // this company has six people; the floor has more desks than that, and shows them
-    expect(within(plan).getAllByTestId(/^plan-desk-/).length).toBeGreaterThan(6);
-  });
-
-  it("choosing a room lights it and dims the rest; the floor is never cut away", () => {
-    realtimeStore.getState().hydrate(fixture.snapshot_before);
-    render(<OfficeBoard2D />);
-    const plan = screen.getByTestId("room-plan");
-    const dim = (id: string) => within(plan).getByTestId(`plan-room-${id}`).getAttribute("opacity");
-    expect(dim("research")).toBe("1");
-    expect(dim("editorial")).toBe("1");
-
-    fireEvent.click(screen.getByTestId("room-tab-research"));
-
-    expect(dim("research")).toBe("1");
-    expect(Number(dim("editorial"))).toBeLessThan(1);
-    expect(within(plan).getByTestId("plan-room-editorial")).toBeTruthy(); // still there
+    expect(ticker.textContent).toContain("代理");
+    expect(ticker.textContent).toContain("任務");
+    expect(ticker.textContent).toContain("待審批");
+    // no money: the ledger's numbers are the page's, and a second copy could disagree with it
+    expect(ticker.textContent).not.toMatch(/\$|NT/);
   });
 
   it("the log column says what just happened, newest first", () => {

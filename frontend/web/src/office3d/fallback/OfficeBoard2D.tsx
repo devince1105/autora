@@ -22,7 +22,8 @@ import { assignSeats } from "../scene/layout";
 import { arcBetween, boardModel, floorPlan, handoffsAfter, type BoardCard, type Box } from "./board";
 import { LogColumn, RosterColumn } from "./BoardSideColumns";
 import { BADGE_INK, CONSOLE, consoleVars } from "./console";
-import { RoomPlanView } from "./RoomPlanView";
+import { PixelFloor } from "./PixelFloor";
+import { Ticker } from "./Ticker";
 
 /** The tab that shows every room at once; the floor rather than one room of it. */
 export const ALL_ROOMS = "all";
@@ -174,7 +175,7 @@ export function OfficeBoard2D({
     >
       <RosterColumn cards={rows.flatMap((row) => row.cards)} selected={selected} />
 
-      <section aria-label="樓層" className="min-h-0 min-w-0 overflow-y-auto">
+      <section aria-label="樓層" className="grid min-h-0 min-w-0 grid-rows-[auto_minmax(0,1fr)_auto]">
         <div
           role="tablist"
           aria-label="房間"
@@ -202,8 +203,12 @@ export function OfficeBoard2D({
           ))}
         </div>
 
-        <div ref={container} className="relative grid gap-6 p-3 pt-6">
-          <RoomPlanView plan={plan} cards={everyone} selected={selected} focused={shown === ALL_ROOMS ? null : shown} />
+        <div ref={container} className="relative grid min-h-0 grid-rows-[minmax(0,3fr)_auto] gap-4 overflow-y-auto p-3">
+          {/* the floor takes the room it needs: it is the thing this view is for */}
+          <div className="min-h-[26rem]">
+            <PixelFloor plan={plan} cards={everyone} selected={selected} focused={shown === ALL_ROOMS ? null : shown} />
+          </div>
+          <div className="grid gap-4">
           {visible.map((row) => (
             <section key={row.id} aria-label={row.label}>
               <h3 className="mb-2 flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.2em] text-[color:var(--console-text-dim)]">
@@ -237,6 +242,7 @@ export function OfficeBoard2D({
           {arrows.map((a) => (
             <span key={a.key} hidden data-testid="handoff-arrow" data-from={a.from} data-to={a.to} />
           ))}
+          </div>
           <svg aria-hidden className="pointer-events-none absolute inset-0 h-full w-full overflow-visible">
             <defs>
               <marker id="handoff-head" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
@@ -256,6 +262,7 @@ export function OfficeBoard2D({
             ))}
           </svg>
         </div>
+        <Ticker />
       </section>
 
       <LogColumn events={company?.recentEvents ?? []} />
