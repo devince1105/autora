@@ -278,3 +278,46 @@ class Payment(IdMixin, CreatedAtMixin, Base):
     amount: Mapped[Decimal]
     currency: Mapped[str] = mapped_column(server_default="TWD")
     paid_at: Mapped[datetime]
+
+
+class OrderState(StrEnum):
+    PENDING = "PENDING"
+    PAID = "PAID"
+    FAILED = "FAILED"
+    EXPIRED = "EXPIRED"
+
+
+class Order(IdMixin, TimestampMixin, Base):
+    """What somebody said they wanted to buy, before any money moved (T-702, D-024).
+
+    A one-time payment leaves the site and comes back through the provider, and the notification
+    that comes back knows only its own trade number. The order is what that number means: which
+    price, for which reader, for how much. Without it a payment is money from nobody for nothing.
+
+    ``mer_trade_no`` is ours and unique per provider — it is what we send out and what comes
+    back. ``external_ref`` is the provider's own number for the charge, known only afterwards.
+    """
+
+    __tablename__ = "orders"
+    __table_args__ = (
+        UniqueConstraint("provider", "mer_trade_no"),
+        check_in("state", OrderState),
+        check_regex("provider", "^[a-z][a-z0-9_]*$"),
+        check_regex("currency", "^[A-Z]{3}$"),
+        CheckConstraint("amount > 0", name="amount_positive"),
+        CheckConstraint(
+            "(state <> 'PAID') = (payment_id IS NULL)", name="paid_order_has_its_payment"
+        ),
+    )
+
+    company_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("companies.id"), index=True)
+    price_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("prices.id"))
+    customer_ref: Mapped[str]
+    """Who it is for, as the site knows them: ``reader:<id>`` (D-018 — never an address)."""
+    amount: Mapped[Decimal]
+    currency: Mapped[str] = mapped_column(server_default="TWD")
+    provider: Mapped[str]
+    mer_trade_no: Mapped[str]
+    state: Mapped[str] = mapped_column(server_default=OrderState.PENDING.value)
+    payment_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("payments.id"))
+    """The payment that settled it. Set with PAID, in the same transaction."""

@@ -90,6 +90,8 @@ class PublicArticle(PublicArticleSummary):
     company: str
     company_id: uuid.UUID
     """Whose article it is — the site asks that company whether this reader is a member."""
+    company_slug: str
+    """The same company, as the public API names one. The paywall asks what a year costs here."""
 
 
 def _summary(article: Article, version: ArticleVersion) -> PublicArticleSummary:
@@ -163,6 +165,7 @@ async def published_article(
         langs={lang_: article_path(lang_, article.slug) for lang_ in article.published_langs},
         company=company.name if company else "",
         company_id=article.company_id,
+        company_slug=company.slug if company else "",
     )
 
 

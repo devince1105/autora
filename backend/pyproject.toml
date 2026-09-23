@@ -18,6 +18,8 @@ dependencies = [
   "pydantic-settings>=2.3,<3",
   "croniter>=6,<7",
   "anthropic>=1.6,<2",
+  # AES-256-GCM for the payment provider's envelope (D-024; the standard library has no GCM)
+  "cryptography>=43,<47",
 ]
 
 [project.optional-dependencies]

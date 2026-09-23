@@ -22,6 +22,7 @@ const ARTICLE: PublicArticle = {
   published_at: "2026-09-19T04:00:00Z",
   company: "流明日報（示範）",
   company_id: "0192bbbb-bbbb-7bbb-8bbb-bbbbbbbbbbbb",
+  company_slug: "lumen-daily",
   access: "free",
   locked: false,
   blocks: [
@@ -125,14 +126,17 @@ describe("the article page", () => {
     expect(link.getAttribute("href")).toBe(`/news/zh-TW/login?next=${encodeURIComponent(ARTICLE.path)}`);
   });
 
-  it("paying is not open yet, and the button says so rather than doing nothing (T-702)", () => {
+  it("the become-a-member button asks this article's company for a checkout (T-702)", async () => {
     render(<ArticleView article={MEMBERS_ONLY} lang="zh-TW" />);
     const notice = screen.getByTestId("members-only");
     expect(within(notice).queryByRole("status")).toBeNull();
 
     fireEvent.click(within(notice).getByRole("button", { name: "成為會員" }));
 
-    expect(within(notice).getByRole("status").textContent).toContain("即將開放");
+    const started = await vi.waitFor(() =>
+      vi.mocked(globalThis.fetch).mock.calls.find(([url]) => String(url).endsWith("/api/checkout")),
+    );
+    expect(JSON.parse(String(started![1]!.body))).toEqual({ lang: "zh-TW", company: "lumen-daily" });
   });
 
   it("a free article says nothing about membership", () => {

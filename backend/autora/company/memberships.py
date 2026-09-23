@@ -69,6 +69,9 @@ MEMBERSHIP_FSM = StateMachine(
 
 REVENUE_CATEGORY = "membership"
 
+PRODUCT_KEY = "membership"
+"""The key of the product a reader buys. One per company, so the site can find what to sell."""
+
 
 class MembershipError(Exception):
     pass
@@ -123,6 +126,29 @@ async def retire_price(session: AsyncSession, price: Price) -> Price:
     price.state = PriceState.RETIRED.value
     await session.flush()
     return price
+
+
+async def offer(
+    session: AsyncSession, company_id: uuid.UUID, *, key: str = PRODUCT_KEY
+) -> Price | None:
+    """What a company's membership costs today, or None when it is not for sale.
+
+    The newest active price of a live product wins: raising the price is adding one and retiring
+    the old, so that what was bought at the old price keeps pointing at the price it was bought
+    at. Nobody's year changes because the next year costs more.
+    """
+    return await session.scalar(
+        select(Price)
+        .join(Product, Product.id == Price.product_id)
+        .where(
+            Price.company_id == company_id,
+            Price.state == PriceState.ACTIVE.value,
+            Product.key == key,
+            Product.state != ProductState.RETIRED.value,
+        )
+        .order_by(Price.created_at.desc())
+        .limit(1)
+    )
 
 
 # --- buying -------------------------------------------------------------------------------------

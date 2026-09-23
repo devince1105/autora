@@ -1089,6 +1089,74 @@
     "title": "Capital",
     "type": "object"
    },
+   "Checkout": {
+    "description": "Everything the browser needs to hand the reader over to PAYUNi, and nothing secret.",
+    "properties": {
+     "amount": {
+      "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+      "title": "Amount",
+      "type": "string"
+     },
+     "currency": {
+      "title": "Currency",
+      "type": "string"
+     },
+     "fields": {
+      "additionalProperties": {
+       "type": "string"
+      },
+      "title": "Fields",
+      "type": "object"
+     },
+     "mer_trade_no": {
+      "title": "Mer Trade No",
+      "type": "string"
+     },
+     "order_id": {
+      "format": "uuid",
+      "title": "Order Id",
+      "type": "string"
+     },
+     "url": {
+      "title": "Url",
+      "type": "string"
+     }
+    },
+    "required": [
+     "order_id",
+     "mer_trade_no",
+     "amount",
+     "currency",
+     "url",
+     "fields"
+    ],
+    "title": "Checkout",
+    "type": "object"
+   },
+   "CheckoutRequest": {
+    "properties": {
+     "company": {
+      "anyOf": [
+       {
+        "maxLength": 100,
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Company"
+     },
+     "lang": {
+      "default": "zh-TW",
+      "pattern": "^[a-z]{2}(-[A-Z][A-Za-z]{1,3})?$",
+      "title": "Lang",
+      "type": "string"
+     }
+    },
+    "title": "CheckoutRequest",
+    "type": "object"
+   },
    "ClaimView": {
     "properties": {
      "claim_type": {
@@ -2807,6 +2875,36 @@
     "title": "NewSource",
     "type": "object"
    },
+   "Offer": {
+    "description": "What is for sale, for a page that has to name a price before anybody clicks.",
+    "properties": {
+     "amount": {
+      "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+      "title": "Amount",
+      "type": "string"
+     },
+     "available": {
+      "default": true,
+      "title": "Available",
+      "type": "boolean"
+     },
+     "currency": {
+      "title": "Currency",
+      "type": "string"
+     },
+     "interval": {
+      "title": "Interval",
+      "type": "string"
+     }
+    },
+    "required": [
+     "amount",
+     "currency",
+     "interval"
+    ],
+    "title": "Offer",
+    "type": "object"
+   },
    "OpportunityLine": {
     "description": "One thing the company might do, and how far it has got (T-611).\n\nKept short on purpose: the thesis and the evidence are a query away, and a CEO comparing\nfive opportunities needs the shape of each, not the case for it.",
     "properties": {
@@ -3195,6 +3293,10 @@
       "title": "Company Id",
       "type": "string"
      },
+     "company_slug": {
+      "title": "Company Slug",
+      "type": "string"
+     },
      "lang": {
       "title": "Lang",
       "type": "string"
@@ -3259,7 +3361,8 @@
      "sources",
      "langs",
      "company",
-     "company_id"
+     "company_id",
+     "company_slug"
     ],
     "title": "PublicArticle",
     "type": "object"
@@ -5331,6 +5434,117 @@
     ]
    }
   },
+  "/api/checkout": {
+   "post": {
+    "description": "Open an order and build the form that opens PAYUNi's page.\n\nSigning in comes first: the order records who a year is for, and a reader id is the only\nname this layer has for anybody (D-018). Nothing is granted here — the order is PENDING\nuntil PAYUNi says otherwise, even if the reader never comes back.",
+    "operationId": "start_checkout_api_checkout_post",
+    "parameters": [
+     {
+      "in": "cookie",
+      "name": "autora_reader",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "type": "string"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Autora Reader"
+      }
+     }
+    ],
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/CheckoutRequest"
+       }
+      }
+     },
+     "required": true
+    },
+    "responses": {
+     "201": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/Checkout"
+        }
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Start Checkout",
+    "tags": [
+     "payments"
+    ]
+   }
+  },
+  "/api/checkout/offer": {
+   "get": {
+    "description": "What a year costs here. ``available`` is false when nothing is for sale yet, which is a\nfact about the site rather than an error — the page says \"soon\" instead of a price.",
+    "operationId": "get_offer_api_checkout_offer_get",
+    "parameters": [
+     {
+      "in": "query",
+      "name": "company",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "maxLength": 100,
+         "type": "string"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Company"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/Offer"
+        }
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Get Offer",
+    "tags": [
+     "payments"
+    ]
+   }
+  },
   "/api/companies": {
    "get": {
     "operationId": "list_companies_api_companies_get",
@@ -6709,6 +6923,26 @@
     "summary": "List Events",
     "tags": [
      "events"
+    ]
+   }
+  },
+  "/api/payments/payuni/notify": {
+   "post": {
+    "description": "PAYUNi, server to server: this order was paid. The only thing that grants a year.\n\nAnswers ``1|OK`` once it has been dealt with, and 400 when it has not, because PAYUNi keeps\nsending a notification nobody acknowledged — which is what we want when the database was\nbriefly unreachable, and harmless when the message was never PAYUNi's to begin with.",
+    "operationId": "payuni_notify_api_payments_payuni_notify_post",
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      },
+      "description": "Successful Response"
+     }
+    },
+    "summary": "Payuni Notify",
+    "tags": [
+     "payments"
     ]
    }
   },

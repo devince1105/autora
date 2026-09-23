@@ -171,6 +171,51 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/checkout": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Start Checkout
+         * @description Open an order and build the form that opens PAYUNi's page.
+         *
+         *     Signing in comes first: the order records who a year is for, and a reader id is the only
+         *     name this layer has for anybody (D-018). Nothing is granted here — the order is PENDING
+         *     until PAYUNi says otherwise, even if the reader never comes back.
+         */
+        post: operations["start_checkout_api_checkout_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/checkout/offer": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Offer
+         * @description What a year costs here. ``available`` is false when nothing is for sale yet, which is a
+         *     fact about the site rather than an error — the page says "soon" instead of a price.
+         */
+        get: operations["get_offer_api_checkout_offer_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/companies": {
         parameters: {
             query?: never;
@@ -534,6 +579,30 @@ export interface paths {
         get: operations["list_events_api_events_get"];
         put?: never;
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/payments/payuni/notify": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Payuni Notify
+         * @description PAYUNi, server to server: this order was paid. The only thing that grants a year.
+         *
+         *     Answers ``1|OK`` once it has been dealt with, and 400 when it has not, because PAYUNi keeps
+         *     sending a notification nobody acknowledged — which is what we want when the database was
+         *     briefly unreachable, and harmless when the message was never PAYUNi's to begin with.
+         */
+        post: operations["payuni_notify_api_payments_payuni_notify_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -1118,6 +1187,39 @@ export interface components {
             daily_cap?: string | null;
             /** Daily Spent */
             daily_spent: string;
+        };
+        /**
+         * Checkout
+         * @description Everything the browser needs to hand the reader over to PAYUNi, and nothing secret.
+         */
+        Checkout: {
+            /** Amount */
+            amount: string;
+            /** Currency */
+            currency: string;
+            /** Fields */
+            fields: {
+                [key: string]: string;
+            };
+            /** Mer Trade No */
+            mer_trade_no: string;
+            /**
+             * Order Id
+             * Format: uuid
+             */
+            order_id: string;
+            /** Url */
+            url: string;
+        };
+        /** CheckoutRequest */
+        CheckoutRequest: {
+            /** Company */
+            company?: string | null;
+            /**
+             * Lang
+             * @default zh-TW
+             */
+            lang: string;
         };
         /** ClaimView */
         ClaimView: {
@@ -1807,6 +1909,23 @@ export interface components {
             url?: string | null;
         };
         /**
+         * Offer
+         * @description What is for sale, for a page that has to name a price before anybody clicks.
+         */
+        Offer: {
+            /** Amount */
+            amount: string;
+            /**
+             * Available
+             * @default true
+             */
+            available: boolean;
+            /** Currency */
+            currency: string;
+            /** Interval */
+            interval: string;
+        };
+        /**
          * OpportunityLine
          * @description One thing the company might do, and how far it has got (T-611).
          *
@@ -1989,6 +2108,8 @@ export interface components {
              * Format: uuid
              */
             company_id: string;
+            /** Company Slug */
+            company_slug: string;
             /** Lang */
             lang: string;
             /** Langs */
@@ -2961,6 +3082,72 @@ export interface operations {
             };
         };
     };
+    start_checkout_api_checkout_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: {
+                autora_reader?: string | null;
+            };
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CheckoutRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Checkout"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_offer_api_checkout_offer_get: {
+        parameters: {
+            query?: {
+                company?: string | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Offer"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     list_companies_api_companies_get: {
         parameters: {
             query?: {
@@ -3692,6 +3879,26 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    payuni_notify_api_payments_payuni_notify_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
                 };
             };
         };
