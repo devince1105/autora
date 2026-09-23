@@ -272,6 +272,25 @@ MAX_PARAGRAPHS = 6
 _LEAD = {True: "對居民來說最重要的是：", False: "What matters most for residents: "}
 
 
+def _titles(lang: str, title: str) -> tuple[str, str]:
+    """A title and summary for this language, never the other language's pasted in.
+
+    The simulation does not translate (see ``_in``), so when the story's title is in the other
+    script it is left out rather than carried across: an English version whose headline is
+    Chinese is what the draft rules now refuse (``language.script_problems``), and demo data
+    that breaks the rules teaches the wrong thing.
+    """
+    zh = lang.startswith("zh")
+    chinese = bool(_CJK.search(title))
+    if zh:
+        if chinese:
+            return f"{title}：數據一覽", f"{title}的重點數字。"
+        return "來源報導的數據一覽", "這篇報導的重點數字，來自外語來源。"
+    if chinese:
+        return "The numbers behind the story", "The key numbers, from a Chinese-language source."
+    return f"{title}: the numbers", f"The key numbers on {title}."
+
+
 def _in(lang: str, text: str) -> str:
     """The claim's words in a language's paragraph: as they are when the claim is already in that
     language, else attributed to the source (the simulation does not translate)."""
@@ -306,11 +325,12 @@ def _draft(request: ModelRequest) -> FakeTurn:
         versions = []
         for lang in langs:
             zh = lang.startswith("zh")
+            headline, summary = _titles(lang, title)
             versions.append(
                 {
                     "lang": lang,
-                    "title": f"{title}：數據一覽" if zh else f"{title}: the numbers",
-                    "summary": f"{title}的重點數字。" if zh else f"The key numbers on {title}.",
+                    "title": headline,
+                    "summary": summary,
                     "blocks": [
                         {"type": "heading", "text": "重點" if zh else "Key points"},
                         *(

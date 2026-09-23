@@ -26,6 +26,7 @@ from typing import Literal
 
 from pydantic import BaseModel, Field
 
+from autora.domains.newsroom.language import script_problems
 from autora.domains.newsroom.models import ArticleState, ClaimStatus, StoryState
 from autora.domains.newsroom.policy import LanguagePolicy
 from autora.domains.newsroom.quotes import MAX_QUOTE
@@ -107,6 +108,9 @@ def check_draft(
         issues.append(f"every language is required (require_all_langs): missing {missing}")
 
     for version in versions:
+        # the writer's own words are in the language they claim to be (D-002); the body may
+        # quote its sources in theirs, so it is not counted
+        issues.extend(script_problems(version.lang, title=version.title, summary=version.summary))
         for index, block in enumerate(version.blocks, 1):
             where = f"{version.lang} block {index} ({block.type})"
             if block.type == "heading" and block.claim_ids:

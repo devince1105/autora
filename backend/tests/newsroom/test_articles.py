@@ -44,9 +44,10 @@ FACTS = {C1: ClaimFacts(STORY, "UNVERIFIED"), C2: ClaimFacts(STORY, "VERIFIED")}
 
 
 def version(lang, *claims, heading_claims=()):
+    # a title in the language it claims: the draft rules refuse one that is not (D-002)
     return LanguageVersion(
         lang=lang,
-        title=f"Title {lang}",
+        title=f"標題 {lang}" if lang.startswith("zh") else f"Title {lang}",
         blocks=[
             Block(type="heading", text="Heading", claim_ids=list(heading_claims)),
             Block(type="paragraph", text="Paragraph", claim_ids=list(claims)),
