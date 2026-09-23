@@ -638,6 +638,41 @@ Dashboard 本來就用 `Intl.NumberFormat` 並帶入 API 回傳的幣別，所�
 
 ---
 
+## 搬家：儲存庫換到 `devince1105/autora`（公開）（2026-09-23）
+
+### 為什麼搬
+
+`vince115/autora` 是私有 repo，Actions 的分鐘數要計費。這套 CI 每次推送約 14 分鐘（e2e 8 分、python 4 分、web 1.5 分），一天下來推了二十幾次，額度用完，GitHub 直接拒絕啟動工作：「recent account payments have failed or your spending limit needs to be increased」。
+
+**我犯了一個錯**：第一次看到那個失敗時，我把 devlog 寫成「✅ 通過」就繼續往下走。它不是通過，它根本沒有跑。已經更正，而且這件事值得記住——**建置是綠的，只有在建置自己說綠的時候**。
+
+### 公開前先掃歷史
+
+一旦公開，過去每一個提交都會公開。所以先掃：`.env` **從未被提交過**；全部提交裡找不到任何金鑰樣式（`sk-`、`nvapi-`、`tvly-`、`re_`、`AKIA`）或真實的 `API_BEARER_TOKEN`。`.claude/`、`data/`、各種快取本來就在 `.gitignore` 內。
+
+歷史是乾淨的，所以**完整帶過去**：219 個提交，包含這份 devlog。那些「為什麼這樣做、哪裡踩過坑」的紀錄是這個專案最有價值的部分。
+
+### 過程中的兩個小障礙
+
+- `brew update` 失敗，因為 `homebrew/cask-fonts` 這個 tap 在 2024 年併進 `homebrew/cask`、repo 被刪了。`brew untap homebrew/cask-fonts` 解決。
+- 本機的 gh 是 2.4.0（2021 年），一個主機只能登入一個帳號。升到 2.101.0 之後兩個帳號可以並存。
+
+### 現在的狀態
+
+- `origin` → `devince1105/autora`（公開），舊的留成 `vince115-old`，等確認後刪除。
+- 新家的第一次 CI 全過，順便補驗了先前因帳單沒跑到的像素重構。
+- **公開 repo 的 Actions 不計費**，帳單問題自然解決。
+
+### 文件提交不再跑 CI
+
+devlog 幾乎每一批工作後都會寫，而每一次都花八分鐘的 e2e 去證明「文章還能編譯」。改成 `paths-ignore`：只動 `logs/**`、`**/*.md`、`.env.example` 的提交不觸發。
+
+**動到其他任何東西就照跑**——GitHub 只有在「每一個變更的檔案都符合忽略清單」時才會跳過，所以「文件＋程式」算程式。
+
+加之前確認過：沒有任何測試會讀這些檔案（引用它們的地方都是註解）。加之後也實際驗證了一次：一筆純 devlog 的提交推上去，沒有產生新的執行。
+
+---
+
 ## 提交紀錄
 
 | 提交 | 日期 | 內容 | 持續整合 |
