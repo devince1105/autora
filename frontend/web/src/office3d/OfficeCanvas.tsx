@@ -12,7 +12,8 @@ import { chooseMode, detectCapabilities, type Capabilities, type ModeReason, typ
 import { OfficeBoard2D } from "./fallback/OfficeBoard2D";
 import { useRoster } from "./agents/roster";
 import { onOfficeKey } from "./interaction/picking";
-import { THEME_IDS, THEMES } from "./palette";
+import { THEMES } from "./palette";
+import { OfficeSettings } from "./OfficeSettings";
 import { useOfficeTheme } from "./theme";
 import { usePageVisible } from "./usePageVisible";
 
@@ -59,6 +60,7 @@ export function OfficeCanvas({
   const [lost, setLost] = useState(false);
   const [generation, setGeneration] = useState(0);
   const [theme, setTheme] = useOfficeTheme();
+  const [settingsOpen, setSettingsOpen] = useState(false);
   const visible = usePageVisible();
 
   // Esc clears the selection, 1–6 pick a role: in 3D and on the 2D board alike
@@ -102,24 +104,7 @@ export function OfficeCanvas({
         onContextLost={() => setLost(true)}
         onContextRestored={() => setLost(false)}
       />
-      <div
-        role="group"
-        aria-label="辦公室風格"
-        className="absolute top-3 left-3 flex items-center gap-1 rounded-lg border border-line bg-surface/85 p-0.5 text-xs shadow-sm"
-      >
-        <span className="px-1.5 text-muted">風格</span>
-        {THEME_IDS.map((id) => (
-          <button
-            key={id}
-            type="button"
-            aria-pressed={theme === id}
-            onClick={() => setTheme(id)}
-            className={`rounded-md px-2 py-0.5 ${theme === id ? "bg-accent text-canvas" : "text-muted"}`}
-          >
-            {THEMES[id].label}
-          </button>
-        ))}
-      </div>
+      <OfficeSettings theme={theme} onTheme={setTheme} open={settingsOpen} onOpen={setSettingsOpen} />
       {empty ? (
         <div
           role="status"

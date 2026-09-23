@@ -144,8 +144,19 @@ export class AvatarController {
     return this.once?.getClip().name ?? this.base?.getClip().name ?? null;
   }
 
+  /** Stop everything. The controller may be used again afterwards, and starts from nothing.
+   *
+   * It does not uncache the root: that drops the mixer's bookkeeping for actions this object
+   * still holds, and playing one of them again walks off the end of the mixer's own list
+   * ("Cannot set properties of undefined (setting '_cacheIndex')"). React makes that happen in
+   * development — it runs an effect, cleans it up and runs it again, while the controller
+   * itself is a useMemo value that survives both. Nothing leaks: the mixer belongs to this
+   * controller alone and is collected with it.
+   */
   dispose(): void {
     this.mixer.stopAllAction();
-    this.mixer.uncacheRoot(this.root);
+    this.base = null;
+    this.once = null;
+    this.pose = null;
   }
 }

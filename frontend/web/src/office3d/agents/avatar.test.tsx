@@ -202,6 +202,23 @@ describe("AvatarController", () => {
     expect(Object.keys(upperBody("walk", 0))).toEqual([]);
   });
 
+  it("a disposed controller that is used again keeps animating", () => {
+    // React runs an effect, cleans it up and runs it again in development, and the controller
+    // itself is a useMemo value that survives that — so dispose() and setPose() do meet. It used
+    // to throw "Cannot set properties of undefined (setting '_cacheIndex')" from inside three.
+    const model = fakeModel();
+    const controller = new AvatarController(model.scene, model.animations);
+    controller.setPose("sit_type");
+    controller.update(0.1);
+
+    controller.dispose();
+
+    expect(() => controller.setPose("stand")).not.toThrow();
+    controller.update(0.1);
+    expect(controller.clip).toBe("emote-yes");
+    expect(() => controller.dispose()).not.toThrow(); // and disposing twice is nothing
+  });
+
   it("heads are drawn smaller than the pack's, whatever the clips do (T-413)", () => {
     const model = fakeModel();
     const controller = new AvatarController(model.scene, model.animations);

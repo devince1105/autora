@@ -148,10 +148,15 @@ describe("OfficeCanvas", () => {
     expect(seen.mounts).toBe(1);
   });
 
-  it("the look: a theme picker over the 3D office, remembered in this browser (T-413)", () => {
+  it("the look: chosen in the settings dialog, remembered in this browser (T-413)", () => {
     const { Scene, seen } = sceneStub();
     const { container } = render(<OfficeCanvas detect={() => DESKTOP} Scene={Scene} />);
     expect(seen.props!.theme).toBe("muji");
+    // the office is not a settings screen: the choice lives behind a gear
+    expect(screen.queryByRole("dialog")).toBeNull();
+    expect(screen.queryByRole("button", { name: THEMES.industrial.label })).toBeNull();
+
+    fireEvent.click(screen.getByRole("button", { name: "辦公室設定" }));
     const picker = screen.getByRole("group", { name: "辦公室風格" });
     expect(picker.querySelectorAll("button")).toHaveLength(Object.keys(THEMES).length);
 
@@ -165,6 +170,22 @@ describe("OfficeCanvas", () => {
     const again = sceneStub();
     render(<OfficeCanvas detect={() => DESKTOP} Scene={again.Scene} />);
     expect(again.seen.props!.theme).toBe("industrial");
+  });
+
+  it("the settings dialog closes with Escape, the backdrop and its own button", () => {
+    const { Scene } = sceneStub();
+    render(<OfficeCanvas detect={() => DESKTOP} Scene={Scene} />);
+    const gear = screen.getByRole("button", { name: "辦公室設定" });
+
+    fireEvent.click(gear);
+    expect(screen.getByRole("dialog")).toBeTruthy();
+    fireEvent.keyDown(window, { key: "Escape" });
+    expect(screen.queryByRole("dialog")).toBeNull();
+
+    fireEvent.click(gear);
+    fireEvent.click(screen.getByRole("button", { name: "關閉" }));
+    expect(screen.queryByRole("dialog")).toBeNull();
+    expect(gear.getAttribute("aria-expanded")).toBe("false");
   });
 
   it("an unknown or unreadable stored theme falls back to the default", () => {
