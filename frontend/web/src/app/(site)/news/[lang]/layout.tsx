@@ -4,6 +4,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import type { ReactNode } from "react";
 
+import { MemberBadge } from "@/features/site/MemberBadge";
 import { isLang, LANG_NAMES, LANGS, words } from "@/features/site/i18n";
 
 export default async function SiteLayout({
@@ -22,12 +23,13 @@ export default async function SiteLayout({
           <Link href={`/news/${lang}`} className="font-bold">
             {words(lang).site}
           </Link>
-          <span className="text-sm">
+          <span className="flex items-center gap-4 text-sm">
             {LANGS.filter((other) => other !== lang).map((other) => (
               <Link key={other} href={`/news/${other}`} hrefLang={other} className="text-accent underline">
                 {LANG_NAMES[other]}
               </Link>
             ))}
+            <MemberBadge lang={lang} />
           </span>
         </nav>
       </header>

@@ -6,6 +6,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { fetchArticle, fetchArticles, type PublicArticle } from "./api";
 import { ArticleList } from "./ArticleList";
 import { ArticleView } from "./ArticleView";
+import { MemberBadge } from "./MemberBadge";
 import { formatDate, isLang } from "./i18n";
 import { sendBeacon, sessionHash, type SessionStore } from "./session";
 
@@ -125,6 +126,48 @@ describe("the article page", () => {
   it("a free article says nothing about membership", () => {
     render(<ArticleView article={ARTICLE} lang="zh-TW" />);
     expect(screen.queryByTestId("members-only")).toBeNull();
+  });
+});
+
+describe("the header's member badge", () => {
+  beforeEach(() => {
+    vi.stubGlobal("fetch", vi.fn());
+  });
+
+  function answer(body: unknown) {
+    vi.mocked(globalThis.fetch).mockResolvedValue(
+      new Response(JSON.stringify(body), { status: 200, headers: { "Content-Type": "application/json" } }),
+    );
+  }
+
+  it("offers a way in when nobody is signed in", async () => {
+    answer(null);
+    render(<MemberBadge lang="zh-TW" />);
+    const link = await screen.findByTestId("sign-in");
+    expect(link.getAttribute("href")).toBe("/news/zh-TW/login");
+  });
+
+  it("says when the membership runs out", async () => {
+    answer({ reader_id: "r", email: "reader@example.com", member_until: "2027-09-23T00:00:00Z" });
+    render(<MemberBadge lang="zh-TW" />);
+    const badge = await screen.findByTestId("member-badge");
+    expect(badge.textContent).toContain("會員");
+    expect(badge.textContent).toContain(formatDate("zh-TW", "2027-09-23T00:00:00Z"));
+  });
+
+  it("a signed-in reader who has not paid is not called a member", async () => {
+    answer({ reader_id: "r", email: "reader@example.com", member_until: null });
+    render(<MemberBadge lang="zh-TW" />);
+    const badge = await screen.findByTestId("member-badge");
+    expect(badge.textContent).toContain("reader@example.com");
+    expect(badge.textContent).not.toContain("會員");
+  });
+
+  it("a membership that has already run out is not a membership", async () => {
+    answer({ reader_id: "r", email: "reader@example.com", member_until: "2020-01-01T00:00:00Z" });
+    render(<MemberBadge lang="zh-TW" />);
+    const badge = await screen.findByTestId("member-badge");
+    expect(badge.textContent).not.toContain("會員");
   });
 });
 
