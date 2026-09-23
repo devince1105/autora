@@ -175,8 +175,45 @@ test("?view=2d, a narrow screen, or no WebGL 2: the 2D board with the company's 
   await noGl.close();
 });
 
+/**
+ * Waits until the 3D office has finished starting up: its canvas is there, and two reports in a
+ * row from the frame probe (each covers a second or more of frames) drew the same scene — the
+ * characters load after the room, and a scene still taking them in draws more each report.
+ *
+ * Why a test that switches views needs this: on CI the GPU is software (SwiftShader), and the
+ * scene's first frames can hold the page's main thread for about 5 s (5.6 s in both failed runs,
+ * 35847067161 and 35856488949). A switch clicked then is not lost, only late: the navigation to
+ * ?view=2d waits for the lazily loaded board before it commits, so the 3D canvas is still mounted
+ * when its heavy frame comes round, and `data-terminal` waits it out past the 5 s assertion. That
+ * is a software-drawn scene starting up, not how long a switch takes (from a settled scene, about
+ * 0.4 s even with SwiftShader and the CPU slowed 4×) — so the tests switch from a settled scene.
+ */
+async function sceneSettled(page: Page): Promise<void> {
+  await expect(page.locator('[data-office-mode="3d"] canvas')).toHaveCount(1, { timeout: 30_000 });
+  await page.waitForFunction(
+    () => {
+      const seen = ((window as { __settle?: unknown[] }).__settle ??= []) as NonNullable<
+        typeof window.__autoraOffice
+      >[];
+      const now = window.__autoraOffice;
+      if (now && now !== seen.at(-1)) seen.push(now);
+      const [before, last] = seen.slice(-2);
+      return (
+        !!before &&
+        !!last &&
+        last.triangles > 0 &&
+        before.triangles === last.triangles &&
+        before.drawCalls === last.drawCalls
+      );
+    },
+    null,
+    { timeout: 90_000, polling: 250 },
+  );
+}
+
 test("the 2D office turns the whole page into a terminal; 3D gives it back", async ({ page }) => {
   await open(page, "&view=3d");
+  await sceneSettled(page);
   const shell = page.locator("main[data-terminal]");
   await expect(shell).toHaveAttribute("data-terminal", "false");
   const views = page.getByRole("group", { name: "顯示方式" });
@@ -198,6 +235,8 @@ test("the 2D board and back to 3D: the office draws again", async ({ page }) => 
   // where React does not mount twice) — that one is held by office-canvas.test.tsx.
   await open(page, "&view=3d");
   await expect(office(page)).toHaveAttribute("data-office-mode", "3d");
+  // the same start-up race as the test above: leave 3D once it has settled
+  await sceneSettled(page);
   const views = page.getByRole("group", { name: "顯示方式" });
 
   await views.getByRole("button", { name: "2D", exact: true }).click();
