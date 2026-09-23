@@ -4,7 +4,7 @@ import type { ReactNode } from "react";
 import { withCompany } from "@/features/company/CompanyScope";
 import { STAGE_LABEL } from "@/features/cycles/model";
 
-import { formatMoney, type DashboardModel } from "./model";
+import { formatMoney, type DashboardModel, type RevenueModel } from "./model";
 
 const CONNECTION_LABEL: Record<DashboardModel["connection"]["status"], string> = {
   idle: "未連線",
@@ -75,6 +75,122 @@ function Tile({
 }
 
 const PENDING = <span className="font-normal text-muted">—</span>;
+
+const INTERVAL: Record<string, string> = { year: "年", month: "月" };
+
+/**
+ * Revenue per day, one bar each, oldest on the left. Plain SVG — a chart library for thirty bars
+ * would be most of the page. A day with no money still gets a one-pixel stub, so a gap reads as
+ * "nothing that day" and not as missing data; each bar says its day and amount on hover.
+ */
+function RevenueBars({ daily, currency }: { daily: RevenueModel["daily"]; currency: string }) {
+  const top = Math.max(...daily.map((d) => d.amount));
+  const best = daily.reduce((a, b) => (b.amount > a.amount ? b : a), daily[0]);
+  const total = daily.reduce((sum, d) => sum + d.amount, 0);
+  const step = 10;
+  const height = 56;
+  return (
+    <figure className="mt-4 rounded-xl border border-line bg-surface px-5 py-4" data-testid="revenue-chart">
+      <svg
+        role="img"
+        aria-label={`近 ${daily.length} 天每日營收，合計 ${formatMoney(total, currency)}，最高 ${best.day} ${formatMoney(best.amount, currency)}`}
+        viewBox={`0 0 ${daily.length * step} ${height + 2}`}
+        preserveAspectRatio="none"
+        className="h-24 w-full"
+      >
+        {daily.map((d, i) => {
+          const h = top > 0 ? Math.max(1, Math.round((d.amount / top) * height)) : 1;
+          return (
+            <rect
+              key={d.day}
+              data-testid="revenue-bar"
+              data-amount={d.amount}
+              x={i * step + 1}
+              y={height - h}
+              width={step - 2}
+              height={h}
+              className={d.amount > 0 ? "fill-accent" : "fill-line"}
+            >
+              <title>{`${d.day}：${formatMoney(d.amount, currency)}`}</title>
+            </rect>
+          );
+        })}
+      </svg>
+      <figcaption className="mt-1 flex justify-between text-xs text-muted">
+        <span>{daily[0].day}</span>
+        <span>{daily[daily.length - 1].day}</span>
+      </figcaption>
+    </figure>
+  );
+}
+
+/** Money and members over the last 30 days (T-707): what the memberships add up to. */
+function RevenueSection({ revenue }: { revenue: RevenueModel | null }) {
+  const days = revenue?.days ?? 30;
+  const money = (amount: number) => (revenue ? formatMoney(amount, revenue.currency) : "");
+  return (
+    <section aria-labelledby="revenue-heading" data-testid="revenue-section" className="mt-8">
+      <h2 id="revenue-heading" className="mb-3 text-lg font-semibold">
+        營收<span className="ml-2 text-sm font-normal text-muted">近 {days} 天</span>
+      </h2>
+      <div className="grid grid-cols-[repeat(auto-fill,minmax(14rem,1fr))] gap-4">
+        <Tile
+          testId="revenue-total"
+          label="營收"
+          value={revenue ? money(revenue.total) : PENDING}
+          detail={
+            revenue
+              ? revenue.payments
+                ? `${revenue.payments} 筆付款・平均 ${money(revenue.averagePayment ?? 0)}`
+                : "這段時間沒有付款"
+              : null
+          }
+        />
+        <Tile
+          testId="members"
+          label="會員"
+          value={revenue ? revenue.members : PENDING}
+          detail={revenue ? (revenue.expiring ? `30 天內到期 ${revenue.expiring} 位` : "近期沒有人到期") : null}
+        />
+        <Tile
+          testId="new-members"
+          label="新會員"
+          value={revenue ? revenue.newMembers : PENDING}
+          detail={revenue ? `續約 ${revenue.renewals}` : null}
+        />
+        <Tile
+          testId="lapsed"
+          label="流失"
+          value={revenue ? revenue.lapsed : PENDING}
+          detail={revenue ? "到期後沒有續約" : null}
+        />
+        <Tile
+          testId="offer"
+          label="目前售價"
+          value={
+            revenue?.offer ? (
+              <>
+                {formatMoney(revenue.offer.amount, revenue.offer.currency)}
+                <span className="text-lg font-medium text-muted">／{INTERVAL[revenue.offer.interval] ?? revenue.offer.interval}</span>
+              </>
+            ) : revenue ? (
+              <span className="font-normal text-muted">尚未開賣</span>
+            ) : (
+              PENDING
+            )
+          }
+        />
+      </div>
+      {revenue && revenue.total > 0 ? (
+        <RevenueBars daily={revenue.daily} currency={revenue.currency} />
+      ) : revenue ? (
+        <p className="mt-4 rounded-xl border border-line bg-surface px-5 py-4 text-sm text-muted" data-testid="revenue-chart-empty">
+          近 {days} 天沒有收入。
+        </p>
+      ) : null}
+    </section>
+  );
+}
 
 export function DashboardView({
   companyId,
@@ -199,6 +315,8 @@ export function DashboardView({
           detail={goal ? goalDetail(goal, model.cycleStage) : null}
         />
       </div>
+
+      <RevenueSection revenue={model.revenue} />
     </main>
   );
 }

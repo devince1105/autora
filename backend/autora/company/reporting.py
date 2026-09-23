@@ -36,6 +36,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from autora.company import customers
 from autora.company import events as company_events
+from autora.company import revenue as membership_revenue
 from autora.company.ledger import MODEL_COST, SPENDING
 from autora.db.models import (
     BusinessUnit,
@@ -306,6 +307,16 @@ class Reporting:
                 business_unit_id=window.business_unit_id,
                 at=window.until,
             )
+            # and what the memberships add up to: who joined, who renewed, who is about to go
+            # (T-707). The same numbers the dashboard shows, from the same module
+            members = await membership_revenue.membership_numbers(
+                session,
+                window.company_id,
+                since=window.since,
+                until=window.until,
+                business_unit_id=window.business_unit_id,
+            )
+            metrics.update(members.as_metrics())
         return metrics
 
     def _scope_filter(self, window: Window) -> list:

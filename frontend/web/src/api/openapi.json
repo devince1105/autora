@@ -1800,6 +1800,26 @@
     "title": "DailyView",
     "type": "object"
    },
+   "DayRevenueView": {
+    "properties": {
+     "amount": {
+      "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+      "title": "Amount",
+      "type": "string"
+     },
+     "day": {
+      "format": "date",
+      "title": "Day",
+      "type": "string"
+     }
+    },
+    "required": [
+     "day",
+     "amount"
+    ],
+    "title": "DayRevenueView",
+    "type": "object"
+   },
    "DecisionIn": {
     "properties": {
      "decision": {
@@ -2501,6 +2521,16 @@
       "title": "Model Cost Today",
       "type": "string"
      },
+     "revenue": {
+      "anyOf": [
+       {
+        "$ref": "#/components/schemas/RevenueView"
+       },
+       {
+        "type": "null"
+       }
+      ]
+     },
      "revenue_today": {
       "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
       "title": "Revenue Today",
@@ -2903,6 +2933,30 @@
      "interval"
     ],
     "title": "Offer",
+    "type": "object"
+   },
+   "OfferView": {
+    "properties": {
+     "amount": {
+      "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+      "title": "Amount",
+      "type": "string"
+     },
+     "currency": {
+      "title": "Currency",
+      "type": "string"
+     },
+     "interval": {
+      "title": "Interval",
+      "type": "string"
+     }
+    },
+    "required": [
+     "amount",
+     "currency",
+     "interval"
+    ],
+    "title": "OfferView",
     "type": "object"
    },
    "OpportunityLine": {
@@ -3626,6 +3680,87 @@
      "outcome"
     ],
     "title": "RestartOut",
+    "type": "object"
+   },
+   "RevenueView": {
+    "description": "The last ``REVENUE_DAYS`` days of money and members, and the memberships now.",
+    "properties": {
+     "average_payment": {
+      "anyOf": [
+       {
+        "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Average Payment"
+     },
+     "daily": {
+      "items": {
+       "$ref": "#/components/schemas/DayRevenueView"
+      },
+      "title": "Daily",
+      "type": "array"
+     },
+     "days": {
+      "title": "Days",
+      "type": "integer"
+     },
+     "expiring_members": {
+      "title": "Expiring Members",
+      "type": "integer"
+     },
+     "lapsed_members": {
+      "title": "Lapsed Members",
+      "type": "integer"
+     },
+     "members": {
+      "title": "Members",
+      "type": "integer"
+     },
+     "new_members": {
+      "title": "New Members",
+      "type": "integer"
+     },
+     "offer": {
+      "anyOf": [
+       {
+        "$ref": "#/components/schemas/OfferView"
+       },
+       {
+        "type": "null"
+       }
+      ]
+     },
+     "payments": {
+      "title": "Payments",
+      "type": "integer"
+     },
+     "renewals": {
+      "title": "Renewals",
+      "type": "integer"
+     },
+     "total": {
+      "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+      "title": "Total",
+      "type": "string"
+     }
+    },
+    "required": [
+     "days",
+     "total",
+     "daily",
+     "payments",
+     "new_members",
+     "renewals",
+     "lapsed_members",
+     "members",
+     "expiring_members",
+     "average_payment"
+    ],
+    "title": "RevenueView",
     "type": "object"
    },
    "RoleOut": {

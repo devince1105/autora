@@ -11,6 +11,9 @@ Computed on read with plain SQL, never by an LLM (platform/02). "Today" is the U
   (``newsroom.published_articles``). The company layer does not know what any of them mean —
   that is the point: it stores numbers, domains define them (T-603).
 - **goal**: the active cycle goal due soonest (or the latest active one without a deadline).
+- **revenue** (T-707): the last 30 days — the money per day, who joined, who renewed, who lapsed —
+  and where the memberships stand now: members, and the ones whose access runs out within 30
+  days. The same numbers the cycle's report carries, from ``company.revenue``.
 
 Model costs are counted once, from ``model_calls``, the source of truth for model spend
 (T-207). Until the ledger posts them (Phase 6, cycle MEASURING) they are not transactions; once
@@ -20,7 +23,7 @@ it does, the ``model_cost`` transactions are skipped here so nothing is counted 
 from __future__ import annotations
 
 import uuid
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, date, datetime, timedelta
 from decimal import Decimal
 from typing import Any
 
@@ -28,6 +31,8 @@ from pydantic import BaseModel
 from sqlalchemy import case, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from autora.company import memberships
+from autora.company import revenue as membership_revenue
 from autora.company.reporting import Reporting, Window
 from autora.db.models import (
     CompanyGoal,
@@ -52,6 +57,41 @@ class GoalView(BaseModel):
     deadline: datetime | None
 
 
+class DayRevenueView(BaseModel):
+    day: date
+    amount: Decimal
+
+
+class OfferView(BaseModel):
+    amount: Decimal
+    currency: str
+    interval: str
+
+
+class RevenueView(BaseModel):
+    """The last ``REVENUE_DAYS`` days of money and members, and the memberships now."""
+
+    days: int
+    total: Decimal
+    """All revenue in those days, in the base currency."""
+    daily: list[DayRevenueView]
+    """One entry per UTC day, oldest first, a quiet day as zero."""
+    payments: int
+    new_members: int
+    renewals: int
+    lapsed_members: int
+    members: int
+    """Customers holding access now."""
+    expiring_members: int
+    """Members now whose access runs out within 30 days: who a renewal reminder is for."""
+    average_payment: Decimal | None
+    offer: OfferView | None = None
+    """What a year costs today; None when nothing is for sale."""
+
+
+REVENUE_DAYS = 30
+
+
 class Kpis(BaseModel):
     as_of: datetime
     currency: str
@@ -63,6 +103,7 @@ class Kpis(BaseModel):
     domain_metrics: dict[str, Any] = {}
     """Today's numbers from each domain, prefixed with the domain that defined them."""
     goal: GoalView | None = None
+    revenue: RevenueView | None = None
 
 
 def day_start(now: datetime) -> datetime:
@@ -157,6 +198,8 @@ async def load_kpis(
         .limit(1)
     )
 
+    revenue_view = await load_revenue(session, company_id, now=now)
+
     fx = Fx.from_settings()
     model_total, model_today = fx.metered(model_total), fx.metered(model_today)
     return Kpis(
@@ -168,4 +211,34 @@ async def load_kpis(
         model_cost_today=model_today,
         domain_metrics=domain_metrics,
         goal=GoalView.model_validate(goal, from_attributes=True) if goal else None,
+        revenue=revenue_view,
+    )
+
+
+async def load_revenue(
+    session: AsyncSession, company_id: uuid.UUID, *, now: datetime
+) -> RevenueView:
+    """The revenue block: the last ``REVENUE_DAYS`` days, and the memberships as they stand now."""
+    since = now - timedelta(days=REVENUE_DAYS)
+    numbers = await membership_revenue.membership_numbers(
+        session, company_id, since=since, until=now
+    )
+    daily = await membership_revenue.daily_revenue(
+        session, company_id, days=REVENUE_DAYS, until=now
+    )
+    price = await memberships.offer(session, company_id)
+    return RevenueView(
+        days=REVENUE_DAYS,
+        total=sum((d.amount for d in daily), Decimal(0)),
+        daily=[DayRevenueView(day=d.day, amount=d.amount) for d in daily],
+        payments=numbers.payments,
+        new_members=numbers.new_members,
+        renewals=numbers.renewals,
+        lapsed_members=numbers.lapsed_members,
+        members=numbers.members,
+        expiring_members=numbers.expiring_members,
+        average_payment=numbers.average_payment,
+        offer=OfferView(amount=price.amount, currency=price.currency, interval=price.interval)
+        if price
+        else None,
     )

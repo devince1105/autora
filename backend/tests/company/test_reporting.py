@@ -88,6 +88,13 @@ def _tx(company, kind, amount, *, unit=None, project=None, category="ops", at=No
 # --- the core's own numbers ------------------------------------------------------------------
 
 
+MEMBERSHIP_METRICS = {
+    "payments", "new_members", "renewals", "members", "expiring_members", "lapsed_members",
+    "membership_revenue", "average_payment",
+}  # fmt: skip
+"""What ``company.revenue`` adds for the company and each business (T-707)."""
+
+
 async def test_the_core_measures_money_and_nothing_else(db_session):
     company, unit, project, cycle = await _world(db_session)
     db_session.add_all([
@@ -112,6 +119,16 @@ async def test_the_core_measures_money_and_nothing_else(db_session):
         "model_calls": 2,
         # money, time and how many people are paying: all three mean the same in any industry
         "customers": 0,
+        # and so do joining, renewing and lapsing (T-707): a newsletter, a course or a gym alike.
+        # Nothing here was bought through a membership, so they are all nothing
+        "payments": 0,
+        "new_members": 0,
+        "renewals": 0,
+        "members": 0,
+        "expiring_members": 0,
+        "lapsed_members": 0,
+        "membership_revenue": "0.000000",
+        "average_payment": None,
     }
 
 
@@ -272,8 +289,9 @@ async def test_a_company_with_no_domains_still_gets_a_report(db_session):
     assert [s.scope for s in written] == ["company", "business_unit", "project"]
     core = {"cost", "model_cost", "revenue", "profit", "model_calls"}
     for snapshot in written:
-        # a project has no customers of its own; the company and each business do
-        expected = core if snapshot.scope == "project" else core | {"customers"}
+        # a project has no customers or members of its own; the company and each business do
+        people = {"customers", *MEMBERSHIP_METRICS}
+        expected = core if snapshot.scope == "project" else core | people
         assert set(snapshot.metrics) == expected, snapshot.scope
 
 

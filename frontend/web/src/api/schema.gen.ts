@@ -1486,6 +1486,16 @@ export interface components {
             /** Views */
             views: number;
         };
+        /** DayRevenueView */
+        DayRevenueView: {
+            /** Amount */
+            amount: string;
+            /**
+             * Day
+             * Format: date
+             */
+            day: string;
+        };
         /** DecisionIn */
         DecisionIn: {
             /**
@@ -1778,6 +1788,7 @@ export interface components {
             goal?: components["schemas"]["GoalView"] | null;
             /** Model Cost Today */
             model_cost_today: string;
+            revenue?: components["schemas"]["RevenueView"] | null;
             /** Revenue Today */
             revenue_today: string;
         };
@@ -1920,6 +1931,15 @@ export interface components {
              * @default true
              */
             available: boolean;
+            /** Currency */
+            currency: string;
+            /** Interval */
+            interval: string;
+        };
+        /** OfferView */
+        OfferView: {
+            /** Amount */
+            amount: string;
             /** Currency */
             currency: string;
             /** Interval */
@@ -2237,6 +2257,33 @@ export interface components {
             reason?: string | null;
             /** Workflow Run Id */
             workflow_run_id?: string | null;
+        };
+        /**
+         * RevenueView
+         * @description The last ``REVENUE_DAYS`` days of money and members, and the memberships now.
+         */
+        RevenueView: {
+            /** Average Payment */
+            average_payment: string | null;
+            /** Daily */
+            daily: components["schemas"]["DayRevenueView"][];
+            /** Days */
+            days: number;
+            /** Expiring Members */
+            expiring_members: number;
+            /** Lapsed Members */
+            lapsed_members: number;
+            /** Members */
+            members: number;
+            /** New Members */
+            new_members: number;
+            offer?: components["schemas"]["OfferView"] | null;
+            /** Payments */
+            payments: number;
+            /** Renewals */
+            renewals: number;
+            /** Total */
+            total: string;
         };
         /** RoleOut */
         RoleOut: {
