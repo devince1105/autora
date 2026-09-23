@@ -1,7 +1,7 @@
 "use client";
 
 import { useQuery } from "@tanstack/react-query";
-import { useEffect, useMemo, useRef } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 
@@ -12,7 +12,7 @@ import { useCompanyStream } from "@/features/company/useCompanyStream";
 import { ConnectionBadge } from "@/features/dashboard/DashboardView";
 import { connectionModel, dashboardModel } from "@/features/dashboard/model";
 import { useNow } from "@/hooks/useNow";
-import { OfficeCanvas, parseView, type OfficeView } from "@/office3d/OfficeCanvas";
+import { OfficeCanvas, terminalVars, parseView, type OfficeView } from "@/office3d/OfficeCanvas";
 import { useRealtime, type RealtimeState } from "@/stores/realtime";
 import { useUi } from "@/stores/ui";
 
@@ -103,9 +103,17 @@ function CompanyOffice({ company }: { company: Company }) {
   const departmentNames = useMemo(() => departmentNames_(org.data), [org.data]);
   const pending = useQuery(approvalsQuery(company.id));
   const model = dashboardModel(realtime, kpis.data, connection, now);
+  // what the office settled on (``auto`` is decided in the canvas, by asking the browser)
+  const [mode, setMode] = useState<"2d" | "3d">("3d");
 
   return (
-    <main className="flex h-dvh flex-col">
+    <main
+      className="flex h-dvh flex-col bg-canvas text-ink"
+      data-terminal={mode === "2d"}
+      // the 2D office is a terminal; while it is on screen the page around it wears the same
+      // colours, by overriding the app's own tokens here and nowhere else (D-007)
+      style={mode === "2d" ? terminalVars() : undefined}
+    >
       <header className="flex flex-wrap items-center justify-between gap-3 border-b border-line px-4 py-3">
         <div>
           <p className="text-xs tracking-widest text-muted uppercase">Office</p>
@@ -138,6 +146,7 @@ function CompanyOffice({ company }: { company: Company }) {
         <OfficeCanvas
           view={view}
           onViewChange={setView}
+          onMode={setMode}
           selectionInsetRight={448}
           departmentNames={departmentNames}
         />

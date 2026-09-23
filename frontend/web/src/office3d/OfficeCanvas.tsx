@@ -14,6 +14,7 @@ import { useRoster } from "./agents/roster";
 import { onOfficeKey } from "./interaction/picking";
 import { THEMES } from "./palette";
 import { OfficeSettings } from "./OfficeSettings";
+import { terminalVars } from "./fallback/console";
 import { useOfficeTheme } from "./theme";
 import { usePageVisible } from "./usePageVisible";
 
@@ -38,6 +39,9 @@ const REASON: Record<ModeReason, string | null> = {
 export interface OfficeCanvasProps {
   view?: OfficeView;
   onViewChange?: (view: OfficeView) => void;
+  /** Which view is actually on screen once the browser has been asked (``auto`` resolves here).
+   * The page uses it to dress itself to match — it cannot work this out on its own. */
+  onMode?: (mode: "2d" | "3d") => void;
   /** Pixels on the right the page covers while an agent is selected (its detail panel). */
   selectionInsetRight?: number;
   /** key -> name for the company's departments, from the org chart (T-600 batch 3). */
@@ -50,6 +54,7 @@ export interface OfficeCanvasProps {
 export function OfficeCanvas({
   view = "auto",
   onViewChange,
+  onMode,
   departmentNames,
   selectionInsetRight = 0,
   detect = detectCapabilities,
@@ -77,6 +82,10 @@ export function OfficeCanvas({
   }, []);
 
   const decision = caps ? chooseMode(caps, view) : null;
+
+  useEffect(() => {
+    if (decision) onMode?.(decision.mode);
+  }, [decision?.mode, onMode]);
 
   useEffect(() => {
     // Handing over to the board destroys the 3D canvas, and the browser reports that the only
@@ -156,3 +165,7 @@ export function OfficeCanvas({
     </div>
   );
 }
+
+// The office's public door (eslint boundaries): the page dresses itself in the 2D office's
+// colours while that view is on screen, and this is how it reaches them.
+export { terminalVars };

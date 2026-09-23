@@ -210,6 +210,23 @@ describe("OfficeCanvas", () => {
     expect(screen.getByRole("alert")).toBeTruthy();
   });
 
+  it("says which view it settled on, so the page can dress to match", () => {
+    const { Scene } = sceneStub();
+    const onMode = vi.fn();
+    const { rerender } = render(<OfficeCanvas detect={() => DESKTOP} Scene={Scene} onMode={onMode} />);
+    expect(onMode).toHaveBeenLastCalledWith("3d");
+
+    rerender(<OfficeCanvas view="2d" detect={() => DESKTOP} Scene={Scene} onMode={onMode} />);
+    expect(onMode).toHaveBeenLastCalledWith("2d");
+
+    // and "auto" on a browser without WebGL 2 settles on the board without being asked
+    cleanup();
+    const again = sceneStub();
+    const autoMode = vi.fn();
+    render(<OfficeCanvas detect={() => ({ webgl2: false, narrow: false })} Scene={again.Scene} onMode={autoMode} />);
+    expect(autoMode).toHaveBeenLastCalledWith("2d");
+  });
+
   it("the settings dialog closes with Escape, the backdrop and its own button", () => {
     const { Scene } = sceneStub();
     render(<OfficeCanvas detect={() => DESKTOP} Scene={Scene} />);

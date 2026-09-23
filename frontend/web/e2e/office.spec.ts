@@ -174,6 +174,23 @@ test("?view=2d, a narrow screen, or no WebGL 2: the 2D board with the company's 
   await noGl.close();
 });
 
+test("the 2D office turns the whole page into a terminal; 3D gives it back", async ({ page }) => {
+  await open(page, "&view=3d");
+  const shell = page.locator("main[data-terminal]");
+  await expect(shell).toHaveAttribute("data-terminal", "false");
+  const views = page.getByRole("group", { name: "顯示方式" });
+
+  await views.getByRole("button", { name: "2D", exact: true }).click();
+  await expect(shell).toHaveAttribute("data-terminal", "true");
+  // the page's own chrome wears the console's colours, not only the board
+  const header = page.locator("header").first();
+  await expect(header).toHaveCSS("border-bottom-color", "rgb(29, 63, 53)");
+
+  await views.getByRole("button", { name: "3D", exact: true }).click();
+  await expect(shell).toHaveAttribute("data-terminal", "false");
+  await expect(header).not.toHaveCSS("border-bottom-color", "rgb(29, 63, 53)");
+});
+
 test("the 2D board and back to 3D: the office draws again", async ({ page }) => {
   // What this holds is the round trip in a real browser. It does *not* reproduce the stale
   // context report that made the overlay appear in development (this runs a production build,

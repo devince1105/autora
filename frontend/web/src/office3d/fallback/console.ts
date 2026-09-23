@@ -81,3 +81,25 @@ export function consoleVars(): Record<string, string> {
     "--console-accent": CONSOLE.accent,
   };
 }
+
+/**
+ * The console's colours as the app's own theme tokens (D-007), for the page around the office
+ * to wear while the 2D view is on screen: the header, the numbers strip and the panels then
+ * follow without any of them knowing about this file. Scoped to the page's root element, so
+ * every other page keeps the app's theme.
+ */
+export function terminalVars(): Record<string, string> {
+  return {
+    "--color-canvas": CONSOLE.bg,
+    "--color-surface": CONSOLE.panel,
+    "--color-line": CONSOLE.edgeDim,
+    "--color-ink": CONSOLE.text,
+    "--color-muted": CONSOLE.textDim,
+    "--color-accent": CONSOLE.accent,
+    "--color-accent-ink": CONSOLE.bg,
+    "--color-ok": CONSOLE.ok,
+    "--color-warn": CONSOLE.warn,
+    "--color-danger": CONSOLE.danger,
+    "--color-neutral": CONSOLE.edge,
+  };
+}
