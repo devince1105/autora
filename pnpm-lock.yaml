@@ -87,6 +87,9 @@ importers:
       '@types/three':
         specifier: ^0.186.0
         version: 0.186.0
+      esbuild:
+        specifier: ^0.28.2
+        version: 0.28.2
       eslint:
         specifier: ^10.10.0
         version: 10.10.0(jiti@2.7.0)

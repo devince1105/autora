@@ -12,7 +12,8 @@
     "gen-api": "openapi-typescript src/api/openapi.json -o src/api/schema.gen.ts",
     "gen-api:check": "openapi-typescript src/api/openapi.json -o src/api/schema.gen.ts --check",
     "e2e": "playwright test",
-    "check-assets": "node scripts/check-assets.mjs"
+    "check-assets": "node scripts/check-assets.mjs",
+    "bake-sprites": "node tools/bake-sprites/bake.mjs"
   },
   "dependencies": {
     "@autora/event-schema": "workspace:^",
@@ -37,6 +38,7 @@
     "@types/react": "^19.2.0",
     "@types/react-dom": "^19.2.0",
     "@types/three": "^0.186.0",
+    "esbuild": "^0.28.2",
     "eslint": "^10.10.0",
     "gltf-validator": "2.0.0-dev.3.10",
     "jsdom": "^30.1.0",

@@ -640,3 +640,65 @@ export function floorRegions(): FloorRegion[] {
     { kind: "entranceMat", minX: ROOM.maxX - 1.0, maxX: ROOM.maxX, minZ: ENTRANCE.minZ + 0.2, maxZ: ENTRANCE.maxZ - 0.2, layer: 3 },
   ];
 }
+
+// --- the pieces the 2D board bakes (D-026) -------------------------------------------------------
+//
+// The 2D office is not drawn by hand any more: each of these is rendered once, from a fixed
+// orthographic angle, into a pixel sprite (``tools/bake-sprites``). They are the same builders the
+// 3D office uses, so the two views show the same furniture — a desk that changes in 3D changes in
+// 2D at the next bake.
+//
+// Each is built around its own origin, standing on y = 0, facing +z, in whatever palette is
+// given. The names are the 2D board's prop kinds (``fallback/tiles.ts``).
+
+export interface BakeablePiece {
+  /**
+   * ``accent`` is the colour that belongs to whoever uses the piece — a chair's stripes are its
+   * sitter's role colour. The bake passes a probe for it, so the 2D board can repaint it per seat.
+   */
+  parts: (palette: Palette, accent: string) => Part[];
+  /** Metres of floor it stands on, for the sprite's width and its footprint on the tile map. */
+  footprint: readonly [number, number];
+}
+
+export const BAKEABLE: Record<string, BakeablePiece> = {
+  desk: {
+    parts: (p) => paintedWith(p, () => [...singleDesk(), ...workstation(), ...lampBody()]),
+    footprint: [DESK.width, DESK.depth],
+  },
+  execDesk: {
+    parts: (p) => paintedWith(p, () => [...execDesk(), ...workstation()]),
+    footprint: [DESK.width + 0.2, DESK.depth + 0.1],
+  },
+  bench: {
+    parts: (p) => paintedWith(p, () => [...place(benchTable(-1.1, 1.1, 0), 0, 0), ...workstation()]),
+    footprint: [2.2, DESK.depth],
+  },
+  chair: { parts: (p, accent) => paintedWith(p, () => officeChair(accent)), footprint: [0.6, 0.6] },
+  chairTall: { parts: (p, accent) => paintedWith(p, () => officeChair(accent, true)), footprint: [0.6, 0.6] },
+  plant: { parts: (p) => paintedWith(p, () => smallPlant()), footprint: [0.4, 0.4] },
+  palm: { parts: (p) => paintedWith(p, () => palm()), footprint: [0.7, 0.7] },
+  shelf: { parts: (p) => paintedWith(p, () => lowShelf(1.6, 7)), footprint: [1.6, 0.4] },
+  cabinet: { parts: (p) => paintedWith(p, () => tallShelf(1.2, 11)), footprint: [1.2, 0.45] },
+  sofa: { parts: (p) => paintedWith(p, () => sofa(2.2, p.sofa, p.cushion)), footprint: [2.2, 0.85] },
+  armchair: { parts: (p) => paintedWith(p, () => sofa(0.95, p.armchair, p.cushion)), footprint: [0.95, 0.85] },
+  whiteboard: { parts: (p) => paintedWith(p, () => whiteboard()), footprint: [1.8, 0.12] },
+  counter: { parts: (p) => paintedWith(p, () => pantryCounter()), footprint: [2.6, 0.65] },
+  fridge: { parts: (p) => paintedWith(p, () => fridge()), footprint: [0.8, 0.7] },
+  vending: { parts: (p) => paintedWith(p, () => vending()), footprint: [0.9, 0.7] },
+  cooler: { parts: (p) => paintedWith(p, () => waterCooler()), footprint: [0.4, 0.4] },
+  stool: { parts: (p) => paintedWith(p, () => stool()), footprint: [0.4, 0.4] },
+  cafeTable: { parts: (p) => paintedWith(p, () => cafeTable()), footprint: [0.9, 0.9] },
+  planter: { parts: (p) => paintedWith(p, () => planter(1.6)), footprint: [1.6, 0.5] },
+  counterDesk: {
+    // approvalDesk() builds itself where it stands in the office; bring it back to the origin.
+    // It comes with the approver's chair in front of it, so its footprint reaches the chair.
+    parts: (p) => paintedWith(p, () => place(approvalDesk(), -APPROVAL_DESK.center[0], -APPROVAL_DESK.center[1])),
+    footprint: [APPROVAL_DESK.width, 2.4],
+  },
+  window: {
+    parts: (p) => paintedWith(p, () => windowFrame(1.6, WINDOW.height, WINDOW.sill)),
+    footprint: [1.6, 0.2],
+  },
+  picture: { parts: (p) => paintedWith(p, () => picture(0.9, 0.6, p.execWood)), footprint: [0.9, 0.1] },
+};
