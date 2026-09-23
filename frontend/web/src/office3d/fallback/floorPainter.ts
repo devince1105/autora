@@ -9,12 +9,13 @@
 // chosen one.
 import { THEMES, type ThemeId } from "../palette";
 import * as atlas from "./art/atlas";
+import { patternFloors } from "./art/floorPattern";
 import { facingOf, figure, placeFigure, type Figure } from "./art/people";
 import { BACKDROP_KEY, piece } from "./art/pieces";
 import { drawSprite } from "./art/sprites";
 import { paint, paintShadow, SHADOW_ALPHA } from "./art/theme";
 import { CONSOLE } from "./console";
-import { worldToPixels, type Scene } from "./tiles";
+import { TILE, TILE_DEPTH, worldToPixels, type Scene } from "./tiles";
 
 /** How dark the veil over the rooms that are not chosen is. */
 const VEIL = "rgba(4, 10, 9, 0.55)";
@@ -58,8 +59,22 @@ export class Pictures {
   art(bake: string, accent?: string): HTMLCanvasElement | null {
     const found = piece(bake);
     if (!found) return null;
-    const art = paint(found, THEMES[this.theme].palette, accent);
-    return this.canvasOf(`art|${bake}|${accent ?? ""}`, (ctx) => drawSprite(ctx, art, 0, 0), found.w, found.h);
+    const palette = THEMES[this.theme].palette;
+    const art = paint(found, palette, accent);
+    return this.canvasOf(
+      `art|${bake}|${accent ?? ""}`,
+      (ctx) => {
+        drawSprite(ctx, art, 0, 0);
+        // the floor's texture belongs to the style, not the bake: laid here, once per style
+        if (bake === BACKDROP_KEY) {
+          const image = ctx.getImageData(0, 0, found.w, found.h);
+          patternFloors(image, found, palette, { across: TILE, deep: TILE_DEPTH });
+          ctx.putImageData(image, 0, 0);
+        }
+      },
+      found.w,
+      found.h,
+    );
   }
 
   /** A baked figure, mirrored when it faces left. People keep their own colours in every style. */
