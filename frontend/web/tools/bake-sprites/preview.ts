@@ -5,9 +5,14 @@ import { THEMES, ROLE_COLOR, type ThemeId } from "@/office3d/palette";
 import { drawSprite } from "@/office3d/fallback/art/sprites";
 import { paint, paintShadow, SHADOW_ALPHA } from "@/office3d/fallback/art/theme";
 
+import { BAKEABLE } from "@/office3d/scene/furniture";
+
 import { bakeOne, type BakedSprite } from "./render";
 
-const PIECES = ["desk", "chair", "plant", "sofa", "shelf", "cafeTable", "palm"];
+// representative pieces, found by what they are rather than by where they stand in the list
+const PIECES = ["desk", "chair", ":plant", ":lounge", ":low_shelf", ":cafe_table", ":palm"].map(
+  (want) => Object.keys(BAKEABLE).find((key) => (want.startsWith(":") ? key.endsWith(want) : key === want))!,
+);
 const ZOOM = 3;
 
 function asPiece(s: BakedSprite) {
@@ -88,4 +93,60 @@ window.previewSheets = () => {
     (Object.keys(THEMES) as ThemeId[]).map((key) => ({ title: THEMES[key].label, elevation: 60, ppm: 32, theme: key })),
   );
   return [angles.toDataURL("image/png"), themes.toDataURL("image/png")];
+};
+
+// --- the whole floor, through the page's own painter ---------------------------------------------
+
+import { floorPlan, type BoardCard } from "@/office3d/fallback/board";
+import { paintFloor, Pictures } from "@/office3d/fallback/floorPainter";
+import { buildScene } from "@/office3d/fallback/tiles";
+import { assignSeats } from "@/office3d/scene/layout";
+
+/** A company to fill the seats: one of each role, so every chair colour shows. */
+const STAFF = [
+  { id: "ceo-1", role: "ceo" },
+  { id: "researcher-1", role: "researcher" },
+  { id: "analyst-1", role: "analyst" },
+  { id: "writer-1", role: "writer" },
+  { id: "editor-1", role: "editor" },
+  { id: "marketing-1", role: "marketing" },
+];
+
+function floor(theme: ThemeId, focused: string | null = null, zoom = 2): HTMLCanvasElement {
+  const plan = floorPlan(
+    STAFF.map((s) => s.id),
+    assignSeats(STAFF).seats,
+  );
+  const cards = new Map(STAFF.map((s) => [s.id, { id: s.id, color: ROLE_COLOR[s.role] } as unknown as BoardCard]));
+  const scene = buildScene(plan, cards);
+  const frame = document.createElement("canvas");
+  frame.width = scene.width;
+  frame.height = scene.height;
+  paintFloor(frame.getContext("2d")!, scene, new Pictures(theme), {
+    selected: focused ? "editor-1" : null,
+    focused,
+    walking: [],
+    colours: new Map(),
+    time: 0,
+  });
+  const big = document.createElement("canvas");
+  big.width = scene.width * zoom;
+  big.height = scene.height * zoom;
+  const ctx = big.getContext("2d")!;
+  ctx.imageSmoothingEnabled = false;
+  ctx.drawImage(frame, 0, 0, big.width, big.height);
+  return big;
+}
+
+declare global {
+  interface Window {
+    previewFloors: () => Record<string, string>;
+  }
+}
+
+window.previewFloors = () => {
+  const out: Record<string, string> = {};
+  for (const id of Object.keys(THEMES) as ThemeId[]) out[`floor-${id}.png`] = floor(id).toDataURL("image/png");
+  out["floor-muji-editorial-chosen.png"] = floor("muji", "editorial").toDataURL("image/png");
+  return out;
 };

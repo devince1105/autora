@@ -35,6 +35,8 @@ export interface DrawOptions {
   /** Mirror horizontally — one sprite, two directions. */
   flip?: boolean;
   alpha?: number;
+  /** Whole pixels per sprite pixel: 2 draws each as a 2×2 block, still with no smoothing. */
+  scale?: number;
 }
 
 export function drawSprite(
@@ -44,7 +46,7 @@ export function drawSprite(
   y: number,
   options: DrawOptions = {},
 ): void {
-  const { recolor, flip, alpha } = options;
+  const { recolor, flip, alpha, scale = 1 } = options;
   if (alpha !== undefined) ctx.globalAlpha = alpha;
   for (let row = 0; row < art.h; row++) {
     const line = art.rows[row];
@@ -57,7 +59,7 @@ export function drawSprite(
       ctx.fillStyle = colour;
       const width = end - runStart;
       const left = flip ? art.w - end : runStart;
-      ctx.fillRect(x + left, y + row, width, 1);
+      ctx.fillRect(x + left * scale, y + row * scale, width * scale, scale);
     };
     for (let col = 0; col < art.w; col++) {
       const key = line[col] ?? ".";

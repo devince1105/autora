@@ -99,10 +99,13 @@ export function OfficeCanvas({
   const { mode, reason } = decision;
 
   if (mode === "2d") {
+    // the 2D floor is baked from the 3D office and painted in its style (D-027), so the style
+    // setting belongs here too: it is the same office, seen without WebGL
     return (
-      <div data-office-mode="2d" className="h-full overflow-y-auto">
+      <div data-office-mode="2d" data-office-theme={theme} className="relative h-full overflow-y-auto">
         {REASON[reason] ? <p className="px-4 pt-4 text-sm text-muted">{REASON[reason]}</p> : null}
-        <OfficeBoard2D departmentNames={departmentNames} />
+        <OfficeBoard2D departmentNames={departmentNames} theme={theme} />
+        <OfficeSettings theme={theme} onTheme={setTheme} open={settingsOpen} onOpen={setSettingsOpen} />
       </div>
     );
   }

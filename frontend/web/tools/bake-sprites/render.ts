@@ -36,7 +36,7 @@ import {
   WebGLRenderTarget,
 } from "three";
 
-import { BAKEABLE } from "@/office3d/scene/furniture";
+import { BACKDROP, BAKEABLE, placedPieces, type PlacedPiece } from "@/office3d/scene/furniture";
 import { buildGeometry, type Part } from "@/office3d/scene/kit";
 import { DEFAULT_THEME, THEMES, type Palette } from "@/office3d/palette";
 
@@ -51,12 +51,16 @@ export const PIXELS_PER_METRE = 32;
  * How far above the horizon the camera sits, in degrees.
  *
  * 90 is straight down: a true plan view, where nothing has a front and a desk is a rectangle.
- * Lower shows more of each thing's face but squashes the floor, and the tile grid stops being
- * square. 60 keeps a metre of floor 28 pixels deep against 32 wide — close enough that the grid
- * still reads as square — while giving every piece a visible front to be lit and shaded. Chosen
- * from the contact sheet against 45 (a chair is mostly legs) and 75 (a chair is a square).
+ * Lower shows more of each thing's face but squashes the floor. Around 60 was chosen from the
+ * contact sheet against 45 (a chair is mostly legs) and 75 (a chair is a square); the exact value
+ * is the one that makes a metre of floor a whole number of pixels deep — sin(E) = 7/8, so 28 deep
+ * against 32 wide — because the board lays its floor in metre tiles, and a tile 27.7 pixels deep
+ * would drift a pixel off the furniture every few metres.
  */
-export const ELEVATION = 60;
+export const ELEVATION = (Math.asin(7 / 8) * 180) / Math.PI; // 61.04
+
+/** How deep a metre of floor is on screen, in pixels: ``PIXELS_PER_METRE * sin(ELEVATION)``. */
+export const FLOOR_DEPTH_PER_METRE = 28;
 
 /** How many steps of light a material is allowed. A ramp, not a gradient (that is the whole point). */
 export const TONES = 5;
@@ -119,6 +123,24 @@ export function probePalette(base: Palette): { palette: Palette; accent: string;
 
 /** The slot a piece's user-coloured parts come back as (``BakeablePiece.parts``). */
 export const ACCENT_SLOT = "accent";
+
+/**
+ * The default style with every optional slot filled in from whichever style has it.
+ *
+ * Some parts exist only in some styles: the neon office has glowing zone trims and desk edges,
+ * the others do not. A bake that probed only the default style would never build those parts, and
+ * the neon 2D office would lose its trims. Baking them always, and letting a style that lacks the
+ * colour fall back to what is underneath (``art/theme.ts``), keeps one bake good for every style.
+ */
+function everySlot(): Palette {
+  const base = THEMES[DEFAULT_THEME].palette;
+  const all = Object.values(THEMES).map((t) => t.palette);
+  return {
+    ...base,
+    zoneTrim: Object.assign({}, ...all.map((p) => p.zoneTrim ?? {})),
+    deskEdge: all.find((p) => p.deskEdge)?.deskEdge ?? base.deskTop,
+  };
+}
 
 // --- rendering ------------------------------------------------------------------------------------
 
@@ -253,7 +275,7 @@ function lights(scene: Scene): void {
 export function bakeOne(name: string, elevation: number = ELEVATION, ppm: number = PIXELS_PER_METRE): BakedSprite {
   const piece = BAKEABLE[name];
   if (!piece) throw new Error(`no bakeable piece ${name}`);
-  const { palette, accent, slotOf } = probePalette(THEMES[DEFAULT_THEME].palette);
+  const { palette, accent, slotOf } = probePalette(everySlot());
   const parts = piece.parts(palette, accent);
   const { camera: cam, width, height, originX, originY, anchor } = frame(parts, piece.footprint[1], elevation, ppm);
 
@@ -291,7 +313,8 @@ export function bakeOne(name: string, elevation: number = ELEVATION, ppm: number
 
 // --- pixels -> characters -------------------------------------------------------------------------
 
-const ALPHABET = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789+-*/<>=%$#@!?&~^|[]{}():;,_'`";
+// no digits: the sprites are stored run-length encoded, and a run's count is written in digits
+const ALPHABET = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ+-*/<>=%$#@!?&~^|[]{}():;,_'`";
 
 /** The tone an outline pixel gets: one below the darkest step of the ramp (``art/theme.ts``). */
 export const OUTLINE_TONE = -1;
@@ -414,8 +437,9 @@ function assemble(a: Assembly): BakedSprite {
   };
 }
 
-export function bakeAll(): BakedSprite[] {
-  return Object.keys(BAKEABLE).map((name) => bakeOne(name));
+/** Every piece's sprite, and where each one stands — the 2D board needs both and not three.js. */
+export function bakeAll(): { sprites: BakedSprite[]; placed: PlacedPiece[]; backdrop: string } {
+  return { sprites: Object.keys(BAKEABLE).map((name) => bakeOne(name)), placed: placedPieces(), backdrop: BACKDROP };
 }
 
 declare global {

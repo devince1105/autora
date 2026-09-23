@@ -126,22 +126,19 @@ describe("board model", () => {
   });
 });
 
-describe("the floor as tiles", () => {
+describe("the floor, as the 3D office has it", () => {
   const scene = () => buildScene(plan(), cards());
 
-  it("every room is on the map, walled ones with walls around them", () => {
-    const { map } = scene();
-    const zones = new Set(map.zone.filter((zone): zone is string => zone !== null));
+  it("every room has its place on the floor, and the walled ones their glass fronts", () => {
+    const built = scene();
+    const ids = new Set(built.rooms.map((room) => room.id));
     for (const room of ["research", "editorial", "growth", "spare", "lobby", "ceo", "meeting", "pantry"]) {
-      expect(zones.has(room)).toBe(true);
+      expect(ids.has(room), room).toBe(true);
     }
-    // the three rooms at the back have walls; the open-plan zones are carpet
-    const kindsOf = (zone: string) =>
-      new Set(map.tiles.filter((_tile, index) => map.zone[index] === zone));
-    expect(kindsOf("ceo").has("wall")).toBe(true);
-    expect(kindsOf("meeting").has("wall")).toBe(true);
-    expect(kindsOf("research").has("wall")).toBe(false);
-    expect(kindsOf("research").has("carpet")).toBe(true);
+    const inRoom = (zone: string) => new Set(built.props.filter((prop: Prop) => prop.zone === zone).map((prop: Prop) => prop.kind));
+    expect(inRoom("ceo")).toContain("glass");
+    expect(inRoom("meeting")).toContain("glass");
+    expect(inRoom("research")).not.toContain("glass");
   });
 
   it("a desk for every seat, a person at the taken ones, and each knows its room", () => {
@@ -153,25 +150,60 @@ describe("the floor as tiles", () => {
     expect(new Set(built.npcs.map((npc: Npc) => npc.color)).size).toBeGreaterThan(1);
   });
 
-  it("each room has the furniture that makes it that room", () => {
+  it("each room has the furniture that makes it that room — the 3D office's own", () => {
     const kinds = (zone: string) =>
       new Set(scene().props.filter((prop: Prop) => prop.zone === zone).map((prop: Prop) => prop.kind));
     expect(kinds("lobby")).toContain("counter"); // reception, which is also the approval desk
-    expect(kinds("lobby")).toContain("sofa");
+    expect(kinds("lobby")).toContain("lounge");
     expect(kinds("pantry")).toContain("fridge");
-    expect(kinds("pantry")).toContain("stove");
+    expect(kinds("pantry")).toContain("pantry_counter");
     expect(kinds("meeting")).toContain("whiteboard");
-    expect(kinds("ceo")).toContain("shelf");
-    expect(scene().props.some((prop: Prop) => prop.kind === "door")).toBe(true);
+    expect(kinds("meeting")).toContain("meeting_set");
+    expect(kinds("ceo")).toContain("ceo_shelf");
+  });
+
+  it("paints a taken seat's chair in its sitter's colour", () => {
+    const built = scene();
+    const byId = cards();
+    const taken = plan().desks.filter((desk) => desk.agentId);
+    expect(taken.length).toBeGreaterThan(0);
+    for (const desk of taken) {
+      const chair = built.props.find((prop: Prop) => prop.kind === "chair" && prop.zone === desk.zone && prop.accent === byId.get(desk.agentId!)?.color);
+      expect(chair, desk.key).toBeDefined();
+    }
+  });
+
+  it("sits people behind their chair's back, the way the camera sees them", () => {
+    // the camera is on the chair's back side (it faces the screens, away from us): the chair is
+    // painted after its sitter, and covers them from the waist down
+    const built = scene();
+    for (const npc of built.npcs) {
+      const chairs = built.props.filter((prop: Prop) => prop.kind === "chair" && prop.zone === npc.zone);
+      const own = chairs.reduce((best, chair) =>
+        Math.abs(chair.foot - npc.foot) < Math.abs(best.foot - npc.foot) ? chair : best,
+      );
+      expect(own.foot, npc.agentId).toBeGreaterThan(npc.foot);
+    }
   });
 
   it("clicking the floor is not clicking a person", () => {
     const built = scene();
     const someone = built.npcs[0];
-    expect(hitTest(built, someone.x + 4, someone.y + 6)).toBe(someone.agentId);
+    expect(hitTest(built, someone.x + 8, someone.y + 12)).toBe(someone.agentId);
     expect(hitTest(built, 1, 1)).toBeNull();
   });
+
+  it("draws nothing that needs three.js: the 2D floor is for where WebGL is not", () => {
+    const here = join(__dirname);
+    const files = ["tiles.ts", "PixelFloor.tsx", "board.ts", "OfficeBoard2D.tsx", "art/pieces.ts", "art/theme.ts", "art/baked.ts", "art/sprites.ts", "art/atlas.ts"];
+    for (const file of files) {
+      const source = readFileSync(join(here, file), "utf8");
+      const imports = [...source.matchAll(/^import[^;]*?from\s+"([^"]+)"/gms)].map((m) => m[1]);
+      expect(imports.filter((from) => from === "three" || from.startsWith("three/") || from.includes("scene/furniture") || from.includes("scene/kit")), file).toEqual([]);
+    }
+  });
 });
+
 
 describe("walking on the 2D floor (T-408)", () => {
   function roster() {
@@ -292,7 +324,7 @@ describe("OfficeBoard2D", () => {
     const scene = buildScene(plan(), cards());
     const someone = scene.npcs[0];
     floor.getBoundingClientRect = () => ({ left: 0, top: 0, width: scene.width, height: scene.height }) as DOMRect;
-    fireEvent.click(floor, { clientX: someone.x + 5, clientY: someone.y + 7 });
+    fireEvent.click(floor, { clientX: someone.x + 8, clientY: someone.y + 12 });
 
     expect(uiStore.getState().selectedAgentId).toBe(someone.agentId);
   });

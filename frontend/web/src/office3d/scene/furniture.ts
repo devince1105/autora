@@ -387,7 +387,8 @@ function ceoSofa(): Part[] {
   return sofa(1.8, P.armchair, P.cushion);
 }
 
-function decorParts(item: Decor, index: number): Part[] {
+/** What a decor item is made of, built around its own origin and not yet turned or placed. */
+function decorBuild(item: Decor, index: number): Part[] {
   const build: Record<Decor["kind"], () => Part[]> = {
     low_shelf: () => lowShelf(Math.max(item.size[0], item.size[1]), 11 + index),
     palm,
@@ -404,7 +405,11 @@ function decorParts(item: Decor, index: number): Part[] {
     ceo_sofa: ceoSofa,
     planter: () => planter(Math.max(item.size[0], item.size[1])),
   };
-  return place(build[item.kind](), item.at[0], item.at[1], item.rotY);
+  return build[item.kind]();
+}
+
+function decorParts(item: Decor, index: number): Part[] {
+  return place(decorBuild(item, index), item.at[0], item.at[1], item.rotY);
 }
 
 function approvalDesk(): Part[] {
@@ -463,7 +468,12 @@ const LEFT_WINDOWS: [number, number][] = [
 ];
 const WINDOW = { sill: 1.0, height: 1.5 };
 
-function architecture(): Part[] {
+/**
+ * The office's shell: what never stands in front of anything — the slab, the back and left walls
+ * with their windows and pictures, the low rims of the cut-away front and right, the entrance.
+ * The 2D board bakes this as one backdrop and draws it first.
+ */
+function shell(): Part[] {
   const width = ROOM.maxX - ROOM.minX;
   const depth = ROOM.maxZ - ROOM.minZ;
   const parts: Part[] = [
@@ -493,35 +503,6 @@ function architecture(): Part[] {
     parts.push(block(WALL, 0.02, span, [x, 0, mid], P.metal));
   }
 
-  // interior walls between the back rooms, with caps
-  const innerDepth = BACK_ROOMS_Z - WALL_HALF - ROOM.minZ;
-  for (const x of [CEO_OFFICE.maxX, MEETING_ROOM.maxX]) {
-    parts.push(block(WALL_HALF * 2, INNER_WALL_H, innerDepth, [x, 0, ROOM.minZ + innerDepth / 2], P.wall));
-    parts.push(box(WALL_HALF * 2 + 0.04, CAP, innerDepth, [x, INNER_WALL_H + CAP / 2, ROOM.minZ + innerDepth / 2], P.wallCap));
-  }
-
-  // glass fronts: mullions and rails (panes are separate), door frames, open leaves
-  const fronts: [number, number][] = [
-    [CEO_OFFICE.minX, CEO_OFFICE.maxX],
-    [MEETING_ROOM.minX, MEETING_ROOM.maxX],
-  ];
-  for (const [from, to] of fronts) {
-    const len = to - from;
-    parts.push(box(len, 0.08, 0.12, [(from + to) / 2, INNER_WALL_H - 0.04, BACK_ROOMS_Z], P.mullion));
-    parts.push(box(len, 0.06, 0.12, [(from + to) / 2, 0.03, BACK_ROOMS_Z], P.mullion));
-    const posts = Math.ceil(len / 1.4);
-    for (let i = 0; i <= posts; i++) parts.push(block(0.06, INNER_WALL_H, 0.12, [from + (i * len) / posts, 0, BACK_ROOMS_Z], P.mullion));
-  }
-  for (const door of DOORS) {
-    for (const side of [-1, 1]) parts.push(block(0.08, 2.2, 0.16, [door.x + (side * door.width) / 2, 0, BACK_ROOMS_Z], P.door));
-    parts.push(box(door.width + 0.16, 0.08, 0.16, [door.x, 2.24, BACK_ROOMS_Z], P.door));
-  }
-  for (const leafRect of doorLeaves()) {
-    const cz = (leafRect.minZ + leafRect.maxZ) / 2;
-    parts.push(block(0.05, 2.15, leafRect.maxZ - leafRect.minZ, [(leafRect.minX + leafRect.maxX) / 2, 0.02, cz], P.door));
-    parts.push(box(0.08, 0.04, 0.14, [(leafRect.minX + leafRect.maxX) / 2, 1.05, leafRect.minZ + 0.12], P.metal));
-  }
-
   // windows and pictures
   for (const [x, w] of BACK_WINDOWS) parts.push(...place(windowFrame(w, WINDOW.height, WINDOW.sill), x, ROOM.minZ));
   for (const [z, w] of LEFT_WINDOWS) parts.push(...place(windowFrame(w, WINDOW.height, WINDOW.sill), ROOM.minX, z, Math.PI / 2));
@@ -532,6 +513,55 @@ function architecture(): Part[] {
   // the meeting room's projection screen
   parts.push(box(3.2, 1.7, 0.03, [-0.8, 1.75, ROOM.minZ + 0.03], P.whiteboard), box(3.4, 0.12, 0.14, [-0.8, 2.65, ROOM.minZ + 0.08], P.metal));
   return parts;
+}
+
+/** The walls between the back rooms, one per x: they stand between things, so the 2D sorts them. */
+const INNER_WALL_XS = [CEO_OFFICE.maxX, MEETING_ROOM.maxX] as const;
+const INNER_WALL_DEPTH = BACK_ROOMS_Z - WALL_HALF - ROOM.minZ;
+
+function innerWall(x: number): Part[] {
+  return [
+    block(WALL_HALF * 2, INNER_WALL_H, INNER_WALL_DEPTH, [x, 0, ROOM.minZ + INNER_WALL_DEPTH / 2], P.wall),
+    box(WALL_HALF * 2 + 0.04, CAP, INNER_WALL_DEPTH, [x, INNER_WALL_H + CAP / 2, ROOM.minZ + INNER_WALL_DEPTH / 2], P.wallCap),
+  ];
+}
+
+/** The back rooms' glass fronts (frames only; the panes are their own mesh), with their doors. */
+const GLASS_FRONTS: readonly (readonly [number, number])[] = [
+  [CEO_OFFICE.minX, CEO_OFFICE.maxX],
+  [MEETING_ROOM.minX, MEETING_ROOM.maxX],
+];
+
+function glassFront([from, to]: readonly [number, number]): Part[] {
+  const parts: Part[] = [];
+  const len = to - from;
+  parts.push(box(len, 0.08, 0.12, [(from + to) / 2, INNER_WALL_H - 0.04, BACK_ROOMS_Z], P.mullion));
+  parts.push(box(len, 0.06, 0.12, [(from + to) / 2, 0.03, BACK_ROOMS_Z], P.mullion));
+  const posts = Math.ceil(len / 1.4);
+  for (let i = 0; i <= posts; i++) parts.push(block(0.06, INNER_WALL_H, 0.12, [from + (i * len) / posts, 0, BACK_ROOMS_Z], P.mullion));
+  return parts;
+}
+
+function doorsOf([from, to]: readonly [number, number]): Part[] {
+  const parts: Part[] = [];
+  for (const door of DOORS.filter((d) => d.x >= from && d.x <= to)) {
+    for (const side of [-1, 1]) parts.push(block(0.08, 2.2, 0.16, [door.x + (side * door.width) / 2, 0, BACK_ROOMS_Z], P.door));
+    parts.push(box(door.width + 0.16, 0.08, 0.16, [door.x, 2.24, BACK_ROOMS_Z], P.door));
+  }
+  for (const leafRect of doorLeaves().filter((l) => (l.minX + l.maxX) / 2 >= from - 1 && (l.minX + l.maxX) / 2 <= to + 1)) {
+    const cz = (leafRect.minZ + leafRect.maxZ) / 2;
+    parts.push(block(0.05, 2.15, leafRect.maxZ - leafRect.minZ, [(leafRect.minX + leafRect.maxX) / 2, 0.02, cz], P.door));
+    parts.push(box(0.08, 0.04, 0.14, [(leafRect.minX + leafRect.maxX) / 2, 1.05, leafRect.minZ + 0.12], P.metal));
+  }
+  return parts;
+}
+
+function architecture(): Part[] {
+  return [
+    ...shell(),
+    ...INNER_WALL_XS.flatMap(innerWall),
+    ...GLASS_FRONTS.flatMap((front) => [...glassFront(front), ...doorsOf(front)]),
+  ];
 }
 
 /** Neon outlines around the zones' floors, in a theme that has them. */
@@ -641,15 +671,16 @@ export function floorRegions(): FloorRegion[] {
   ];
 }
 
-// --- the pieces the 2D board bakes (D-026) -------------------------------------------------------
+// --- the pieces the 2D board bakes (D-026, D-027) ----------------------------------------------
 //
-// The 2D office is not drawn by hand any more: each of these is rendered once, from a fixed
-// orthographic angle, into a pixel sprite (``tools/bake-sprites``). They are the same builders the
-// 3D office uses, so the two views show the same furniture — a desk that changes in 3D changes in
-// 2D at the next bake.
+// The 2D office is not drawn by hand any more, and it is not laid out by hand either. Each piece
+// below is rendered once, from a fixed orthographic angle, into a pixel sprite
+// (``tools/bake-sprites``), and ``placedPieces`` says where every one of them stands — read from
+// the same seats, benches and decor list the 3D office is built from. The 2D board draws the 3D
+// office's furniture in the 3D office's places; move a plant in layout.ts and it moves in both.
 //
-// Each is built around its own origin, standing on y = 0, facing +z, in whatever palette is
-// given. The names are the 2D board's prop kinds (``fallback/tiles.ts``).
+// Each piece is built around its own origin, standing on y = 0, already turned the way it stands
+// in the office (the bake has one camera, so a sofa turned a quarter has to be baked turned).
 
 export interface BakeablePiece {
   /**
@@ -657,48 +688,104 @@ export interface BakeablePiece {
    * sitter's role colour. The bake passes a probe for it, so the 2D board can repaint it per seat.
    */
   parts: (palette: Palette, accent: string) => Part[];
-  /** Metres of floor it stands on, for the sprite's width and its footprint on the tile map. */
+  /** Metres of floor it stands on, after turning: x across, z deep. Its front edge sorts it. */
   footprint: readonly [number, number];
 }
 
+/** One piece of furniture where it stands in the office. */
+export interface PlacedPiece {
+  /** Which baked sprite it is (a key of ``BAKEABLE``); every plain desk shares one. */
+  bake: string;
+  /** Where its origin stands on the floor, metres. */
+  at: readonly [number, number];
+  /** The seat it belongs to: a chair is painted in its sitter's colour, a desk lit by them. */
+  seat?: string;
+}
+
+const deskSet = (desk: () => Part[]) => (p: Palette) => paintedWith(p, () => [...desk(), ...workstation(), ...lampBody()]);
+
+/** The key of the office's shell in ``BAKEABLE``: baked as one piece, drawn first, never sorted. */
+export const BACKDROP = "backdrop";
+
+/** The floor as flat slabs, one per region, each a few millimetres above the one it covers. */
+function floorParts(): Part[] {
+  return floorRegions().map((r) =>
+    box(r.maxX - r.minX, 0.004, r.maxZ - r.minZ, [(r.minX + r.maxX) / 2, r.layer * 0.004, (r.minZ + r.maxZ) / 2], P.floors[r.kind].color),
+  );
+}
+const benchKey = (i: number) => `bench:${i}`;
+const decorKey = (i: number, item: Decor) => `decor:${i}:${item.kind}`;
+
 export const BAKEABLE: Record<string, BakeablePiece> = {
-  desk: {
-    parts: (p) => paintedWith(p, () => [...singleDesk(), ...workstation(), ...lampBody()]),
-    footprint: [DESK.width, DESK.depth],
-  },
-  execDesk: {
-    parts: (p) => paintedWith(p, () => [...execDesk(), ...workstation()]),
-    footprint: [DESK.width + 0.2, DESK.depth + 0.1],
-  },
-  bench: {
-    parts: (p) => paintedWith(p, () => [...place(benchTable(-1.1, 1.1, 0), 0, 0), ...workstation()]),
-    footprint: [2.2, DESK.depth],
-  },
+  desk: { parts: deskSet(singleDesk), footprint: [DESK.width, DESK.depth] },
+  execDesk: { parts: deskSet(execDesk), footprint: [DESK.width + 0.2, DESK.depth + 0.1] },
+  // a seat at a bench has no desk of its own: the bench is the desk, baked once for the row
+  benchSeat: { parts: deskSet(() => []), footprint: [DESK.width, DESK.depth] },
   chair: { parts: (p, accent) => paintedWith(p, () => officeChair(accent)), footprint: [0.6, 0.6] },
   chairTall: { parts: (p, accent) => paintedWith(p, () => officeChair(accent, true)), footprint: [0.6, 0.6] },
-  plant: { parts: (p) => paintedWith(p, () => smallPlant()), footprint: [0.4, 0.4] },
-  palm: { parts: (p) => paintedWith(p, () => palm()), footprint: [0.7, 0.7] },
-  shelf: { parts: (p) => paintedWith(p, () => lowShelf(1.6, 7)), footprint: [1.6, 0.4] },
-  cabinet: { parts: (p) => paintedWith(p, () => tallShelf(1.2, 11)), footprint: [1.2, 0.45] },
-  sofa: { parts: (p) => paintedWith(p, () => sofa(2.2, p.sofa, p.cushion)), footprint: [2.2, 0.85] },
-  armchair: { parts: (p) => paintedWith(p, () => sofa(0.95, p.armchair, p.cushion)), footprint: [0.95, 0.85] },
-  whiteboard: { parts: (p) => paintedWith(p, () => whiteboard()), footprint: [1.8, 0.12] },
-  counter: { parts: (p) => paintedWith(p, () => pantryCounter()), footprint: [2.6, 0.65] },
-  fridge: { parts: (p) => paintedWith(p, () => fridge()), footprint: [0.8, 0.7] },
-  vending: { parts: (p) => paintedWith(p, () => vending()), footprint: [0.9, 0.7] },
-  cooler: { parts: (p) => paintedWith(p, () => waterCooler()), footprint: [0.4, 0.4] },
-  stool: { parts: (p) => paintedWith(p, () => stool()), footprint: [0.4, 0.4] },
-  cafeTable: { parts: (p) => paintedWith(p, () => cafeTable()), footprint: [0.9, 0.9] },
-  planter: { parts: (p) => paintedWith(p, () => planter(1.6)), footprint: [1.6, 0.5] },
+  [BACKDROP]: {
+    // everything that never stands in front of anything, in one piece: floors, the shell, the
+    // window panes, and the zone trims of the styles that have them
+    parts: (p) => paintedWith(p, () => [...floorParts(), ...shell(), ...zoneTrims(), ...windowGlassParts(p)]),
+    footprint: [ROOM.maxX - ROOM.minX + WALL * 2, ROOM.maxZ - ROOM.minZ + WALL * 2],
+  },
+  ...Object.fromEntries(
+    INNER_WALL_XS.map((x, i) => [
+      `wall:${i}`,
+      {
+        parts: (p: Palette) => paintedWith(p, () => place(innerWall(x), -x, -(ROOM.minZ + INNER_WALL_DEPTH / 2))),
+        footprint: [WALL_HALF * 2, INNER_WALL_DEPTH] as const,
+      },
+    ]),
+  ),
+  ...Object.fromEntries(
+    GLASS_FRONTS.map((front, i) => [
+      `front:${i}`,
+      {
+        parts: (p: Palette) =>
+          paintedWith(p, () => place([...glassFront(front), ...doorsOf(front)], -(front[0] + front[1]) / 2, -BACK_ROOMS_Z)),
+        footprint: [front[1] - front[0], 0.16] as const,
+      },
+    ]),
+  ),
   counterDesk: {
-    // approvalDesk() builds itself where it stands in the office; bring it back to the origin.
-    // It comes with the approver's chair in front of it, so its footprint reaches the chair.
+    // approvalDesk() builds itself where it stands; bring it back to the origin. It comes with the
+    // approver's chair in front of it, so its footprint reaches the chair.
     parts: (p) => paintedWith(p, () => place(approvalDesk(), -APPROVAL_DESK.center[0], -APPROVAL_DESK.center[1])),
     footprint: [APPROVAL_DESK.width, 2.4],
   },
-  window: {
-    parts: (p) => paintedWith(p, () => windowFrame(1.6, WINDOW.height, WINDOW.sill)),
-    footprint: [1.6, 0.2],
-  },
-  picture: { parts: (p) => paintedWith(p, () => picture(0.9, 0.6, p.execWood)), footprint: [0.9, 0.1] },
+  ...Object.fromEntries(
+    BENCHES.map((b, i) => [
+      benchKey(i),
+      {
+        parts: (p: Palette) => paintedWith(p, () => place(benchTable(b.minX, b.maxX, b.z), -(b.minX + b.maxX) / 2, -b.z)),
+        footprint: [b.maxX - b.minX, DESK.depth] as const,
+      },
+    ]),
+  ),
+  ...Object.fromEntries(
+    DECOR.map((item, i) => [
+      decorKey(i, item),
+      {
+        parts: (p: Palette) => paintedWith(p, () => place(decorBuild(item, i), 0, 0, item.rotY)),
+        footprint: item.size,
+      },
+    ]),
+  ),
 };
+
+/** Every piece of furniture in the office, where the 3D office puts it. */
+export function placedPieces(): PlacedPiece[] {
+  const pieces: PlacedPiece[] = [];
+  for (const seat of allSeats()) {
+    const ceo = seat.role === "ceo";
+    pieces.push({ bake: seat.bench ? "benchSeat" : ceo ? "execDesk" : "desk", at: seat.desk, seat: seat.key });
+    pieces.push({ bake: ceo ? "chairTall" : "chair", at: seat.chair, seat: seat.key });
+  }
+  BENCHES.forEach((b, i) => pieces.push({ bake: benchKey(i), at: [(b.minX + b.maxX) / 2, b.z] }));
+  DECOR.forEach((item, i) => pieces.push({ bake: decorKey(i, item), at: item.at }));
+  pieces.push({ bake: "counterDesk", at: APPROVAL_DESK.center });
+  INNER_WALL_XS.forEach((x, i) => pieces.push({ bake: `wall:${i}`, at: [x, ROOM.minZ + INNER_WALL_DEPTH / 2] }));
+  GLASS_FRONTS.forEach((front, i) => pieces.push({ bake: `front:${i}`, at: [(front[0] + front[1]) / 2, BACK_ROOMS_Z] }));
+  return pieces;
+}

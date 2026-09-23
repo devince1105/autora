@@ -22,6 +22,7 @@ import { assignSeats } from "../scene/layout";
 import { arcBetween, boardModel, floorPlan, handoffsAfter, type BoardCard, type Box } from "./board";
 import { LogColumn, RosterColumn } from "./BoardSideColumns";
 import { BADGE_INK, CONSOLE, consoleVars } from "./console";
+import type { ThemeId } from "../palette";
 import { PixelFloor } from "./PixelFloor";
 import { Ticker } from "./Ticker";
 
@@ -113,9 +114,12 @@ function Card({ card, selected, cardRef }: { card: BoardCard; selected: boolean;
 
 export function OfficeBoard2D({
   departmentNames = {},
+  theme,
 }: {
   /** key -> name, from the org chart; without it a room shows the key it is known by. */
   departmentNames?: Readonly<Record<string, string>>;
+  /** The office's style (D-011): the 2D floor is painted in the same one as the 3D view. */
+  theme?: ThemeId;
 }) {
   const company = useRealtime((s) => s.company);
   const selected = useUi((s) => s.selectedAgentId);
@@ -206,7 +210,7 @@ export function OfficeBoard2D({
         <div ref={container} className="relative grid min-h-0 grid-rows-[minmax(0,3fr)_auto] gap-4 overflow-y-auto p-3">
           {/* the floor takes the room it needs: it is the thing this view is for */}
           <div className="min-h-[26rem]">
-            <PixelFloor plan={plan} cards={everyone} selected={selected} focused={shown === ALL_ROOMS ? null : shown} />
+            <PixelFloor plan={plan} cards={everyone} selected={selected} focused={shown === ALL_ROOMS ? null : shown} theme={theme} />
           </div>
           <div className="grid gap-4">
           {visible.map((row) => (

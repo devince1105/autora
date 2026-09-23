@@ -11,7 +11,7 @@
 // builds a ramp by hand — rather than one colour darkened and lightened, which reads as grey mud.
 import type { Palette as OfficePalette } from "@/office3d/palette";
 
-import type { BakedPiece } from "./baked";
+import type { BakedPiece } from "./pieces";
 import { sprite, type Palette, type Sprite } from "./sprites";
 
 /** The slot the bake reports for a piece's user colour (a chair's stripes: its sitter's role). */
@@ -23,15 +23,37 @@ export const RAMP = [0.5, 0.68, 0.84, 1, 1.13] as const;
 /** How far each step leans: negative toward blue (shadow), positive toward yellow (light). */
 const LEAN = [-0.1, -0.05, 0, 0.03, 0.06] as const;
 
-/** A slot is a path into the style's palette: ``deskTop``, ``books.3``, ``floors.carpet.base``. */
-export function slotColour(palette: OfficePalette, slot: string, accent?: string): string | undefined {
-  if (slot === ACCENT_SLOT) return accent;
+/**
+ * What a slot is painted instead, in a style that does not have it.
+ *
+ * Parts that only some styles have (the neon trims round each zone, the glowing desk edge) are
+ * baked always — see ``everySlot`` in the bake. In a style without them, the pixel takes the
+ * colour of what the part lies on, so the trim becomes floor and the edge becomes desk: no hole,
+ * no second bake.
+ */
+function fallbackOf(slot: string): string | undefined {
+  if (slot === "deskEdge") return "deskTop";
+  const trim = /^zoneTrim\.(.+)$/.exec(slot);
+  if (trim) return `floors.${trim[1]}.color`;
+  return undefined;
+}
+
+function lookUp(palette: OfficePalette, slot: string): string | undefined {
   let value: unknown = palette;
   for (const step of slot.split(".")) {
     if (value === null || typeof value !== "object") return undefined;
     value = (value as Record<string, unknown>)[step];
   }
   return typeof value === "string" ? value : undefined;
+}
+
+/** A slot is a path into the style's palette: ``deskTop``, ``books.3``, ``floors.base.color``. */
+export function slotColour(palette: OfficePalette, slot: string, accent?: string): string | undefined {
+  if (slot === ACCENT_SLOT) return accent;
+  const direct = lookUp(palette, slot);
+  if (direct !== undefined) return direct;
+  const instead = fallbackOf(slot);
+  return instead ? lookUp(palette, instead) : undefined;
 }
 
 function channels(hex: string): [number, number, number] | null {

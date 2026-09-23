@@ -7,13 +7,13 @@
 import { describe, expect, it } from "vitest";
 
 import { ROLE_COLOR, THEMES, type ThemeId } from "@/office3d/palette";
-import { BAKEABLE } from "@/office3d/scene/furniture";
+import { BAKEABLE, placedPieces } from "@/office3d/scene/furniture";
 
-import { BAKED } from "./baked";
+import { expand, piece, PIECE_KEYS, PLACED } from "./pieces";
 import { ACCENT_SLOT, OUTLINE_TONE, RAMP, neonRim, paint, paintShadow, shade, slotColour } from "./theme";
 
 const THEME_IDS = Object.keys(THEMES) as ThemeId[];
-const PIECES = Object.entries(BAKED);
+const PIECES = PIECE_KEYS.map((key) => [key, piece(key)!] as const);
 
 const luminance = (hex: string) => {
   const n = parseInt(hex.slice(1), 16);
@@ -23,7 +23,13 @@ const luminance = (hex: string) => {
 describe("the baked sprites", () => {
   it("are exactly the pieces the 3D office offers for baking", () => {
     // a piece added to furniture.ts and never baked would be missing from the board, silently
-    expect(Object.keys(BAKED).sort()).toEqual(Object.keys(BAKEABLE).sort());
+    expect([...PIECE_KEYS].sort()).toEqual(Object.keys(BAKEABLE).sort());
+  });
+
+  it("stand where the 3D office puts them: the bake's copy of the layout is not stale", () => {
+    // the 2D board reads PLACED so that it need not load three.js; if the 3D layout moved and
+    // nobody re-baked, this is where it shows
+    expect(PLACED.map((p) => ({ ...p }))).toEqual(placedPieces().map((p) => ({ ...p, at: [...p.at] })));
   });
 
   it.each(PIECES)("%s is a rectangle of the size it says", (_, piece) => {
@@ -37,11 +43,18 @@ describe("the baked sprites", () => {
     for (const key of used) expect(piece.keys, `character ${key}`).toHaveProperty(key);
   });
 
-  it.each(PIECES)("%s stands inside its own sprite", (_, piece) => {
-    expect(piece.anchor).toBeGreaterThan(0);
-    expect(piece.anchor).toBeLessThanOrEqual(piece.h);
+  it.each(PIECES)("%s stands on its own origin", (_, piece) => {
+    // what this catches: a piece built where it stands in the office instead of round its origin
+    // (the approval desk was baked 92 pixels from itself). The origin is the middle of the
+    // footprint, so it is inside the picture.
     expect(piece.origin[0]).toBeGreaterThanOrEqual(0);
     expect(piece.origin[0]).toBeLessThanOrEqual(piece.w);
+    expect(piece.origin[1]).toBeGreaterThanOrEqual(0);
+    expect(piece.origin[1]).toBeLessThanOrEqual(piece.h);
+    // the anchor is where the footprint's front edge meets the floor, which can be a pixel or two
+    // in front of the last thing drawn — a bench seat is only monitors and a lamp
+    expect(piece.anchor).toBeGreaterThan(piece.origin[1]);
+    expect(piece.anchor).toBeLessThanOrEqual(piece.h + 4);
   });
 
   it.each(PIECES)("%s has a shadow that is only where the piece is not", (_, piece) => {
@@ -72,7 +85,7 @@ describe("painting them in a style", () => {
   });
 
   it("switching style repaints the same pixels, not different ones", () => {
-    const desk = BAKED.desk;
+    const desk = piece("desk")!;
     const muji = paint(desk, THEMES.muji.palette);
     const industrial = paint(desk, THEMES.industrial.palette);
     expect(industrial.rows).toEqual(muji.rows);
@@ -80,7 +93,7 @@ describe("painting them in a style", () => {
   });
 
   it("paints a chair's stripes in its sitter's colour", () => {
-    const chair = BAKED.chair;
+    const chair = piece("chair")!;
     const stripe = Object.entries(chair.keys).find(([, [slot, tone]]) => slot === ACCENT_SLOT && tone >= 0)?.[0];
     expect(stripe, "the chair has an accent").toBeDefined();
     const writer = paint(chair, THEMES.muji.palette, ROLE_COLOR.writer).palette[stripe!];
@@ -89,7 +102,19 @@ describe("painting them in a style", () => {
   });
 
   it("gives a shadow only to pieces that cast one", () => {
-    expect(paintShadow(BAKED.palm)).not.toBeNull();
+    expect(paintShadow(piece(PIECE_KEYS.find((k) => k.endsWith(":palm"))!)!)).not.toBeNull();
+  });
+});
+
+describe("run-length encoding", () => {
+  it("expands runs, and single characters stand alone", () => {
+    expect(expand("4ab2.")).toBe("aaaab..");
+    expect(expand("12#")).toBe("############");
+    expect(expand("")).toBe("");
+  });
+
+  it("refuses a count with nothing to repeat, rather than dropping pixels", () => {
+    expect(() => expand("ab3")).toThrow(/no character/);
   });
 });
 
