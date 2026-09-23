@@ -2,7 +2,7 @@
 // nothing is synthesised on the client. Known event types get a readable line; any other type
 // (newer server, other domain) is still shown, with its raw payload.
 import type { Schemas } from "@/api/client";
-import { describeEvent, type Tone } from "@/features/events/describe";
+import { describeEvent, type Tone } from "@/events/describe";
 
 export type { Tone };
 

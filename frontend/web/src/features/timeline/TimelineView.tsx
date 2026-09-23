@@ -1,6 +1,6 @@
 import Link from "next/link";
 
-import { TONE_DOT } from "@/features/events/describe";
+import { TONE_DOT } from "@/events/describe";
 import { RECENT_EVENTS_KEPT } from "@/realtime/reducer";
 import type { TimelineFilters } from "@/stores/ui";
 

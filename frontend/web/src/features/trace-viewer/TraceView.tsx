@@ -2,7 +2,7 @@ import Link from "next/link";
 import { useState } from "react";
 
 import type { Schemas } from "@/api/client";
-import { TONE_DOT } from "@/features/events/describe";
+import { TONE_DOT } from "@/events/describe";
 
 import type { Row, Trace, TraceSummary } from "./model";
 

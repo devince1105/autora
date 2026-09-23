@@ -5,7 +5,7 @@ import type { EventEnvelope } from "@autora/event-schema";
 import type { AgentState, RealtimeState } from "@/stores/realtime";
 
 import { businessColors, ROLE_COLOR } from "../palette";
-import { assignSeats } from "../scene/layout";
+import { assignSeats, CHAIR, DESK, seatsInZone, type Seat, type ZoneId } from "../scene/layout";
 import { ROLE_LABEL, visualForAgent, type VisualState } from "../visual/mapping";
 
 export type RowId = string;
@@ -184,4 +184,66 @@ export function arcBetween(from: Box, to: Box, lift = 36): { d: string; peakY: n
   const y2 = to.top - 4;
   const peakY = Math.min(y1, y2) - lift - Math.abs(x2 - x1) * 0.08;
   return { d: `M ${x1} ${y1} Q ${(x1 + x2) / 2} ${peakY} ${x2} ${y2}`, peakY };
+}
+
+// --- the room, seen from above (T-410 stage 1) --------------------------------------------------
+
+export interface PlanDesk {
+  key: string;
+  /** Who sits here, when somebody does. An empty desk is part of the room too. */
+  agentId: string | null;
+  desk: Box;
+  chair: { cx: number; cy: number; r: number };
+}
+
+export interface RoomPlan {
+  /** The drawing's own units (the floor's metres, moved so the room starts at 0). */
+  width: number;
+  height: number;
+  desks: PlanDesk[];
+}
+
+const PAD = 1.2;
+
+/**
+ * The desks of the rooms these agents work in, as a drawing (T-410).
+ *
+ * The same seat layout the 3D office uses (``scene/layout``), flattened: x stays x, the floor's
+ * z becomes y. Every desk of those rooms is drawn, not only the taken ones — a room with two
+ * people and six desks is a different room from one with two desks, and the office shows what
+ * is there. Zones come from the seats the agents actually hold, so a company whose departments
+ * are not on the floor plan still gets the rooms its people are sitting in.
+ */
+export function roomPlan(agentIds: readonly string[], seats: ReadonlyMap<string, Seat>): RoomPlan {
+  const byAgent = new Map<string, string>(); // seat key -> agent
+  const zones = new Set<ZoneId>();
+  for (const id of agentIds) {
+    const seat = seats.get(id);
+    if (!seat) continue;
+    zones.add(seat.zone);
+    byAgent.set(seat.key, id);
+  }
+  const all = [...zones].flatMap((zone) => seatsInZone(zone));
+  if (!all.length) return { width: 0, height: 0, desks: [] };
+  const xs = all.flatMap((s) => [s.desk[0], s.chair[0]]);
+  const ys = all.flatMap((s) => [s.desk[1], s.chair[1]]);
+  const minX = Math.min(...xs) - PAD;
+  const minY = Math.min(...ys) - PAD;
+  return {
+    width: Math.max(...xs) - minX + PAD,
+    height: Math.max(...ys) - minY + PAD,
+    desks: all
+      .map((seat) => ({
+        key: seat.key,
+        agentId: byAgent.get(seat.key) ?? null,
+        desk: {
+          left: seat.desk[0] - minX - DESK.width / 2,
+          top: seat.desk[1] - minY - DESK.depth / 2,
+          width: DESK.width,
+          height: DESK.depth,
+        },
+        chair: { cx: seat.chair[0] - minX, cy: seat.chair[1] - minY, r: CHAIR.size / 2 },
+      }))
+      .sort((a, b) => a.desk.top - b.desk.top || a.desk.left - b.desk.left),
+  };
 }

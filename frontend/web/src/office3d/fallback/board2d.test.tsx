@@ -130,8 +130,68 @@ describe("OfficeBoard2D", () => {
     fireEvent.click(cards[2]);
     expect(uiStore.getState().selectedAgentId).toBe(cards[2].getAttribute("data-testid")!.slice("board-agent-".length));
     expect(cards[2].getAttribute("aria-pressed")).toBe("true");
-    const rooms = screen.getAllByRole("region");
-    expect(rooms.flatMap((room) => within(room).getAllByRole("button"))).toHaveLength(6);
+    const floor = screen.getByRole("region", { name: "樓層" });
+    expect(within(floor).getAllByTestId(/^board-agent-/)).toHaveLength(6);
+  });
+
+  it("the roster column lists everybody, and picking one there selects it too", () => {
+    realtimeStore.getState().hydrate(fixture.snapshot_before);
+    render(<OfficeBoard2D />);
+    const roster = screen.getByRole("complementary", { name: "人員" });
+    const people = within(roster).getAllByTestId(/^roster-/);
+
+    expect(people).toHaveLength(6);
+    fireEvent.click(people[1]);
+
+    const id = people[1].getAttribute("data-testid")!.slice("roster-".length);
+    expect(uiStore.getState().selectedAgentId).toBe(id);
+    expect(people[1].getAttribute("aria-pressed")).toBe("true");
+  });
+
+  it("a room tab shows that room only; the floor shows them all", () => {
+    realtimeStore.getState().hydrate(fixture.snapshot_before);
+    render(<OfficeBoard2D />);
+    const floor = screen.getByRole("region", { name: "樓層" });
+    const rooms = boardModel(replay(0), new Date());
+    expect(rooms.length).toBeGreaterThan(1);
+
+    fireEvent.click(screen.getByTestId(`room-tab-${rooms[0].id}`));
+
+    const shown = within(floor).getAllByTestId(/^board-agent-/);
+    expect(shown).toHaveLength(rooms[0].cards.length);
+    expect(shown.length).toBeLessThan(6);
+    // the roster still has everybody: the tab narrows the floor, not the company
+    expect(within(screen.getByRole("complementary", { name: "人員" })).getAllByTestId(/^roster-/)).toHaveLength(6);
+
+    fireEvent.click(screen.getByTestId("room-tab-all"));
+    expect(within(floor).getAllByTestId(/^board-agent-/)).toHaveLength(6);
+  });
+
+  it("the floor is drawn from above: a desk per seat, a dot for whoever is at it", () => {
+    realtimeStore.getState().hydrate(fixture.snapshot_before);
+    render(<OfficeBoard2D />);
+
+    const plan = screen.getByTestId("room-plan");
+    const desks = within(plan).getAllByTestId(/^plan-desk-/);
+    const people = within(plan).getAllByTestId(/^plan-agent-/);
+
+    expect(people).toHaveLength(6);
+    expect(desks.length).toBeGreaterThanOrEqual(people.length); // empty desks are part of the room
+    fireEvent.click(people[0]);
+    expect(uiStore.getState().selectedAgentId).toBe(people[0].getAttribute("data-testid")!.slice("plan-agent-".length));
+  });
+
+  it("the log column says what just happened, newest first", () => {
+    const company = replay(20);
+    realtimeStore.setState({ company });
+    render(<OfficeBoard2D />);
+
+    const log = screen.getByRole("complementary", { name: "即時紀錄" });
+    const lines = within(log).getAllByRole("listitem");
+
+    expect(lines.length).toBeGreaterThan(1);
+    const times = lines.map((line) => within(line).getByRole("time").getAttribute("datetime")!);
+    expect([...times]).toEqual([...times].sort().reverse());
   });
 
   it("a hand-off that arrives flashes an arrow between the cards, then it goes", () => {

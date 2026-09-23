@@ -1,3 +1,9 @@
+// The words for an event: its label, its tone and a one-line summary (T-303).
+//
+// Not a feature's: the timeline, the trace viewer, the newsroom pages and the 2D office all
+// say the same thing about the same event, and an office that had to invent its own words
+// would drift from the page next to it. It is pure presentation — no I/O, no store — which
+// is why the office is allowed to read it (eslint boundaries).
 // How an event reads to an operator (T-311, T-312): a short zh-TW label, a tone for its dot and
 // a one-line summary from the payload. Shared by the trace viewer and the event timeline, so an
 // event reads the same everywhere. Unknown types are not dropped: the caller shows the type and

@@ -3,7 +3,7 @@
 // business (Timeline.tsx); these are pure functions over the events it shows.
 import type { EventEnvelope } from "@autora/event-schema";
 
-import { describeEvent, type Tone } from "@/features/events/describe";
+import { describeEvent, type Tone } from "@/events/describe";
 import type { AgentState } from "@/realtime/reducer";
 import type { TimelineFilters } from "@/stores/ui";
 

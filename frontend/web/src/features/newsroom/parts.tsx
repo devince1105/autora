@@ -5,7 +5,7 @@ import Link from "next/link";
 import type { ReactNode } from "react";
 
 import { withCompany } from "@/features/company/CompanyScope";
-import { describeEvent, TONE_DOT, type Tone } from "@/features/events/describe";
+import { describeEvent, TONE_DOT, type Tone } from "@/events/describe";
 
 import { CLAIM_STATUS, CLAIM_TYPE, formatTime, label, SUPPORT, TONE_BADGE, type ClaimView } from "./model";
 

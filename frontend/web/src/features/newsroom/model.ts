@@ -1,6 +1,6 @@
 // Pure helpers for the newsroom's admin pages (T-517): labels and the claim numbering.
 import type { Schemas } from "@/api/client";
-import type { Tone } from "@/features/events/describe";
+import type { Tone } from "@/events/describe";
 
 export type StorySummary = Schemas["StorySummary"];
 export type StoryDetail = Schemas["StoryDetail"];
