@@ -48,6 +48,7 @@ def load_event_catalogs() -> None:
 
 def load_models() -> None:
     """Import every module that declares tables, so SQLAlchemy's metadata is complete."""
+    import autora.accounts.models  # noqa: F401
     import autora.db.models  # noqa: F401
     import autora.domains.echo.models  # noqa: F401
     import autora.domains.newsroom.models  # noqa: F401

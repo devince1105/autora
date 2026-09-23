@@ -108,6 +108,29 @@ class Settings(BaseSettings):
     blob_store_dir: Path = Path(__file__).resolve().parents[3] / "data" / "blobs"
     """LocalFS blob root. Relative paths resolve against the current directory."""
 
+    # --- Readers and the site (D-024, D-025) ---
+    site_base_url: str = "http://localhost:3000"
+    """Where the public site lives. Login links and payment returns point back into it."""
+    email_provider: Literal["console", "resend"] = "console"
+    """console: print the message (dev, tests, no network). resend: send it for real."""
+    resend_api_key: SecretStr | None = None
+    email_from: str = "Autora <onboarding@resend.dev>"
+
+    # --- Payments: PAYUNi (D-024) ---
+    payuni_env: Literal["sandbox", "production"] = "sandbox"
+    payuni_mer_id: str | None = None
+    payuni_hash_key: SecretStr | None = None
+    payuni_hash_iv: SecretStr | None = None
+    payuni_return_url: str = "http://localhost:3000/news/zh-TW/membership/done"
+    """Where the reader's browser comes back to after paying."""
+    payuni_notify_url: str = "http://localhost:8000/api/payments/payuni/notify"
+    """Where PAYUNi posts the result, server to server. The one that decides anything."""
+
+    @property
+    def payuni_base_url(self) -> str:
+        host = "api" if self.payuni_env == "production" else "sandbox-api"
+        return f"https://{host}.payuni.com.tw/api"
+
     # --- API ---
     api_bearer_token: SecretStr = SecretStr("change-me")
     cors_origins: list[str] = ["http://localhost:3000"]
@@ -125,7 +148,16 @@ class Settings(BaseSettings):
     task_lease_seconds: float = Field(default=300.0, gt=0)
     task_retry_base_seconds: float = Field(default=10.0, gt=0)
 
-    @field_validator("anthropic_api_key", "nvidia_api_key", "tavily_api_key", mode="before")
+    @field_validator(
+        "anthropic_api_key",
+        "nvidia_api_key",
+        "tavily_api_key",
+        "resend_api_key",
+        "payuni_mer_id",
+        "payuni_hash_key",
+        "payuni_hash_iv",
+        mode="before",
+    )
     @classmethod
     def _blank_key_is_no_key(cls, value: object) -> object:
         """``KEY=`` in .env (the example's blank line) means "not set", not an empty key."""
@@ -154,6 +186,8 @@ class Settings(BaseSettings):
             for model_id in {self.frontier_model_id, self.fast_model_id} - {None, ""}:
                 if model_id not in self.model_prices:
                     problems.append(f"MODEL_PRICES has no entry for {model_id}")
+        if self.email_provider == "resend" and self.resend_api_key is None:
+            problems.append("RESEND_API_KEY is required when EMAIL_PROVIDER=resend")
         if self.embed_provider != "fake":
             if not self.embed_model_id:
                 problems.append(

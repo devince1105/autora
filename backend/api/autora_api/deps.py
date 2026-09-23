@@ -11,6 +11,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from autora.app import Runtime, build_runtime
 from autora.db.session import get_sessionmaker
+from autora.infra.email import Sender, build_sender
 from autora.infra.settings import Settings, get_settings
 from autora.runtime.actor import Actor
 
@@ -19,6 +20,12 @@ _bearer = HTTPBearer(auto_error=False)
 
 def settings_dep() -> Settings:
     return get_settings()
+
+
+@lru_cache(maxsize=1)
+def sender_dep() -> Sender:
+    """One email sender per process. Tests override it with one that keeps what it sent."""
+    return build_sender(get_settings())
 
 
 @lru_cache(maxsize=1)
@@ -49,5 +56,6 @@ def require_operator(
 
 
 Session = Annotated[AsyncSession, Depends(get_session)]
+EmailSender = Annotated[Sender, Depends(sender_dep)]
 Operator = Annotated[Actor, Depends(require_operator)]
 RuntimeDep = Annotated[Runtime, Depends(runtime_dep)]

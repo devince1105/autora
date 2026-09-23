@@ -20,6 +20,9 @@ const ARTICLE: PublicArticle = {
   summary: "港區 1,200 組屋頂太陽能板串成微電網。",
   published_at: "2026-09-19T04:00:00Z",
   company: "流明日報（示範）",
+  company_id: "0192bbbb-bbbb-7bbb-8bbb-bbbbbbbbbbbb",
+  access: "free",
+  locked: false,
   blocks: [
     { type: "heading", text: "重點" },
     { type: "paragraph", text: "微電網串連 1,200 組屋頂太陽能板。" },
@@ -33,6 +36,14 @@ const ARTICLE: PublicArticle = {
     "zh-TW": "/news/zh-TW/articles/lumen-city-microgrid-a1b2c3",
     en: "/news/en/articles/lumen-city-microgrid-a1b2c3",
   },
+};
+
+const MEMBERS_ONLY: PublicArticle = {
+  ...ARTICLE,
+  access: "members",
+  locked: true,
+  blocks: ARTICLE.blocks.slice(0, 1),
+  sources: [],
 };
 
 class Store implements SessionStore {
@@ -99,6 +110,21 @@ describe("the article page", () => {
     const kinds = vi.mocked(globalThis.fetch).mock.calls.map(([, init]) => JSON.parse(String(init!.body)).event_type);
     expect(kinds).toEqual(["view", "read_complete"]);
     expect(disconnect).toHaveBeenCalled();
+  });
+
+  it("a members-only article shows its opening and the way in (D-025)", () => {
+    render(<ArticleView article={MEMBERS_ONLY} lang="zh-TW" />);
+
+    expect(screen.getByText(MEMBERS_ONLY.blocks[0].text)).toBeTruthy();
+    expect(screen.queryByText(ARTICLE.blocks[2].text)).toBeNull();
+    const notice = screen.getByTestId("members-only");
+    const link = within(notice).getByRole("link", { name: "登入" });
+    expect(link.getAttribute("href")).toBe(`/news/zh-TW/login?next=${encodeURIComponent(ARTICLE.path)}`);
+  });
+
+  it("a free article says nothing about membership", () => {
+    render(<ArticleView article={ARTICLE} lang="zh-TW" />);
+    expect(screen.queryByTestId("members-only")).toBeNull();
   });
 });
 

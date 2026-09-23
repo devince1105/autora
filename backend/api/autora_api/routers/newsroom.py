@@ -25,7 +25,7 @@ from autora.app import build_embedder
 from autora.company.workflows import StartWorkflowError, WorkflowNotAllowed
 from autora.db.models import Company, Project, ProjectState
 from autora.domains.newsroom import admin
-from autora.domains.newsroom.models import SourceKind, Story, StoryState
+from autora.domains.newsroom.models import Article, ArticleAccess, SourceKind, Story, StoryState
 from autora.domains.newsroom.sources import SourceConfigError, add_source
 from autora.domains.newsroom.stories import StoryDesk, StoryError
 from autora.domains.newsroom.workflow import start_story
@@ -140,6 +140,25 @@ async def get_article(
     if article is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, f"article {article_id} not found")
     return article
+
+
+class ArticleAccessBody(BaseModel):
+    access: ArticleAccess
+    """``free`` or ``members``: who may read the whole thing (D-025)."""
+
+
+@router.post("/api/articles/{article_id}/access")
+async def set_article_access(
+    article_id: uuid.UUID, body: ArticleAccessBody, session: Session, _: Operator
+) -> dict[str, str]:
+    """Put an article behind the paywall, or take it out. A person's decision for now: what is
+    worth paying for is a judgement about the reader, and no rule here would be honest."""
+    article = await session.get(Article, article_id)
+    if article is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, f"article {article_id} not found")
+    article.access = body.access.value
+    await session.commit()
+    return {"article_id": str(article.id), "access": article.access}
 
 
 @router.get("/api/companies/{company_id}/sources")

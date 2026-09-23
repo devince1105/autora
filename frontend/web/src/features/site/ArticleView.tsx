@@ -6,6 +6,28 @@ import type { PublicArticle } from "./api";
 import { Beacon } from "./Beacon";
 import { formatDate, isLang, LANG_NAMES, words, type Lang } from "./i18n";
 
+/** What a reader sees instead of the rest of a members-only article (D-025). */
+function MembersOnly({ lang, path }: { lang: Lang; path: string }) {
+  const w = words(lang);
+  return (
+    <aside
+      data-testid="members-only"
+      className="mt-8 rounded-lg border border-line bg-surface p-6 text-center"
+    >
+      <h2 className="text-lg font-semibold">{w.membersOnly}</h2>
+      <p className="mt-2 text-muted">{w.membersOnlyWhy}</p>
+      <div className="mt-4 flex justify-center gap-3">
+        <Link
+          href={`/news/${lang}/login?next=${encodeURIComponent(path)}`}
+          className="rounded-lg border border-line px-4 py-2"
+        >
+          {w.signIn}
+        </Link>
+      </div>
+    </aside>
+  );
+}
+
 export function ArticleView({ article, lang }: { article: PublicArticle; lang: Lang }) {
   const w = words(lang);
   const others = Object.entries(article.langs).filter(([other]) => other !== lang && isLang(other));
@@ -49,6 +71,8 @@ export function ArticleView({ article, lang }: { article: PublicArticle; lang: L
           return <p key={index}>{block.text}</p>;
         })}
       </div>
+
+      {article.locked ? <MembersOnly lang={lang} path={article.path} /> : null}
 
       {article.sources.length ? (
         <section className="mt-10 border-t border-line pt-6">

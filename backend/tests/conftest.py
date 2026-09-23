@@ -161,3 +161,14 @@ async def running_agent_run(session: AsyncSession, prefix: str = "run"):
     session.add(run)
     await session.flush()
     return run
+
+
+@pytest.fixture
+def mailbox():
+    """What the app would have emailed: ``EMAIL_PROVIDER=console`` as one object (D-025).
+
+    Here rather than in ``tests/api`` because the API fixture is used from other folders too.
+    """
+    from autora.infra.email import ConsoleSender
+
+    return ConsoleSender(echo=False)  # tests read `sent`; printing would only be noise

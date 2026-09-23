@@ -495,6 +495,27 @@
     "title": "ApprovalState",
     "type": "string"
    },
+   "ArticleAccess": {
+    "description": "Who may read the whole thing (D-025). Most articles are FREE; some are for members.",
+    "enum": [
+     "free",
+     "members"
+    ],
+    "title": "ArticleAccess",
+    "type": "string"
+   },
+   "ArticleAccessBody": {
+    "properties": {
+     "access": {
+      "$ref": "#/components/schemas/ArticleAccess"
+     }
+    },
+    "required": [
+     "access"
+    ],
+    "title": "ArticleAccessBody",
+    "type": "object"
+   },
    "ArticleDetail": {
     "properties": {
      "analytics": {
@@ -2584,6 +2605,71 @@
     "title": "Lead",
     "type": "object"
    },
+   "LinkRequest": {
+    "properties": {
+     "email": {
+      "maxLength": 254,
+      "pattern": "^[^@\\s]+@[^@\\s]+\\.[^@\\s]+$",
+      "title": "Email",
+      "type": "string"
+     },
+     "lang": {
+      "default": "zh-TW",
+      "pattern": "^[a-z]{2}(-[A-Z][A-Za-z]{1,3})?$",
+      "title": "Lang",
+      "type": "string"
+     },
+     "next_path": {
+      "anyOf": [
+       {
+        "maxLength": 200,
+        "pattern": "^/[^\\s]*$",
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Next Path"
+     }
+    },
+    "required": [
+     "email"
+    ],
+    "title": "LinkRequest",
+    "type": "object"
+   },
+   "Me": {
+    "properties": {
+     "email": {
+      "title": "Email",
+      "type": "string"
+     },
+     "member_until": {
+      "anyOf": [
+       {
+        "format": "date-time",
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Member Until"
+     },
+     "reader_id": {
+      "format": "uuid",
+      "title": "Reader Id",
+      "type": "string"
+     }
+    },
+    "required": [
+     "reader_id",
+     "email"
+    ],
+    "title": "Me",
+    "type": "object"
+   },
    "NewAgent": {
     "properties": {
      "avatar_key": {
@@ -3083,6 +3169,11 @@
    },
    "PublicArticle": {
     "properties": {
+     "access": {
+      "default": "free",
+      "title": "Access",
+      "type": "string"
+     },
      "article_id": {
       "format": "uuid",
       "title": "Article Id",
@@ -3099,6 +3190,11 @@
       "title": "Company",
       "type": "string"
      },
+     "company_id": {
+      "format": "uuid",
+      "title": "Company Id",
+      "type": "string"
+     },
      "lang": {
       "title": "Lang",
       "type": "string"
@@ -3109,6 +3205,11 @@
       },
       "title": "Langs",
       "type": "object"
+     },
+     "locked": {
+      "default": false,
+      "title": "Locked",
+      "type": "boolean"
      },
      "path": {
       "title": "Path",
@@ -3157,13 +3258,19 @@
      "blocks",
      "sources",
      "langs",
-     "company"
+     "company",
+     "company_id"
     ],
     "title": "PublicArticle",
     "type": "object"
    },
    "PublicArticleSummary": {
     "properties": {
+     "access": {
+      "default": "free",
+      "title": "Access",
+      "type": "string"
+     },
      "article_id": {
       "format": "uuid",
       "title": "Article Id",
@@ -4508,6 +4615,21 @@
     "title": "ValidationError",
     "type": "object"
    },
+   "Verify": {
+    "properties": {
+     "token": {
+      "maxLength": 200,
+      "minLength": 10,
+      "title": "Token",
+      "type": "string"
+     }
+    },
+    "required": [
+     "token"
+    ],
+    "title": "Verify",
+    "type": "object"
+   },
    "VersionView": {
     "properties": {
      "change_summary": {
@@ -4927,6 +5049,285 @@
     "summary": "Get Article",
     "tags": [
      "newsroom"
+    ]
+   }
+  },
+  "/api/articles/{article_id}/access": {
+   "post": {
+    "description": "Put an article behind the paywall, or take it out. A person's decision for now: what is\nworth paying for is a judgement about the reader, and no rule here would be honest.",
+    "operationId": "set_article_access_api_articles__article_id__access_post",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "article_id",
+      "required": true,
+      "schema": {
+       "format": "uuid",
+       "title": "Article Id",
+       "type": "string"
+      }
+     }
+    ],
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/ArticleAccessBody"
+       }
+      }
+     },
+     "required": true
+    },
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "additionalProperties": {
+          "type": "string"
+         },
+         "title": "Response Set Article Access Api Articles  Article Id  Access Post",
+         "type": "object"
+        }
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "security": [
+     {
+      "HTTPBearer": []
+     }
+    ],
+    "summary": "Set Article Access",
+    "tags": [
+     "newsroom"
+    ]
+   }
+  },
+  "/api/auth/link": {
+   "post": {
+    "description": "Email a one-time link. Answers 202 whether or not the address has been seen before.",
+    "operationId": "send_link_api_auth_link_post",
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/LinkRequest"
+       }
+      }
+     },
+     "required": true
+    },
+    "responses": {
+     "202": {
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Send Link",
+    "tags": [
+     "auth"
+    ]
+   }
+  },
+  "/api/auth/logout": {
+   "post": {
+    "operationId": "logout_api_auth_logout_post",
+    "parameters": [
+     {
+      "in": "cookie",
+      "name": "autora_reader",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "type": "string"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Autora Reader"
+      }
+     }
+    ],
+    "responses": {
+     "204": {
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Logout",
+    "tags": [
+     "auth"
+    ]
+   }
+  },
+  "/api/auth/me": {
+   "get": {
+    "operationId": "me_api_auth_me_get",
+    "parameters": [
+     {
+      "in": "query",
+      "name": "company",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "maxLength": 100,
+         "type": "string"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Company"
+      }
+     },
+     {
+      "in": "cookie",
+      "name": "autora_reader",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "type": "string"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Autora Reader"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "anyOf": [
+          {
+           "$ref": "#/components/schemas/Me"
+          },
+          {
+           "type": "null"
+          }
+         ],
+         "title": "Response Me Api Auth Me Get"
+        }
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Me",
+    "tags": [
+     "auth"
+    ]
+   }
+  },
+  "/api/auth/verify": {
+   "post": {
+    "operationId": "verify_api_auth_verify_post",
+    "parameters": [
+     {
+      "in": "query",
+      "name": "company",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "maxLength": 100,
+         "type": "string"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Company"
+      }
+     }
+    ],
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/Verify"
+       }
+      }
+     },
+     "required": true
+    },
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/Me"
+        }
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Verify",
+    "tags": [
+     "auth"
     ]
    }
   },
@@ -6408,6 +6809,22 @@
       "schema": {
        "title": "Slug",
        "type": "string"
+      }
+     },
+     {
+      "in": "cookie",
+      "name": "autora_reader",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "type": "string"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Autora Reader"
       }
      }
     ],

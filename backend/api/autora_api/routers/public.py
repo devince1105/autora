@@ -1,5 +1,9 @@
-"""The public site's API (T-515): published articles and the reader beacon. No authentication:
-anyone can read what was published, and the beacon carries nothing about the reader.
+"""The public site's API (T-515, D-025): published articles and the reader beacon.
+
+Most articles are free and need no sign-in. A members-only one comes back as its opening and
+``locked`` unless the reader's cookie belongs to somebody whose membership is still running —
+the rest of the text is never sent to a browser that may not read it. The beacon carries
+nothing about the reader either way.
 
 - GET  /api/public/articles?lang=zh-TW[&company=<slug>][&limit=20]: newest published first
 - GET  /api/public/articles/{lang}/{slug}: one published article (404: not published in lang)
@@ -11,9 +15,11 @@ from __future__ import annotations
 import uuid
 from typing import Annotated
 
-from fastapi import APIRouter, HTTPException, Query, Response, status
+from fastapi import APIRouter, Cookie, HTTPException, Query, Response, status
 from pydantic import BaseModel, Field
 
+from autora.accounts import SESSION_COOKIE, customer_ref, reader_for
+from autora.company import memberships
 from autora.domains.newsroom.models import AnalyticsEventType
 from autora.domains.newsroom.site import (
     MAX_LIST,
@@ -27,6 +33,8 @@ from autora.domains.newsroom.site import (
 from autora_api.deps import Session
 
 router = APIRouter(tags=["public"])
+
+SessionCookie = Annotated[str | None, Cookie(alias=SESSION_COOKIE)]
 
 Lang = Annotated[str, Field(pattern=r"^[a-z]{2}(-[A-Z][A-Za-z]{1,3})?$", max_length=10)]
 
@@ -42,11 +50,23 @@ async def list_articles(
 
 
 @router.get("/api/public/articles/{lang}/{slug}")
-async def get_article(lang: str, slug: str, session: Session) -> PublicArticle:
+async def get_article(
+    lang: str, slug: str, session: Session, autora_reader: SessionCookie = None
+) -> PublicArticle:
     article = await published_article(session, lang, slug)
     if article is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, f"no published article {slug} in {lang}")
-    return article
+    if not article.locked:
+        return article
+    reader = await reader_for(session, autora_reader)
+    if reader is None:
+        return article
+    until = await memberships.access_until(
+        session, company_id=article.company_id, customer_ref=customer_ref(reader.id)
+    )
+    if until is None:
+        return article
+    return await published_article(session, lang, slug, unlocked=True) or article
 
 
 class Beacon(BaseModel):

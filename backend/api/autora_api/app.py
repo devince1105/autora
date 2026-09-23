@@ -14,6 +14,7 @@ from autora.realtime.gateway import EventHub
 from autora_api import problems
 from autora_api.routers import (
     approvals,
+    auth,
     companies,
     cycles,
     events,
@@ -53,6 +54,9 @@ def create_app() -> FastAPI:
         allow_origins=get_settings().cors_origins,
         allow_methods=["GET", "POST"],
         allow_headers=["Authorization", "Content-Type"],
+        # the reader's session is a cookie (D-025), and a cross-origin request only carries it
+        # when both sides say so; the origins above are the only ones allowed to ask
+        allow_credentials=True,
     )
 
     @app.get("/health", tags=["meta"])
@@ -69,6 +73,7 @@ def create_app() -> FastAPI:
     app.include_router(reporting.router)
     app.include_router(cycles.router)
     app.include_router(public.router)
+    app.include_router(auth.router)
     app.include_router(newsroom.router)
     app.include_router(meta.router)
     app.include_router(ws.router)

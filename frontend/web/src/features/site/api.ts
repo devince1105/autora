@@ -13,10 +13,17 @@ export type PublicArticleSummary = Schemas["PublicArticleSummary"];
 export interface SiteClientOptions {
   baseUrl?: string;
   fetch?: typeof fetch;
+  /** The reader's cookie, forwarded when the server renders a page for them (D-025). Without
+   * it the API cannot tell a member from anybody else, and a locked article stays locked. */
+  cookie?: string;
 }
 
 function client(options: SiteClientOptions) {
-  return createClient<paths>({ baseUrl: options.baseUrl ?? SERVER_API_URL, fetch: options.fetch });
+  return createClient<paths>({
+    baseUrl: options.baseUrl ?? SERVER_API_URL,
+    fetch: options.fetch,
+    headers: options.cookie ? { cookie: options.cookie } : undefined,
+  });
 }
 
 /** A published article in ``lang``, or null when there is none (not published, or not in it). */

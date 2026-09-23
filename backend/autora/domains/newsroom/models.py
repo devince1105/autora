@@ -288,6 +288,13 @@ class ClaimEvidence(IdMixin, CreatedAtMixin, Base):
     run_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("agent_runs.id"))
 
 
+class ArticleAccess(StrEnum):
+    """Who may read the whole thing (D-025). Most articles are FREE; some are for members."""
+
+    FREE = "free"
+    MEMBERS = "members"
+
+
 class ArticleState(StrEnum):
     """platform/02 §6: DRAFT -> IN_REVIEW -> APPROVED -> PUBLISHED -> ARCHIVED;
     IN_REVIEW -> DRAFT (revise, at most twice) | REJECTED."""
@@ -310,6 +317,7 @@ class Article(IdMixin, TimestampMixin, Base):
         UniqueConstraint("story_id"),
         UniqueConstraint("slug"),
         CheckConstraint("revision_count >= 0", name="revision_count_non_negative"),
+        check_in("access", ArticleAccess),
     )
 
     company_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("companies.id"))
@@ -327,6 +335,8 @@ class Article(IdMixin, TimestampMixin, Base):
     published_at: Mapped[datetime | None]
     published_group_id: Mapped[uuid.UUID | None]
     """The draft group that was published: what the public site shows (T-512)."""
+    access: Mapped[str] = mapped_column(server_default=ArticleAccess.FREE.value)
+    """FREE, or MEMBERS: the paywall is per article, and free is the default (D-025)."""
 
 
 class ArticleVersion(IdMixin, CreatedAtMixin, Base):

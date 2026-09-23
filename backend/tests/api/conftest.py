@@ -11,7 +11,7 @@ from autora.app import build_runtime  # noqa: E402
 from autora.infra.blobstore import LocalFSBlobStore  # noqa: E402
 from autora.infra.settings import load_settings  # noqa: E402
 from autora_api.app import create_app  # noqa: E402
-from autora_api.deps import get_session, runtime_dep, settings_dep  # noqa: E402
+from autora_api.deps import get_session, runtime_dep, sender_dep, settings_dep  # noqa: E402
 from autora_api.routers.runs import blob_store_dep  # noqa: E402
 from tests.newsroom.conftest import newsroom_room  # noqa: E402, F401 (fixture)
 
@@ -30,7 +30,7 @@ def runtime():
 
 
 @pytest.fixture
-async def api(db_session, db_settings, blobs, runtime):
+async def api(db_session, db_settings, blobs, runtime, mailbox):
     """HTTP client against the real app, sharing the test's rolled-back DB session."""
     app = create_app()
 
@@ -40,6 +40,7 @@ async def api(db_session, db_settings, blobs, runtime):
     app.dependency_overrides[get_session] = _session
     app.dependency_overrides[blob_store_dep] = lambda: blobs
     app.dependency_overrides[runtime_dep] = lambda: runtime
+    app.dependency_overrides[sender_dep] = lambda: mailbox
     app.dependency_overrides[settings_dep] = lambda: load_settings(
         database_url=db_settings.database_url, api_bearer_token=TOKEN
     )

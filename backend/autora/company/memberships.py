@@ -387,6 +387,30 @@ async def has_access(
     return expires_at is not None and expires_at > (at or datetime.now(UTC))
 
 
+async def access_until(
+    session: AsyncSession,
+    *,
+    company_id: uuid.UUID,
+    customer_ref: str,
+    at: datetime | None = None,
+) -> datetime | None:
+    """Until when is whoever this reference belongs to a member of this company? None: not.
+
+    Takes the reference rather than a customer, because the caller (the site) knows a reader,
+    not a customer, and somebody who has never paid has no customer row at all. The furthest
+    date wins when they hold more than one membership.
+    """
+    return await session.scalar(
+        select(func.max(Membership.expires_at))
+        .join(Customer, Customer.id == Membership.customer_id)
+        .where(
+            Membership.company_id == company_id,
+            Customer.external_ref == customer_ref,
+            Membership.expires_at > (at or datetime.now(UTC)),
+        )
+    )
+
+
 async def _has_access(session: AsyncSession, customer_id: uuid.UUID, at: datetime) -> bool:
     live = await session.scalar(
         select(func.count())

@@ -7,11 +7,11 @@ root_package = autora
 include_external_packages = True
 
 [importlinter:contract:layers]
-name = Autora layers: app > domains|realtime > company > runtime > db > infra
+name = Autora layers: app > accounts|domains|realtime > company > runtime > db > infra
 type = layers
 layers =
     autora.app
-    autora.domains | autora.realtime
+    autora.accounts | autora.domains | autora.realtime
     autora.company
     autora.runtime
     autora.db
@@ -30,4 +30,22 @@ source_modules =
 forbidden_modules =
     fastapi
     starlette
+# D-025: a reader's address lives in autora.accounts and nowhere else. The layers contract
+# already stops anything below from importing it; this one says why, so that removing the line
+# has to be a decision somebody makes on purpose.
+[importlinter:contract:no-one-reads-the-readers]
+name = No agent, domain or company code may read a reader's identity
+type = forbidden
+source_modules =
+    autora.company
+    autora.domains
+    autora.runtime
+    autora.db
+forbidden_modules =
+    autora.accounts
+# The same exception the layers contract makes: migrations ask the composition root for every
+# table, and readers are tables too. It reaches accounts through app, not around this line.
+ignore_imports =
+    autora.db.migrations.env -> autora.app
+
 # Domain independence (domains never import each other) is added with the second domain.

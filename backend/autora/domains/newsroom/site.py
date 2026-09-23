@@ -5,6 +5,12 @@ The site shows only what was published: the draft group the publisher marked as 
 the sources behind it (the evidence the cited claims quote: title, site and link), never the
 claims' internals, drafts or anything unpublished.
 
+Some articles are for members (D-025). The paywall lives here, in what is returned: a member's
+request gets the whole article, anybody else gets the opening (``PREVIEW_BLOCKS``) and
+``locked``. The site never receives the rest of the text and then hides it — a reader with the
+developer tools open would find it there. Who counts as a member is decided above this module:
+this one is handed a yes or a no.
+
 Beacons (``record_beacon``) count readers without knowing who they are: the browser sends a
 random id it makes each day (``session_hash``); no IP address or anything else about the reader is
 stored. One count per session, article, language, kind and day: repeats are dropped.
@@ -27,6 +33,7 @@ from autora.domains.newsroom.models import (
     AnalyticsEvent,
     AnalyticsEventType,
     Article,
+    ArticleAccess,
     ArticleState,
     ArticleVersion,
     ClaimEvidence,
@@ -37,6 +44,16 @@ from autora.domains.newsroom.publisher import article_path
 from autora.infra.ids import uuid7
 
 MAX_LIST = 50
+PREVIEW_BLOCKS = 2
+"""At most how many blocks of a members-only article anybody may read."""
+
+
+def preview(body: list[dict]) -> list[dict]:
+    """The opening of a locked article — always strictly less than all of it.
+
+    A short article would otherwise be given away whole: two blocks of a two-block piece is
+    the piece. What stays behind is at least the last block, whatever the length."""
+    return body[: min(PREVIEW_BLOCKS, max(0, len(body) - 1))]
 
 
 class PublicBlock(BaseModel):
@@ -58,20 +75,27 @@ class PublicArticleSummary(BaseModel):
     title: str
     summary: str | None
     published_at: datetime
+    access: str = ArticleAccess.FREE.value
+    """``free`` or ``members`` (D-025). On a list, this is what draws the badge."""
 
 
 class PublicArticle(PublicArticleSummary):
+    locked: bool = False
+    """True when ``blocks`` is only the opening, because this one is for members."""
     blocks: list[PublicBlock]
     sources: list[PublicSource]
     """The evidence the article's claims quote, once per page, in order of first use."""
     langs: dict[str, str]
     """Every published language -> its page, for the language switch and hreflang."""
     company: str
+    company_id: uuid.UUID
+    """Whose article it is — the site asks that company whether this reader is a member."""
 
 
 def _summary(article: Article, version: ArticleVersion) -> PublicArticleSummary:
     assert article.published_at is not None
     return PublicArticleSummary(
+        access=article.access,
         article_id=article.id,
         lang=version.lang,
         slug=article.slug,
@@ -95,7 +119,11 @@ def _published(lang: str):
     )
 
 
-async def published_article(session: AsyncSession, lang: str, slug: str) -> PublicArticle | None:
+async def published_article(
+    session: AsyncSession, lang: str, slug: str, *, unlocked: bool = False
+) -> PublicArticle | None:
+    """One published article. ``unlocked`` says the reader is a member; without it, a
+    members-only article comes back as its opening and ``locked``."""
     row = (await session.execute(_published(lang).where(Article.slug == slug))).first()
     if row is None:
         return None
@@ -125,12 +153,16 @@ async def published_article(session: AsyncSession, lang: str, slug: str) -> Publ
             if url not in sources:
                 site = urlsplit(url).hostname or url
                 sources[url] = PublicSource(title=title or site, site=site, url=url)
+    locked = article.access == ArticleAccess.MEMBERS.value and not unlocked
+    body = preview(version.body) if locked else version.body
     return PublicArticle(
         **_summary(article, version).model_dump(),
-        blocks=[PublicBlock(type=b["type"], text=b["text"]) for b in version.body],
-        sources=list(sources.values()),
+        locked=locked,
+        blocks=[PublicBlock(type=b["type"], text=b["text"]) for b in body],
+        sources=[] if locked else list(sources.values()),
         langs={lang_: article_path(lang_, article.slug) for lang_ in article.published_langs},
         company=company.name if company else "",
+        company_id=article.company_id,
     )
 
 

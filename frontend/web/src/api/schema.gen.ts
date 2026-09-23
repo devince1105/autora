@@ -79,6 +79,98 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/articles/{article_id}/access": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Set Article Access
+         * @description Put an article behind the paywall, or take it out. A person's decision for now: what is
+         *     worth paying for is a judgement about the reader, and no rule here would be honest.
+         */
+        post: operations["set_article_access_api_articles__article_id__access_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/auth/link": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Send Link
+         * @description Email a one-time link. Answers 202 whether or not the address has been seen before.
+         */
+        post: operations["send_link_api_auth_link_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/auth/logout": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Logout */
+        post: operations["logout_api_auth_logout_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/auth/me": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Me */
+        get: operations["me_api_auth_me_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/auth/verify": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Verify */
+        post: operations["verify_api_auth_verify_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/companies": {
         parameters: {
             query?: never;
@@ -802,6 +894,16 @@ export interface components {
          * @enum {string}
          */
         ApprovalState: "PENDING" | "APPROVED" | "REJECTED" | "EXPIRED";
+        /**
+         * ArticleAccess
+         * @description Who may read the whole thing (D-025). Most articles are FREE; some are for members.
+         * @enum {string}
+         */
+        ArticleAccess: "free" | "members";
+        /** ArticleAccessBody */
+        ArticleAccessBody: {
+            access: components["schemas"]["ArticleAccess"];
+        };
         /** ArticleDetail */
         ArticleDetail: {
             /** Analytics */
@@ -1632,6 +1734,30 @@ export interface components {
             /** Url */
             url: string;
         };
+        /** LinkRequest */
+        LinkRequest: {
+            /** Email */
+            email: string;
+            /**
+             * Lang
+             * @default zh-TW
+             */
+            lang: string;
+            /** Next Path */
+            next_path?: string | null;
+        };
+        /** Me */
+        Me: {
+            /** Email */
+            email: string;
+            /** Member Until */
+            member_until?: string | null;
+            /**
+             * Reader Id
+             * Format: uuid
+             */
+            reader_id: string;
+        };
         /** NewAgent */
         NewAgent: {
             /**
@@ -1845,6 +1971,11 @@ export interface components {
         /** PublicArticle */
         PublicArticle: {
             /**
+             * Access
+             * @default free
+             */
+            access: string;
+            /**
              * Article Id
              * Format: uuid
              */
@@ -1853,12 +1984,22 @@ export interface components {
             blocks: components["schemas"]["PublicBlock"][];
             /** Company */
             company: string;
+            /**
+             * Company Id
+             * Format: uuid
+             */
+            company_id: string;
             /** Lang */
             lang: string;
             /** Langs */
             langs: {
                 [key: string]: string;
             };
+            /**
+             * Locked
+             * @default false
+             */
+            locked: boolean;
             /** Path */
             path: string;
             /**
@@ -1877,6 +2018,11 @@ export interface components {
         };
         /** PublicArticleSummary */
         PublicArticleSummary: {
+            /**
+             * Access
+             * @default free
+             */
+            access: string;
             /**
              * Article Id
              * Format: uuid
@@ -2412,6 +2558,11 @@ export interface components {
             /** Error Type */
             type: string;
         };
+        /** Verify */
+        Verify: {
+            /** Token */
+            token: string;
+        };
         /** VersionView */
         VersionView: {
             /** Change Summary */
@@ -2630,6 +2781,173 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ArticleDetail"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    set_article_access_api_articles__article_id__access_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                article_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ArticleAccessBody"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: string;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    send_link_api_auth_link_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["LinkRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    logout_api_auth_logout_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: {
+                autora_reader?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    me_api_auth_me_get: {
+        parameters: {
+            query?: {
+                company?: string | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: {
+                autora_reader?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Me"] | null;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    verify_api_auth_verify_post: {
+        parameters: {
+            query?: {
+                company?: string | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["Verify"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Me"];
                 };
             };
             /** @description Validation Error */
@@ -3419,7 +3737,9 @@ export interface operations {
                 lang: string;
                 slug: string;
             };
-            cookie?: never;
+            cookie?: {
+                autora_reader?: string | null;
+            };
         };
         requestBody?: never;
         responses: {
