@@ -78,3 +78,34 @@ export function drawSprite(
 export function footOf(art: Sprite): number {
   return art.anchor ?? art.h;
 }
+
+/**
+ * A sprite as RGBA pixels, ready for one ``putImageData`` — for pictures that are painted once and
+ * kept (``floorPainter``'s cache). Filling rectangles run by run and reading the canvas back costs
+ * a trip through the GPU for every picture; a big one (the office's backdrop is 810 × 522) pays it
+ * hundreds of milliseconds on a slow machine. ``.`` and characters without a colour are clear.
+ */
+export function rasterise(art: Sprite, options: { flip?: boolean } = {}): Uint8ClampedArray<ArrayBuffer> {
+  const data = new Uint8ClampedArray(art.w * art.h * 4);
+  const rgb = new Map<string, [number, number, number]>();
+  for (const [key, colour] of Object.entries(art.palette)) {
+    const m = /^#?([0-9a-f]{6})$/i.exec(colour.trim());
+    if (!m) continue;
+    const n = parseInt(m[1], 16);
+    rgb.set(key, [(n >> 16) & 255, (n >> 8) & 255, n & 255]);
+  }
+  for (let row = 0; row < art.h; row++) {
+    const line = art.rows[row];
+    for (let col = 0; col < art.w; col++) {
+      const colour = rgb.get(line[col] ?? ".");
+      if (!colour) continue;
+      const x = options.flip ? art.w - 1 - col : col;
+      const i = (row * art.w + x) * 4;
+      data[i] = colour[0];
+      data[i + 1] = colour[1];
+      data[i + 2] = colour[2];
+      data[i + 3] = 255;
+    }
+  }
+  return data;
+}

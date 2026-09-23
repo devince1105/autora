@@ -12,7 +12,7 @@ import * as atlas from "./art/atlas";
 import { patternFloors } from "./art/floorPattern";
 import { facingOf, figure, placeFigure, type Figure } from "./art/people";
 import { BACKDROP_KEY, piece } from "./art/pieces";
-import { drawSprite } from "./art/sprites";
+import { drawSprite, rasterise, type Sprite } from "./art/sprites";
 import { paint, paintShadow, SHADOW_ALPHA } from "./art/theme";
 import { CONSOLE } from "./console";
 import { TILE, TILE_DEPTH, worldToPixels, type Scene } from "./tiles";
@@ -41,17 +41,26 @@ export class Pictures {
     private readonly makeCanvas: () => HTMLCanvasElement = () => document.createElement("canvas"),
   ) {}
 
-  private canvasOf(key: string, make: (ctx: CanvasRenderingContext2D) => void, w: number, h: number) {
+  /**
+   * A picture, painted once and kept. The pixels are built in an array and handed to the canvas in
+   * one ``putImageData``: no rectangle per run, and no reading the canvas back — which on a slow
+   * machine made the backdrop alone cost most of a second of the 2D board's first frame.
+   */
+  private picture(key: string, art: Sprite, options: { flip?: boolean; floors?: boolean } = {}): HTMLCanvasElement | null {
     if (this.cache.has(key)) return this.cache.get(key) ?? null;
     const canvas = this.makeCanvas();
-    canvas.width = w;
-    canvas.height = h;
+    canvas.width = art.w;
+    canvas.height = art.h;
     const ctx = canvas.getContext("2d");
     if (!ctx) {
       this.cache.set(key, null);
       return null;
     }
-    make(ctx);
+    const data = rasterise(art, { flip: options.flip });
+    const found = options.floors ? piece(BACKDROP_KEY) : null;
+    // the floor's texture belongs to the style, not the bake: laid here, once per style
+    if (found) patternFloors({ data, width: art.w, height: art.h }, found, THEMES[this.theme].palette, { across: TILE, deep: TILE_DEPTH });
+    ctx.putImageData(new ImageData(data, art.w, art.h), 0, 0);
     this.cache.set(key, canvas);
     return canvas;
   }
@@ -59,41 +68,24 @@ export class Pictures {
   art(bake: string, accent?: string): HTMLCanvasElement | null {
     const found = piece(bake);
     if (!found) return null;
-    const palette = THEMES[this.theme].palette;
-    const art = paint(found, palette, accent);
-    return this.canvasOf(
-      `art|${bake}|${accent ?? ""}`,
-      (ctx) => {
-        drawSprite(ctx, art, 0, 0);
-        // the floor's texture belongs to the style, not the bake: laid here, once per style
-        if (bake === BACKDROP_KEY) {
-          const image = ctx.getImageData(0, 0, found.w, found.h);
-          patternFloors(image, found, palette, { across: TILE, deep: TILE_DEPTH });
-          ctx.putImageData(image, 0, 0);
-        }
-      },
-      found.w,
-      found.h,
-    );
+    const art = paint(found, THEMES[this.theme].palette, accent);
+    return this.picture(`art|${bake}|${accent ?? ""}`, art, { floors: bake === BACKDROP_KEY });
   }
 
   /** A baked figure, mirrored when it faces left. People keep their own colours in every style. */
   person(f: Figure): HTMLCanvasElement | null {
-    const art = paint(f.piece, THEMES[this.theme].palette);
-    return this.canvasOf(`person|${f.key}|${f.flip}`, (ctx) => drawSprite(ctx, art, 0, 0, { flip: f.flip }), f.piece.w, f.piece.h);
+    return this.picture(`person|${f.key}|${f.flip}`, paint(f.piece, THEMES[this.theme].palette), { flip: f.flip });
   }
 
   personShadow(f: Figure): HTMLCanvasElement | null {
     const art = paintShadow(f.piece);
-    if (!art) return null;
-    return this.canvasOf(`person-shadow|${f.key}|${f.flip}`, (ctx) => drawSprite(ctx, art, 0, 0, { flip: f.flip }), f.piece.w, f.piece.h);
+    return art ? this.picture(`person-shadow|${f.key}|${f.flip}`, art, { flip: f.flip }) : null;
   }
 
   shadow(bake: string): HTMLCanvasElement | null {
     const found = piece(bake);
     const art = found ? paintShadow(found) : null;
-    if (!found || !art) return null;
-    return this.canvasOf(`shadow|${bake}`, (ctx) => drawSprite(ctx, art, 0, 0), found.w, found.h);
+    return found && art ? this.picture(`shadow|${bake}`, art) : null;
   }
 }
 

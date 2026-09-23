@@ -226,3 +226,41 @@ window.previewPeople = async () => {
   });
   return canvas.toDataURL("image/png");
 };
+
+// --- how long the backdrop takes to paint, for measuring the 2D board's first frame -------------
+
+import { BACKDROP_KEY } from "@/office3d/fallback/art/pieces";
+
+declare global {
+  interface Window {
+    timeBackdrop: (theme: ThemeId) => number;
+  }
+}
+
+/** Milliseconds to paint the backdrop in a style from nothing: what the 2D board's first frame pays. */
+window.timeBackdrop = (theme) => {
+  const pictures = new Pictures(theme);
+  const t0 = performance.now();
+  pictures.art(BACKDROP_KEY);
+  return performance.now() - t0;
+};
+
+declare global {
+  interface Window {
+    timeFirstFrame: (theme: ThemeId) => number;
+  }
+}
+
+/** Milliseconds for the 2D board's first frame from an empty cache: every picture painted once. */
+window.timeFirstFrame = (theme) => {
+  const plan = floorPlan(STAFF.map((s) => s.id), assignSeats(STAFF).seats);
+  const cards = new Map(STAFF.map((s) => [s.id, { id: s.id, color: ROLE_COLOR[s.role], visual: { pose: "sit_idle" } } as unknown as BoardCard]));
+  const characters = new Map<string, string>(STAFF.map((s) => [s.id, characterFor(s.id)]));
+  const frame = document.createElement("canvas");
+  const t0 = performance.now();
+  const scene = buildScene(plan, cards, characters);
+  frame.width = scene.width;
+  frame.height = scene.height;
+  paintFloor(frame.getContext("2d")!, scene, new Pictures(theme), { selected: null, focused: null, walking: [], characters, time: 0 });
+  return performance.now() - t0;
+};
