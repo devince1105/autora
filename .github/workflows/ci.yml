@@ -1,8 +1,19 @@
 name: ci
 
 on:
+  # Documentation-only changes do not run the suite. The devlog is written after almost every
+  # batch, and a run costs eight minutes of e2e to prove that prose still compiles. A commit
+  # that touches anything else runs everything: GitHub skips a run only when *every* changed
+  # file matches, so "docs and code" is code.
+  #
+  # Nothing under test reads these files — the tests that name them do so in comments.
   push:
+    paths-ignore: &docs
+      - "logs/**"
+      - "**/*.md"
+      - ".env.example"
   pull_request:
+    paths-ignore: *docs
 
 jobs:
   python:
