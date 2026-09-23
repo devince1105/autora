@@ -19,24 +19,15 @@ import { useRealtime, type RealtimeState } from "@/stores/realtime";
 import { uiStore, useUi } from "@/stores/ui";
 
 import { assignSeats } from "../scene/layout";
-import type { BadgeTone } from "../visual/mapping";
 import { arcBetween, boardModel, handoffsAfter, roomPlan, type BoardCard, type Box } from "./board";
 import { LogColumn, RosterColumn } from "./BoardSideColumns";
+import { BADGE_INK, CONSOLE, consoleVars } from "./console";
 import { RoomPlanView } from "./RoomPlanView";
 
 /** The tab that shows every room at once; the floor rather than one room of it. */
 export const ALL_ROOMS = "all";
 
 export const HANDOFF_MS = 2500;
-
-const TONE: Record<BadgeTone, string> = {
-  muted: "bg-neutral/15 text-muted",
-  info: "bg-accent/15 text-accent",
-  active: "bg-ok/15 text-ok",
-  warn: "bg-warn/20 text-warn",
-  error: "bg-danger/15 text-danger",
-  success: "bg-ok/15 text-ok",
-};
 
 interface Arrow {
   key: string;
@@ -86,21 +77,30 @@ function Card({ card, selected, cardRef }: { card: BoardCard; selected: boolean;
       data-pose={visual.pose}
       aria-pressed={selected}
       onClick={() => uiStore.getState().selectAgent(card.id)}
-      className={`relative grid gap-1.5 rounded-xl border bg-surface p-3 pl-4 text-left shadow-sm transition-colors hover:border-accent ${
-        selected ? "border-accent ring-2 ring-accent/40" : "border-line"
+      className={`relative grid gap-1.5 border-2 bg-[color:var(--console-panel)] p-3 pl-4 text-left transition-colors hover:border-[color:var(--console-accent)] ${
+        selected ? "border-[color:var(--console-accent)]" : "border-[color:var(--console-edge-dim)]"
       } ${blinking ? "animate-pulse" : ""}`}
     >
-      <span aria-hidden className="absolute inset-y-2 left-1.5 w-1 rounded-full" style={{ backgroundColor: card.color }} />
+      <span aria-hidden className="absolute inset-y-2 left-1.5 w-1" style={{ backgroundColor: card.color }} />
       <span className="flex items-center justify-between gap-2">
         <span className="min-w-0">
-          <span className="block truncate font-semibold">{card.name}</span>
-          <span className="block text-xs text-muted">{card.roleLabel}</span>
+          <span className="block truncate font-semibold text-[color:var(--console-text)]">{card.name}</span>
+          <span className="block text-xs text-[color:var(--console-text-dim)]">{card.roleLabel}</span>
         </span>
-        <span className={`shrink-0 rounded-full px-2 py-0.5 text-xs font-medium ${TONE[visual.badge.tone]}`}>{visual.badge.text}</span>
+        <span
+          className="shrink-0 border px-2 py-0.5 text-xs font-medium"
+          style={{ color: BADGE_INK[visual.badge.tone] ?? CONSOLE.text, borderColor: BADGE_INK[visual.badge.tone] ?? CONSOLE.edge }}
+        >
+          {visual.badge.text}
+        </span>
       </span>
-      {visual.bubble ? <span className="truncate text-sm italic text-muted">「{visual.bubble}」</span> : null}
-      <span className="truncate text-sm">{card.taskName ?? <span className="text-muted">沒有進行中的任務</span>}</span>
-      <span className="flex justify-between gap-2 text-xs text-muted">
+      {visual.bubble ? (
+        <span className="truncate text-sm italic text-[color:var(--console-text-dim)]">「{visual.bubble}」</span>
+      ) : null}
+      <span className="truncate text-sm text-[color:var(--console-text)]">
+        {card.taskName ?? <span className="text-[color:var(--console-text-dim)]">沒有進行中的任務</span>}
+      </span>
+      <span className="flex justify-between gap-2 text-xs text-[color:var(--console-text-dim)]">
         <span className="truncate">
           {card.lastDone ? `最近完成：${card.lastDone.taskName ?? card.lastDone.summary ?? "—"}` : " "}
         </span>
@@ -155,16 +155,28 @@ export function OfficeBoard2D({
     );
   }, [arrows, shown]);
 
-  if (!rows.length) return <p className="p-4 text-sm text-muted">這間公司還沒有代理。</p>;
+  if (!rows.length) {
+    return (
+      <p style={consoleVars()} className="h-full bg-[color:var(--console-bg)] p-4 text-sm text-[color:var(--console-text-dim)]">
+        這間公司還沒有代理。
+      </p>
+    );
+  }
   return (
     <div
       aria-label="辦公室（2D）"
-      className="grid h-full min-h-0 lg:grid-cols-[minmax(0,13rem)_minmax(0,1fr)_minmax(0,18rem)]"
+      data-testid="office-console"
+      style={consoleVars()}
+      className="grid h-full min-h-0 bg-[color:var(--console-bg)] text-[color:var(--console-text)] [font-variant-numeric:tabular-nums] lg:grid-cols-[minmax(0,13rem)_minmax(0,1fr)_minmax(0,18rem)]"
     >
       <RosterColumn cards={rows.flatMap((row) => row.cards)} selected={selected} />
 
       <section aria-label="樓層" className="min-h-0 min-w-0 overflow-y-auto">
-        <div role="tablist" aria-label="房間" className="flex flex-wrap gap-1 border-b border-line px-3 py-2 text-xs">
+        <div
+          role="tablist"
+          aria-label="房間"
+          className="flex flex-wrap gap-1 border-b-2 border-[color:var(--console-edge-dim)] bg-[color:var(--console-panel-dim)] px-3 py-2 text-[11px] uppercase tracking-[0.15em]"
+        >
           {[{ id: ALL_ROOMS, label: "全部", businessColor: null }, ...rows].map((tab) => (
             <button
               key={tab.id}
@@ -173,12 +185,14 @@ export function OfficeBoard2D({
               aria-selected={shown === tab.id}
               data-testid={`room-tab-${tab.id}`}
               onClick={() => setRoom(tab.id)}
-              className={`flex items-center gap-1.5 rounded-md px-2 py-1 ${
-                shown === tab.id ? "bg-accent text-canvas" : "text-muted hover:text-fg"
+              className={`flex items-center gap-1.5 border-2 px-2 py-1 ${
+                shown === tab.id
+                  ? "border-[color:var(--console-accent)] bg-[color:var(--console-accent)] text-[color:var(--console-bg)]"
+                  : "border-transparent text-[color:var(--console-text-dim)] hover:border-[color:var(--console-edge-dim)] hover:text-[color:var(--console-text)]"
               }`}
             >
               {tab.businessColor ? (
-                <span aria-hidden className="size-1.5 rounded-full" style={{ backgroundColor: tab.businessColor }} />
+                <span aria-hidden className="size-1.5" style={{ backgroundColor: tab.businessColor }} />
               ) : null}
               {tab.label}
             </button>
@@ -194,14 +208,14 @@ export function OfficeBoard2D({
           />
           {visible.map((row) => (
             <section key={row.id} aria-label={row.label}>
-              <h3 className="mb-2 flex items-center gap-2 text-xs font-medium tracking-wide text-muted">
+              <h3 className="mb-2 flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.2em] text-[color:var(--console-text-dim)]">
                 {/* the same colour the 3D floor marks this room with; none for a shared function */}
                 {row.businessColor ? (
                   <span
                     aria-hidden
                     data-testid={`row-business-${row.id}`}
                     title={row.business ?? undefined}
-                    className="size-2 rounded-full"
+                    className="size-2"
                     style={{ backgroundColor: row.businessColor }}
                   />
                 ) : null}
