@@ -6,10 +6,9 @@ import type { Lang } from "./i18n";
 export const MEMBERSHIP_PRICE_TWD = 360;
 export const MEMBERSHIP_CURRENCY = "TWD";
 
+/** ``NT$360`` — written out rather than left to the locale, which renders TWD as a bare "$" in
+ * zh-TW. A reader deciding whether to pay should not have to wonder which dollar it is. */
 export function formatMembershipPrice(lang: Lang): string {
-  return new Intl.NumberFormat(lang, {
-    style: "currency",
-    currency: MEMBERSHIP_CURRENCY,
-    maximumFractionDigits: 0,
-  }).format(MEMBERSHIP_PRICE_TWD);
+  const amount = new Intl.NumberFormat(lang, { maximumFractionDigits: 0 }).format(MEMBERSHIP_PRICE_TWD);
+  return `NT$${amount}`;
 }

@@ -119,7 +119,7 @@ describe("the article page", () => {
     expect(screen.getByText(MEMBERS_ONLY.blocks[0].text)).toBeTruthy();
     expect(screen.queryByText(ARTICLE.blocks[2].text)).toBeNull();
     const notice = screen.getByTestId("members-only");
-    expect(notice.textContent).toContain("$360"); // the price, said once and from one place
+    expect(notice.textContent).toContain("NT$360"); // which dollar, said once and from one place
     expect(notice.textContent).toContain("已經是會員？請先登入。");
     const link = within(notice).getByRole("link", { name: "登入" });
     expect(link.getAttribute("href")).toBe(`/news/zh-TW/login?next=${encodeURIComponent(ARTICLE.path)}`);
