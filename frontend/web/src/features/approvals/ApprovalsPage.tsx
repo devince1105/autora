@@ -20,6 +20,7 @@ import type { AgentState } from "@/realtime/reducer";
 import { useRealtime } from "@/stores/realtime";
 
 import { ApprovalInbox } from "./ApprovalInbox";
+import { ArticlePreview } from "./ArticlePreview";
 import { FailedRuns } from "./FailedRuns";
 import { approvalCard, type ApprovalState } from "./model";
 
@@ -63,6 +64,9 @@ function CompanyApprovals({ company }: { company: Company }) {
         decide={(id, decision, reason) => decideApproval(id, decision, reason)}
         live={connection.status === "live"}
         refresh={() => queryClient.invalidateQueries({ queryKey: ["approvals", company.id] })}
+        preview={(card) =>
+          card.article ? <ArticlePreview articleId={card.article.id} draftGroupId={card.article.draftGroupId} /> : null
+        }
       />
       {/* the other thing the inbox is for: work that failed and could be run again (AC-9) */}
       <FailedRuns

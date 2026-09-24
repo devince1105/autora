@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 
 import { ApiError } from "@/api/client";
 
@@ -23,12 +23,14 @@ function Card({
   error,
   busy,
   onDecide,
+  preview,
 }: {
   card: ApprovalCard;
   sent: Decision | undefined;
   error: string | undefined;
   busy: boolean;
   onDecide: (decision: Decision, reason: string | null) => void;
+  preview?: (card: ApprovalCard) => ReactNode;
 }) {
   const [reason, setReason] = useState("");
   const pending = card.state === "PENDING";
@@ -47,9 +49,13 @@ function Card({
         </p>
       </div>
       <h3 className="mt-1 font-medium break-words">{card.summary}</h3>
-      <pre className="mt-2 overflow-x-auto rounded-lg border border-line bg-canvas p-3 text-xs">
-        {JSON.stringify(card.details, null, 2)}
-      </pre>
+      {card.article && preview ? (
+        preview(card)
+      ) : (
+        <pre className="mt-2 overflow-x-auto rounded-lg border border-line bg-canvas p-3 text-xs">
+          {JSON.stringify(card.details, null, 2)}
+        </pre>
+      )}
       <p className="mt-2 flex gap-3 text-sm">
         {card.runId ? (
           <Link href={`/trace/${card.runId}`} className="text-accent underline">
@@ -140,6 +146,8 @@ export interface ApprovalInboxProps {
   /** Is the event stream live? If not, no APPROVAL_* event will refresh the list. */
   live: boolean;
   refresh: () => void;
+  /** What to show for a card about an article, in place of its payload (D-046). */
+  preview?: (card: ApprovalCard) => ReactNode;
 }
 
 /**
@@ -147,7 +155,7 @@ export interface ApprovalInboxProps {
  * when the APPROVAL_* event arrives and invalidates it (refetched right away when the stream is
  * down, since no event would come).
  */
-export function ApprovalInbox({ state, onState, cards, loadError, decide, live, refresh }: ApprovalInboxProps) {
+export function ApprovalInbox({ state, onState, cards, loadError, decide, live, refresh, preview }: ApprovalInboxProps) {
   const [sent, setSent] = useState<Record<string, Decision>>({});
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [busy, setBusy] = useState<string | null>(null);
@@ -209,6 +217,7 @@ export function ApprovalInbox({ state, onState, cards, loadError, decide, live, 
               error={errors[card.id]}
               busy={busy === card.id}
               onDecide={(decision, reason) => onDecide(card.id, decision, reason)}
+              preview={preview}
             />
           ))}
         </ul>

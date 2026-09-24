@@ -49,6 +49,8 @@ export interface ApprovalCard {
   runId: string | null;
   /** A decision task (an article to approve) can be sent back; a paused agent run cannot. */
   canSendBack: boolean;
+  /** The article to read before deciding (D-046): its id and the draft that was submitted. */
+  article: { id: string; draftGroupId: string | null } | null;
   decision: { by: string; at: string; reason: string | null } | null;
 }
 
@@ -81,6 +83,13 @@ export function approvalCard(approval: Approval, agents: Record<string, AgentSta
     taskId: approval.task_id,
     runId: approval.run_id,
     canSendBack: Boolean(approval.task_id) && !approval.run_id,
+    article:
+      typeof payload.article_id === "string"
+        ? {
+            id: payload.article_id,
+            draftGroupId: typeof payload.draft_group_id === "string" ? payload.draft_group_id : null,
+          }
+        : null,
     decision: approval.decided_at
       ? { by: actorName(approval.decided_by, agents), at: approval.decided_at, reason: approval.reason }
       : null,
