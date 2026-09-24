@@ -103,6 +103,9 @@ class Settings(BaseSettings):
     fetch_timeout_seconds: float = Field(default=15.0, gt=0)
     """Live page and feed fetches (T-501, T-502)."""
     fetch_max_bytes: int = Field(default=5_000_000, ge=1)
+    fetch_contact_email: str | None = None
+    """Who to write to about the newsroom's fetching. SEC refuses automated requests that do not
+    name one, in exactly the form "Name email" (D-036); other sites are just as happy with it."""
 
     # --- Blob storage (T-210) ---
     blob_store_dir: Path = Path(__file__).resolve().parents[3] / "data" / "blobs"

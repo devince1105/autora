@@ -266,6 +266,38 @@ async def test_score(db_session):
     assert coffee.score == Decimal("0.267")  # a week old: no freshness
 
 
+async def test_a_primary_source_needs_no_second_one(db_session):
+    """D-036: a 13F is only ever published by SEC; one filing is fully corroborated."""
+    company = await unique_company(db_session, "primary")
+    filings = Source(
+        company_id=company.id,
+        name="13F",
+        kind="rss",
+        url="https://sec.example/13f.atom",
+        config={"primary": True, "own_story": True},
+        trust_level=Decimal("0.95"),
+        status="paused",
+    )
+    db_session.add(filings)
+    await db_session.flush()
+    db_session.add(
+        SourceItem(
+            company_id=company.id,
+            source_id=filings.id,
+            external_id="f1",
+            url="https://sec.example/f1",
+            title="13F-HR",
+            published_at=T0 + timedelta(days=1),
+            content_hash="f1",
+        )
+    )
+    await db_session.flush()
+    await desk().cluster_pending(db_session, company.id)
+    [story] = await stories_of(db_session, company.id)
+    # full corroboration (0.5) + just filed (0.3) + trust 0.95 (0.19)
+    assert story.score == Decimal("0.990")
+
+
 async def test_a_failed_embedding_writes_nothing(db_session):
     company = await unique_company(db_session, "embedfail")
     await feed_source(db_session, company.id, "news", NEWS_FEED)
@@ -395,3 +427,46 @@ async def test_poll_then_cluster_through_the_scheduler(committed):
                 update(Source).where(Source.company_id == company.id).values(status="paused")
             )
             await session.commit()
+
+
+async def test_a_filing_source_makes_every_item_its_own_story(db_session):
+    """D-036: this quarter's 13F reads exactly like last quarter's, and must not join its story."""
+    company = await unique_company(db_session, "filings")
+    filings = Source(
+        company_id=company.id,
+        name="13F",
+        kind="rss",
+        url="https://sec.example/13f.atom",
+        config={"own_story": True},
+        status="paused",
+    )
+    news = Source(company_id=company.id, name="news", kind="rss", url="https://n", status="paused")
+    db_session.add_all([filings, news])
+    await db_session.flush()
+
+    def item(source, n, url=None):
+        return SourceItem(
+            company_id=company.id,
+            source_id=source.id,
+            external_id=f"{source.name}-{n}",
+            url=url or f"https://sec.example/{source.name}/{n}",
+            title="巴菲特（Berkshire Hathaway） 13F-HR - Quarterly report",
+            content_hash=f"{source.name}-{n}",
+        )
+
+    db_session.add(item(filings, 1))
+    await db_session.flush()
+    await desk().cluster_pending(db_session, company.id)
+    db_session.add_all([item(filings, 2), item(filings, 3, url="https://sec.example/13F/1")])
+    await db_session.flush()
+    outcome = await desk().cluster_pending(db_session, company.id)
+    assert len(outcome.new_story_ids) == 1, "the next filing is a story of its own"
+    assert list(outcome.joined.values()).count(outcome.new_story_ids[0]) == 1
+    [(_, first)] = [(i, s) for i, s in outcome.joined.items() if s != outcome.new_story_ids[0]]
+    assert (await db_session.get(Story, first)).items_count == 2, "the same URL still joins"
+
+    # the same title from an ordinary source is the same news, as always
+    db_session.add(item(news, 1))
+    await db_session.flush()
+    outcome = await desk().cluster_pending(db_session, company.id)
+    assert outcome.new_story_ids == []

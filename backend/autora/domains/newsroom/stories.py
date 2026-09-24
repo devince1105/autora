@@ -18,7 +18,8 @@ event in English and Chinese 0.57; related but different stories 0.41-0.54; unre
 Cross-language matching would need ~0.55, which also merges merely related stories, so for now
 the English and Chinese reports of one event can be two stories (the researcher gathers both).
 
-**Score** (0-1, no model): 0.5 x corroboration (distinct sources, 3 or more is full) + 0.3 x
+**Score** (0-1, no model): 0.5 x corroboration (distinct sources, 3 or more is full; full at once
+when one of them is a ``primary`` source, the record itself, D-036) + 0.3 x
 freshness (newest item, fading to 0 over 72 hours) + 0.2 x the sources' average trust level.
 """
 
@@ -46,6 +47,7 @@ from autora.domains.newsroom.models import (
     StoryItem,
     StoryState,
 )
+from autora.domains.newsroom.sources import OWN_STORY, PRIMARY
 from autora.runtime.actor import Actor
 from autora.runtime.events.outbox import emit
 from autora.runtime.events.schema import EventPayload, new_event
@@ -137,11 +139,22 @@ class StoryDesk:
         )
         await session.execute(text("SET LOCAL hnsw.iterative_scan = 'relaxed_order'"))
 
+        own_story = set(
+            await session.scalars(
+                select(Source.id).where(
+                    Source.id.in_({i.source_id for i in items}),
+                    Source.config[OWN_STORY].as_boolean().is_(True),
+                )
+            )
+        )
+
         new_stories: list[Story] = []
         touched: dict[uuid.UUID, Story] = {}
         joined: dict[uuid.UUID, uuid.UUID] = {}
         for item, vector in zip(items, vectors, strict=True):
-            story, similarity = await self._match(session, company_id, item, vector, now)
+            story, similarity = await self._match(
+                session, company_id, item, vector, now, by_meaning=item.source_id not in own_story
+            )
             if story is None:
                 story = Story(
                     company_id=company_id,
@@ -194,6 +207,8 @@ class StoryDesk:
         item: SourceItem,
         vector: list[float],
         now: datetime,
+        *,
+        by_meaning: bool = True,
     ) -> tuple[Story | None, float | None]:
         same_url = await session.scalar(
             select(Story)
@@ -208,6 +223,8 @@ class StoryDesk:
         )
         if same_url is not None:
             return same_url, 1.0
+        if not by_meaning:
+            return None, None
         query = bindparam("item_vector", vector, type_=HalfVector(EMBED_DIM))
         distance = Story.embedding.op("<=>", return_type=Float)(query)
         row = (
@@ -227,10 +244,12 @@ class StoryDesk:
         return None, None
 
     async def _rescore(self, session: AsyncSession, story: Story, now: datetime) -> None:
-        sources, trust = (
+        sources, trust, primary = (
             await session.execute(
                 select(
-                    func.count(func.distinct(SourceItem.source_id)), func.avg(Source.trust_level)
+                    func.count(func.distinct(SourceItem.source_id)),
+                    func.avg(Source.trust_level),
+                    func.bool_or(Source.config[PRIMARY].as_boolean().is_(True)),
                 )
                 .select_from(StoryItem)
                 .join(SourceItem, SourceItem.id == StoryItem.source_item_id)
@@ -241,7 +260,7 @@ class StoryDesk:
         story.sources_count = int(sources)
         age_hours = max(0.0, (now - story.last_item_at).total_seconds() / 3600)
         freshness = max(0.0, 1 - age_hours / FRESH_HOURS)
-        corroboration = min(story.sources_count, 3) / 3
+        corroboration = 1.0 if primary else min(story.sources_count, 3) / 3
         value = 0.5 * corroboration + 0.3 * freshness + 0.2 * float(trust or 0)
         story.score = Decimal(str(round(min(1.0, value), 3)))
         await session.flush()

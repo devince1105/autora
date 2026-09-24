@@ -82,6 +82,30 @@ def canonical_url(url: str) -> str:
     return urlunsplit((scheme, host, path, query, ""))
 
 
+TITLE_PREFIX = "title_prefix"
+"""``config.title_prefix``: put before every item's title. A feed whose entries all have the
+same title — SEC's is "13F-HR - Quarterly report filed by institutional managers" for everybody
+— needs it to say whose filing it is (D-036)."""
+
+OWN_STORY = "own_story"
+"""``config.own_story``: every item of this source is a story of its own, never merged into a
+similar one by the story desk (only the same URL again joins). For filings: this quarter's 13F
+looks exactly like last quarter's and must not join the story already written (D-036)."""
+
+
+MAX_AGE_DAYS = "max_age_days"
+"""``config.max_age_days``: skip entries published longer ago than this. A feed lists its history
+— SEC's lists a filer's last ten filings — and adding such a source would otherwise turn years
+of it into stories on the first poll. Entries without a date are kept (D-036)."""
+
+
+PRIMARY = "primary"
+"""``config.primary``: the source *is* the record — a filing, not a report of one. A story from
+it needs no second source to be believed, so the story desk scores its corroboration as full
+(D-036). Without it a 13F, which only SEC publishes, ranks below any press release two feeds
+happened to carry."""
+
+
 def content_hash(url: str, title: str) -> str:
     normalized = _SPACE.sub(" ", title).strip().lower()
     return hashlib.sha256(f"{canonical_url(url)}\n{normalized}".encode()).hexdigest()
@@ -109,6 +133,9 @@ def _validate(kind: SourceKind, url: str | None, config: dict[str, Any]) -> None
         k = config.get("k", 10)
         if not isinstance(k, int) or not 1 <= k <= 10:
             raise SourceConfigError("config.k must be 1-10")
+    age = config.get(MAX_AGE_DAYS)
+    if age is not None and (not isinstance(age, int) or isinstance(age, bool) or age < 1):
+        raise SourceConfigError("config.max_age_days must be a whole number of days, 1 or more")
 
 
 async def ensure_newsroom_schedules(
@@ -302,14 +329,22 @@ class SourcePoller:
 
         source.consecutive_failures = 0
         source.last_error = None
+        max_age = source.config.get(MAX_AGE_DAYS)
+        oldest = now - timedelta(days=max_age) if max_age else None
         newest_first = sorted(
-            gathered.entries,
+            (
+                e
+                for e in gathered.entries
+                if oldest is None or e.published_at is None or e.published_at >= oldest
+            ),
             key=lambda e: e.published_at or datetime.min.replace(tzinfo=UTC),
             reverse=True,
         )[: self.max_items]
         new_ids: list[uuid.UUID] = []
+        prefix = str(source.config.get(TITLE_PREFIX) or "").strip()
         for entry in newest_first:
             url = canonical_url(entry.url)
+            title = f"{prefix} {entry.title}"[:1000] if prefix else entry.title
             item_id = await session.scalar(
                 insert(SourceItem)
                 .values(
@@ -318,10 +353,10 @@ class SourcePoller:
                     source_id=source.id,
                     external_id=entry.external_id,
                     url=url,
-                    title=entry.title,
+                    title=title,
                     summary=entry.summary,
                     published_at=entry.published_at,
-                    content_hash=content_hash(url, entry.title),
+                    content_hash=content_hash(url, title),
                 )
                 .on_conflict_do_nothing()
                 .returning(SourceItem.id)
@@ -333,7 +368,7 @@ class SourcePoller:
                 session,
                 source,
                 SourceItemDiscovered(
-                    item_id=item_id, source_id=source.id, url=url, title=entry.title[:300]
+                    item_id=item_id, source_id=source.id, url=url, title=title[:300]
                 ),
             )
         await self._emit(

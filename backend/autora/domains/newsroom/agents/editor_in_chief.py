@@ -27,7 +27,7 @@ from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from autora.company.ledger import Ledger
-from autora.db.models import Budget, BusinessUnit, Project
+from autora.db.models import Budget, BusinessUnit, Company, Project
 from autora.domains.newsroom.models import Article, ArticleState, Story, StoryState
 from autora.infra.money import format_money
 from autora.runtime.behaviors import AgentBehavior, RunContext
@@ -63,9 +63,10 @@ Once a day you decide what the desk covers. You are given the candidate stories,
 published recently, what is still in production, and the budget the company allocated to this
 newsroom for the cycle.
 
-Choose the stories worth the day. Judge them on what a reader in this city would want to know
-and on whether the sources can carry a checkable article — not on how interesting the topic
-sounds. A story with one weak source is not a story.
+Choose the stories worth the day. Judge them on what this company's readers would want to know
+— its mission says who they are — and on whether the sources can carry a checkable article, not
+on how interesting the topic sounds. A story with one weak source is not a story; a story whose
+one source is the record itself (a filing) is.
 
 Commission each one with commission_story. That puts the whole desk to work on it: research,
 analysis, a bilingual draft, review, and publication after a person approves. You do not write,
@@ -179,7 +180,9 @@ async def desk_context(session: AsyncSession, ctx: RunContext) -> str | None:
         )
     )
 
-    lines = ["Candidate stories (best first):"]
+    company = await session.get(Company, ctx.company_id)
+    lines = [f"The company's mission: {company.mission}", ""] if company and company.mission else []
+    lines.append("Candidate stories (best first):")
     if candidates:
         for story in candidates:
             lines.append(

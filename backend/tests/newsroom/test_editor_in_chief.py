@@ -124,6 +124,19 @@ async def test_the_desk_is_shown_its_candidates_and_what_it_may_spend(db_session
     assert "no budget of its own" in context  # the CEO has not allocated yet
 
 
+async def test_the_desk_chooses_for_the_company_s_readers_not_the_demo_s_city(db_session):
+    """D-036: the chief judges by the mission, which it could not see before."""
+    company, project, _, chief = await _desk(db_session)
+    company.mission = "整理美股大人物持股的公開資訊"
+    await db_session.flush()
+
+    context = await desk_context(db_session, _ctx(company, project, chief))
+
+    assert context.startswith("The company's mission: 整理美股大人物持股的公開資訊")
+    assert "a reader in this city" not in BEHAVIOR.system_prompt
+    assert "its mission says who they are" in BEHAVIOR.system_prompt
+
+
 async def test_a_desk_with_nothing_on_it_says_so(db_session):
     company, project, _, chief = await _desk(db_session, stories=0)
 

@@ -19,12 +19,20 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 from autora.infra.settings import env_file
 
-USER_AGENT = "AutoraNewsroom/0.1 (+https://github.com/vince115/autora)"
+USER_AGENT = "AutoraNewsroom/0.1 (+https://github.com/devince1105/autora)"
 """How the newsroom introduces itself to the sites it polls.
 
 A feed publisher's operator reads this, so it should say which of this software's businesses is
 asking, not just which software. The core's fetcher defaults to the product's own name and lets
 whoever is fetching say more (ARCHITECTURE_V2_1 §9)."""
+
+
+def user_agent(contact_email: str | None) -> str:
+    """With a contact address, the plain "Name email" SEC insists on (D-036); without, the
+    default. A parenthesised URL before the address is refused by SEC, so it is one or the
+    other."""
+    return f"Autora Newsroom {contact_email.strip()}" if contact_email else USER_AGENT
+
 
 DEFAULT_STORY_MATCH_THRESHOLD = 0.65
 """Chosen by measurement, not by taste: at 0.65 two reports of one event in the same language

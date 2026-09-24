@@ -534,3 +534,78 @@ async def test_the_fetcher_says_who_is_fetching():
 
     await http(handler, user_agent=newsroom_settings.USER_AGENT).fetch("https://example.com/a")
     assert seen[-1] == newsroom_settings.USER_AGENT
+
+
+# --- options for feeds that are not news (D-036) ----------------------------------------------
+
+EDGAR = b"""<?xml version="1.0" encoding="ISO-8859-1" ?>
+<feed xmlns="http://www.w3.org/2005/Atom">
+  <title>BERKSHIRE HATHAWAY INC</title>
+  <entry>
+    <title>13F-HR - Quarterly report filed by institutional managers, Holdings</title>
+    <link rel="alternate" type="text/html" href="https://www.sec.gov/Archives/2026-08-index.htm"/>
+    <id>urn:tag:sec.gov,2008:accession-number=0001</id>
+    <updated>2026-08-14T16:05:04-04:00</updated>
+  </entry>
+  <entry>
+    <title>13F-HR - Quarterly report filed by institutional managers, Holdings</title>
+    <link rel="alternate" type="text/html" href="https://www.sec.gov/Archives/2024-02-index.htm"/>
+    <id>urn:tag:sec.gov,2008:accession-number=0002</id>
+    <updated>2024-02-14T16:05:04-04:00</updated>
+  </entry>
+</feed>"""
+
+
+class OneFeed:
+    async def fetch(self, url):
+        return FetchedPage(url=url, status=200, content_type="application/atom+xml", body=EDGAR)
+
+
+async def test_a_prefix_says_whose_filing_and_old_history_is_left_out(db_session):
+    company = await unique_company(db_session, "edgar")
+    source = await add_source(
+        db_session,
+        company_id=company.id,
+        name="SEC 13F：巴菲特",
+        kind="rss",
+        url="https://www.sec.gov/cgi-bin/browse-edgar?CIK=1067983",
+        config={"title_prefix": "巴菲特（Berkshire Hathaway）", "max_age_days": 120},
+    )
+    outcome = await poller(Clock(datetime(2026, 9, 24, tzinfo=UTC)), fetcher=OneFeed()).poll(
+        db_session, source
+    )
+    [item] = (
+        await db_session.scalars(select(SourceItem).where(SourceItem.source_id == source.id))
+    ).all()
+    assert outcome.seen == 2 and len(outcome.new_item_ids) == 1, (
+        "2024's filing is history, not news"
+    )
+    assert (
+        item.title
+        == "巴菲特（Berkshire Hathaway） 13F-HR - Quarterly report filed by institutional "
+        "managers, Holdings"
+    )
+    assert item.content_hash == content_hash(item.url, item.title)
+
+
+@pytest.mark.parametrize("age", [0, -1, "30", 1.5, True])
+async def test_max_age_is_whole_days(db_session, age):
+    company = await unique_company(db_session, "age")
+    with pytest.raises(SourceConfigError):
+        await add_source(
+            db_session,
+            company_id=company.id,
+            name="x",
+            kind="rss",
+            url="https://x",
+            config={"max_age_days": age},
+        )
+
+
+def test_the_user_agent_sec_accepts_names_a_contact():
+    assert (
+        newsroom_settings.user_agent("service@nanguado.com")
+        == "Autora Newsroom service@nanguado.com"
+    )
+    assert newsroom_settings.user_agent(None) == newsroom_settings.USER_AGENT
+    assert "devince1105" in newsroom_settings.USER_AGENT

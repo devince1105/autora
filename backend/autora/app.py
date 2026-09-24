@@ -146,7 +146,7 @@ def build_page_fetcher(settings: Settings | None) -> PageFetcher:
         return HttpFetcher(
             timeout_s=settings.fetch_timeout_seconds,
             max_bytes=settings.fetch_max_bytes,
-            user_agent=newsroom_settings.USER_AGENT,
+            user_agent=newsroom_settings.user_agent(settings.fetch_contact_email),
         )
     import autora.domains.newsroom as newsroom
 
