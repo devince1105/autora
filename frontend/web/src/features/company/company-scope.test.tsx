@@ -23,9 +23,12 @@ function show(companies: unknown[]) {
   );
 }
 
+const FINANCE = { ...STAFFED, id: "c-finance", slug: "autora-finance", name: "Autora 財經", created_at: "2026-09-24T00:00:00Z" };
+
 afterEach(() => {
   cleanup();
   search = "";
+  window.localStorage.clear();
 });
 
 describe("the company a page shows", () => {
@@ -53,5 +56,28 @@ describe("the company a page shows", () => {
 
   it("keeps the company in links between pages", () => {
     expect(withCompany("/office", "c-1")).toBe("/office?company=c-1");
+  });
+
+  it("keeps a link's own query and anchor, as the backend's activity links have (D-041)", () => {
+    expect(withCompany("/newsroom/articles/a1?version=2#fact-check", "c-1")).toBe(
+      "/newsroom/articles/a1?version=2&company=c-1#fact-check",
+    );
+    expect(withCompany("/newsroom/stories/s1#claims", "c-1")).toBe("/newsroom/stories/s1?company=c-1#claims");
+    expect(withCompany("/office?company=old", "c-1")).toBe("/office?company=c-1");
+  });
+
+  it("opens on the company last looked at, not the oldest one with agents (D-041)", () => {
+    search = `company=${FINANCE.id}`;
+    show([STAFFED, FINANCE]);
+    cleanup();
+    search = ""; // a bookmark, a typed /office, a link that forgot the company
+    show([STAFFED, FINANCE]);
+    expect(screen.getByText("Autora 財經")).toBeTruthy();
+  });
+
+  it("forgets a remembered company that is gone", () => {
+    window.localStorage.setItem("autora.admin.company", "c-deleted");
+    show([EMPTY, STAFFED]);
+    expect(screen.getByText("流明日報")).toBeTruthy();
   });
 });

@@ -7,6 +7,7 @@
 import type { Schemas } from "@/api/client";
 import { effectiveState, type AgentState, type RealtimeState } from "@/realtime/reducer";
 import type { ActivityState } from "@/realtime/snapshot";
+import { withCompany } from "@/features/company/CompanyScope";
 
 export type Trace = Schemas["Trace"];
 export type Run = Schemas["RunOut"];
@@ -184,4 +185,15 @@ export function formatDuration(ms: number): string {
   const minutes = Math.floor(seconds / 60);
   if (minutes < 60) return `${minutes} 分 ${seconds % 60} 秒`;
   return `${Math.floor(minutes / 60)} 小時 ${minutes % 60} 分`;
+}
+
+
+/** The links an agent's activity names, for the operator to click. The backend names a page, not
+ * a company, and a page opened without one shows the default company — so the company the panel
+ * belongs to is added (D-041). Anything that is not a list of {label, href} is no links at all. */
+export function panelLinks(raw: unknown, companyId: string): { label: string; href: string }[] {
+  if (!Array.isArray(raw)) return [];
+  return raw
+    .filter((l): l is { label: string; href: string } => typeof l?.label === "string" && typeof l?.href === "string")
+    .map((link) => ({ label: link.label, href: withCompany(link.href, companyId) }));
 }

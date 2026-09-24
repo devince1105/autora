@@ -436,6 +436,50 @@ def test_titles_cite_nothing_so_advice_there_is_always_ours():
     assert advice_problems([forecast_reported], TYPES) == []
 
 
+@pytest.mark.parametrize(
+    "text",
+    ["輝達持股遭大砍，顯示其已獲利了結。", "逆勢加碼拼多多。", "相較於對台積電的青睞。",
+     "杜肯米勒狂加亞馬遜。", "Berkshire is betting on Alphabet.", "A contrarian move."],
+)  # fmt: skip
+def test_guessing_at_a_motive_is_refused_unless_somebody_said_it(text):
+    """D-042: all six came from the first real drafts or their English twins."""
+    [issue] = advice_problems([_version("zh-TW", "標題", [(text, [FACT])])], TYPES)
+    assert "motive" in issue
+    assert advice_problems([_version("zh-TW", "標題", [(text, [SAID])])], TYPES) == []
+
+
+def test_a_headline_that_guesses_at_a_motive_is_refused():
+    version = _version("zh-TW", "H&H 逆勢加碼拼多多", [("H&H 加碼拼多多 5,273,800 股。", [NUMBER])])
+    [issue] = advice_problems([version], TYPES)
+    assert "title" in issue and "逆勢" in issue
+
+
+def test_market_words_that_look_like_motives_are_not():
+    """避險基金 is a hedge fund, 消費者信心指數 a statistic: only a reading of intent is refused."""
+    plain = "避險基金本季申報持股，消費者信心指數下滑 2.1 點。"
+    assert advice_problems([_version("zh-TW", "標題", [(plain, [NUMBER])])], TYPES) == []
+    [issue] = advice_problems(
+        [
+            _version(
+                "zh-TW", "標題", [("加碼 Alphabet，表明對該公司長期成長的堅定信心。", [NUMBER])]
+            )
+        ],
+        TYPES,
+    )  # the sentence gpt-oss-20b added on its own (D-039)
+    assert "motive" in issue
+
+
+def test_what_changed_is_never_a_motive():
+    """The words for what a filing shows must pass, or no 13F story could be written."""
+    plain = "減持輝達 7,563,100 股，出清台積電，新建倉阿里巴巴，加碼拼多多，大幅減持 Arm。"
+    assert (
+        advice_problems(
+            [_version("zh-TW", "H&H 13F：減持輝達、出清台積電", [(plain, [NUMBER])])], TYPES
+        )
+        == []
+    )
+
+
 def test_an_opinion_claim_cannot_be_cited():
     version = _version("zh-TW", "標題", [("這是一個合理的第一步。", [VIEW])])
     assert "is an opinion" in advice_problems([version], TYPES)[0]

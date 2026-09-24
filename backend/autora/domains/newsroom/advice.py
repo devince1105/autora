@@ -11,7 +11,10 @@ and what others said, never its own call:
   buying", "is poised to rise" or "目標價" must cite an attribution or a quote claim, i.e. the
   words are reported, not ours. Titles and summaries cite nothing, so advice words are refused
   there outright; prediction words there need the version to cite somebody's view at all;
-- **never "we"**: "我們認為", "本站建議", "we recommend" are refused everywhere.
+- **never "we"**: "我們認為", "本站建議", "we recommend" are refused everywhere;
+- **no guessing at motives** (D-042): a filing shows what was held, not why — "獲利了結" (it
+  may have been a loss), "逆勢", "青睞", "押注", "信心", "狂加" say more than the record does. They
+  follow the rule for predictions: only in somebody else's mouth.
 
 What this cannot catch is an assessment in words that are not on these lists. The lists are the
 first line; the person who approves every article before it is published (D-001) is the last.
@@ -53,6 +56,15 @@ PREDICTION = re.compile(
     re.IGNORECASE,
 )
 """Saying where a price is going."""
+
+MOTIVE = re.compile(
+    r"獲利了結|獲利出場|逢高|逆勢|青睞|押注|看準|狂(加|買|賣|砍|掃|拋)|抄底"
+    r"|(顯示|展現|表明|透露|充滿)(出)?(對.{0,15})?(的)?(堅定)?信心"
+    r"|\btak(e|es|ing) profits?\b|\bprofit[- ]taking\b|\bbets? on\b|\bbetting on\b"
+    r"|\bconfidence in\b|\bcontrarian\b|\bbullish\b|\bbearish\b|\bdoubl(e|es|ed|ing) down\b",
+    re.IGNORECASE,
+)
+"""Why somebody bought or sold, which a holdings record does not say."""
 
 OUR_VIEW = re.compile(
     r"(我們|本站|本報|編輯部|筆者)(認為|建議|預期|預估|看好|相信)"
@@ -110,6 +122,11 @@ def advice_problems(versions: Iterable[Any], claim_types: Mapping[uuid.UUID, str
                     f"{version.lang} {field}: {word!r} is a prediction nobody in the article made; "
                     "only report a forecast as somebody's (an attribution or quote claim)"
                 )
+            elif (word := _found(MOTIVE, text)) and not kinds & SOMEBODY_ELSES:
+                issues.append(
+                    f"{version.lang} {field}: {word!r} guesses why they bought or sold, which the "
+                    "record does not say; describe what changed (加碼, 減持, 出清, 新建倉)"
+                )
 
         for index, block in enumerate(version.blocks, 1):
             where = f"{version.lang} block {index} ({block.type})"
@@ -124,6 +141,11 @@ def advice_problems(versions: Iterable[Any], claim_types: Mapping[uuid.UUID, str
                     f"{where}: {word!r} is advice or a forecast, and this block cites no one "
                     "who said it; cite the attribution or quote claim it reports, or remove it"
                 )
+            elif word := _found(MOTIVE, block.text):
+                issues.append(
+                    f"{where}: {word!r} guesses at a motive nobody here stated; say what changed "
+                    "(加碼, 減持, 出清, 新建倉), or cite who gave the reason"
+                )
     return issues
 
 
@@ -132,7 +154,9 @@ NO_ADVICE_BRIEF = (
     "never its own view. No opinion claims. Any assessment, recommendation, rating, target price "
     "or forecast is somebody's: write who said it (an attribution or quote claim with their "
     "words), never as the newsroom's. Never write 'we think / 我們認為 / 本站建議', never "
-    "tell readers what to buy or sell ('值得買進', '可逢低布局', 'worth buying'), and never "
-    "predict prices yourself ('可望上漲', 'is poised to rise')."
+    "tell readers what to buy or sell ('值得買進', '可逢低布局', 'worth buying'), never "
+    "predict prices yourself ('可望上漲', 'is poised to rise'), and never guess why somebody "
+    "bought or sold ('獲利了結', '逆勢', '青睞', '押注', '狂加', 'profit-taking', 'bets on'): a "
+    "filing says what changed, not why — write 加碼, 減持, 出清, 新建倉. Keep headlines plain."
 )
 """What the analyst and the writer are told when the policy is on."""

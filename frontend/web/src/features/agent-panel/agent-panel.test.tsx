@@ -14,6 +14,7 @@ import {
   toolStats,
   type Run,
   type Trace,
+  panelLinks,
 } from "./model";
 
 afterEach(cleanup);
@@ -138,6 +139,21 @@ describe("panel: next step, produced, tools", () => {
       { tool: "web_search", calls: 1, ok: 0, failed: 1, avgMs: null },
     ]);
     expect(producedCounts(undefined)).toEqual([]);
+  });
+});
+
+describe("panel links", () => {
+  it("carry the panel's company, so a click does not land in another company's office (D-041)", () => {
+    const raw = [
+      { label: "題材的主張", href: "/newsroom/stories/s1#claims" },
+      { label: "文章草稿 v2", href: "/newsroom/articles/a1?version=2" },
+      { label: 42, href: "/x" },
+    ];
+    expect(panelLinks(raw, "c-finance")).toEqual([
+      { label: "題材的主張", href: "/newsroom/stories/s1?company=c-finance#claims" },
+      { label: "文章草稿 v2", href: "/newsroom/articles/a1?version=2&company=c-finance" },
+    ]);
+    expect(panelLinks(undefined, "c")).toEqual([]);
   });
 });
 

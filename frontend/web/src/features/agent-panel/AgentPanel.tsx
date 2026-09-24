@@ -10,7 +10,7 @@ import { useUi } from "@/stores/ui";
 
 import { AgentCards } from "./AgentCards";
 import { AgentPanelView } from "./AgentPanelView";
-import { cardModel, nextSteps, producedCounts, toolStats, type CardModel } from "./model";
+import { cardModel, nextSteps, panelLinks, producedCounts, toolStats, type CardModel } from "./model";
 
 /** The company's agents as cards; clicking one selects it (ui store) and opens its panel. */
 export function AgentList() {
@@ -50,9 +50,7 @@ export function AgentPanel() {
   if (!agent || !company) return null;
   const card = cardModel(agent, now);
   if (!card) return null;
-  const links = Array.isArray(agent.activity?.detail.links)
-    ? (agent.activity.detail.links as { label: string; href: string }[])
-    : [];
+  const links = panelLinks(agent.activity?.detail.links, company.companyId);
   const error = run.error ?? trace.error;
 
   return (

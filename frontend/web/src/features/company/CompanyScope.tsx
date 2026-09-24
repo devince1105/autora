@@ -25,9 +25,15 @@ const message = (text: string, alert = false) => (
 export function CompanyScope({ children }: { children: (company: Company) => ReactNode }) {
   const requested = useSearchParams().get("company");
   const companies = useQuery(companiesQuery());
+  const last = requested ? null : remembered();
   const company = requested
     ? companies.data?.find((c) => c.id === requested)
-    : (companies.data?.find((c) => c.agents > 0) ?? companies.data?.[0]);
+    : (companies.data?.find((c) => c.id === last) ??
+      companies.data?.find((c) => c.agents > 0) ??
+      companies.data?.[0]);
+  useEffect(() => {
+    if (company) remember(company.id);
+  }, [company]);
 
   const unauthorized = companies.error instanceof ApiError && companies.error.status === 401;
   useEffect(() => {
@@ -45,7 +51,33 @@ export function CompanyScope({ children }: { children: (company: Company) => Rea
   return <>{children(company)}</>;
 }
 
-/** Links between admin pages keep the selected company. */
+/** Links between admin pages keep the selected company — also a link that already has a query
+ * (``?version=2``) or an anchor (``#claims``), as the activity links from the backend do. */
 export function withCompany(path: string, companyId: string): string {
-  return `${path}?company=${encodeURIComponent(companyId)}`;
+  const hashAt = path.indexOf("#");
+  const hash = hashAt >= 0 ? path.slice(hashAt) : "";
+  const bare = hashAt >= 0 ? path.slice(0, hashAt) : path;
+  const [pathname, query = ""] = bare.split("?", 2);
+  const params = new URLSearchParams(query);
+  params.set("company", companyId);
+  return `${pathname}?${params}${hash}`;
+}
+
+const LAST_COMPANY = "autora.admin.company";
+
+/** The company last shown in this browser, for the next page opened without one (D-041). */
+function remembered(): string | null {
+  try {
+    return window.localStorage.getItem(LAST_COMPANY);
+  } catch {
+    return null;
+  }
+}
+
+function remember(companyId: string): void {
+  try {
+    window.localStorage.setItem(LAST_COMPANY, companyId);
+  } catch {
+    // storage blocked: the next page falls back to the first company with agents
+  }
 }
