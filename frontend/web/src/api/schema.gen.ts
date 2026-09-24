@@ -1806,7 +1806,15 @@ export interface components {
              */
             version_id: string;
         };
-        /** LastCycle */
+        /**
+         * LastCycle
+         * @description The most recent cycle that has been measured, and what was measured.
+         *
+         *     Usually yesterday's. But from the moment reporting has measured today — in MEASURING, where
+         *     the finance officer reads the books, and in REVIEWING, where the CEO reviews the day — it is
+         *     today, still open: the review is *of* these numbers, and yesterday's would be the wrong day
+         *     (T-708 found both agents looking at an empty block).
+         */
         LastCycle: {
             /**
              * Approvals Pending

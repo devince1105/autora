@@ -2588,6 +2588,7 @@
     "type": "object"
    },
    "LastCycle": {
+    "description": "The most recent cycle that has been measured, and what was measured.\n\nUsually yesterday's. But from the moment reporting has measured today — in MEASURING, where\nthe finance officer reads the books, and in REVIEWING, where the CEO reviews the day — it is\ntoday, still open: the review is *of* these numbers, and yesterday's would be the wrong day\n(T-708 found both agents looking at an empty block).",
     "properties": {
      "approvals_pending": {
       "default": 0,
