@@ -14,7 +14,7 @@ from autora.company.agents import pause_agent as agent_pause
 from autora.company.agents import resume_agent as agent_resume
 from autora.company.agents import retire_agent as agent_retire
 from autora.company.companies import CompanyAlreadyExists, create_company
-from autora.company.organization import org_chart
+from autora.company.organization import org_chart, role_by_key
 from autora.db.models import Agent, Company, Department
 from autora.db.repositories import agents as agent_repo
 from autora.db.repositories import companies as company_repo
@@ -236,6 +236,9 @@ async def hire(
         tools=body.tools,
         budget={"per_run_usd": float(body.per_run_usd)} if body.per_run_usd is not None else None,
         avatar_key=body.avatar_key,
+        # a position the company defined for this role is the one being filled: the new agent
+        # takes its department (a finance officer sits in the executive office, not in "spare")
+        position=await role_by_key(session, company_id, body.role),
     )
     await session.commit()
     return await _agent_out(session, agent)

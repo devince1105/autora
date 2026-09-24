@@ -122,8 +122,10 @@ ACTIONS = {
 
 RULES: list[Rule] = [
     # the executive agents' one tool. Allowing it is not allowing what it asks for: every
-    # command is decided again, on its own action, by the pipeline
-    *allow("submit_command", "ceo", "strategist"),
+    # command is decided again, on its own action, by the pipeline. For the finance agent
+    # (T-705) that means: a budget goes to a person (below), and everything else is refused —
+    # there is no rule that lets it write anything on its own
+    *allow("submit_command", "ceo", "strategist", "finance"),
     *allow("create_cycle_goal", "ceo"),
     *allow(
         "instantiate_workflow",

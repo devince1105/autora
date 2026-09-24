@@ -60,8 +60,9 @@ MATRIX = {
     # the company's own cap on workflows per cycle.
     "commission_story":     (D, D, D, D, D, A, D, D, D),
     # The executive's one tool. Allowing it is not allowing what it asks for: every command is
-    # decided again on its own action (T-605a).
-    "submit_command":       (D, D, D, D, D, D, A, D, A),
+    # decided again on its own action (T-605a). The finance officer's too (T-705): what it asks
+    # for is an allocation, and that goes to a person (allocate_budget, finance: H above).
+    "submit_command":       (D, D, D, D, D, D, A, A, A),
     # Echo domain (T-213), not in platform/07: each echo desk writes its own note.
     "echo_note":            (A, A, A, D, D, D, D, D, D),
     # The business loop (T-611, ARCHITECTURE_V2_1 §5-§6). The CEO looks, scores, validates and

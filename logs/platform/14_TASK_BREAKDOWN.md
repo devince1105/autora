@@ -42,6 +42,7 @@
 **T-704 · Distribution channel adapter #1**（依 Open Question 決定通路；介面 `DistributionChannel.publish(article, copy) -> external_ref`） / Deps: T-513 / Validate: `pytest -m integration tests/business/test_channel.py`
   > 方向（D-022）：Instagram / Threads，每週固定時間產出（adapter + 每週排程）。目前通路仍只有自有網站，開做時另立決策。
 **T-705 · Finance Agent (read-only + BudgetProposal → approval)** / Deps: T-211, T-603 / AC: 無任何寫 transactions 的路徑 / Validate: `pytest tests/business/agents/test_finance.py`
+  > 實作（D-031）：測試在 `tests/company/test_finance.py`（照 T-701 的前例：代理與財務是核心、不是某個事業領域）。提案就是 `AllocateBudget` 指令，財務角色送出一律等人審；每期 MEASURING 報表寫完後才問它。
 **T-706 · Business Agent (OpportunityProposal → PROJECT_PROPOSED → HUMAN)** / Deps: T-211, T-604 / Validate: `pytest tests/business/agents/test_business.py`
 **T-707 · Revenue KPIs in snapshot & dashboard** / Deps: T-603, T-309 / Validate: `pytest tests/company/test_reporting_revenue.py && pnpm -F web test dashboard-revenue`
 **T-708 · Phase 7 acceptance** / Validate: `pytest tests/acceptance/test_revenue.py`

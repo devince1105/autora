@@ -69,12 +69,13 @@ def build_policy_engine() -> PolicyEngine:
 
 
 def build_templates() -> TemplateRegistry:
-    from autora.company import executive, exploration
+    from autora.company import executive, exploration, finance
     from autora.domains import echo, newsroom
     from autora.runtime.dag import TemplateRegistry
 
     templates = TemplateRegistry()
     executive.register_templates(templates)  # the company's own work: planning and review
+    finance.register_templates(templates)  # reading the books once a cycle is measured (T-705)
     exploration.register_templates(templates)  # and finding out what else it might do
     echo.register_templates(templates)
     newsroom.register_templates(templates)
@@ -84,7 +85,7 @@ def build_templates() -> TemplateRegistry:
 def build_behaviors(snapshots: SnapshotBuilder | None = None) -> BehaviorRegistry:
     """Every agent the runtime can run. The company's own come first: they must still work when
     every domain is deleted (ARCHITECTURE_V2_1 §9)."""
-    from autora.company.agents import ceo, strategist
+    from autora.company.agents import ceo, finance, strategist
     from autora.domains import echo
     from autora.domains.newsroom import agents as newsroom_agents
     from autora.runtime.behaviors import BehaviorRegistry
@@ -92,6 +93,7 @@ def build_behaviors(snapshots: SnapshotBuilder | None = None) -> BehaviorRegistr
     behaviors = BehaviorRegistry()
     ceo.register_behaviors(behaviors, snapshots)
     strategist.register_behaviors(behaviors, snapshots)
+    finance.register_behaviors(behaviors, snapshots)
     echo.register_behaviors(behaviors)
     newsroom_agents.register_behaviors(behaviors)
     return behaviors
@@ -268,6 +270,7 @@ class Runtime:
 def build_runtime(settings: Settings | None = None) -> Runtime:
     from autora.company import executive as company_executive
     from autora.company import exploration as company_exploration
+    from autora.company import finance as company_finance
     from autora.company import memberships as company_memberships
     from autora.company import opportunities as company_opportunities
     from autora.company import summary as daily_summary
@@ -306,6 +309,9 @@ def build_runtime(settings: Settings | None = None) -> Runtime:
     cycles.when_entering(CycleStage.MEASURING, company_memberships.stage_hook())
     cycles.when_entering(CycleStage.MEASURING, ledger.stage_hook())
     cycles.when_entering(CycleStage.MEASURING, reporting.stage_hook())
+    # and then the finance agent reads what reporting has just stored (T-705); MEASURING waits
+    # for its review, so the CEO reviews the cycle with the budget proposals already in the inbox
+    company_finance.FinanceDesk(workflows).install(cycles)
     snapshots = SnapshotBuilder(reporting, ledger)
     snapshots.register(newsroom_kpis.NAME, newsroom_kpis.candidates)
     approvals = ApprovalService(task_manager)

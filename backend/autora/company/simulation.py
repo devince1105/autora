@@ -1,4 +1,4 @@
-"""The simulated executives (``MODEL_PROVIDER=fake``, T-605a and T-611).
+"""The simulated executives (``MODEL_PROVIDER=fake``, T-605a, T-611 and T-705).
 
 Like the newsroom's, it reads its conversation the way a real model would — the snapshot it was
 given, the results of the commands it has submitted — and acts through the same tool. Only the
@@ -24,6 +24,7 @@ from autora.runtime.models.types import ModelRequest, ToolResultBlock, ToolUseBl
 
 ROLE = "ceo"
 STRATEGIST = "strategist"
+FINANCE = "finance"
 DEFAULT_ALLOCATION = Decimal("160")
 """In the base currency (D-023): the USD 5 of before, at 32."""
 
@@ -38,7 +39,33 @@ def respond(request: ModelRequest) -> FakeTurn | None:
             return _review(request)
     if role == STRATEGIST and task == "propose":
         return _propose(request)
+    if role == FINANCE and task == "review_budgets":
+        return _review_budgets(request)
     return None
+
+
+def _review_budgets(request: ModelRequest) -> FakeTurn:
+    """The scripted finance officer (T-705): **read the books, change nothing, say what it read.**
+
+    It never proposes a budget. A proposal is only a question to a person, but a script asking it
+    would put invented judgement in front of somebody deciding about real money — so the script
+    reports the cycle's revenue and cost, as the report stored them, and leaves the envelopes as
+    they are. That is enough to run the review end to end, and plainly not the real reasoning.
+    """
+    kpis = _snapshot(request).get("last_cycle", {}).get("kpis", {})
+    revenue, cost = kpis.get("revenue", "0"), kpis.get("cost", "0")
+    return FakeTurn(
+        text=json.dumps(
+            {
+                "summary": f"Last cycle: revenue {revenue} against cost {cost}.",
+                "proposals": [],
+                "unchanged_because": (
+                    "The simulated finance officer reports the numbers and proposes no budget "
+                    "changes: that is a person's judgement, not a script's."
+                ),
+            }
+        )
+    )
 
 
 def _propose(request: ModelRequest) -> FakeTurn:
