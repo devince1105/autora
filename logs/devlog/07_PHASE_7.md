@@ -1337,6 +1337,24 @@ T-611 之後，商業迴圈已經有 CEO 評估機會、策略師把機會寫成
 
 ---
 
+## 第一次真的每日循環：NVIDIA 太慢，加上 Gemini（D-039）
+
+使用者想今天就看到稿，把 `autora-finance` 的 `company.cycle_start` 提前到現在（之後照舊每天台北 14:00）。
+
+**發生了什麼**：第 1 期 11:01（UTC）開始。CEO 的計畫三次、總編輯的選題三次，全部是「180 秒內沒有回覆」。NVIDIA 免費端點的 `z-ai/glm-5.3-flash` 過去一小時 5 次呼叫全部逾時；直接測，連「回 ok」都要 37 秒。系統照設計處理：CEO 失敗 → 備援計畫、進入 EXECUTING；總編輯失敗 → 沒有開報導 → 這一期沒有稿，繼續走到覆盤。使用者在 Office 看到的「執行長一直失敗、第 3 次嘗試」就是這個。
+
+**試過的**：
+- 本機 `.env`：`NVIDIA_TIMEOUT_SECONDS=420`，`FAST_MODEL_ID=deepseek-ai/deepseek-v4.1-flash`（逾時立刻改用）。先確認拉長不會讓任務租約過期：模型呼叫期間會續約（`agent_runner.py`）。
+- 比較備援模型：`deepseek-v4.1-flash` 28 秒、照實回答；`openai/gpt-oss-20b` 20 秒，但在事實後面自己加了「表明對該公司長期成長的堅定信心」——正是 D-035 要擋的那種話，不選；`moonshotai/kimi-k2.6` 這個帳號用不了。
+- 重啟 worker 讓新設定生效。**我造成的一件事**：舊 worker 收到 SIGTERM 時，總編輯的第 3 次嘗試還在它身上，租約過期被收回、記為中止。那次仍是 180 秒的舊上限，多半也會逾時，但它的最後一次機會因此沒了。
+- 新設定下，CEO 的覆盤跑了 11 分鐘還沒完成第一步。
+
+**Gemini**：使用者要求在 `.env` 加 Google Gemini 的 API Key，NVIDIA 太慢就切過去。Gemini 有官方的 OpenAI 相容端點，所以只多一個供應商名稱，沿用 NVIDIA 的轉接器：`MODEL_PROVIDER=gemini`、`GEMINI_API_KEY`、兩個模型 id、`MODEL_PRICES`。嵌入維持 NVIDIA（2048 維，換了要重算全部向量）。新增 2 個設定測試，模型與設定的測試全過。
+
+**待使用者**：填 `GEMINI_API_KEY`。填好之後我用 Google 的模型清單確認可用的模型 id，再切換、重啟 worker，重跑今天的選題。
+
+---
+
 ## 提交紀錄
 
 | 提交 | 日期 | 內容 | 持續整合 |

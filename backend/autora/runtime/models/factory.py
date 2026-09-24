@@ -35,6 +35,20 @@ def providers_from_settings(
             )
         }
 
+    if settings.model_provider == "gemini":
+        from autora.runtime.models.providers.openai_compat import OpenAICompatibleProvider
+
+        # Google's OpenAI-compatible endpoint: the same adapter as NVIDIA's (D-039)
+        assert settings.gemini_api_key is not None  # Settings validates this
+        return {
+            "gemini": OpenAICompatibleProvider(
+                name="gemini",
+                base_url=settings.gemini_base_url,
+                api_key=settings.gemini_api_key.get_secret_value(),
+                timeout_s=settings.gemini_timeout_seconds,
+            )
+        }
+
     from anthropic import AsyncAnthropic
 
     from autora.runtime.models.providers.anthropic import AnthropicProvider

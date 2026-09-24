@@ -294,11 +294,33 @@ def test_nvidia_provider_and_router():
     assert router.chain("frontier") == ["frontier", "fast"]
 
 
+def test_gemini_settings_require_key_and_model():
+    with pytest.raises(SettingsError) as exc:
+        _settings(model_provider="gemini")
+    assert "GEMINI_API_KEY" in str(exc.value) and "FRONTIER_MODEL_ID" in str(exc.value)
+
+
+def test_gemini_goes_through_google_s_openai_compatible_endpoint():
+    """D-039: the same adapter as NVIDIA's, pointed at Google."""
+    settings = _settings(
+        model_provider="gemini", gemini_api_key="AIza-x", frontier_model_id="vendor/big",
+        fast_model_id="vendor/fast", model_prices=PRICES,
+    )  # fmt: skip
+    [provider] = providers_from_settings(settings).values()
+    assert isinstance(provider, OpenAICompatibleProvider) and provider.name == "gemini"
+    assert provider.base_url == "https://generativelanguage.googleapis.com/v1beta/openai"
+    router = router_from_settings(settings)
+    assert router.aliases["frontier"].provider == "gemini"
+    assert router.chain("frontier") == ["frontier", "fast"]
+
+
 def test_switching_provider_is_one_setting():
     """Both keys can stay configured; MODEL_PROVIDER picks one."""
-    both = {"nvidia_api_key": "nvapi-x", "anthropic_api_key": "sk-x", "model_prices": PRICES,
-            "frontier_model_id": "vendor/big"}  # fmt: skip
+    both = {"nvidia_api_key": "nvapi-x", "anthropic_api_key": "sk-x", "gemini_api_key": "AIza-x",
+            "model_prices": PRICES, "frontier_model_id": "vendor/big"}  # fmt: skip
     nvidia = providers_from_settings(_settings(model_provider="nvidia", **both))
     anthropic = providers_from_settings(_settings(model_provider="anthropic", **both))
+    gemini = providers_from_settings(_settings(model_provider="gemini", **both))
     assert list(nvidia) == ["nvidia"] and list(anthropic) == ["anthropic"]
+    assert list(gemini) == ["gemini"]
     assert isinstance(anthropic["anthropic"], AnthropicProvider)

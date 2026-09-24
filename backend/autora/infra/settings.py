@@ -59,14 +59,19 @@ class Settings(BaseSettings):
     db_echo: bool = False
 
     # --- Model provider (T-207/T-208, D-005). Ids come from env, never from code. ---
-    model_provider: Literal["fake", "anthropic", "nvidia"] = "fake"
+    model_provider: Literal["fake", "anthropic", "nvidia", "gemini"] = "fake"
     """fake: simulated, free. anthropic: Claude API. nvidia: NVIDIA Build (OpenAI-compatible).
-    Both keys may be set at once; this chooses which one is used."""
+    gemini: Google Gemini API through its OpenAI-compatible endpoint (D-039). Every key may be set
+    at once; this chooses which one is used."""
     anthropic_api_key: SecretStr | None = None
     nvidia_api_key: SecretStr | None = None
     nvidia_base_url: str = "https://integrate.api.nvidia.com/v1"
     nvidia_timeout_seconds: float = Field(default=180.0, gt=0)
     """Per request. On timeout the router's fallback model is tried at once (no retry)."""
+    gemini_api_key: SecretStr | None = None
+    gemini_base_url: str = "https://generativelanguage.googleapis.com/v1beta/openai"
+    gemini_timeout_seconds: float = Field(default=180.0, gt=0)
+    """Per request, as for NVIDIA."""
     frontier_model_id: str | None = None
     fast_model_id: str | None = None
     model_prices: dict[str, dict[str, float]] = {}
@@ -154,6 +159,7 @@ class Settings(BaseSettings):
     @field_validator(
         "anthropic_api_key",
         "nvidia_api_key",
+        "gemini_api_key",
         "tavily_api_key",
         "resend_api_key",
         "payuni_mer_id",
@@ -176,7 +182,11 @@ class Settings(BaseSettings):
         if not self.database_url.startswith("postgresql+asyncpg://"):
             problems.append("DATABASE_URL must use the postgresql+asyncpg:// scheme")
         if self.model_provider != "fake":
-            key = {"anthropic": self.anthropic_api_key, "nvidia": self.nvidia_api_key}
+            key = {
+                "anthropic": self.anthropic_api_key,
+                "nvidia": self.nvidia_api_key,
+                "gemini": self.gemini_api_key,
+            }
             if key[self.model_provider] is None:
                 problems.append(
                     f"{self.model_provider.upper()}_API_KEY is required when "
