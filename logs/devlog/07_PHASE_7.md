@@ -1368,3 +1368,4 @@ T-611 之後，商業迴圈已經有 CEO 評估機會、策略師把機會寫成
 | `b4d9cb6` | 2026-09-24 | D-035：新聞室不給建議（公司政策 `newsroom.no_advice`）、網站先免費（`SITE_MEMBERSHIP_OPEN`）、報導底部加「不構成投資建議」 | ✅ 執行編號 `35981427825`（e2e 5 分 56 秒、python 3 分 54 秒、web 46 秒） |
 | `cc93a51` | 2026-09-24 | D-036：投資新聞室的第一批真實消息來源（5 份 13F、4 家 AI 新聞稿、3 組搜尋）；來源設定 `title_prefix`／`own_story`／`primary`／`max_age_days`；SEC 接受的 User-Agent；總編輯看公司使命 | ✅ 執行編號 `35982870789`（e2e 5 分 43 秒、python 4 分 6 秒、web 57 秒） |
 | `0c8aed0` | 2026-09-24 | D-037：13F 兩季比較（`thirteenf.py`、`compare_13f`）、艾克曼改追 Pershing Square Inc. 並加總上一季、千元判定、一手紀錄只需一個來源 | ❌ 執行編號 `35986585069`：web、e2e 過；**python 失敗**在權限矩陣測試——新動作 `compare_13f` 沒加進 `tests/runtime/policy` 的矩陣（我只跑了新聞室的測試，下一個提交修正，並在提交前跑了全部 1696 個） |
+| `85ae9fc` | 2026-09-24 | 權限矩陣測試與 platform/07 補上 `compare_13f`（只允許研究員） | ✅ 執行編號 `35987756091`（e2e 6 分 21 秒、python 3 分 31 秒、web 49 秒） |
