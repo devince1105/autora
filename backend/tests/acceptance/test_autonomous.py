@@ -429,7 +429,7 @@ async def test_the_company_decides_about_an_opportunity_by_itself(committed, e2e
                     CommandRecord.company_id == company_id,
                     CommandRecord.command.in_(["ScoreOpportunity", "AdvanceOpportunity"]),
                 )
-                .order_by(CommandRecord.created_at)
+                .order_by(CommandRecord.created_at, CommandRecord.id)  # ties: one now() per txn
             )
         ).all()
         cycle = await session.scalar(select(Cycle).where(Cycle.company_id == company_id))

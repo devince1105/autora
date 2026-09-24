@@ -602,7 +602,7 @@ async def test_every_attempt_is_in_the_log_whatever_happened(db_session, bus):
         await db_session.scalars(
             select(CommandRecord)
             .where(CommandRecord.company_id == company.id)
-            .order_by(CommandRecord.created_at)
+            .order_by(CommandRecord.created_at, CommandRecord.id)  # ties: one now() per txn
         )
     ).all()
     assert [r.outcome for r in records] == ["done", "refused", "awaiting_approval"]

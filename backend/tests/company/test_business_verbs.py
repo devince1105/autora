@@ -448,7 +448,7 @@ async def test_every_one_of_them_is_recorded_whatever_happened(db_session, bus):
         await db_session.scalars(
             select(CommandRecord)
             .where(CommandRecord.company_id == company.id)
-            .order_by(CommandRecord.created_at)
+            .order_by(CommandRecord.created_at, CommandRecord.id)  # ties: one now() per txn
         )
     ).all()
     assert [(r.command, r.outcome) for r in records] == [
