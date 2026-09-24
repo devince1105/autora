@@ -43,6 +43,7 @@ ARTICLE_FSM = StateMachine(
             A.IN_REVIEW: [A.DRAFT, A.APPROVED, A.REJECTED],
             A.APPROVED: [A.PUBLISHED],
             A.PUBLISHED: [A.ARCHIVED],
+            A.ARCHIVED: [A.PUBLISHED],  # put back on the site (D-044)
         }
     ),
 )

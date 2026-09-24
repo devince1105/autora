@@ -74,7 +74,7 @@ export function taskQuery(taskId: string, api: ApiClient = defaultApi) {
 
 export function approvalsQuery(
   companyId: string,
-  state: "PENDING" | "APPROVED" | "REJECTED" | "EXPIRED" = "PENDING",
+  state: "PENDING" | "APPROVED" | "REJECTED" | "RETURNED" | "EXPIRED" = "PENDING",
   api: ApiClient = defaultApi,
 ) {
   return queryOptions({
@@ -217,7 +217,7 @@ export function workflowEventsQuery(companyId: string, runId: string, api: ApiCl
 
 export async function decideApproval(
   approvalId: string,
-  decision: "approve" | "reject",
+  decision: "approve" | "reject" | "revise",
   reason: string | null = null,
   api: ApiClient = defaultApi,
 ) {
@@ -226,6 +226,23 @@ export async function decideApproval(
       params: { path: { approval_id: approvalId } },
       body: { decision, reason },
     }),
+  );
+}
+
+/** Take a published article off the site (D-044). The reason is kept with its history. */
+export async function unpublishArticle(articleId: string, reason: string, api: ApiClient = defaultApi) {
+  return unwrap(
+    await api.POST("/api/articles/{article_id}/unpublish", {
+      params: { path: { article_id: articleId } },
+      body: { reason },
+    }),
+  );
+}
+
+/** Put an article that was taken down back on the site (D-044). */
+export async function republishArticle(articleId: string, api: ApiClient = defaultApi) {
+  return unwrap(
+    await api.POST("/api/articles/{article_id}/republish", { params: { path: { article_id: articleId } } }),
   );
 }
 

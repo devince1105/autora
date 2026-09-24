@@ -36,7 +36,8 @@ class ApprovalOut(BaseModel):
 
 
 class DecisionIn(BaseModel):
-    decision: Literal["approve", "reject"]
+    decision: Literal["approve", "reject", "revise"]
+    """``revise``: send it back with changes asked for (D-044); needs a ``reason``."""
     reason: str | None = Field(default=None, max_length=2000)
 
 

@@ -82,5 +82,5 @@ APPROVAL_FSM = StateMachine(
     entity_type="approval",
     states=ApprovalState,
     initial=P.PENDING,
-    transitions=transitions({P.PENDING: [P.APPROVED, P.REJECTED, P.EXPIRED]}),
+    transitions=transitions({P.PENDING: [P.APPROVED, P.REJECTED, P.RETURNED, P.EXPIRED]}),
 )

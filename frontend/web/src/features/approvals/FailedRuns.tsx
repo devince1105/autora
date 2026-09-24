@@ -50,7 +50,11 @@ export function FailedRuns({
             className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-line bg-surface p-4"
           >
             <div className="min-w-0">
-              <p className="font-medium">{run.template_name}</p>
+              <p className="font-medium">
+                {typeof run.params?.title === "string"
+                  ? run.params.title
+                  : run.template_name}
+              </p>
               <p className="text-sm text-muted">
                 {run.failed_tasks.length
                   ? `失敗的步驟：${run.failed_tasks.join("、")}`
@@ -63,32 +67,50 @@ export function FailedRuns({
             </div>
             <div className="flex items-center gap-3">
               {said[run.id] ? (
-                <span data-testid={`restart-said-${run.id}`} className="text-sm text-muted">
+                <span
+                  data-testid={`restart-said-${run.id}`}
+                  className="text-sm text-muted"
+                >
                   {said[run.id]}
                 </span>
               ) : null}
-              <button
-                type="button"
-                data-testid={`restart-${run.id}`}
-                disabled={busy === run.id}
-                onClick={async () => {
-                  setBusy(run.id);
-                  try {
-                    const result = await onRestart(run.id);
-                    setSaid((now) => ({ ...now, [run.id]: restartMessage(result) }));
-                  } catch (failure) {
-                    setSaid((now) => ({
-                      ...now,
-                      [run.id]: failure instanceof Error ? failure.message : String(failure),
-                    }));
-                  } finally {
-                    setBusy(null);
-                  }
-                }}
-                className="rounded-md border border-line px-3 py-1 text-sm text-accent disabled:opacity-50"
-              >
-                {busy === run.id ? "重新啟動中…" : "重新啟動"}
-              </button>
+              {run.superseded_by ? (
+                <span
+                  data-testid={`superseded-${run.id}`}
+                  className="text-sm text-muted"
+                >
+                  同一份工作已經有新的執行，不需要重新啟動
+                </span>
+              ) : (
+                <button
+                  type="button"
+                  data-testid={`restart-${run.id}`}
+                  disabled={busy === run.id}
+                  onClick={async () => {
+                    setBusy(run.id);
+                    try {
+                      const result = await onRestart(run.id);
+                      setSaid((now) => ({
+                        ...now,
+                        [run.id]: restartMessage(result),
+                      }));
+                    } catch (failure) {
+                      setSaid((now) => ({
+                        ...now,
+                        [run.id]:
+                          failure instanceof Error
+                            ? failure.message
+                            : String(failure),
+                      }));
+                    } finally {
+                      setBusy(null);
+                    }
+                  }}
+                  className="rounded-md border border-line px-3 py-1 text-sm text-accent disabled:opacity-50"
+                >
+                  {busy === run.id ? "重新啟動中…" : "重新啟動"}
+                </button>
+              )}
             </div>
           </li>
         ))}

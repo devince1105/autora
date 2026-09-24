@@ -15,7 +15,12 @@ from fastapi import APIRouter, HTTPException, status
 from pydantic import BaseModel, Field
 from sqlalchemy import select
 
-from autora.company.workflows import StartWorkflowError, WorkflowNotAllowed, start_workflow
+from autora.company.workflows import (
+    StartWorkflowError,
+    WorkflowNotAllowed,
+    start_workflow,
+    superseded_by,
+)
 from autora.db.models import (
     CommandOutcome,
     CommandRecord,
@@ -43,6 +48,9 @@ class FailedRunOut(BaseModel):
     """The tasks that failed, by display name. What went wrong is on their own pages."""
     restarted: bool = False
     """Whether somebody already asked for it to be started again, and the company did it."""
+    superseded_by: uuid.UUID | None = None
+    """A later run of the same work that succeeded or is still going (D-044): restarting this one
+    would do the work twice, and the restart is refused."""
 
 
 class RestartOut(BaseModel):
@@ -120,6 +128,7 @@ async def list_failed(
                 CommandRecord.payload["workflow_run_id"].astext == str(run.id),
             )
         )
+        later = await superseded_by(session, run)
         out.append(
             FailedRunOut(
                 id=run.id,
@@ -130,6 +139,7 @@ async def list_failed(
                 params=run.params or {},
                 failed_tasks=list(failed),
                 restarted=asked is not None,
+                superseded_by=later.id if later else None,
             )
         )
     return out

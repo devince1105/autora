@@ -11,10 +11,12 @@ import {
   addSource,
   articleQuery,
   articlesQuery,
+  republishArticle,
   sourcesQuery,
   startStory,
   storiesQuery,
   storyQuery,
+  unpublishArticle,
   workflowEventsQuery,
   type StoryState,
 } from "@/api/queries";
@@ -149,5 +151,22 @@ function LoadedArticle({ article }: { article: ArticleDetail }) {
   useCompanyStream(article.company_id);
   const [lang, setLang] = useState(article.primary_lang);
   const events = useTimeline(article.company_id, article.workflow_run_ids);
-  return <ArticleView article={article} lang={lang} onLang={setLang} events={events} />;
+  const queryClient = useQueryClient();
+  const onSettled = () => queryClient.invalidateQueries({ queryKey: ["newsroom"] });
+  const unpublish = useMutation({ mutationFn: (reason: string) => unpublishArticle(article.id, reason), onSettled });
+  const republish = useMutation({ mutationFn: () => republishArticle(article.id), onSettled });
+  return (
+    <ArticleView
+      article={article}
+      lang={lang}
+      onLang={setLang}
+      events={events}
+      onSite={{
+        unpublish: (reason) => unpublish.mutate(reason),
+        republish: () => republish.mutate(),
+        busy: unpublish.isPending || republish.isPending,
+        error: (unpublish.error ?? republish.error)?.message ?? null,
+      }}
+    />
+  );
 }

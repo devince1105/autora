@@ -143,6 +143,9 @@ class ApprovalState(StrEnum):
     PENDING = "PENDING"
     APPROVED = "APPROVED"
     REJECTED = "REJECTED"
+    RETURNED = "RETURNED"
+    """Sent back with changes asked for (D-044): not a no, a "not like this" — the work is done
+    again and comes back for a new decision."""
     EXPIRED = "EXPIRED"
 
 
@@ -177,9 +180,9 @@ class Approval(IdMixin, TimestampMixin, Base):
         # own. The shape is checked; the meaning is the asking layer's (ARCHITECTURE_V2_1 §9)
         check_regex("kind", "^[a-z][a-z0-9_]*$"),
         CheckConstraint(
-            "(state IN ('APPROVED', 'REJECTED')) = "
+            "(state IN ('APPROVED', 'REJECTED', 'RETURNED')) = "
             "(decided_at IS NOT NULL AND decided_by IS NOT NULL)",
-            name="decided_iff_approved_or_rejected",
+            name="decided_iff_decided",
         ),
         CheckConstraint("run_id IS NULL OR task_id IS NOT NULL", name="run_implies_task"),
         # One open request per thing being decided.

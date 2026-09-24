@@ -9,6 +9,13 @@ like ``start_workflow``:
   approval after a passed fact-check (``newsroom.auto_approve_if_fact_check_passed``, D-001:
   off by default), otherwise the policy says ``needs_approval`` and a person must decide.
 - ``reject_article`` (IN_REVIEW -> REJECTED): the story is dropped with the reason.
+- ``return_article`` (IN_REVIEW -> DRAFT, D-044): a person sends it back with what to change; the
+  workflow's loop on ``approve`` has the writer draft again and the editor review it again.
+  Not counted against the editor's two revisions: a person's "not like this" is a different
+  voice from the editor's.
+- ``unpublish_article`` (PUBLISHED -> ARCHIVED, D-044) and ``republish_article`` (back): a person
+  takes a published article off the site, or puts it back. The site only shows PUBLISHED
+  articles; the story stays PUBLISHED and the distribution record stays, as history.
 - ``publish_article`` (APPROVED -> PUBLISHED): the draft group that was approved becomes the
   published one, in the languages the policy publishes (with ``require_all_langs``, all of them
   or nothing); the story becomes PUBLISHED; the site distribution is recorded; ARTICLE_PUBLISHED
@@ -37,6 +44,9 @@ from autora.domains.newsroom.events import (
     ArticleApproved,
     ArticlePublished,
     ArticleRejected,
+    ArticleRepublished,
+    ArticleReturned,
+    ArticleUnpublished,
     DistributionCreated,
 )
 from autora.domains.newsroom.models import (
@@ -213,6 +223,75 @@ async def reject_article(
         actor,
         ArticleRejected(article_id=article.id, by=actor.kind, reason=reason[:500]),
     )
+    return article
+
+
+def _by_a_person(action: str, actor: Actor) -> None:
+    if actor.kind != "human":
+        raise NotAllowed(action, "deny", f"only a person may {action.replace('_', ' ')}")
+
+
+async def return_article(
+    session: AsyncSession,
+    *,
+    company_id: uuid.UUID,
+    article_id: uuid.UUID,
+    actor: Actor,
+    reason: str,
+) -> Article:
+    """A person sends the article back for changes: it is a DRAFT again (D-044)."""
+    _by_a_person("return_article", actor)
+    if not reason.strip():
+        raise PublishError("say what to change: the writer works from the reason")
+    article = await _article(session, company_id, article_id)
+    await ARTICLE_FSM.transition(session, article, ArticleState.DRAFT, actor=actor, reason=reason)
+    version_id = await session.scalar(
+        select(ArticleVersion.id)
+        .where(
+            ArticleVersion.article_id == article.id,
+            ArticleVersion.draft_group_id == article.current_draft_group_id,
+        )
+        .limit(1)
+    )
+    await _emit(
+        session,
+        article,
+        actor,
+        ArticleReturned(article_id=article.id, version_id=version_id, reason=reason[:500]),
+    )
+    return article
+
+
+async def unpublish_article(
+    session: AsyncSession,
+    *,
+    company_id: uuid.UUID,
+    article_id: uuid.UUID,
+    actor: Actor,
+    reason: str,
+) -> Article:
+    """A person takes a published article off the site (D-044)."""
+    _by_a_person("unpublish_article", actor)
+    if not reason.strip():
+        raise PublishError("say why it comes down: the record is the reason's only home")
+    article = await _article(session, company_id, article_id)
+    await ARTICLE_FSM.transition(
+        session, article, ArticleState.ARCHIVED, actor=actor, reason=reason
+    )
+    await _emit(
+        session, article, actor, ArticleUnpublished(article_id=article.id, reason=reason[:500])
+    )
+    return article
+
+
+async def republish_article(
+    session: AsyncSession, *, company_id: uuid.UUID, article_id: uuid.UUID, actor: Actor
+) -> Article:
+    """A person puts an article that was taken down back on the site, as it was (D-044)."""
+    _by_a_person("republish_article", actor)
+    article = await _article(session, company_id, article_id)
+    await ARTICLE_FSM.transition(session, article, ArticleState.PUBLISHED, actor=actor)
+    await _emit(session, article, actor, ArticleRepublished(article_id=article.id))
     return article
 
 

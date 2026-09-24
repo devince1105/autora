@@ -7,6 +7,8 @@
 - GET  /api/articles/{id}[?version=]              an article: versions, a version's text in every
                                                   language, its claims, fact-checks,
                                                   distributions, readers
+- POST /api/articles/{id}/unpublish               take a published article off the site (D-044)
+- POST /api/articles/{id}/republish               put it back
 - GET  /api/companies/{id}/sources                sources with how many items each brought
 - POST /api/companies/{id}/sources                add a source (starts the newsroom schedules)
 """
@@ -26,9 +28,16 @@ from autora.company.workflows import StartWorkflowError, WorkflowNotAllowed
 from autora.db.models import Company, Project, ProjectState
 from autora.domains.newsroom import admin
 from autora.domains.newsroom.models import Article, ArticleAccess, SourceKind, Story, StoryState
+from autora.domains.newsroom.publisher import (
+    NotAllowed,
+    PublishError,
+    republish_article,
+    unpublish_article,
+)
 from autora.domains.newsroom.sources import SourceConfigError, add_source
 from autora.domains.newsroom.stories import StoryDesk, StoryError
 from autora.domains.newsroom.workflow import start_story
+from autora.runtime.fsm import IllegalTransition
 from autora_api.deps import Operator, RuntimeDep, Session
 
 router = APIRouter(tags=["newsroom"])
@@ -159,6 +168,51 @@ async def set_article_access(
     article.access = body.access.value
     await session.commit()
     return {"article_id": str(article.id), "access": article.access}
+
+
+class UnpublishBody(BaseModel):
+    reason: str = Field(min_length=1, max_length=500)
+    """Why it comes down: kept with the article's history."""
+
+
+async def _article_of(session: Session, article_id: uuid.UUID) -> Article:
+    article = await session.get(Article, article_id)
+    if article is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, f"article {article_id} not found")
+    return article
+
+
+@router.post("/api/articles/{article_id}/unpublish")
+async def post_unpublish(
+    article_id: uuid.UUID, body: UnpublishBody, session: Session, operator: Operator
+) -> dict[str, str]:
+    """Take a published article off the site (D-044). It stays, with its history, as ARCHIVED."""
+    article = await _article_of(session, article_id)
+    try:
+        await unpublish_article(
+            session, company_id=article.company_id, article_id=article.id,
+            actor=operator, reason=body.reason,
+        )  # fmt: skip
+    except (IllegalTransition, PublishError, NotAllowed) as exc:
+        raise HTTPException(status.HTTP_409_CONFLICT, str(exc)) from exc
+    await session.commit()
+    return {"article_id": str(article.id), "state": article.state}
+
+
+@router.post("/api/articles/{article_id}/republish")
+async def post_republish(
+    article_id: uuid.UUID, session: Session, operator: Operator
+) -> dict[str, str]:
+    """Put an article that was taken down back on the site, as it was (D-044)."""
+    article = await _article_of(session, article_id)
+    try:
+        await republish_article(
+            session, company_id=article.company_id, article_id=article.id, actor=operator
+        )
+    except (IllegalTransition, PublishError, NotAllowed) as exc:
+        raise HTTPException(status.HTTP_409_CONFLICT, str(exc)) from exc
+    await session.commit()
+    return {"article_id": str(article.id), "state": article.state}
 
 
 @router.get("/api/companies/{company_id}/sources")

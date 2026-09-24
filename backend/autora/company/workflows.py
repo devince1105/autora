@@ -10,9 +10,10 @@ from __future__ import annotations
 import uuid
 from typing import Any
 
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from autora.db.models import Project, ProjectState, Task, WorkflowRun
+from autora.db.models import Project, ProjectState, Task, WorkflowRun, WorkflowRunState
 from autora.db.repositories.companies import get_policies
 from autora.runtime.actor import Actor
 from autora.runtime.dag import WorkflowEngine, WorkflowError
@@ -28,6 +29,32 @@ class WorkflowNotAllowed(Exception):
         self.outcome = outcome
         self.reason = reason
         super().__init__(f"instantiate_workflow {outcome}: {reason}")
+
+
+async def superseded_by(session: AsyncSession, run: WorkflowRun) -> WorkflowRun | None:
+    """A later run of the same work that succeeded or is still going, if there is one (D-044).
+
+    The same work is the same template with the same parameters (a newsroom story's id and
+    title). Starting a failed run again when such a run exists does the work twice: on
+    2026-09-24 a story that had just been published was restarted three times from the list of
+    failed runs, and each restart could only fail when it came to write the draft.
+    """
+    return await session.scalar(
+        select(WorkflowRun)
+        .where(
+            WorkflowRun.company_id == run.company_id,
+            WorkflowRun.template_name == run.template_name,
+            WorkflowRun.params == (run.params or {}),
+            # later by id, not by created_at: ids are UUIDv7, ordered even within one
+            # transaction, where every now() is the same
+            WorkflowRun.id > run.id,
+            WorkflowRun.state.in_(
+                [WorkflowRunState.SUCCEEDED.value, WorkflowRunState.RUNNING.value]
+            ),
+        )
+        .order_by(WorkflowRun.id.desc())
+        .limit(1)
+    )
 
 
 async def start_workflow(

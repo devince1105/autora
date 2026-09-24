@@ -100,6 +100,46 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/articles/{article_id}/republish": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Post Republish
+         * @description Put an article that was taken down back on the site, as it was (D-044).
+         */
+        post: operations["post_republish_api_articles__article_id__republish_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/articles/{article_id}/unpublish": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Post Unpublish
+         * @description Take a published article off the site (D-044). It stays, with its history, as ARCHIVED.
+         */
+        post: operations["post_unpublish_api_articles__article_id__unpublish_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/auth/link": {
         parameters: {
             query?: never;
@@ -963,7 +1003,7 @@ export interface components {
          * ApprovalState
          * @enum {string}
          */
-        ApprovalState: "PENDING" | "APPROVED" | "REJECTED" | "EXPIRED";
+        ApprovalState: "PENDING" | "APPROVED" | "REJECTED" | "RETURNED" | "EXPIRED";
         /**
          * ArticleAccess
          * @description Who may read the whole thing (D-025). Most articles are FREE; some are for members.
@@ -1509,7 +1549,7 @@ export interface components {
              * Decision
              * @enum {string}
              */
-            decision: "approve" | "reject";
+            decision: "approve" | "reject" | "revise";
             /** Reason */
             reason?: string | null;
         };
@@ -1726,6 +1766,8 @@ export interface components {
             restarted: boolean;
             /** State */
             state: string;
+            /** Superseded By */
+            superseded_by?: string | null;
             /** Template Name */
             template_name: string;
         };
@@ -2728,6 +2770,11 @@ export interface components {
             seq: number;
             step: components["schemas"]["StepView"] | null;
         };
+        /** UnpublishBody */
+        UnpublishBody: {
+            /** Reason */
+            reason: string;
+        };
         /** ValidationError */
         ValidationError: {
             /** Context */
@@ -2989,6 +3036,76 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": components["schemas"]["ArticleAccessBody"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: string;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    post_republish_api_articles__article_id__republish_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                article_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: string;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    post_unpublish_api_articles__article_id__unpublish_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                article_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UnpublishBody"];
             };
         };
         responses: {

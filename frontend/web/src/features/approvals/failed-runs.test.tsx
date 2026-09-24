@@ -48,7 +48,7 @@ describe("the failed runs in the inbox", () => {
     const onRestart = vi.fn().mockResolvedValue(done());
     render(<FailedRuns runs={[run()]} onRestart={onRestart} />);
 
-    expect(screen.getByText("newsroom.story_to_article_v2")).toBeTruthy();
+    expect(screen.getByText("Lumen City's microgrid")).toBeTruthy();
     expect(screen.getByText(/審稿：Lumen City's microgrid/)).toBeTruthy();
 
     fireEvent.click(screen.getByTestId("restart-01a0b900-0000-7000-8000-000000000001"));
@@ -100,5 +100,20 @@ describe("the failed runs in the inbox", () => {
     const { container } = render(<FailedRuns runs={[]} onRestart={vi.fn()} />);
     expect(container.firstChild).toBeNull();
     expect(render(<FailedRuns runs={undefined} onRestart={vi.fn()} />).container.firstChild).toBeNull();
+  });
+});
+
+describe("work that already ran again (D-044)", () => {
+  it("offers no restart, and says why", () => {
+    render(<FailedRuns runs={[run({ superseded_by: "01a0b900-0000-7000-8000-0000000000cc" })]} onRestart={vi.fn()} />);
+    expect(screen.queryByTestId("restart-01a0b900-0000-7000-8000-000000000001")).toBeNull();
+    expect(screen.getByTestId("superseded-01a0b900-0000-7000-8000-000000000001").textContent).toContain(
+      "已經有新的執行",
+    );
+  });
+
+  it("names the story rather than the template", () => {
+    render(<FailedRuns runs={[run()]} onRestart={vi.fn()} />);
+    expect(screen.getByText("Lumen City's microgrid")).toBeTruthy();
   });
 });

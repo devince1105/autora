@@ -358,6 +358,16 @@ class ApprovalRejected(EventPayload):
     reason: str | None = None
 
 
+@event("APPROVAL_RETURNED")
+class ApprovalReturned(EventPayload):
+    """Sent back with changes asked for (D-044); ``reason`` says what to change."""
+
+    kind: ApprovalKind
+    ref_type: str
+    ref_id: uuid.UUID
+    reason: str
+
+
 @event("APPROVAL_EXPIRED")
 class ApprovalExpired(EventPayload):
     kind: ApprovalKind

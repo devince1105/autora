@@ -490,6 +490,7 @@
      "PENDING",
      "APPROVED",
      "REJECTED",
+     "RETURNED",
      "EXPIRED"
     ],
     "title": "ApprovalState",
@@ -1834,7 +1835,8 @@
      "decision": {
       "enum": [
        "approve",
-       "reject"
+       "reject",
+       "revise"
       ],
       "title": "Decision",
       "type": "string"
@@ -2342,6 +2344,18 @@
      "state": {
       "title": "State",
       "type": "string"
+     },
+     "superseded_by": {
+      "anyOf": [
+       {
+        "format": "uuid",
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Superseded By"
      },
      "template_name": {
       "title": "Template Name",
@@ -4823,6 +4837,21 @@
     "title": "TraceEntry",
     "type": "object"
    },
+   "UnpublishBody": {
+    "properties": {
+     "reason": {
+      "maxLength": 500,
+      "minLength": 1,
+      "title": "Reason",
+      "type": "string"
+     }
+    },
+    "required": [
+     "reason"
+    ],
+    "title": "UnpublishBody",
+    "type": "object"
+   },
    "ValidationError": {
     "properties": {
      "ctx": {
@@ -5358,6 +5387,122 @@
      }
     ],
     "summary": "Set Article Access",
+    "tags": [
+     "newsroom"
+    ]
+   }
+  },
+  "/api/articles/{article_id}/republish": {
+   "post": {
+    "description": "Put an article that was taken down back on the site, as it was (D-044).",
+    "operationId": "post_republish_api_articles__article_id__republish_post",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "article_id",
+      "required": true,
+      "schema": {
+       "format": "uuid",
+       "title": "Article Id",
+       "type": "string"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "additionalProperties": {
+          "type": "string"
+         },
+         "title": "Response Post Republish Api Articles  Article Id  Republish Post",
+         "type": "object"
+        }
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "security": [
+     {
+      "HTTPBearer": []
+     }
+    ],
+    "summary": "Post Republish",
+    "tags": [
+     "newsroom"
+    ]
+   }
+  },
+  "/api/articles/{article_id}/unpublish": {
+   "post": {
+    "description": "Take a published article off the site (D-044). It stays, with its history, as ARCHIVED.",
+    "operationId": "post_unpublish_api_articles__article_id__unpublish_post",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "article_id",
+      "required": true,
+      "schema": {
+       "format": "uuid",
+       "title": "Article Id",
+       "type": "string"
+      }
+     }
+    ],
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/UnpublishBody"
+       }
+      }
+     },
+     "required": true
+    },
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "additionalProperties": {
+          "type": "string"
+         },
+         "title": "Response Post Unpublish Api Articles  Article Id  Unpublish Post",
+         "type": "object"
+        }
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "security": [
+     {
+      "HTTPBearer": []
+     }
+    ],
+    "summary": "Post Unpublish",
     "tags": [
      "newsroom"
     ]

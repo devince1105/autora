@@ -3,6 +3,7 @@ model, offline tools), with a person's approval, automatic approval, revisions a
 
 import uuid
 
+import pytest
 from sqlalchemy import delete, select
 
 from autora.app import build_runtime, build_worker
@@ -311,3 +312,79 @@ async def test_only_a_selected_story_starts(committed, e2e_settings):
             assert "only a selected story is started" in str(error)
         else:
             raise AssertionError("a story in production was started again")
+
+
+async def test_a_person_sends_it_back_and_it_comes_back_changed(committed, e2e_settings):
+    """D-044: at approval a person asks for changes. The writer drafts again with their reason,
+    the editor reviews again, and a new approval waits; approving that one publishes."""
+    room = await Newsroom().start(committed, e2e_settings)
+    await room.worker.run_until_idle()
+    await room.decide("revise", reason="標題不要用「狂加」")
+    await room.worker.run_until_idle()
+
+    tasks = await room.tasks()
+    assert [len(tasks[n]) for n in ("draft", "review", "approve")] == [2, 2, 2]
+    first_approve, second_approve = tasks["approve"]
+    assert first_approve.output["decision"] == "revise"
+    redraft = tasks["draft"][1]
+    assert redraft.display_name == "撰稿：Lumen City microgrid（退回後第 2 輪）"
+    assert redraft.input["params"]["issues"] == [
+        {"message": "審批退回（人工）：標題不要用「狂加」"}
+    ]
+    assert second_approve.state == "WAITING_APPROVAL"
+    assert tasks["publish"][0].depends_on == [second_approve.id], "publish waits for the new one"
+    assert tasks["publish"][0].state == "PENDING"
+    article = await room.article()
+    assert article.state == "IN_REVIEW" and article.revision_count == 0, "not the editor's round"
+    [returned] = await room.events("ARTICLE_RETURNED")
+    assert returned.payload["reason"] == "標題不要用「狂加」"
+
+    async with committed() as session:
+        second = await session.scalar(select(Approval).where(Approval.task_id == second_approve.id))
+        await room.runtime.approvals.decide(session, second.id, outcome="approve", actor=OPERATOR)
+        await session.commit()
+    await room.worker.run_until_idle()
+    assert (await room.article()).state == "PUBLISHED"
+    assert (await room.get(WorkflowRun, room.run.id)).state == "SUCCEEDED"
+
+
+async def test_a_published_article_can_be_taken_down_and_put_back(committed, e2e_settings):
+    """D-044: the site shows only PUBLISHED; taking it down keeps it, with its history."""
+    from autora.domains.newsroom.publisher import (
+        NotAllowed,
+        republish_article,
+        unpublish_article,
+    )
+    from autora.domains.newsroom.site import published_articles
+
+    room = await Newsroom().start(committed, e2e_settings)
+    await room.worker.run_until_idle()
+    await room.decide("approve")
+    await room.worker.run_until_idle()
+    article = await room.article()
+    slug = room.company.slug
+
+    async with committed() as session:
+        assert len(await published_articles(session, "zh-TW", company_slug=slug)) == 1
+        with pytest.raises(NotAllowed):
+            await unpublish_article(
+                session, company_id=room.company.id, article_id=article.id,
+                actor=Actor.system("x"), reason="x",
+            )  # fmt: skip
+        await unpublish_article(
+            session, company_id=room.company.id, article_id=article.id, actor=OPERATOR,
+            reason="用字需要修改",
+        )  # fmt: skip
+        await session.commit()
+    async with committed() as session:
+        assert await published_articles(session, "zh-TW", company_slug=slug) == []
+        await republish_article(
+            session, company_id=room.company.id, article_id=article.id, actor=OPERATOR
+        )
+        await session.commit()
+    async with committed() as session:
+        assert len(await published_articles(session, "zh-TW", company_slug=slug)) == 1
+    assert [e.payload["reason"] for e in await room.events("ARTICLE_UNPUBLISHED")] == [
+        "用字需要修改"
+    ]
+    assert len(await room.events("ARTICLE_REPUBLISHED")) == 1

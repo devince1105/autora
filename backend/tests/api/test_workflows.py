@@ -236,3 +236,30 @@ async def test_restarting_something_that_is_not_this_company_s_is_refused(api, d
     assert response.status_code == 200
     body = response.json()
     assert body["outcome"] == "refused" and "no workflow run" in body["reason"]
+
+
+async def test_the_same_work_is_not_restarted_twice(api, db_session, setup):
+    """D-044: a published story was restarted three times from this list. Once one restart is
+    going (or the work has since succeeded), the list says so and a second restart is refused."""
+    company, project, agents = setup
+    failed = await _failed_run(db_session, company, project)
+    await db_session.commit()
+
+    first = await api.post(URL.format(company.id) + f"/{failed.id}/restart")
+    assert first.json()["outcome"] == "done"
+    fresh = first.json()["workflow_run_id"]
+
+    [row] = (await api.get(URL.format(company.id) + "/failed")).json()
+    assert row["superseded_by"] == fresh
+    again = await api.post(URL.format(company.id) + f"/{failed.id}/restart")
+    assert again.json()["outcome"] == "refused"
+    assert "would do it twice" in again.json()["reason"]
+
+
+async def test_other_work_does_not_supersede_a_failed_run(api, db_session, setup):
+    company, project, agents = setup
+    failed = await _failed_run(db_session, company, project, topic="EU AI Act")
+    await _failed_run(db_session, company, project, topic="something else")
+    await db_session.commit()
+    rows = (await api.get(URL.format(company.id) + "/failed")).json()
+    assert {r["id"]: r["superseded_by"] for r in rows}[str(failed.id)] is None

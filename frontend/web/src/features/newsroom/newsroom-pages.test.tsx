@@ -133,6 +133,33 @@ describe("the model", () => {
   });
 });
 
+describe("taking an article off the site (D-044)", () => {
+  const onSite = () => ({ unpublish: vi.fn(), republish: vi.fn(), busy: false, error: null });
+
+  it("a published article comes down only with a reason", () => {
+    const controls = onSite();
+    render(<ArticleView article={{ ...ARTICLE_DETAIL, state: "PUBLISHED" }} lang="zh-TW" onLang={vi.fn()} events={[]} onSite={controls} />);
+    const down = within(screen.getByTestId("site-controls")).getByRole("button", { name: "下架" }) as HTMLButtonElement;
+    expect(down.disabled).toBe(true);
+    fireEvent.change(within(screen.getByTestId("site-controls")).getByRole("textbox"), { target: { value: "用字要改" } });
+    fireEvent.click(down);
+    expect(controls.unpublish).toHaveBeenCalledWith("用字要改");
+  });
+
+  it("one that was taken down says so and can go back up", () => {
+    const controls = onSite();
+    render(<ArticleView article={{ ...ARTICLE_DETAIL, state: "ARCHIVED" }} lang="zh-TW" onLang={vi.fn()} events={[]} onSite={controls} />);
+    expect(screen.getByTestId("site-controls").textContent).toContain("網站上看不到這篇");
+    fireEvent.click(screen.getByRole("button", { name: "重新上架" }));
+    expect(controls.republish).toHaveBeenCalled();
+  });
+
+  it("a draft has nothing to take down", () => {
+    render(<ArticleView article={{ ...ARTICLE_DETAIL, state: "DRAFT" }} lang="zh-TW" onLang={vi.fn()} events={[]} onSite={onSite()} />);
+    expect(screen.queryByTestId("site-controls")).toBeNull();
+  });
+});
+
 describe("an article", () => {
   function show(lang = "zh-TW", onLang = vi.fn()) {
     render(<ArticleView article={ARTICLE_DETAIL} lang={lang} onLang={onLang} events={[event("ARTICLE_PUBLISHED", { langs: ["zh-TW", "en"], url: "/news/zh-TW/articles/x" })]} />);

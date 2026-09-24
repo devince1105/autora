@@ -246,6 +246,67 @@ async def test_rejected_article_cancels_publishing(db_session, world):
     assert states == ["CANCELLED", "CANCELLED"]
 
 
+async def test_sent_back_the_decision_task_ends_with_the_reason_and_says_so(db_session, world):
+    """D-044: not a no. The task succeeds with ``decision: revise``; a workflow loop on it (the
+    newsroom's) does the work again. Here, with no loop, nothing else happens to the run."""
+    tm = world["tm"]
+    run, tasks = await world["engine"].instantiate(
+        db_session,
+        "test.approve_then_publish",
+        company_id=world["company"].id,
+        project_id=world["project"].id,
+    )
+    claim = await tm.claim_next(db_session, world["agents"]["w1"], "worker-1")
+    await tm.succeed(db_session, claim, {})
+    approve = await _reload(db_session, Task, tasks["approve"].id)
+    approval = await world["approvals"].request_for_task(
+        db_session, approve, kind=DOMAIN_KIND, summary="Publish?"
+    )
+    decided = await world["approvals"].decide(
+        db_session, approval.id, outcome="revise", actor=OPERATOR, reason="標題太聳動"
+    )
+    assert decided.state == "RETURNED" and decided.decided_at is not None
+    approve = await _reload(db_session, Task, approve.id)
+    assert approve.state == "SUCCEEDED"
+    assert approve.output["decision"] == "revise" and approve.output["reason"] == "標題太聳動"
+    returned = await db_session.scalar(
+        select(EventRecord.payload).where(
+            EventRecord.event_type == "APPROVAL_RETURNED",
+            EventRecord.aggregate_id == approval.id,
+        )
+    )
+    assert returned["reason"] == "標題太聳動"
+
+
+async def test_sending_back_needs_a_reason_and_a_decision_task(db_session, world):
+    tm = world["tm"]
+    run, tasks = await world["engine"].instantiate(
+        db_session,
+        "test.approve_then_publish",
+        company_id=world["company"].id,
+        project_id=world["project"].id,
+    )
+    claim = await tm.claim_next(db_session, world["agents"]["w1"], "worker-1")
+    await tm.succeed(db_session, claim, {})
+    approval = await world["approvals"].request_for_task(
+        db_session, await _reload(db_session, Task, tasks["approve"].id), kind=DOMAIN_KIND,
+        summary="Publish?",
+    )  # fmt: skip
+    with pytest.raises(ApprovalError, match="reason"):
+        await world["approvals"].decide(
+            db_session, approval.id, outcome="revise", actor=OPERATOR, reason="  "
+        )
+
+    standalone = await world["approvals"].request(
+        db_session, company_id=world["company"].id, kind=DOMAIN_KIND, ref_type="project",
+        ref_id=uuid.uuid4(), summary="Create a project?", requested_by=Actor.agent(uuid.uuid4()),
+    )  # fmt: skip
+    with pytest.raises(ApprovalError, match="decision task"):
+        await world["approvals"].decide(
+            db_session, standalone.id, outcome="revise", actor=OPERATOR, reason="改一下"
+        )
+
+
 async def test_only_ready_tasks_can_await_an_approval(db_session, world):
     task = await _task(world, db_session)
     await world["tm"].claim_next(db_session, world["agents"]["w1"], "worker-1")

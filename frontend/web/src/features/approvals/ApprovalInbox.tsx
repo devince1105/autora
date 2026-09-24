@@ -7,7 +7,11 @@ import { ApiError } from "@/api/client";
 
 import { STATES, type ApprovalCard, type ApprovalState, type Decision } from "./model";
 
-const SENT_LABEL: Record<Decision, string> = { approve: "已送出核准", reject: "已送出駁回" };
+const SENT_LABEL: Record<Decision, string> = {
+  approve: "已送出核准",
+  reject: "已送出駁回",
+  revise: "已退回修改",
+};
 
 function time(iso: string): string {
   return new Date(iso).toLocaleString("zh-TW", { hour12: false });
@@ -74,7 +78,9 @@ function Card({
         ) : (
           <div className="mt-3 grid gap-2">
             <label className="grid gap-1 text-sm">
-              <span className="text-muted">理由（選填，駁回時建議填寫）</span>
+              <span className="text-muted">
+                {card.canSendBack ? "意見（退回修改時必填：寫手會照這段修改）" : "理由（選填，駁回時建議填寫）"}
+              </span>
               <textarea
                 value={reason}
                 onChange={(e) => setReason(e.target.value)}
@@ -92,13 +98,24 @@ function Card({
               >
                 核准
               </button>
+              {card.canSendBack ? (
+                <button
+                  type="button"
+                  disabled={busy || !reason.trim()}
+                  title={reason.trim() ? undefined : "先寫下要改什麼"}
+                  onClick={() => onDecide("revise", reason.trim())}
+                  className="rounded-lg border border-line px-4 py-1.5 text-sm disabled:opacity-50"
+                >
+                  退回修改
+                </button>
+              ) : null}
               <button
                 type="button"
                 disabled={busy}
                 onClick={() => onDecide("reject", reason.trim() || null)}
                 className="rounded-lg border border-danger-line px-4 py-1.5 text-sm text-danger disabled:opacity-50"
               >
-                駁回
+                {card.canSendBack ? "駁回（放棄這則）" : "駁回"}
               </button>
             </div>
           </div>

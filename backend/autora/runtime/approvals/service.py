@@ -9,6 +9,10 @@ Three ways an approval can be attached:
   (downstream tasks follow through the workflow engine).
 - **Human task node** (``request_for_task``): the task itself is the decision (e.g. approve an
   article). Approved: the task SUCCEEDED and the next node unlocks. Rejected: cancelled.
+  **Sent back** (``revise``, D-044): the task SUCCEEDED too, with ``decision: revise`` and the
+  reason in its output — a workflow loop on that node does the work again (the newsroom's
+  draft → review → approve); without one, nothing unlocks differently and it reads as approved,
+  so only nodes that loop should be sent back. A reason is required: "change it" says nothing.
 - **Standalone** (``request``): a command needing approval (create a project). Whoever issued it
   reacts to APPROVAL_APPROVED / APPROVAL_REJECTED.
 
@@ -43,7 +47,7 @@ from autora.runtime.task_manager import Claim, TaskManager
 
 DEFAULT_EXPIRY = timedelta(hours=24)  # D-001
 
-DecisionOutcome = Literal["approve", "reject"]
+DecisionOutcome = Literal["approve", "reject", "revise"]
 DecisionHook = Callable[
     [AsyncSession, Approval, DecisionOutcome, Actor, str | None], Awaitable[None]
 ]
@@ -175,23 +179,32 @@ class ApprovalService:
             raise ApprovalError(f"approval {approval_id} is already {approval.state}")
 
         approved = outcome == "approve"
+        returned = outcome == "revise"
+        if returned:
+            if not (reason and reason.strip()):
+                raise ApprovalError("sending back needs a reason: say what to change")
+            if approval.task_id is None or approval.run_id is not None:
+                raise ApprovalError("only a decision task can be sent back for changes")
         approval.decided_by = actor.as_json()
         approval.decided_at = self.clock()
         approval.reason = reason
-        target = ApprovalState.APPROVED if approved else ApprovalState.REJECTED
-        await APPROVAL_FSM.transition(session, approval, target, actor=actor, reason=reason)
-        payload_cls = ev.ApprovalApproved if approved else ev.ApprovalRejected
-        await self._emit(
-            session,
-            approval,
-            payload_cls(
-                kind=approval.kind,
-                ref_type=approval.ref_type,
-                ref_id=approval.ref_id,
-                reason=reason,
-            ),
-            actor=actor,
+        target = (
+            ApprovalState.APPROVED
+            if approved
+            else ApprovalState.RETURNED
+            if returned
+            else ApprovalState.REJECTED
         )
+        await APPROVAL_FSM.transition(session, approval, target, actor=actor, reason=reason)
+        common = {"kind": approval.kind, "ref_type": approval.ref_type, "ref_id": approval.ref_id}
+        payload: EventPayload = (
+            ev.ApprovalApproved(**common, reason=reason)
+            if approved
+            else ev.ApprovalReturned(**common, reason=reason or "")
+            if returned
+            else ev.ApprovalRejected(**common, reason=reason)
+        )
+        await self._emit(session, approval, payload, actor=actor)
         hook = self.hooks.get(approval.action or "")
         if hook is not None:
             await hook(session, approval, outcome, actor, reason)
@@ -201,7 +214,19 @@ class ApprovalService:
         task = await session.get(Task, approval.task_id, with_for_update=True)
         if task is None or task.state != TaskState.WAITING_APPROVAL:
             return approval  # the task moved on (cancelled meanwhile): nothing to release
-        if not approved:
+        if returned:
+            await self.task_manager.complete_without_run(
+                session,
+                task,
+                {
+                    "approval_id": str(approval.id),
+                    "decision": "revise",
+                    "reason": reason,
+                    "returned_by": actor.as_json(),
+                },
+                output_summary=f"sent back by {actor.id}: {reason}"[:300],
+            )
+        elif not approved:
             await self.task_manager.cancel(
                 session, task, reason=f"approval rejected: {reason or 'no reason given'}"
             )
@@ -211,7 +236,11 @@ class ApprovalService:
             await self.task_manager.complete_without_run(
                 session,
                 task,
-                {"approval_id": str(approval.id), "approved_by": actor.as_json()},
+                {
+                    "approval_id": str(approval.id),
+                    "decision": "approve",
+                    "approved_by": actor.as_json(),
+                },
                 output_summary=f"approved by {actor.id}",
             )
         return approval

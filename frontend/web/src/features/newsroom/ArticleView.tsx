@@ -4,23 +4,80 @@
 // links land here (?version=N, #fact-check, #distribution).
 import type { EventEnvelope } from "@autora/event-schema";
 import Link from "next/link";
-import { Fragment } from "react";
+import { Fragment, useState } from "react";
 
 import { ARTICLE_STATE, claimNumbers, formatTime, label, orderedClaims, problems, type ArticleDetail } from "./model";
 import { Badge, ClaimList, Empty, EventList, NewsroomHeader, Section } from "./parts";
 
 const CHANNEL: Record<string, string> = { site: "網站", social_draft: "社群貼文（草稿，未發出）" };
 
+/** Taking a published article off the site and putting it back (D-044). */
+export interface OnSite {
+  unpublish: (reason: string) => void;
+  republish: () => void;
+  busy: boolean;
+  error: string | null;
+}
+
+function SiteControls({ state, onSite }: { state: string; onSite: OnSite }) {
+  const [reason, setReason] = useState("");
+  if (state !== "PUBLISHED" && state !== "ARCHIVED") return null;
+  return (
+    <section aria-label="網站上架" data-testid="site-controls" className="mb-6 rounded-lg border border-line p-4 text-sm">
+      {state === "PUBLISHED" ? (
+        <div className="flex flex-wrap items-end gap-2">
+          <label className="grid flex-1 gap-1">
+            <span className="text-muted">下架原因（必填，會留在紀錄裡）</span>
+            <input
+              value={reason}
+              onChange={(e) => setReason(e.target.value)}
+              maxLength={500}
+              className="rounded-lg border border-line bg-canvas px-3 py-1.5"
+            />
+          </label>
+          <button
+            type="button"
+            disabled={onSite.busy || !reason.trim()}
+            onClick={() => onSite.unpublish(reason.trim())}
+            className="rounded-lg border border-danger-line px-4 py-1.5 text-danger disabled:opacity-50"
+          >
+            下架
+          </button>
+        </div>
+      ) : (
+        <div className="flex flex-wrap items-center gap-3">
+          <span className="text-muted">已下架：網站上看不到這篇。</span>
+          <button
+            type="button"
+            disabled={onSite.busy}
+            onClick={() => onSite.republish()}
+            className="rounded-lg border border-line px-4 py-1.5 disabled:opacity-50"
+          >
+            重新上架
+          </button>
+        </div>
+      )}
+      {onSite.error ? (
+        <p role="alert" className="mt-2 text-danger">
+          {onSite.error}
+        </p>
+      ) : null}
+    </section>
+  );
+}
+
 export function ArticleView({
   article,
   lang,
   onLang,
   events,
+  onSite,
 }: {
   article: ArticleDetail;
   lang: string;
   onLang: (lang: string) => void;
   events: readonly EventEnvelope[];
+  onSite?: OnSite;
 }) {
   const [state, tone] = label(ARTICLE_STATE, article.state);
   const primary = article.primary_lang;
@@ -50,6 +107,8 @@ export function ArticleView({
           {article.published_at ? <span className="text-muted">發布於 {formatTime(article.published_at)}</span> : null}
         </p>
       </NewsroomHeader>
+
+      {onSite ? <SiteControls state={article.state} onSite={onSite} /> : null}
 
       <nav aria-label="版本" className="flex flex-wrap items-center gap-2 text-sm">
         <span className="text-muted">版本</span>

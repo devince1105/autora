@@ -157,6 +157,30 @@ class ArticleRejected(EventPayload):
     reason: str
 
 
+@event("ARTICLE_RETURNED")
+class ArticleReturned(EventPayload):
+    """A person sent the article back for changes at approval (D-044): it is a draft again."""
+
+    article_id: uuid.UUID
+    version_id: uuid.UUID | None
+    reason: str
+
+
+@event("ARTICLE_UNPUBLISHED")
+class ArticleUnpublished(EventPayload):
+    """A person took a published article off the site (D-044)."""
+
+    article_id: uuid.UUID
+    reason: str
+
+
+@event("ARTICLE_REPUBLISHED")
+class ArticleRepublished(EventPayload):
+    """A person put an article taken off the site back on it (D-044)."""
+
+    article_id: uuid.UUID
+
+
 @event("ARTICLE_PUBLISHED")
 class ArticlePublished(EventPayload):
     article_id: uuid.UUID

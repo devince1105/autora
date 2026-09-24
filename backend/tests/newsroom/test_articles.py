@@ -140,7 +140,8 @@ def test_slugs_and_lifecycle():
     assert slugify("流明市微電網啟用", article_id) == "article-00abcd"
     assert ARTICLE_FSM.can("DRAFT", "IN_REVIEW") and ARTICLE_FSM.can("IN_REVIEW", "DRAFT")
     assert not ARTICLE_FSM.can("PUBLISHED", "DRAFT")
-    assert ARTICLE_FSM.terminal_states() == {"ARCHIVED", "REJECTED"}
+    assert ARTICLE_FSM.terminal_states() == {"REJECTED"}  # taken down can go back up (D-044)
+    assert ARTICLE_FSM.can("PUBLISHED", "ARCHIVED") and ARTICLE_FSM.can("ARCHIVED", "PUBLISHED")
 
 
 # --- the tools --------------------------------------------------------------------------------

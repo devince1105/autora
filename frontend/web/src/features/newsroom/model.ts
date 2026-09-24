@@ -24,7 +24,7 @@ export const ARTICLE_STATE: Record<string, [string, Tone]> = {
   APPROVED: ["已核准", "ok"],
   PUBLISHED: ["已發布", "ok"],
   REJECTED: ["已駁回", "danger"],
-  ARCHIVED: ["已封存", "neutral"],
+  ARCHIVED: ["已下架", "neutral"],
 };
 
 export const CLAIM_STATUS: Record<string, [string, Tone]> = {

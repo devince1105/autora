@@ -6,12 +6,14 @@ import { formatDuration } from "@/features/agent-panel/model";
 import type { AgentState } from "@/realtime/reducer";
 
 export type Approval = Schemas["ApprovalOut"];
-export type ApprovalState = "PENDING" | "APPROVED" | "REJECTED" | "EXPIRED";
-export type Decision = "approve" | "reject";
+export type ApprovalState = "PENDING" | "APPROVED" | "REJECTED" | "RETURNED" | "EXPIRED";
+/** ``revise``: send it back with what to change (D-044). */
+export type Decision = "approve" | "reject" | "revise";
 
 export const STATES: { id: ApprovalState; label: string }[] = [
   { id: "PENDING", label: "待審批" },
   { id: "APPROVED", label: "已核准" },
+  { id: "RETURNED", label: "已退回修改" },
   { id: "REJECTED", label: "已駁回" },
   { id: "EXPIRED", label: "已過期" },
 ];
@@ -45,6 +47,8 @@ export interface ApprovalCard {
   expires: { at: string; in: string | null; soon: boolean } | null;
   taskId: string | null;
   runId: string | null;
+  /** A decision task (an article to approve) can be sent back; a paused agent run cannot. */
+  canSendBack: boolean;
   decision: { by: string; at: string; reason: string | null } | null;
 }
 
@@ -76,6 +80,7 @@ export function approvalCard(approval: Approval, agents: Record<string, AgentSta
       : null,
     taskId: approval.task_id,
     runId: approval.run_id,
+    canSendBack: Boolean(approval.task_id) && !approval.run_id,
     decision: approval.decided_at
       ? { by: actorName(approval.decided_by, agents), at: approval.decided_at, reason: approval.reason }
       : null,

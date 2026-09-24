@@ -87,6 +87,26 @@ describe("inbox", () => {
     return { props, view, card };
   }
 
+  it("an article can be sent back, but only with what to change (D-044)", async () => {
+    const article = { ...pending, kind: "article", run_id: null, task_id: "t-approve" };
+    const { props, card } = setup({ cards: [approvalCard(article, agents, NOW)] });
+    const sendBack = within(card()).getByRole("button", { name: "退回修改" }) as HTMLButtonElement;
+    expect(sendBack.disabled).toBe(true);
+    expect(within(card()).getByRole("button", { name: "駁回（放棄這則）" })).toBeTruthy();
+
+    fireEvent.change(within(card()).getByRole("textbox"), { target: { value: "標題不要用「狂加」" } });
+    expect(sendBack.disabled).toBe(false);
+    fireEvent.click(sendBack);
+    await waitFor(() => expect(within(card()).getByRole("status").textContent).toBe("已退回修改，等待更新…"));
+    expect(props.decide).toHaveBeenCalledWith(pending.id, "revise", "標題不要用「狂加」");
+  });
+
+  it("a paused agent run is approved or rejected, never sent back", () => {
+    const { card } = setup();
+    expect(within(card()).queryByRole("button", { name: "退回修改" })).toBeNull();
+    expect(within(card()).getByRole("button", { name: "駁回" })).toBeTruthy();
+  });
+
   it("approve: sent over REST, then the list changes when the event refreshes it", async () => {
     const { props, view, card } = setup();
     expect(within(card()).getByText(pending.summary)).toBeTruthy();

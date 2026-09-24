@@ -41,6 +41,7 @@ from autora.domains.newsroom.publisher import (
     approve_article,
     publish_article,
     reject_article,
+    return_article,
 )
 from autora.domains.newsroom.stories import STORY_FSM
 from autora.runtime.actor import Actor
@@ -66,6 +67,16 @@ def _issues(output: dict[str, Any]) -> dict[str, Any]:
     return {"issues": output.get("issues") or []}
 
 
+def _sent_back(output: dict[str, Any]) -> bool:
+    """The approval step's output when a person sent the article back (D-044)."""
+    return output.get("decision") == "revise"
+
+
+def _their_reason(output: dict[str, Any]) -> dict[str, Any]:
+    """What the writer is told: the person's reason, as one issue like the editor's."""
+    return {"issues": [{"message": f"審批退回（人工）：{output.get('reason') or ''}"}]}
+
+
 TEMPLATE = WorkflowTemplate(
     name=TEMPLATE_NAME,
     nodes=(
@@ -85,6 +96,17 @@ TEMPLATE = WorkflowTemplate(
             carry=_issues,
             max_rounds=MAX_REVISIONS,
             round_label="{name}（第 {round} 輪）",
+        ),
+        # D-044: a person sends it back from approval; the writer drafts again with their reason,
+        # the editor reviews again, and it comes back to approval. The editor's loop above counts
+        # reviews, so a round sent back by a person uses one of those too.
+        Loop(
+            check="approve",
+            back_to="draft",
+            again=_sent_back,
+            carry=_their_reason,
+            max_rounds=MAX_REVISIONS,
+            round_label="{name}（退回後第 {round} 輪）",
         ),
     ),
 )
@@ -267,7 +289,8 @@ async def publish_step(ctx: ServiceContext) -> None:
 
 
 def on_article_decided(policy: PolicyEngine):
-    """A person's decision on an ``approve_article`` approval approves or rejects the article."""
+    """A person's decision on an ``approve_article`` approval approves, sends back (D-044) or
+    rejects the article."""
 
     async def hook(
         session: AsyncSession, approval: Approval, outcome: str, actor: Actor, reason: str | None
@@ -281,6 +304,14 @@ def on_article_decided(policy: PolicyEngine):
                 article_id=article_id,
                 actor=actor,
                 reason=reason,
+            )
+        elif outcome == "revise":
+            await return_article(
+                session,
+                company_id=approval.company_id,
+                article_id=article_id,
+                actor=actor,
+                reason=reason or "",
             )
         else:
             await reject_article(

@@ -1310,6 +1310,42 @@
         }
       }
     },
+    "APPROVAL_RETURNED": {
+      "1": {
+        "persistence": "persisted",
+        "payload": {
+          "additionalProperties": false,
+          "description": "Sent back with changes asked for (D-044); ``reason`` says what to change.",
+          "properties": {
+            "kind": {
+              "title": "Kind",
+              "type": "string"
+            },
+            "ref_type": {
+              "title": "Ref Type",
+              "type": "string"
+            },
+            "ref_id": {
+              "format": "uuid",
+              "title": "Ref Id",
+              "type": "string"
+            },
+            "reason": {
+              "title": "Reason",
+              "type": "string"
+            }
+          },
+          "required": [
+            "kind",
+            "ref_type",
+            "ref_id",
+            "reason"
+          ],
+          "title": "ApprovalReturned",
+          "type": "object"
+        }
+      }
+    },
     "ARTICLE_APPROVED": {
       "1": {
         "persistence": "persisted",
@@ -1449,6 +1485,66 @@
         }
       }
     },
+    "ARTICLE_REPUBLISHED": {
+      "1": {
+        "persistence": "persisted",
+        "payload": {
+          "additionalProperties": false,
+          "description": "A person put an article taken off the site back on it (D-044).",
+          "properties": {
+            "article_id": {
+              "format": "uuid",
+              "title": "Article Id",
+              "type": "string"
+            }
+          },
+          "required": [
+            "article_id"
+          ],
+          "title": "ArticleRepublished",
+          "type": "object"
+        }
+      }
+    },
+    "ARTICLE_RETURNED": {
+      "1": {
+        "persistence": "persisted",
+        "payload": {
+          "additionalProperties": false,
+          "description": "A person sent the article back for changes at approval (D-044): it is a draft again.",
+          "properties": {
+            "article_id": {
+              "format": "uuid",
+              "title": "Article Id",
+              "type": "string"
+            },
+            "version_id": {
+              "anyOf": [
+                {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Version Id"
+            },
+            "reason": {
+              "title": "Reason",
+              "type": "string"
+            }
+          },
+          "required": [
+            "article_id",
+            "version_id",
+            "reason"
+          ],
+          "title": "ArticleReturned",
+          "type": "object"
+        }
+      }
+    },
     "ARTICLE_REVIEWED": {
       "1": {
         "persistence": "persisted",
@@ -1528,6 +1624,32 @@
             "revision"
           ],
           "title": "ArticleRevisionRequested",
+          "type": "object"
+        }
+      }
+    },
+    "ARTICLE_UNPUBLISHED": {
+      "1": {
+        "persistence": "persisted",
+        "payload": {
+          "additionalProperties": false,
+          "description": "A person took a published article off the site (D-044).",
+          "properties": {
+            "article_id": {
+              "format": "uuid",
+              "title": "Article Id",
+              "type": "string"
+            },
+            "reason": {
+              "title": "Reason",
+              "type": "string"
+            }
+          },
+          "required": [
+            "article_id",
+            "reason"
+          ],
+          "title": "ArticleUnpublished",
           "type": "object"
         }
       }

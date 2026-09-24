@@ -33,7 +33,7 @@ from autora.company.events import (
     ProjectResumed,
     StrategyUpdated,
 )
-from autora.company.workflows import WorkflowNotAllowed, start_workflow
+from autora.company.workflows import WorkflowNotAllowed, start_workflow, superseded_by
 from autora.db.models import (
     Budget,
     BusinessUnit,
@@ -432,6 +432,12 @@ async def restart_workflow(ctx: Context, command: RestartWorkflow) -> dict[str, 
         raise Refused(f"no workflow run {command.workflow_run_id} in this company")
     if not WORKFLOW_RUN_FSM.is_terminal(run.state):
         raise Refused(f"that run is still {run.state}; only a finished one can be restarted")
+    later = await superseded_by(ctx.session, run)
+    if later is not None:
+        raise Refused(
+            f"the same work already ran again ({later.id}, {later.state.lower()}): "
+            "restarting this one would do it twice"
+        )
     fresh = await instantiate_workflow(
         ctx,
         InstantiateWorkflow(
