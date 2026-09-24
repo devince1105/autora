@@ -42,7 +42,7 @@ SettingsDep = Annotated[Settings, Depends(settings_dep)]
 CompanySlug = Annotated[str | None, Query(max_length=100)]
 Interval = Literal["month", "year"]
 
-PRODUCT_DESCRIPTIONS = {"month": "Autora 會員一個月", "year": "Autora 會員一年"}
+PRODUCT_DESCRIPTIONS = {"month": "艾矽鯨會員一個月", "year": "艾矽鯨會員一年"}
 """What PAYUNi's page and the buyer's receipt call it, by what one payment buys (D-034)."""
 
 

@@ -398,7 +398,8 @@ def render(
     lines = [
         f"{filer}: 13F holdings, quarter ended {now.period} compared with quarter ended "
         f"{period_before}.",
-        f"Computed by Autora from the {len(before) + 1} SEC filings below. Every figure is copied "
+        f"Computed by this newsroom's code from the {len(before) + 1} SEC filings below. Every "
+        "figure is copied "
         "from them or calculated from them (sums of each filing's rows, differences, "
         "percentages); the text is not SEC's own.",
         f"Filer: {filer} (CIK {cik}).",

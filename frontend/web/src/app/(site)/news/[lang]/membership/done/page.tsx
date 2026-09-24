@@ -6,7 +6,7 @@ import { PaymentDone } from "@/features/site/PaymentDone";
 
 export async function generateMetadata({ params }: { params: Promise<{ lang: string }> }) {
   const { lang } = await params;
-  return isLang(lang) ? { title: `${words(lang).doneTitle} · Autora` } : {};
+  return isLang(lang) ? { title: `${words(lang).doneTitle} · ${words(lang).site}` } : {};
 }
 
 export default async function Page({ params }: { params: Promise<{ lang: string }> }) {

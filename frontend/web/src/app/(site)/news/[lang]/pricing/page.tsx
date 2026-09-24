@@ -9,7 +9,7 @@ import { PlanPicker } from "@/features/site/PlanPicker";
 
 export async function generateMetadata({ params }: { params: Promise<{ lang: string }> }) {
   const { lang } = await params;
-  return isLang(lang) ? { title: `${words(lang).pricing} · Autora` } : {};
+  return isLang(lang) ? { title: `${words(lang).pricing} · ${words(lang).site}` } : {};
 }
 
 export default async function Page({ params }: { params: Promise<{ lang: string }> }) {

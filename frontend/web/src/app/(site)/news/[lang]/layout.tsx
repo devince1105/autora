@@ -23,8 +23,9 @@ export default async function SiteLayout({
     <div lang={lang} className="min-h-screen bg-surface text-ink">
       <header className="border-b border-line">
         <nav className="mx-auto flex max-w-2xl items-center justify-between px-4 py-3">
-          <Link href={`/news/${lang}`} className="font-bold">
-            {words(lang).site}
+          <Link href={`/news/${lang}`} className="flex items-baseline gap-2">
+            <span className="font-bold">{words(lang).site}</span>
+            <span className="hidden text-xs text-muted sm:inline">{words(lang).tagline}</span>
           </Link>
           <span className="flex items-center gap-4 text-sm">
             {LANGS.filter((other) => other !== lang).map((other) => (

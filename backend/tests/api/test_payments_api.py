@@ -237,7 +237,7 @@ async def test_a_month_is_ordered_at_the_month_s_price_and_buys_a_month(
     sent = payuni.unseal(
         checkout["fields"]["EncryptInfo"], checkout["fields"]["HashInfo"], key=KEY, iv=IV
     )
-    assert (sent["TradeAmt"], sent["ProdDesc"]) == ("30", "Autora 會員一個月")
+    assert (sent["TradeAmt"], sent["ProdDesc"]) == ("30", "艾矽鯨會員一個月")
 
     await shop.post(
         "/api/payments/payuni/notify", data=_notification(checkout["mer_trade_no"], amount="30")

@@ -10,7 +10,8 @@ export const LANG_NAMES: Record<Lang, string> = { "zh-TW": "中文", en: "Englis
 
 const WORDS = {
   "zh-TW": {
-    site: "Autora 新聞",
+    site: "艾矽鯨",
+    tagline: "AI 科技投資動向",
     latest: "最新報導",
     empty: "還沒有報導。",
     sources: "資料來源",
@@ -29,7 +30,7 @@ const WORDS = {
     planAgree: ["付款即表示你同意", "與", "。"],
     pricing: "會員方案",
     pricingClosed: "目前所有報導都免費閱讀，付費會員尚未開放。",
-    pricingIntro: "Autora 新聞的報導大部分免費。成為會員，就能閱讀所有標示為會員專屬的報導。",
+    pricingIntro: "艾矽鯨的報導大部分免費。成為會員，就能閱讀所有標示為會員專屬的報導。",
     pricingIncludes: [
       "閱讀全部會員專屬報導，中文與英文版本都包含",
       "單次付款，不會自動扣款，也不需要取消",
@@ -72,7 +73,8 @@ const WORDS = {
     verifyFailed: "這個連結已經失效，請重新要求一次。",
   },
   en: {
-    site: "Autora News",
+    site: "AiSiWhale",
+    tagline: "AI & tech investing, from the filings",
     latest: "Latest stories",
     empty: "No stories yet.",
     sources: "Sources",
@@ -92,7 +94,7 @@ const WORDS = {
     planAgree: ["By paying you agree to the ", " and the ", "."],
     pricing: "Membership",
     pricingClosed: "Every story is free to read. Paid membership is not open yet.",
-    pricingIntro: "Most Autora News stories are free. Members can also read every story marked members-only.",
+    pricingIntro: "Most AiSiWhale stories are free. Members can also read every story marked members-only.",
     pricingIncludes: [
       "Every members-only story, in Chinese and in English",
       "Paid once: nothing renews or is charged again, and there is nothing to cancel",

@@ -122,7 +122,7 @@ class Settings(BaseSettings):
     email_provider: Literal["console", "resend"] = "console"
     """console: print the message (dev, tests, no network). resend: send it for real."""
     resend_api_key: SecretStr | None = None
-    email_from: str = "Autora <onboarding@resend.dev>"
+    email_from: str = "AiSiWhale <onboarding@resend.dev>"
 
     # --- Payments: PAYUNi (D-024) ---
     payuni_env: Literal["sandbox", "production"] = "sandbox"

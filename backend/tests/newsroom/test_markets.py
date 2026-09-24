@@ -24,6 +24,10 @@ async def test_seeded_once_with_advice_off_limits_and_twice_without_duplicates(d
     assert again.added == [] and len(again.sources) == len(markets.SOURCES)
     assert again.company.id == first.company.id and again.company.name == "新的名字"
 
+    first.company.mission = "an old mission"
+    await markets.seed_markets(db_session, actor=ACTOR, slug=slug)
+    assert first.company.mission == markets.MISSION, "the desk chooses by today's mission"
+
 
 async def test_every_filing_source_says_whose_it_is_and_stands_alone(db_session):
     newsroom = await markets.seed_markets(

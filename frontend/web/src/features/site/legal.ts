@@ -44,7 +44,7 @@ function terms(lang: Lang, op: Operator): LegalDoc {
         {
           heading: "1. Who we are",
           body: [
-            `Autora News (autora.nanguado.com, "the site") is run by ${who(op, lang)} ("we"). By using the site you agree to these terms. Contact: ${op.email}.`,
+            `AiSiWhale (艾矽鯨, aisiwhale.com, "the site") is run by ${who(op, lang)} ("we"). By using the site you agree to these terms. Contact: ${op.email}.`,
           ],
         },
         {
@@ -112,7 +112,7 @@ function terms(lang: Lang, op: Operator): LegalDoc {
       {
         heading: "一、經營者",
         body: [
-          `Autora 新聞（autora.nanguado.com，以下稱「本站」）由 ${who(op, lang)}（以下稱「我們」）經營。使用本站即表示你同意本條款。聯絡信箱：${op.email}。`,
+          `艾矽鯨（AiSiWhale，aisiwhale.com，以下稱「本站」）由 ${who(op, lang)}（以下稱「我們」）經營。使用本站即表示你同意本條款。聯絡信箱：${op.email}。`,
         ],
       },
       {
@@ -183,7 +183,7 @@ function privacy(lang: Lang, op: Operator): LegalDoc {
         {
           heading: "1. Who is responsible",
           body: [
-            `Your personal data is handled by ${who(op, lang)}, which runs Autora News. Questions and requests: ${op.email}.`,
+            `Your personal data is handled by ${who(op, lang)}, which runs AiSiWhale. Questions and requests: ${op.email}.`,
           ],
         },
         {
@@ -236,7 +236,7 @@ function privacy(lang: Lang, op: Operator): LegalDoc {
       {
         heading: "一、蒐集者",
         body: [
-          `你的個人資料由經營 Autora 新聞的 ${who(op, lang)} 負責處理。有任何問題或請求，請寫信到 ${op.email}。`,
+          `你的個人資料由經營艾矽鯨的 ${who(op, lang)} 負責處理。有任何問題或請求，請寫信到 ${op.email}。`,
         ],
       },
       {

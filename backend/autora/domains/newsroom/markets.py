@@ -56,11 +56,12 @@ from autora.domains.newsroom.workflow import staff_newsroom
 from autora.runtime.actor import Actor
 
 SLUG = "autora-finance"
-NAME = "Autora 財經"
+NAME = "艾矽鯨"
+"""AiSiWhale (D-043): 艾 (ài, as in AI), 矽 = silicon, 鯨 = the whales whose holdings it follows."""
 PROJECT = "持股動態與科技產業"
 MISSION = (
-    "用附原始出處的中英雙語報導，整理美股大人物持股、台美股與 AI 科技產業的公開資訊；"
-    "只報導事實與別人說的話，不提供投資建議。"
+    "用附原始出處的中英雙語報導，追蹤 AI 與半導體產業的動向、大型投資人的持股變化，"
+    "以及台股、美股裡的 AI 科技公司；只報導事實與別人說的話，不提供投資建議。"
 )
 
 HALF_DAY = 12 * 3600
@@ -161,14 +162,16 @@ async def seed_markets(
 ) -> MarketsNewsroom:
     """The company, its desks, its project, its sources and its no-advice policy. Idempotent:
     run it again and what is missing is added, sources already there take the settings above,
-    and a name given later renames it."""
+    a name given later renames it, and the mission is brought up to date."""
     company = await get_company_by_slug(session, slug)
     if company is None:
         company, _ = await create_company(
             session, slug=slug, name=name, mission=MISSION, actor=actor
         )
-    elif company.name != name:
+    else:
+        # a name given later renames it; the mission is the code's, which the desk chooses by
         company.name = name
+        company.mission = MISSION
     if not (await get_policies(session, company.id)).get(NO_ADVICE_KEY):
         await upsert_policy(session, company.id, NO_ADVICE_KEY, True, updated_by=actor.as_json())
 

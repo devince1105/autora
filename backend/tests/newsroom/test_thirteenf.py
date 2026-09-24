@@ -202,7 +202,7 @@ def comparison() -> str:
 
 
 def test_it_says_who_computed_it_and_from_which_filings(comparison):
-    assert "Computed by Autora from the 2 SEC filings below" in comparison
+    assert "Computed by this newsroom's code from the 2 SEC filings below" in comparison
     assert "adds up the filings" not in comparison and "thousands" not in comparison
     assert "the text is not SEC's own" in comparison
     assert INDEX in comparison and Q1 in comparison

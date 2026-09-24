@@ -44,3 +44,14 @@ async def test_a_refusal_says_why_in_the_error_and_the_server_log(caplog):
     with caplog.at_level(logging.WARNING), pytest.raises(EmailError, match="not verified"):
         await sender.send(MESSAGE)
     assert reason in caplog.text
+
+
+def test_a_sign_in_email_says_whose_it_is():
+    """D-043: a link from nobody-in-particular looks like phishing."""
+    from datetime import UTC, datetime
+
+    from autora.accounts.emails import login_email
+
+    message = login_email("reader@example.com", "https://aisiwhale.com/x", datetime.now(UTC))
+    assert message.subject.startswith("艾矽鯨")
+    assert "登入艾矽鯨" in message.text and "登入艾矽鯨" in (message.html or "")
