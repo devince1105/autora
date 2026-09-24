@@ -88,7 +88,15 @@ class ResendSender:
                 headers={"Authorization": f"Bearer {self.api_key}"},
             )
             if response.status_code >= 400:
-                raise EmailError(f"Resend refused the message ({response.status_code})")
+                # Resend says why (an unverified sender domain, a send-only key used for more):
+                # keep it in the server log, where the operator can read it; readers only ever
+                # see "could not be sent"
+                try:
+                    reason = str(response.json().get("message", ""))[:300]
+                except ValueError:
+                    reason = response.text[:300]
+                log.warning("Resend refused a message (%s): %s", response.status_code, reason)
+                raise EmailError(f"Resend refused the message ({response.status_code}): {reason}")
         except httpx.HTTPError as exc:
             raise EmailError(f"Resend could not be reached: {exc}") from exc
         finally:

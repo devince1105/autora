@@ -1387,6 +1387,16 @@ T-611 之後，商業迴圈已經有 CEO 評估機會、策略師把機會寫成
 
 ---
 
+## 讀者登入信：從 console 切到 Resend
+
+- 使用者實測登入收不到信：本機 `.env` 是 `EMAIL_PROVIDER=console`（信印在 API 的輸出，不寄出；頁面刻意一律說「信寄出了」）。從 API 輸出找到那封信給使用者。
+- 使用者填了 `RESEND_API_KEY`、`EMAIL_FROM=Autora <service@nanguado.com>`，切成 `resend`、重啟 API。實測：登入頁「寄不出去」，API 回 502——但紀錄只有「被拒絕（403）」。用 Resend 的測試收件地址 `delivered@resend.dev`（不寄給任何真人）重現：**「The nanguado.com domain is not verified」**。這把金鑰只能寄信（較安全），所以不能用它查網域狀態。
+- 我的第一次重現本身有錯：用 shell 載入 `.env`，`Autora <service@...>` 的 `<` 被當成重新導向，寄件人只剩「Autora」、Resend 回「domain is invalid」。改用程式讀設定才重現到真正的原因。
+- **修正**：Resend 拒絕時，把它說的原因寫進伺服器紀錄與錯誤訊息（讀者仍只看到「寄不出去」）。Resend 寄件原本沒有測試，新增 2 個：送出的內容、拒絕時的原因。
+- **待使用者**：在 Resend 驗證 `nanguado.com`（把 Resend 給的 DNS 紀錄加到網域）。
+
+---
+
 ## 提交紀錄
 
 | 提交 | 日期 | 內容 | 持續整合 |
