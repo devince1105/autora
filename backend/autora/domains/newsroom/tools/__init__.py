@@ -9,6 +9,7 @@ from autora.domains.newsroom.tools import (
     drafts,
     evidence,
     factcheck,
+    filings,
     review,
     search,
 )
@@ -33,6 +34,7 @@ def register_tools(
 ) -> None:
     search.register(registry, search_provider)
     evidence.register(registry, fetcher, blobs, embedder)
+    filings.register(registry, fetcher, blobs, embedder)
     claims.register(registry)
     drafts.register(registry)
     factcheck.register(registry, embedder)

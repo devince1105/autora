@@ -200,7 +200,13 @@ async def test_the_validators_hold_the_note_to_the_run(newsroom_room):
 def test_the_worker_knows_the_researcher():
     behavior = build_behaviors().resolve(ROLE, TASK)
     assert behavior.output_model is ResearchNote
-    assert set(behavior.tools) == {"web_search", "fetch_url", "read_evidence", "search_evidence"}
+    assert set(behavior.tools) == {
+        "web_search",
+        "fetch_url",
+        "compare_13f",  # D-037: a story from a 13F filing
+        "read_evidence",
+        "search_evidence",
+    }
     assert (
         "Traditional Chinese" in behavior.system_prompt
         and "never Simplified" in behavior.system_prompt

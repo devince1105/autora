@@ -109,6 +109,130 @@ async def embed_caller(ctx: ToolContext) -> EmbedCaller:
     )
 
 
+async def capture_text(
+    ctx: ToolContext,
+    *,
+    url: str,
+    final_url: str,
+    title: str | None,
+    content_type: str,
+    language: str | None,
+    text: str,
+    truncated: bool,
+    snapshot: bytes,
+    blobs: BlobStore,
+    embedder: Embedder,
+    now: datetime,
+) -> tuple[Evidence, bool]:
+    """Store text as evidence: the snapshot in the blob store, the text, its chunks and their
+    vectors, EVIDENCE_CAPTURED. The same URL with the same text on the same day is the evidence
+    already stored. Returns ``(evidence, reused)``. Shared by ``fetch_url`` and the tools that
+    turn a document into text themselves (``compare_13f``, D-037)."""
+    text_hash = hashlib.sha256(text.encode()).hexdigest()
+    on = now.date()
+
+    existing = await ctx.session.scalar(
+        select(Evidence).where(
+            Evidence.company_id == ctx.company_id,
+            Evidence.url == url,
+            Evidence.text_hash == text_hash,
+            Evidence.retrieved_on == on,
+        )
+    )
+    reused = existing is not None
+    if existing is None:
+        listed = await ctx.session.scalar(
+            select(SourceItem)
+            .where(SourceItem.company_id == ctx.company_id, SourceItem.url == url)
+            .order_by(SourceItem.created_at)
+            .limit(1)
+        )
+        chunks = chunk_text(text)
+        try:
+            vectors = await embedder.embed(
+                ctx.session,
+                [c.text for c in chunks[:MAX_EMBED_CHUNKS]],
+                purpose="passage",
+                caller=await embed_caller(ctx),
+            )
+        except EmbeddingError:
+            vectors = []  # recorded in model_calls; the chunks stay keyword-searchable
+        evidence_id = uuid7()
+        blob_key = f"evidence/{ctx.company_id}/{on:%Y/%m/%d}/{evidence_id}.snapshot"
+        await blobs.put(blob_key, snapshot)
+        inserted = await ctx.session.scalar(
+            insert(Evidence)
+            .values(
+                id=evidence_id,
+                company_id=ctx.company_id,
+                url=url,
+                final_url=final_url,
+                title=(title or "")[:500] or None,
+                content_type=content_type[:200],
+                language=language,
+                retrieved_at=now,
+                retrieved_on=on,
+                blob_key=blob_key,
+                extracted_text=text,
+                text_hash=text_hash,
+                truncated=truncated,
+                source_id=listed.source_id if listed else None,
+                source_item_id=listed.id if listed else None,
+                task_id=ctx.task_id,
+                run_id=ctx.run_id,
+            )
+            .on_conflict_do_nothing()
+            .returning(Evidence.id)
+        )
+        if inserted is None:  # captured by a concurrent call a moment ago
+            reused = True
+        else:
+            ctx.session.add_all(
+                EvidenceChunk(
+                    company_id=ctx.company_id,
+                    evidence_id=evidence_id,
+                    seq=c.seq,
+                    start=c.start,
+                    end=c.end,
+                    text=c.text,
+                    embedding=vectors[c.seq] if c.seq < len(vectors) else None,
+                    embedding_model=embedder.model_id if c.seq < len(vectors) else None,
+                )
+                for c in chunks
+            )
+            await ctx.session.flush()
+            await emit(
+                ctx.session,
+                new_event(
+                    EvidenceCaptured(
+                        evidence_id=evidence_id,
+                        url=url,
+                        title=(title or "")[:300] or None,
+                        source_id=listed.source_id if listed else None,
+                    ),
+                    company_id=ctx.company_id,
+                    actor=ctx.actor,
+                    aggregate_type="evidence",
+                    aggregate_id=evidence_id,
+                    agent_id=ctx.agent_id,
+                    run_id=ctx.run_id,
+                    task_id=ctx.task_id,
+                    workflow_run_id=ctx.workflow_run_id,
+                    correlation_id=ctx.workflow_run_id,
+                ),
+            )
+    evidence = await ctx.session.scalar(
+        select(Evidence).where(
+            Evidence.company_id == ctx.company_id,
+            Evidence.url == url,
+            Evidence.text_hash == text_hash,
+            Evidence.retrieved_on == on,
+        )
+    )
+    assert evidence is not None
+    return evidence, reused
+
+
 def fetch_url_tool(
     fetcher: PageFetcher,
     blobs: BlobStore,
@@ -128,109 +252,20 @@ def fetch_url_tool(
             raise EvidenceError("the page has no readable text (it may need JavaScript)")
         truncated = len(text) > TEXT_LIMIT
         text = text[:TEXT_LIMIT]
-        text_hash = hashlib.sha256(text.encode()).hexdigest()
-        now = clock()
-        on = now.date()
-
-        existing = await ctx.session.scalar(
-            select(Evidence).where(
-                Evidence.company_id == ctx.company_id,
-                Evidence.url == url,
-                Evidence.text_hash == text_hash,
-                Evidence.retrieved_on == on,
-            )
+        evidence, reused = await capture_text(
+            ctx,
+            url=url,
+            final_url=canonical_url(page.url),
+            title=extracted.title,
+            content_type=page.content_type,
+            language=extracted.language,
+            text=text,
+            truncated=truncated,
+            snapshot=page.body,
+            blobs=blobs,
+            embedder=embedder,
+            now=clock(),
         )
-        reused = existing is not None
-        if existing is None:
-            listed = await ctx.session.scalar(
-                select(SourceItem)
-                .where(SourceItem.company_id == ctx.company_id, SourceItem.url == url)
-                .order_by(SourceItem.created_at)
-                .limit(1)
-            )
-            chunks = chunk_text(text)
-            try:
-                vectors = await embedder.embed(
-                    ctx.session,
-                    [c.text for c in chunks[:MAX_EMBED_CHUNKS]],
-                    purpose="passage",
-                    caller=await embed_caller(ctx),
-                )
-            except EmbeddingError:
-                vectors = []  # recorded in model_calls; the chunks stay keyword-searchable
-            evidence_id = uuid7()
-            blob_key = f"evidence/{ctx.company_id}/{on:%Y/%m/%d}/{evidence_id}.snapshot"
-            await blobs.put(blob_key, page.body)
-            inserted = await ctx.session.scalar(
-                insert(Evidence)
-                .values(
-                    id=evidence_id,
-                    company_id=ctx.company_id,
-                    url=url,
-                    final_url=canonical_url(page.url),
-                    title=(extracted.title or "")[:500] or None,
-                    content_type=page.content_type[:200],
-                    language=extracted.language,
-                    retrieved_at=now,
-                    retrieved_on=on,
-                    blob_key=blob_key,
-                    extracted_text=text,
-                    text_hash=text_hash,
-                    truncated=truncated,
-                    source_id=listed.source_id if listed else None,
-                    source_item_id=listed.id if listed else None,
-                    task_id=ctx.task_id,
-                    run_id=ctx.run_id,
-                )
-                .on_conflict_do_nothing()
-                .returning(Evidence.id)
-            )
-            if inserted is None:  # captured by a concurrent call a moment ago
-                reused = True
-            else:
-                ctx.session.add_all(
-                    EvidenceChunk(
-                        company_id=ctx.company_id,
-                        evidence_id=evidence_id,
-                        seq=c.seq,
-                        start=c.start,
-                        end=c.end,
-                        text=c.text,
-                        embedding=vectors[c.seq] if c.seq < len(vectors) else None,
-                        embedding_model=embedder.model_id if c.seq < len(vectors) else None,
-                    )
-                    for c in chunks
-                )
-                await ctx.session.flush()
-                await emit(
-                    ctx.session,
-                    new_event(
-                        EvidenceCaptured(
-                            evidence_id=evidence_id,
-                            url=url,
-                            title=(extracted.title or "")[:300] or None,
-                            source_id=listed.source_id if listed else None,
-                        ),
-                        company_id=ctx.company_id,
-                        actor=ctx.actor,
-                        aggregate_type="evidence",
-                        aggregate_id=evidence_id,
-                        agent_id=ctx.agent_id,
-                        run_id=ctx.run_id,
-                        task_id=ctx.task_id,
-                        workflow_run_id=ctx.workflow_run_id,
-                        correlation_id=ctx.workflow_run_id,
-                    ),
-                )
-        evidence = await ctx.session.scalar(
-            select(Evidence).where(
-                Evidence.company_id == ctx.company_id,
-                Evidence.url == url,
-                Evidence.text_hash == text_hash,
-                Evidence.retrieved_on == on,
-            )
-        )
-        assert evidence is not None
         output = {
             "evidence_id": str(evidence.id),
             "url": evidence.url,

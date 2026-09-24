@@ -102,6 +102,7 @@ def _within_campaign_cap(args, facts, policies) -> str | None:
 ACTIONS = {
     "web_search": "read",
     "fetch_url": "write",  # stores an evidence snapshot
+    "compare_13f": "write",  # stores a 13F comparison as evidence (D-037)
     "read_evidence": "read",
     "search_evidence": "read",
     "create_claim": "write",
@@ -122,6 +123,7 @@ ACTIONS = {
 RULES: list[Rule] = [
     *allow("web_search", "researcher", "marketing"),
     *allow("fetch_url", "researcher", "marketing"),
+    *allow("compare_13f", "researcher"),
     *allow("read_evidence", *WRITERS_AND_READERS),
     *allow("search_evidence", *WRITERS_AND_READERS),
     *allow("create_claim", "analyst"),

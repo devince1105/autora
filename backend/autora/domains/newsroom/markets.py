@@ -50,6 +50,7 @@ from autora.domains.newsroom.sources import (
     TITLE_PREFIX,
     add_source,
 )
+from autora.domains.newsroom.tools.filings import PREDECESSORS
 from autora.domains.newsroom.workflow import staff_newsroom
 from autora.runtime.actor import Actor
 
@@ -84,19 +85,24 @@ class MarketSource:
     poll_interval_seconds: int = 3600
 
 
-def _investor(name: str, filer: str, cik: str) -> MarketSource:
+def _investor(
+    name: str, filer: str, cik: str, *, predecessors: tuple[str, ...] = ()
+) -> MarketSource:
+    config: dict[str, Any] = {
+        TITLE_PREFIX: f"{name}（{filer}）",
+        OWN_STORY: True,
+        PRIMARY: True,
+        MAX_AGE_DAYS: 120,
+    }
+    if predecessors:
+        config[PREDECESSORS] = list(predecessors)
     return MarketSource(
         name=f"SEC 13F：{name}",
         kind="rss",
         url=edgar_13f(cik),
         trust_level=Decimal("0.95"),
         language="en",
-        config={
-            TITLE_PREFIX: f"{name}（{filer}）",
-            OWN_STORY: True,
-            PRIMARY: True,
-            MAX_AGE_DAYS: 120,
-        },
+        config=config,
         poll_interval_seconds=HALF_DAY,
     )
 
@@ -125,7 +131,10 @@ def _search(query: str) -> MarketSource:
 
 SOURCES: tuple[MarketSource, ...] = (
     _investor("巴菲特", "Berkshire Hathaway", "0001067983"),
-    _investor("比爾・艾克曼", "Pershing Square", "0001336528"),
+    # Pershing Square Capital Management (CIK 1336528) filed only a 13F-NT for 2026-06-30: its
+    # holdings are reported by Pershing Square Inc. (CIK 2026053) from then on, so the previous
+    # quarter adds up both entities' filings
+    _investor("比爾・艾克曼", "Pershing Square", "0002026053", predecessors=("1336528",)),
     _investor("麥可・貝瑞", "Scion Asset Management", "0001649339"),
     _investor("杜肯米勒", "Duquesne Family Office", "0001536411"),
     _investor("段永平", "H&H International Investment", "0001759760"),
@@ -137,11 +146,6 @@ SOURCES: tuple[MarketSource, ...] = (
     _search("台積電 營收 法說會"),
     _search("美股 科技股 財報"),
 )
-
-
-def _key(kind: str, url: str | None, config: dict[str, Any]) -> str:
-    """What makes a source the same source again: its feed, or its query."""
-    return url or f"{kind}:{config.get('query', '')}"
 
 
 @dataclass
@@ -200,11 +204,13 @@ async def seed_markets(
         await session.flush()
 
     existing = (await session.scalars(select(Source).where(Source.company_id == company.id))).all()
-    known = {_key(s.kind, s.url, s.config): s for s in existing}
+    known = {s.name: s for s in existing}  # a company's source names are unique
     added: list[str] = []
     for spec in SOURCES:
-        if (source := known.get(_key(spec.kind, spec.url, spec.config))) is not None:
-            # what the code says a source is wins: a setting added later reaches old sources
+        if (source := known.get(spec.name)) is not None:
+            # what the code says a source is wins: a setting added later, or a filer that moved
+            # (Pershing Square), reaches the source already there, and keeps its history
+            source.url = spec.url
             source.config = dict(spec.config)
             source.trust_level = spec.trust_level
             source.poll_interval_seconds = spec.poll_interval_seconds

@@ -23,7 +23,8 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from autora.db.models import EventRecord
-from autora.domains.newsroom.models import Evidence, SourceItem, Story, StoryItem
+from autora.domains.newsroom.models import Evidence, Source, SourceItem, Story, StoryItem
+from autora.domains.newsroom.sources import PRIMARY
 from autora.runtime.behaviors import AgentBehavior, RunContext
 
 ROLE = "researcher"
@@ -43,6 +44,10 @@ How to work:
    independent sources over copies of the same report.
 3. Read what you captured (read_evidence, search_evidence) before summarising it.
 4. Never invent sources, ids, facts or quotes. If a page cannot be captured, move on.
+5. A lead that is an SEC 13F-HR filing (sec.gov/Archives/...): call compare_13f with its URL.
+   It captures the filing compared with the previous quarter — what was bought, sold, added to
+   and cut, with shares and values — which is what the story is about. The filing is the record:
+   it needs no second site, though coverage of it elsewhere may add context.
 
 When done, reply with only a JSON object (no other text):
 {"story_id": "<the story id>",
@@ -96,6 +101,21 @@ async def produced_evidence(session: AsyncSession, ctx: RunContext) -> set[uuid.
     }
 
 
+async def from_a_record(session: AsyncSession, story_id: uuid.UUID | None) -> bool:
+    """Did this story come from a primary source — a filing, which is the record itself? Then one
+    source is enough and it may come from one site (D-036/D-037)."""
+    if story_id is None:
+        return False
+    found = await session.scalar(
+        select(Source.id)
+        .join(SourceItem, SourceItem.source_id == Source.id)
+        .join(StoryItem, StoryItem.source_item_id == SourceItem.id)
+        .where(StoryItem.story_id == story_id, Source.config[PRIMARY].as_boolean().is_(True))
+        .limit(1)
+    )
+    return found is not None
+
+
 # --- context (OBSERVE) ------------------------------------------------------------------------
 
 
@@ -124,7 +144,13 @@ async def research_context(session: AsyncSession, ctx: RunContext) -> str | None
         lines.append("Leads:")
         lines += [f"- {url}" for url in urls]
         lines += [f"- {title} — {url}" for title, url in leads]
-    lines.append(f"Capture at least {min_sources(ctx)} sources, from more than one site.")
+    if await from_a_record(session, story.id):
+        lines.append(
+            "This story comes from a primary record (a filing): the filing itself is enough. "
+            "Capture it (compare_13f for a 13F-HR); other coverage is optional context."
+        )
+    else:
+        lines.append(f"Capture at least {min_sources(ctx)} sources, from more than one site.")
     return "\n".join(lines)
 
 
@@ -155,7 +181,7 @@ async def evidence_captured_here(
     if issues:
         return issues
     distinct = set(note.evidence_ids)
-    needed = min_sources(ctx)
+    needed = 1 if await from_a_record(session, task_story_id(ctx)) else min_sources(ctx)
     if len(distinct) < needed:
         return [f"capture at least {needed} sources (you listed {len(distinct)})"]
     if needed >= 2:
@@ -194,7 +220,7 @@ BEHAVIOR = AgentBehavior(
     capability="research_extraction",
     system_prompt=SYSTEM_PROMPT,
     output_model=ResearchNote,
-    tools=("web_search", "fetch_url", "read_evidence", "search_evidence"),
+    tools=("web_search", "fetch_url", "compare_13f", "read_evidence", "search_evidence"),
     validators=(about_the_task_story, evidence_captured_here, one_summary_per_source),
     max_steps=12,
     repair_limit=2,

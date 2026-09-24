@@ -58,3 +58,16 @@ async def test_seeding_again_brings_old_sources_up_to_date(db_session):
     await markets.seed_markets(db_session, actor=ACTOR, slug=slug)
     await db_session.refresh(buffett)
     assert buffett.config["primary"] is True and buffett.config["title_prefix"].startswith("巴菲特")
+
+
+async def test_a_filer_that_moved_is_the_same_source_with_a_new_address(db_session):
+    """Ackman's holdings moved to Pershing Square Inc.: the source follows, its history stays."""
+    slug = f"markets-{uuid.uuid4().hex[:8]}"
+    newsroom = await markets.seed_markets(db_session, actor=ACTOR, slug=slug)
+    ackman = next(s for s in newsroom.sources if "艾克曼" in s.name)
+    assert "CIK=0002026053" in ackman.url and ackman.config["predecessor_ciks"] == ["1336528"]
+    ackman.url = markets.edgar_13f("0001336528")  # as seeded before the move
+    await db_session.flush()
+
+    again = await markets.seed_markets(db_session, actor=ACTOR, slug=slug)
+    assert again.added == [] and "CIK=0002026053" in ackman.url
