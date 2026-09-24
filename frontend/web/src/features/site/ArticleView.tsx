@@ -18,6 +18,12 @@ export function ArticleView({ article, lang }: { article: PublicArticle; lang: L
         <p className="mt-4 text-sm text-muted">
           {article.company ? <span>{article.company}・</span> : null}
           {w.published} <time dateTime={article.published_at}>{formatDate(lang, article.published_at)}</time>
+          {article.revised_at ? (
+            <>
+              {" ・ "}
+              {w.revised} <time dateTime={article.revised_at}>{formatDate(lang, article.revised_at)}</time>
+            </>
+          ) : null}
         </p>
         {others.length ? (
           <p className="mt-2 text-sm">

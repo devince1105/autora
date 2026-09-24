@@ -81,6 +81,14 @@ describe("the article page", () => {
     expect(english.getAttribute("hreflang")).toBe("en");
   });
 
+  it("a corrected article says when it was updated (D-045)", () => {
+    render(<ArticleView article={{ ...ARTICLE, revised_at: "2026-09-25T02:00:00Z" }} lang="zh-TW" />);
+    expect(document.body.textContent).toContain("更新於");
+    cleanup();
+    render(<ArticleView article={ARTICLE} lang="zh-TW" />);
+    expect(document.body.textContent).not.toContain("更新於");
+  });
+
   it("counts a view when it opens", () => {
     render(<ArticleView article={ARTICLE} lang="zh-TW" />);
     const fetch = vi.mocked(globalThis.fetch);

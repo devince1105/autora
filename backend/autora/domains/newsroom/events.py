@@ -166,6 +166,24 @@ class ArticleReturned(EventPayload):
     reason: str
 
 
+@event("ARTICLE_REVISION_STARTED")
+class ArticleRevisionStarted(EventPayload):
+    """A person asked for a published (or taken-down) article to be changed (D-045). The site
+    keeps what was published until the new version is."""
+
+    article_id: uuid.UUID
+    reason: str
+    from_state: str
+
+
+@event("ARTICLE_REVISION_DROPPED")
+class ArticleRevisionDropped(EventPayload):
+    """A revision of a published article was turned down: the article is what it was (D-045)."""
+
+    article_id: uuid.UUID
+    reason: str
+
+
 @event("ARTICLE_UNPUBLISHED")
 class ArticleUnpublished(EventPayload):
     """A person took a published article off the site (D-044)."""
@@ -188,6 +206,8 @@ class ArticlePublished(EventPayload):
     langs: list[str]
     url: str
     """The primary language's page on the site (a path: /news/{lang}/articles/{slug})."""
+    revision: bool = False
+    """A new version of an article that was already published (D-045)."""
 
 
 @event("DISTRIBUTION_CREATED")

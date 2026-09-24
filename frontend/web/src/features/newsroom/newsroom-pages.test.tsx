@@ -54,6 +54,7 @@ const ARTICLE_DETAIL: ArticleDetail = {
   langs: ["en", "zh-TW"],
   revision_count: 1,
   published_at: AT,
+  listed: true,
   updated_at: AT,
   views: 7,
   story_title: "Lumen City microgrid",
@@ -134,7 +135,7 @@ describe("the model", () => {
 });
 
 describe("taking an article off the site (D-044)", () => {
-  const onSite = () => ({ unpublish: vi.fn(), republish: vi.fn(), busy: false, error: null });
+  const onSite = () => ({ unpublish: vi.fn(), republish: vi.fn(), revise: vi.fn(), busy: false, error: null });
 
   it("a published article comes down only with a reason", () => {
     const controls = onSite();
@@ -154,8 +155,27 @@ describe("taking an article off the site (D-044)", () => {
     expect(controls.republish).toHaveBeenCalled();
   });
 
-  it("a draft has nothing to take down", () => {
-    render(<ArticleView article={{ ...ARTICLE_DETAIL, state: "DRAFT" }} lang="zh-TW" onLang={vi.fn()} events={[]} onSite={onSite()} />);
+  it("a published article is changed with what to change (D-045)", () => {
+    const controls = onSite();
+    render(<ArticleView article={{ ...ARTICLE_DETAIL, state: "PUBLISHED" }} lang="zh-TW" onLang={vi.fn()} events={[]} onSite={controls} />);
+    const change = screen.getByRole("button", { name: "修改文章" }) as HTMLButtonElement;
+    expect(change.disabled).toBe(true);
+    fireEvent.change(within(screen.getByTestId("site-controls")).getByRole("textbox"), { target: { value: "把「狂加」改成「大幅加碼」" } });
+    fireEvent.click(change);
+    expect(controls.revise).toHaveBeenCalledWith("把「狂加」改成「大幅加碼」");
+    expect(controls.unpublish).not.toHaveBeenCalled();
+  });
+
+  it("while it is changed, says the site still shows the published version", () => {
+    render(<ArticleView article={{ ...ARTICLE_DETAIL, state: "IN_REVIEW" }} lang="zh-TW" onLang={vi.fn()} events={[]} onSite={onSite()} />);
+    expect(screen.getByTestId("site-controls").textContent).toContain("網站仍顯示目前發布的版本");
+    expect(screen.queryByRole("button", { name: "修改文章" })).toBeNull();
+    render(<ArticleView article={{ ...ARTICLE_DETAIL, state: "DRAFT", listed: false }} lang="zh-TW" onLang={vi.fn()} events={[]} onSite={onSite()} />);
+    expect(screen.getAllByTestId("site-controls")[1].textContent).toContain("已下架");
+  });
+
+  it("a draft that was never published has nothing to take down", () => {
+    render(<ArticleView article={{ ...ARTICLE_DETAIL, state: "DRAFT", published_at: null }} lang="zh-TW" onLang={vi.fn()} events={[]} onSite={onSite()} />);
     expect(screen.queryByTestId("site-controls")).toBeNull();
   });
 });

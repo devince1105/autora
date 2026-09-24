@@ -37,6 +37,7 @@ from autora.domains.newsroom.models import (
     FactCheckReport,
     Story,
 )
+from autora.domains.newsroom.publisher import drop_revision
 from autora.domains.newsroom.stories import drop_story
 from autora.runtime.actor import Actor
 from autora.runtime.events.outbox import emit
@@ -240,6 +241,23 @@ async def request_revision(
             by_role=by_role,
         ),
     )
+    if article.revision_count >= MAX_REVISIONS and article.published_group_id is not None:
+        # a revision of a published article (D-045): drop the revision, keep the article
+        await drop_revision(
+            session,
+            article,
+            actor=actor,
+            reason=f"revision still not ready after {MAX_REVISIONS} rounds",
+        )
+        return Review(
+            article_id=article.id,
+            version_id=version.id,
+            verdict=REVISE,
+            fact_check_passed=passed,
+            revision=article.revision_count,
+            dropped=True,
+            reused=False,
+        )
     if article.revision_count >= MAX_REVISIONS:
         reason = f"still not ready after {MAX_REVISIONS} revisions"
         await ARTICLE_FSM.transition_via(

@@ -33,19 +33,37 @@ from autora.domains.newsroom.quotes import MAX_QUOTE
 from autora.runtime.fsm import StateMachine, transitions
 
 A = ArticleState
+
+
+def _a_revision(article: object) -> str | None:
+    """Back to published without an approval is only for dropping a revision (D-045)."""
+    if getattr(article, "published_group_id", None) is None:
+        return "never published: only a revision of a published article goes back without approval"
+    return None
+
+
+_BACK_WITHOUT_APPROVAL = {
+    (A.DRAFT, A.PUBLISHED): _a_revision,
+    (A.DRAFT, A.ARCHIVED): _a_revision,
+    (A.IN_REVIEW, A.PUBLISHED): _a_revision,
+    (A.IN_REVIEW, A.ARCHIVED): _a_revision,
+}
+
 ARTICLE_FSM = StateMachine(
     entity_type="article",
     states=ArticleState,
     initial=A.DRAFT,
     transitions=transitions(
         {
-            A.DRAFT: [A.IN_REVIEW],
-            A.IN_REVIEW: [A.DRAFT, A.APPROVED, A.REJECTED],
+            # D-045: a published article's revision that is dropped goes back to what it was
+            A.DRAFT: [A.IN_REVIEW, A.PUBLISHED, A.ARCHIVED],
+            A.IN_REVIEW: [A.DRAFT, A.APPROVED, A.REJECTED, A.PUBLISHED, A.ARCHIVED],
             A.APPROVED: [A.PUBLISHED],
-            A.PUBLISHED: [A.ARCHIVED],
-            A.ARCHIVED: [A.PUBLISHED],  # put back on the site (D-044)
+            A.PUBLISHED: [A.ARCHIVED, A.DRAFT],  # taken down (D-044); revised (D-045)
+            A.ARCHIVED: [A.PUBLISHED, A.DRAFT],  # put back (D-044); revised while down (D-045)
         }
     ),
+    guards=_BACK_WITHOUT_APPROVAL,
 )
 
 CLOSED_STORIES = {StoryState.DROPPED, StoryState.IGNORED, StoryState.PUBLISHED}
@@ -84,11 +102,14 @@ def check_draft(
     article_state: str | None,
     policy: LanguagePolicy,
     claims: dict[uuid.UUID, ClaimFacts],
+    revising: bool = False,
 ) -> list[str]:
     """Every reason the draft cannot be written (empty: it can). ``claims``: the cited claims
-    that exist, with their story and status."""
+    that exist, with their story and status. ``revising``: a new version of an article already
+    published (D-045), whose story is PUBLISHED and still open to that."""
     issues: list[str] = []
-    if StoryState(story_state) in CLOSED_STORIES:
+    published_and_revised = revising and StoryState(story_state) == StoryState.PUBLISHED
+    if StoryState(story_state) in CLOSED_STORIES and not published_and_revised:
         issues.append(f"the story is {story_state}: nothing more is written for it")
     if article_state is not None and article_state != ArticleState.DRAFT:
         issues.append(

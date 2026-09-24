@@ -122,6 +122,10 @@ class ArticleSummary(BaseModel):
     published_at: datetime | None
     updated_at: datetime
     views: int
+    listed: bool = True
+    """On the site (D-045): a published version shows unless it was taken down."""
+    revised_at: datetime | None = None
+    """When a changed version of the published article went up (D-045)."""
 
 
 class BlockView(BaseModel):
@@ -447,6 +451,8 @@ async def list_articles(
                 langs=sorted(group.langs) if group else [],
                 revision_count=a.revision_count,
                 published_at=a.published_at,
+                listed=a.listed,
+                revised_at=a.revised_at,
                 updated_at=a.updated_at,
                 views=int(views.get(a.id) or 0),
             )
@@ -522,6 +528,8 @@ async def article_detail(
         revision_count=article.revision_count,
         published_at=article.published_at,
         updated_at=article.updated_at,
+        listed=article.listed,
+        revised_at=article.revised_at,
         views=sum(d.views for d in daily),
         story_title=story.title if story else "",
         company_id=article.company_id,

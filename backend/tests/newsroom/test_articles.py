@@ -30,7 +30,7 @@ from autora.domains.newsroom.tools import evidence as evidence_tools
 from autora.infra.blobstore import LocalFSBlobStore
 from autora.infra.http import FixtureFetcher
 from autora.runtime.actor import Actor
-from autora.runtime.fsm import IllegalTransition
+from autora.runtime.fsm import GuardRejected, IllegalTransition
 from autora.runtime.tools import ToolRegistry
 from tests.conftest import running_agent_run, unique_company
 
@@ -139,7 +139,8 @@ def test_slugs_and_lifecycle():
     )
     assert slugify("流明市微電網啟用", article_id) == "article-00abcd"
     assert ARTICLE_FSM.can("DRAFT", "IN_REVIEW") and ARTICLE_FSM.can("IN_REVIEW", "DRAFT")
-    assert not ARTICLE_FSM.can("PUBLISHED", "DRAFT")
+    assert ARTICLE_FSM.can("PUBLISHED", "DRAFT"), "revised after publication (D-045)"
+    assert not ARTICLE_FSM.can("REJECTED", "DRAFT")
     assert ARTICLE_FSM.terminal_states() == {"REJECTED"}  # taken down can go back up (D-044)
     assert ARTICLE_FSM.can("PUBLISHED", "ARCHIVED") and ARTICLE_FSM.can("ARCHIVED", "PUBLISHED")
 
@@ -332,8 +333,12 @@ async def test_drafting_stops_once_the_editor_has_it(newsroom_desk):
         await session.commit()
     blocked = await d["call"]("write_draft", draft(d["story"].id, d["claims"]))
     assert not blocked.ok and "the article is IN_REVIEW" in blocked.message
-    with pytest.raises(IllegalTransition):
+    # no skipping approval: going back to published without one is only a dropped revision's
+    # (D-045), and this article was never published
+    with pytest.raises(GuardRejected, match="never published"):
         ARTICLE_FSM.check(article, "PUBLISHED")
+    with pytest.raises(IllegalTransition):
+        ARTICLE_FSM.check(SimpleNamespace(state="DRAFT", published_group_id=None), "APPROVED")
 
 
 async def test_the_company_language_policy_applies(newsroom_desk):

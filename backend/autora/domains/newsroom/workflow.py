@@ -18,6 +18,11 @@
 - The measurement schedule after publication (+1h, +24h, +7d) arrives with analytics (T-516).
 
 ``start_story`` starts the workflow for a selected story (the story goes IN_PRODUCTION).
+
+**Revising a published article** (D-045) is its own, shorter template — draft, review, approve,
+publish: the story's evidence and claims are already there, and the person's reason is the
+writer's first issue. ``start_article_revision`` starts it; the site keeps the published version
+until the new one is published.
 Starting the template some other way (the generic API) needs ``story_id`` and ``title`` params.
 """
 
@@ -42,6 +47,7 @@ from autora.domains.newsroom.publisher import (
     publish_article,
     reject_article,
     return_article,
+    start_revision,
 )
 from autora.domains.newsroom.stories import STORY_FSM
 from autora.runtime.actor import Actor
@@ -112,8 +118,29 @@ TEMPLATE = WorkflowTemplate(
 )
 
 
+REVISION_TEMPLATE_NAME = "newsroom.article_revision_v1"
+
+REVISION_TEMPLATE = WorkflowTemplate(
+    name=REVISION_TEMPLATE_NAME,
+    nodes=(
+        NodeSpec("draft", "修改：{title}", "writer"),
+        NodeSpec("review", "審稿（修改）：{title}", "editor", depends_on=("draft",)),
+        NodeSpec(
+            "approve", "核准（修改）：{title}", "human", depends_on=("review",), service=APPROVE
+        ),
+        NodeSpec(
+            "publish", "發布（修改）：{title}", "system", depends_on=("approve",), service=PUBLISH
+        ),
+    ),
+    loops=TEMPLATE.loops,
+)
+"""D-045: a published article changed. Same loops as a story's: the editor's rounds, and a
+person's sending back."""
+
+
 def register_templates(templates: TemplateRegistry) -> None:
     templates.register(TEMPLATE)
+    templates.register(REVISION_TEMPLATE)
 
 
 # --- staffing ---------------------------------------------------------------------------------
@@ -198,6 +225,52 @@ async def start_story(
         facts=facts,
     )
     await STORY_FSM.transition(session, story, StoryState.IN_PRODUCTION, actor=actor)
+    return run
+
+
+async def start_article_revision(
+    session: AsyncSession,
+    *,
+    policy: PolicyEngine,
+    workflows: WorkflowEngine,
+    company_id: uuid.UUID,
+    article_id: uuid.UUID,
+    actor: Actor,
+    reason: str,
+) -> WorkflowRun:
+    """A person asks for a published article to be changed (D-045): the article is a draft
+    again and a revision workflow starts, in the project its story was made in."""
+    article = await start_revision(
+        session, company_id=company_id, article_id=article_id, actor=actor, reason=reason
+    )
+    story = await session.get(Story, article.story_id)
+    assert story is not None
+    project_id = await session.scalar(
+        select(WorkflowRun.project_id)
+        .where(
+            WorkflowRun.company_id == company_id,
+            WorkflowRun.params["story_id"].astext == str(story.id),
+        )
+        .order_by(WorkflowRun.id.desc())
+        .limit(1)
+    )
+    if project_id is None:
+        raise StartWorkflowError(f"no project made story {story.id}; start the revision by hand")
+    run, _ = await start_workflow(
+        session,
+        policy=policy,
+        workflows=workflows,
+        company_id=company_id,
+        project_id=project_id,
+        template=REVISION_TEMPLATE_NAME,
+        params={
+            "story_id": str(story.id),
+            "article_id": str(article.id),
+            "title": story.title[:80],
+            "issues": [{"message": f"發布後修改（人工）：{reason}"}],
+        },
+        actor=actor,
+    )
     return run
 
 

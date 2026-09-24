@@ -14,8 +14,13 @@ like ``start_workflow``:
   Not counted against the editor's two revisions: a person's "not like this" is a different
   voice from the editor's.
 - ``unpublish_article`` (PUBLISHED -> ARCHIVED, D-044) and ``republish_article`` (back): a person
-  takes a published article off the site, or puts it back. The site only shows PUBLISHED
-  articles; the story stays PUBLISHED and the distribution record stays, as history.
+  takes a published article off the site, or puts it back (``listed``). The story stays
+  PUBLISHED and the distribution record stays, as history.
+- ``start_revision`` (PUBLISHED or ARCHIVED -> DRAFT, D-045): a person asks for a published
+  article to be changed. The published version stays on the site (if it was listed) while the
+  new one is written; publishing it replaces it and sets ``revised_at``. A revision turned down
+  (at approval, or by the editor after too many rounds) is dropped — the article goes back to
+  what it was — rather than dropping the story, which would take a published article with it.
 - ``publish_article`` (APPROVED -> PUBLISHED): the draft group that was approved becomes the
   published one, in the languages the policy publishes (with ``require_all_langs``, all of them
   or nothing); the story becomes PUBLISHED; the site distribution is recorded; ARTICLE_PUBLISHED
@@ -46,6 +51,8 @@ from autora.domains.newsroom.events import (
     ArticleRejected,
     ArticleRepublished,
     ArticleReturned,
+    ArticleRevisionDropped,
+    ArticleRevisionStarted,
     ArticleUnpublished,
     DistributionCreated,
 )
@@ -207,10 +214,14 @@ async def reject_article(
     actor: Actor,
     reason: str,
 ) -> Article:
-    """A person turns the article down: it is REJECTED and its story DROPPED."""
+    """A person turns the article down: it is REJECTED and its story DROPPED — or, for a
+    revision of a published article, the revision is dropped and the article is what it was."""
     if actor.kind != "human":
         raise NotAllowed("reject_article", "deny", "only a person rejects an article")
     article = await _article(session, company_id, article_id)
+    if article.published_group_id is not None:
+        await drop_revision(session, article, actor=actor, reason=reason)
+        return article
     await ARTICLE_FSM.transition(
         session, article, ArticleState.REJECTED, actor=actor, reason=reason
     )
@@ -222,6 +233,53 @@ async def reject_article(
         article,
         actor,
         ArticleRejected(article_id=article.id, by=actor.kind, reason=reason[:500]),
+    )
+    return article
+
+
+async def drop_revision(
+    session: AsyncSession, article: Article, *, actor: Actor, reason: str
+) -> None:
+    """A revision of a published article turned down (D-045): back to its published version,
+    listed or not as it was. The revision's drafts stay in its history."""
+    back = ArticleState.PUBLISHED if article.listed else ArticleState.ARCHIVED
+    await ARTICLE_FSM.transition(session, article, back, actor=actor, reason=reason)
+    article.current_draft_group_id = article.published_group_id
+    await _emit(
+        session, article, actor, ArticleRevisionDropped(article_id=article.id, reason=reason[:500])
+    )
+
+
+async def start_revision(
+    session: AsyncSession,
+    *,
+    company_id: uuid.UUID,
+    article_id: uuid.UUID,
+    actor: Actor,
+    reason: str,
+) -> Article:
+    """A person asks for a published article to be changed (D-045): a DRAFT again, with the
+    published version still on the site if it was listed. The workflow that does the work is
+    started by the caller (``workflow.start_article_revision``)."""
+    _by_a_person("revise_article", actor)
+    if not reason.strip():
+        raise PublishError("say what to change: the writer works from the reason")
+    article = await _article(session, company_id, article_id)
+    if article.published_group_id is None or article.state not in (
+        ArticleState.PUBLISHED,
+        ArticleState.ARCHIVED,
+    ):
+        raise PublishError(
+            f"the article is {article.state}: only a published or taken-down one is revised"
+        )
+    was = article.state
+    await ARTICLE_FSM.transition(session, article, ArticleState.DRAFT, actor=actor, reason=reason)
+    article.revision_count = 0  # the editor's two rounds are per revision
+    await _emit(
+        session,
+        article,
+        actor,
+        ArticleRevisionStarted(article_id=article.id, reason=reason[:500], from_state=was),
     )
     return article
 
@@ -278,6 +336,7 @@ async def unpublish_article(
     await ARTICLE_FSM.transition(
         session, article, ArticleState.ARCHIVED, actor=actor, reason=reason
     )
+    article.listed = False
     await _emit(
         session, article, actor, ArticleUnpublished(article_id=article.id, reason=reason[:500])
     )
@@ -291,6 +350,7 @@ async def republish_article(
     _by_a_person("republish_article", actor)
     article = await _article(session, company_id, article_id)
     await ARTICLE_FSM.transition(session, article, ArticleState.PUBLISHED, actor=actor)
+    article.listed = True
     await _emit(session, article, actor, ArticleRepublished(article_id=article.id))
     return article
 
@@ -341,10 +401,15 @@ async def publish_article(
     langs.sort(key=lambda lang: lang_policy.langs.index(lang))
 
     now = clock()
+    revision = article.published_at is not None
     await ARTICLE_FSM.transition(session, article, ArticleState.PUBLISHED, actor=actor)
     article.published_langs = langs
-    article.published_at = now
+    if revision:
+        article.revised_at = now  # the first publication keeps its date (D-045)
+    else:
+        article.published_at = now
     article.published_group_id = article.current_draft_group_id
+    article.listed = True  # an approved revision of one taken down goes back up
     story = await session.get(Story, article.story_id, with_for_update=True)
     if story is not None and story.state != StoryState.PUBLISHED:
         await STORY_FSM.transition_via(session, story, StoryState.PUBLISHED, actor=actor)
@@ -372,7 +437,11 @@ async def publish_article(
         article,
         actor,
         ArticlePublished(
-            article_id=article.id, slug=article.slug, langs=langs, url=urls[lang_policy.primary]
+            article_id=article.id,
+            slug=article.slug,
+            langs=langs,
+            url=urls[lang_policy.primary],
+            revision=revision,
         ),
     )
     await _emit(

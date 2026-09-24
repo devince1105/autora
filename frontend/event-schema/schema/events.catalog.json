@@ -1442,6 +1442,11 @@
             "url": {
               "title": "Url",
               "type": "string"
+            },
+            "revision": {
+              "default": false,
+              "title": "Revision",
+              "type": "boolean"
             }
           },
           "required": [
@@ -1587,6 +1592,32 @@
         }
       }
     },
+    "ARTICLE_REVISION_DROPPED": {
+      "1": {
+        "persistence": "persisted",
+        "payload": {
+          "additionalProperties": false,
+          "description": "A revision of a published article was turned down: the article is what it was (D-045).",
+          "properties": {
+            "article_id": {
+              "format": "uuid",
+              "title": "Article Id",
+              "type": "string"
+            },
+            "reason": {
+              "title": "Reason",
+              "type": "string"
+            }
+          },
+          "required": [
+            "article_id",
+            "reason"
+          ],
+          "title": "ArticleRevisionDropped",
+          "type": "object"
+        }
+      }
+    },
     "ARTICLE_REVISION_REQUESTED": {
       "1": {
         "persistence": "persisted",
@@ -1624,6 +1655,37 @@
             "revision"
           ],
           "title": "ArticleRevisionRequested",
+          "type": "object"
+        }
+      }
+    },
+    "ARTICLE_REVISION_STARTED": {
+      "1": {
+        "persistence": "persisted",
+        "payload": {
+          "additionalProperties": false,
+          "description": "A person asked for a published (or taken-down) article to be changed (D-045). The site\nkeeps what was published until the new version is.",
+          "properties": {
+            "article_id": {
+              "format": "uuid",
+              "title": "Article Id",
+              "type": "string"
+            },
+            "reason": {
+              "title": "Reason",
+              "type": "string"
+            },
+            "from_state": {
+              "title": "From State",
+              "type": "string"
+            }
+          },
+          "required": [
+            "article_id",
+            "reason",
+            "from_state"
+          ],
+          "title": "ArticleRevisionStarted",
           "type": "object"
         }
       }

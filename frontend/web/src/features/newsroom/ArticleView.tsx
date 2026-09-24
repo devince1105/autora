@@ -11,42 +11,66 @@ import { Badge, ClaimList, Empty, EventList, NewsroomHeader, Section } from "./p
 
 const CHANNEL: Record<string, string> = { site: "網站", social_draft: "社群貼文（草稿，未發出）" };
 
-/** Taking a published article off the site and putting it back (D-044). */
+/** A published article on the site: taking it down, putting it back (D-044), changing it (D-045). */
 export interface OnSite {
   unpublish: (reason: string) => void;
   republish: () => void;
+  revise: (reason: string) => void;
   busy: boolean;
   error: string | null;
 }
 
-function SiteControls({ state, onSite }: { state: string; onSite: OnSite }) {
-  const [reason, setReason] = useState("");
+const REVISING = new Set(["DRAFT", "IN_REVIEW", "APPROVED"]);
+
+function SiteControls({ article, onSite }: { article: ArticleDetail; onSite: OnSite }) {
+  const [note, setNote] = useState("");
+  const { state } = article;
+  const published = Boolean(article.published_at);
+  if (published && REVISING.has(state)) {
+    return (
+      <section aria-label="網站上架" data-testid="site-controls" className="mb-6 rounded-lg border border-line p-4 text-sm">
+        <span className="text-muted">
+          {article.listed
+            ? "修改中：網站仍顯示目前發布的版本，新版本核准後才會換上。"
+            : "修改中（已下架）：新版本核准發布後才會重新出現在網站上。"}
+        </span>
+      </section>
+    );
+  }
   if (state !== "PUBLISHED" && state !== "ARCHIVED") return null;
+  const said = note.trim();
   return (
-    <section aria-label="網站上架" data-testid="site-controls" className="mb-6 rounded-lg border border-line p-4 text-sm">
-      {state === "PUBLISHED" ? (
-        <div className="flex flex-wrap items-end gap-2">
-          <label className="grid flex-1 gap-1">
-            <span className="text-muted">下架原因（必填，會留在紀錄裡）</span>
-            <input
-              value={reason}
-              onChange={(e) => setReason(e.target.value)}
-              maxLength={500}
-              className="rounded-lg border border-line bg-canvas px-3 py-1.5"
-            />
-          </label>
+    <section aria-label="網站上架" data-testid="site-controls" className="mb-6 grid gap-2 rounded-lg border border-line p-4 text-sm">
+      {state === "ARCHIVED" ? <span className="text-muted">已下架：網站上看不到這篇。</span> : null}
+      <label className="grid gap-1">
+        <span className="text-muted">說明（修改：要改什麼，寫手照這段改；下架：為什麼下架）</span>
+        <textarea
+          value={note}
+          onChange={(e) => setNote(e.target.value)}
+          maxLength={2000}
+          rows={2}
+          className="rounded-lg border border-line bg-canvas px-3 py-1.5"
+        />
+      </label>
+      <div className="flex flex-wrap gap-2">
+        <button
+          type="button"
+          disabled={onSite.busy || !said}
+          onClick={() => onSite.revise(said)}
+          className="rounded-lg bg-accent px-4 py-1.5 text-canvas disabled:opacity-50"
+        >
+          修改文章
+        </button>
+        {state === "PUBLISHED" ? (
           <button
             type="button"
-            disabled={onSite.busy || !reason.trim()}
-            onClick={() => onSite.unpublish(reason.trim())}
+            disabled={onSite.busy || !said}
+            onClick={() => onSite.unpublish(said)}
             className="rounded-lg border border-danger-line px-4 py-1.5 text-danger disabled:opacity-50"
           >
             下架
           </button>
-        </div>
-      ) : (
-        <div className="flex flex-wrap items-center gap-3">
-          <span className="text-muted">已下架：網站上看不到這篇。</span>
+        ) : (
           <button
             type="button"
             disabled={onSite.busy}
@@ -55,8 +79,8 @@ function SiteControls({ state, onSite }: { state: string; onSite: OnSite }) {
           >
             重新上架
           </button>
-        </div>
-      )}
+        )}
+      </div>
       {onSite.error ? (
         <p role="alert" className="mt-2 text-danger">
           {onSite.error}
@@ -108,7 +132,7 @@ export function ArticleView({
         </p>
       </NewsroomHeader>
 
-      {onSite ? <SiteControls state={article.state} onSite={onSite} /> : null}
+      {onSite ? <SiteControls article={article} onSite={onSite} /> : null}
 
       <nav aria-label="版本" className="flex flex-wrap items-center gap-2 text-sm">
         <span className="text-muted">版本</span>

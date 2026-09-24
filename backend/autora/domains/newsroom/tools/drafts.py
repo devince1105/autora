@@ -120,6 +120,7 @@ async def write_draft(args: WriteDraftArgs, ctx: ToolContext) -> ToolResult:
         article_state=article.state if article else None,
         policy=policy,
         claims=facts,
+        revising=article is not None and article.published_group_id is not None,
     )
     if no_advice(policies):
         issues += advice_problems(args.versions, {row.id: row.claim_type for row in rows})

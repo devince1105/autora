@@ -571,6 +571,11 @@
       "title": "Languages",
       "type": "object"
      },
+     "listed": {
+      "default": true,
+      "title": "Listed",
+      "type": "boolean"
+     },
      "primary_lang": {
       "title": "Primary Lang",
       "type": "string"
@@ -600,6 +605,18 @@
       },
       "title": "Published Langs",
       "type": "array"
+     },
+     "revised_at": {
+      "anyOf": [
+       {
+        "format": "date-time",
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Revised At"
      },
      "revision_count": {
       "title": "Revision Count",
@@ -745,6 +762,11 @@
       "title": "Langs",
       "type": "array"
      },
+     "listed": {
+      "default": true,
+      "title": "Listed",
+      "type": "boolean"
+     },
      "published_at": {
       "anyOf": [
        {
@@ -756,6 +778,18 @@
        }
       ],
       "title": "Published At"
+     },
+     "revised_at": {
+      "anyOf": [
+       {
+        "format": "date-time",
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Revised At"
      },
      "revision_count": {
       "title": "Revision Count",
@@ -3400,6 +3434,18 @@
       "title": "Published At",
       "type": "string"
      },
+     "revised_at": {
+      "anyOf": [
+       {
+        "format": "date-time",
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Revised At"
+     },
      "slug": {
       "title": "Slug",
       "type": "string"
@@ -3469,6 +3515,18 @@
       "format": "date-time",
       "title": "Published At",
       "type": "string"
+     },
+     "revised_at": {
+      "anyOf": [
+       {
+        "format": "date-time",
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Revised At"
      },
      "slug": {
       "title": "Slug",
@@ -3785,6 +3843,46 @@
      "average_payment"
     ],
     "title": "RevenueView",
+    "type": "object"
+   },
+   "ReviseBody": {
+    "properties": {
+     "reason": {
+      "maxLength": 2000,
+      "minLength": 1,
+      "title": "Reason",
+      "type": "string"
+     }
+    },
+    "required": [
+     "reason"
+    ],
+    "title": "ReviseBody",
+    "type": "object"
+   },
+   "RevisionStarted": {
+    "properties": {
+     "article_id": {
+      "format": "uuid",
+      "title": "Article Id",
+      "type": "string"
+     },
+     "state": {
+      "title": "State",
+      "type": "string"
+     },
+     "workflow_run_id": {
+      "format": "uuid",
+      "title": "Workflow Run Id",
+      "type": "string"
+     }
+    },
+    "required": [
+     "article_id",
+     "state",
+     "workflow_run_id"
+    ],
+    "title": "RevisionStarted",
     "type": "object"
    },
    "RoleOut": {
@@ -5440,6 +5538,65 @@
      }
     ],
     "summary": "Post Republish",
+    "tags": [
+     "newsroom"
+    ]
+   }
+  },
+  "/api/articles/{article_id}/revise": {
+   "post": {
+    "description": "Change a published (or taken-down) article (D-045). The site keeps the published version\nuntil the new one is written, reviewed, approved and published.",
+    "operationId": "post_revise_api_articles__article_id__revise_post",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "article_id",
+      "required": true,
+      "schema": {
+       "format": "uuid",
+       "title": "Article Id",
+       "type": "string"
+      }
+     }
+    ],
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/ReviseBody"
+       }
+      }
+     },
+     "required": true
+    },
+    "responses": {
+     "201": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/RevisionStarted"
+        }
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "security": [
+     {
+      "HTTPBearer": []
+     }
+    ],
+    "summary": "Post Revise",
     "tags": [
      "newsroom"
     ]

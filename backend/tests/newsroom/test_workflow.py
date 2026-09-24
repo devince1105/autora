@@ -388,3 +388,135 @@ async def test_a_published_article_can_be_taken_down_and_put_back(committed, e2e
         "用字需要修改"
     ]
     assert len(await room.events("ARTICLE_REPUBLISHED")) == 1
+
+
+# --- changing a published article (D-045) ---------------------------------------------------
+
+
+async def _published(room, committed):
+    await room.worker.run_until_idle()
+    await room.decide("approve")
+    await room.worker.run_until_idle()
+    return await room.article()
+
+
+async def _revise(room, committed, article, reason="把「狂加」改成「大幅加碼」"):
+    from autora.domains.newsroom.workflow import start_article_revision
+
+    async with committed() as session:
+        run = await start_article_revision(
+            session, policy=room.runtime.policy, workflows=room.runtime.workflows,
+            company_id=room.company.id, article_id=article.id, actor=OPERATOR, reason=reason,
+        )  # fmt: skip
+        await session.commit()
+    return run
+
+
+async def _revision_approval(committed, run):
+    async with committed() as session:
+        approves = (
+            await session.scalars(
+                select(Task)
+                .where(Task.workflow_run_id == run.id, Task.name == "approve")
+                .order_by(Task.id)
+            )
+        ).all()
+        return await session.scalar(select(Approval).where(Approval.task_id == approves[-1].id))
+
+
+async def _site(committed, room):
+    from autora.domains.newsroom.site import published_articles
+
+    async with committed() as session:
+        return await published_articles(session, "zh-TW", company_slug=room.company.slug)
+
+
+async def test_a_published_article_is_changed_while_the_site_keeps_the_old_one(
+    committed, e2e_settings
+):
+    room = await Newsroom().start(committed, e2e_settings)
+    before = await _published(room, committed)
+    [live] = await _site(committed, room)
+
+    run = await _revise(room, committed, before)
+    assert (await room.article()).state == "DRAFT"
+    assert [a.title for a in await _site(committed, room)] == [live.title], "still up meanwhile"
+
+    await room.worker.run_until_idle()
+    async with committed() as session:
+        tasks = (await session.scalars(select(Task).where(Task.workflow_run_id == run.id))).all()
+    draft = next(t for t in tasks if t.name == "draft")
+    assert draft.input["params"]["issues"] == [
+        {"message": "發布後修改（人工）：把「狂加」改成「大幅加碼」"}
+    ]
+    approval = await _revision_approval(committed, run)
+    assert approval is not None and approval.state == "PENDING"
+
+    async with committed() as session:
+        await room.runtime.approvals.decide(session, approval.id, outcome="approve", actor=OPERATOR)
+        await session.commit()
+    await room.worker.run_until_idle()
+
+    after = await room.article()
+    assert after.state == "PUBLISHED" and after.listed
+    assert after.published_group_id != before.published_group_id, "the new version is up"
+    assert after.published_at == before.published_at, "a correction keeps its first date"
+    assert after.revised_at is not None and after.slug == before.slug
+    [page] = await _site(committed, room)
+    assert page.revised_at == after.revised_at
+    assert [e.payload["revision"] for e in await room.events("ARTICLE_PUBLISHED")] == [False, True]
+
+
+async def test_a_revision_turned_down_leaves_the_article_as_it_was(committed, e2e_settings):
+    """Rejecting a revision must not drop the story, which would take the published one along."""
+    room = await Newsroom().start(committed, e2e_settings)
+    before = await _published(room, committed)
+    run = await _revise(room, committed, before)
+    await room.worker.run_until_idle()
+    approval = await _revision_approval(committed, run)
+    async with committed() as session:
+        await room.runtime.approvals.decide(
+            session, approval.id, outcome="reject", actor=OPERATOR, reason="原本的比較好"
+        )
+        await session.commit()
+    await room.worker.run_until_idle()
+
+    after = await room.article()
+    assert after.state == "PUBLISHED" and after.listed
+    assert after.current_draft_group_id == after.published_group_id == before.published_group_id
+    assert (await room.get(Story, room.story.id)).state == "PUBLISHED"
+    assert len(await _site(committed, room)) == 1
+    [dropped] = await room.events("ARTICLE_REVISION_DROPPED")
+    assert dropped.payload["reason"] == "原本的比較好"
+
+
+async def test_one_taken_down_stays_down_while_changed_and_goes_up_changed(committed, e2e_settings):
+    from autora.domains.newsroom.publisher import unpublish_article
+
+    room = await Newsroom().start(committed, e2e_settings)
+    before = await _published(room, committed)
+    async with committed() as session:
+        await unpublish_article(
+            session, company_id=room.company.id, article_id=before.id, actor=OPERATOR,
+            reason="用字要改",
+        )  # fmt: skip
+        await session.commit()
+    run = await _revise(room, committed, before)
+    await room.worker.run_until_idle()
+    assert await _site(committed, room) == [], "still down while it is changed"
+
+    approval = await _revision_approval(committed, run)
+    async with committed() as session:
+        await room.runtime.approvals.decide(session, approval.id, outcome="approve", actor=OPERATOR)
+        await session.commit()
+    await room.worker.run_until_idle()
+    assert (await room.article()).listed and len(await _site(committed, room)) == 1
+
+
+async def test_only_a_published_article_is_revised(committed, e2e_settings):
+    from autora.domains.newsroom.publisher import PublishError
+
+    room = await Newsroom().start(committed, e2e_settings)
+    await room.worker.run_until_idle()  # waiting at approval: IN_REVIEW, never published
+    with pytest.raises(PublishError, match="only a published"):
+        await _revise(room, committed, await room.article())

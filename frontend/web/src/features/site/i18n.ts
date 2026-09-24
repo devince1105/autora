@@ -16,6 +16,7 @@ const WORDS = {
     empty: "還沒有報導。",
     sources: "資料來源",
     published: "發布於",
+    revised: "更新於",
     allStories: "所有報導",
     readIn: "閱讀其他語言：",
     notice: "本站報導由 AI 新聞室撰寫、事實查核，並經人核准後發布。內容整理自公開資料，僅供參考，不構成投資建議；投資有風險，請自行判斷。",
@@ -79,6 +80,7 @@ const WORDS = {
     empty: "No stories yet.",
     sources: "Sources",
     published: "Published",
+    revised: "Updated",
     allStories: "All stories",
     readIn: "Read in:",
     notice:

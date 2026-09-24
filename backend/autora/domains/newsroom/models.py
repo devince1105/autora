@@ -334,6 +334,13 @@ class Article(IdMixin, TimestampMixin, Base):
     """Revisions the editor asked for (at most two, then the story is dropped)."""
     published_at: Mapped[datetime | None]
     published_group_id: Mapped[uuid.UUID | None]
+    listed: Mapped[bool] = mapped_column(server_default="true")
+    """On the site (D-045), apart from where the article is in its lifecycle: a published article
+    being revised stays listed with its published version until the new one is published; one
+    taken down is not listed, and stays unlisted while it is revised."""
+    revised_at: Mapped[datetime | None]
+    """When a revision of an already published article was published (D-045); ``published_at``
+    keeps the first publication, so a correction does not jump to the top of the front page."""
     """The draft group that was published: what the public site shows (T-512)."""
     access: Mapped[str] = mapped_column(server_default=ArticleAccess.FREE.value)
     """FREE, or MEMBERS: the paywall is per article, and free is the default (D-025)."""

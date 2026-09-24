@@ -12,6 +12,7 @@ import {
   articleQuery,
   articlesQuery,
   republishArticle,
+  reviseArticle,
   sourcesQuery,
   startStory,
   storiesQuery,
@@ -155,6 +156,7 @@ function LoadedArticle({ article }: { article: ArticleDetail }) {
   const onSettled = () => queryClient.invalidateQueries({ queryKey: ["newsroom"] });
   const unpublish = useMutation({ mutationFn: (reason: string) => unpublishArticle(article.id, reason), onSettled });
   const republish = useMutation({ mutationFn: () => republishArticle(article.id), onSettled });
+  const revise = useMutation({ mutationFn: (reason: string) => reviseArticle(article.id, reason), onSettled });
   return (
     <ArticleView
       article={article}
@@ -164,8 +166,9 @@ function LoadedArticle({ article }: { article: ArticleDetail }) {
       onSite={{
         unpublish: (reason) => unpublish.mutate(reason),
         republish: () => republish.mutate(),
-        busy: unpublish.isPending || republish.isPending,
-        error: (unpublish.error ?? republish.error)?.message ?? null,
+        revise: (reason) => revise.mutate(reason),
+        busy: unpublish.isPending || republish.isPending || revise.isPending,
+        error: (unpublish.error ?? republish.error ?? revise.error)?.message ?? null,
       }}
     />
   );

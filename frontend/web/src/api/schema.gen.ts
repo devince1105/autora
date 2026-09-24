@@ -120,6 +120,27 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/articles/{article_id}/revise": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Post Revise
+         * @description Change a published (or taken-down) article (D-045). The site keeps the published version
+         *     until the new one is written, reviewed, approved and published.
+         */
+        post: operations["post_revise_api_articles__article_id__revise_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/articles/{article_id}/unpublish": {
         parameters: {
             query?: never;
@@ -1040,6 +1061,11 @@ export interface components {
             languages: {
                 [key: string]: components["schemas"]["LanguageView"];
             };
+            /**
+             * Listed
+             * @default true
+             */
+            listed: boolean;
             /** Primary Lang */
             primary_lang: string;
             /** Public Urls */
@@ -1050,6 +1076,8 @@ export interface components {
             published_at: string | null;
             /** Published Langs */
             published_langs: string[];
+            /** Revised At */
+            revised_at?: string | null;
             /** Revision Count */
             revision_count: number;
             /** Shown */
@@ -1104,8 +1132,15 @@ export interface components {
             id: string;
             /** Langs */
             langs: string[];
+            /**
+             * Listed
+             * @default true
+             */
+            listed: boolean;
             /** Published At */
             published_at: string | null;
+            /** Revised At */
+            revised_at?: string | null;
             /** Revision Count */
             revision_count: number;
             /** Slug */
@@ -2205,6 +2240,8 @@ export interface components {
              * Format: date-time
              */
             published_at: string;
+            /** Revised At */
+            revised_at?: string | null;
             /** Slug */
             slug: string;
             /** Sources */
@@ -2235,6 +2272,8 @@ export interface components {
              * Format: date-time
              */
             published_at: string;
+            /** Revised At */
+            revised_at?: string | null;
             /** Slug */
             slug: string;
             /** Summary */
@@ -2341,6 +2380,26 @@ export interface components {
             renewals: number;
             /** Total */
             total: string;
+        };
+        /** ReviseBody */
+        ReviseBody: {
+            /** Reason */
+            reason: string;
+        };
+        /** RevisionStarted */
+        RevisionStarted: {
+            /**
+             * Article Id
+             * Format: uuid
+             */
+            article_id: string;
+            /** State */
+            state: string;
+            /**
+             * Workflow Run Id
+             * Format: uuid
+             */
+            workflow_run_id: string;
         };
         /** RoleOut */
         RoleOut: {
@@ -3081,6 +3140,41 @@ export interface operations {
                     "application/json": {
                         [key: string]: string;
                     };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    post_revise_api_articles__article_id__revise_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                article_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ReviseBody"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RevisionStarted"];
                 };
             };
             /** @description Validation Error */

@@ -401,6 +401,7 @@ export const ArticlePublishedV1Payload = z.object({
   slug: z.string(),
   langs: z.array(z.string()),
   url: z.string(),
+  revision: z.boolean().default(false),
 });
 export type ArticlePublishedV1Payload = z.infer<typeof ArticlePublishedV1Payload>;
 export const ArticlePublishedV1Event = z.object({
@@ -462,6 +463,18 @@ export const ArticleReviewedV1Event = z.object({
   payload: ArticleReviewedV1Payload,
 });
 
+export const ArticleRevisionDroppedV1Payload = z.object({
+  article_id: z.uuid(),
+  reason: z.string(),
+});
+export type ArticleRevisionDroppedV1Payload = z.infer<typeof ArticleRevisionDroppedV1Payload>;
+export const ArticleRevisionDroppedV1Event = z.object({
+  ...envelopeFields,
+  event_type: z.literal("ARTICLE_REVISION_DROPPED"),
+  schema_version: z.literal(1),
+  payload: ArticleRevisionDroppedV1Payload,
+});
+
 export const ArticleRevisionRequestedV1Payload = z.object({
   article_id: z.uuid(),
   version_id: z.uuid(),
@@ -475,6 +488,19 @@ export const ArticleRevisionRequestedV1Event = z.object({
   event_type: z.literal("ARTICLE_REVISION_REQUESTED"),
   schema_version: z.literal(1),
   payload: ArticleRevisionRequestedV1Payload,
+});
+
+export const ArticleRevisionStartedV1Payload = z.object({
+  article_id: z.uuid(),
+  reason: z.string(),
+  from_state: z.string(),
+});
+export type ArticleRevisionStartedV1Payload = z.infer<typeof ArticleRevisionStartedV1Payload>;
+export const ArticleRevisionStartedV1Event = z.object({
+  ...envelopeFields,
+  event_type: z.literal("ARTICLE_REVISION_STARTED"),
+  schema_version: z.literal(1),
+  payload: ArticleRevisionStartedV1Payload,
 });
 
 export const ArticleUnpublishedV1Payload = z.object({
@@ -1563,7 +1589,9 @@ export const EventEnvelope = z.discriminatedUnion("event_type", [
   ArticleRepublishedV1Event,
   ArticleReturnedV1Event,
   ArticleReviewedV1Event,
+  ArticleRevisionDroppedV1Event,
   ArticleRevisionRequestedV1Event,
+  ArticleRevisionStartedV1Event,
   ArticleUnpublishedV1Event,
   BudgetAllocatedV1Event,
   BudgetExhaustedV1Event,
@@ -1677,7 +1705,9 @@ export const EVENT_TYPES = [
   "ARTICLE_REPUBLISHED",
   "ARTICLE_RETURNED",
   "ARTICLE_REVIEWED",
+  "ARTICLE_REVISION_DROPPED",
   "ARTICLE_REVISION_REQUESTED",
+  "ARTICLE_REVISION_STARTED",
   "ARTICLE_UNPUBLISHED",
   "BUDGET_ALLOCATED",
   "BUDGET_EXHAUSTED",

@@ -34,7 +34,6 @@ from autora.domains.newsroom.models import (
     AnalyticsEventType,
     Article,
     ArticleAccess,
-    ArticleState,
     ArticleVersion,
     ClaimEvidence,
     Evidence,
@@ -75,6 +74,8 @@ class PublicArticleSummary(BaseModel):
     title: str
     summary: str | None
     published_at: datetime
+    revised_at: datetime | None = None
+    """When a changed version went up (D-045); the page says so, as a correction should."""
     access: str = ArticleAccess.FREE.value
     """``free`` or ``members`` (D-025). On a list, this is what draws the badge."""
 
@@ -105,16 +106,21 @@ def _summary(article: Article, version: ArticleVersion) -> PublicArticleSummary:
         title=version.title,
         summary=version.summary,
         published_at=article.published_at,
+        revised_at=article.revised_at,
     )
 
 
 def _published(lang: str):
-    """Published articles with their version in ``lang`` (only if published in that language)."""
+    """Published articles with their version in ``lang`` (only if published in that language).
+
+    On the site is "has a published version and is listed" (D-045), not "is PUBLISHED": an
+    article being revised keeps showing what was published until the new version is."""
     return (
         select(Article, ArticleVersion)
         .join(ArticleVersion, ArticleVersion.draft_group_id == Article.published_group_id)
         .where(
-            Article.state == ArticleState.PUBLISHED,
+            Article.published_group_id.is_not(None),
+            Article.listed.is_(True),
             ArticleVersion.lang == lang,
             Article.published_langs.any(lang),
         )
@@ -203,7 +209,8 @@ async def record_beacon(
     article = await session.get(Article, article_id)
     if (
         article is None
-        or article.state != ArticleState.PUBLISHED
+        or article.published_group_id is None
+        or not article.listed
         or lang not in article.published_langs
     ):
         raise BeaconRejected(f"no published article {article_id} in {lang}")

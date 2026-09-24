@@ -9,6 +9,7 @@
                                                   distributions, readers
 - POST /api/articles/{id}/unpublish               take a published article off the site (D-044)
 - POST /api/articles/{id}/republish               put it back
+- POST /api/articles/{id}/revise                  change a published article (D-045)
 - GET  /api/companies/{id}/sources                sources with how many items each brought
 - POST /api/companies/{id}/sources                add a source (starts the newsroom schedules)
 """
@@ -36,7 +37,7 @@ from autora.domains.newsroom.publisher import (
 )
 from autora.domains.newsroom.sources import SourceConfigError, add_source
 from autora.domains.newsroom.stories import StoryDesk, StoryError
-from autora.domains.newsroom.workflow import start_story
+from autora.domains.newsroom.workflow import start_article_revision, start_story
 from autora.runtime.fsm import IllegalTransition
 from autora_api.deps import Operator, RuntimeDep, Session
 
@@ -213,6 +214,44 @@ async def post_republish(
         raise HTTPException(status.HTTP_409_CONFLICT, str(exc)) from exc
     await session.commit()
     return {"article_id": str(article.id), "state": article.state}
+
+
+class ReviseBody(BaseModel):
+    reason: str = Field(min_length=1, max_length=2000)
+    """What to change: the writer works from it."""
+
+
+class RevisionStarted(BaseModel):
+    article_id: uuid.UUID
+    state: str
+    workflow_run_id: uuid.UUID
+
+
+@router.post("/api/articles/{article_id}/revise", status_code=status.HTTP_201_CREATED)
+async def post_revise(
+    article_id: uuid.UUID,
+    body: ReviseBody,
+    session: Session,
+    operator: Operator,
+    runtime: RuntimeDep,
+) -> RevisionStarted:
+    """Change a published (or taken-down) article (D-045). The site keeps the published version
+    until the new one is written, reviewed, approved and published."""
+    article = await _article_of(session, article_id)
+    try:
+        run = await start_article_revision(
+            session, policy=runtime.policy, workflows=runtime.workflows,
+            company_id=article.company_id, article_id=article.id, actor=operator,
+            reason=body.reason,
+        )  # fmt: skip
+    except (IllegalTransition, PublishError, NotAllowed, StartWorkflowError) as exc:
+        await session.rollback()
+        raise HTTPException(status.HTTP_409_CONFLICT, str(exc)) from exc
+    except WorkflowNotAllowed as exc:
+        await session.rollback()
+        raise HTTPException(status.HTTP_403_FORBIDDEN, str(exc)) from exc
+    await session.commit()
+    return RevisionStarted(article_id=article.id, state=article.state, workflow_run_id=run.id)
 
 
 @router.get("/api/companies/{company_id}/sources")

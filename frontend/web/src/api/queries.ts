@@ -239,6 +239,16 @@ export async function unpublishArticle(articleId: string, reason: string, api: A
   );
 }
 
+/** Change a published article (D-045): the site keeps the published version until the new one. */
+export async function reviseArticle(articleId: string, reason: string, api: ApiClient = defaultApi) {
+  return unwrap(
+    await api.POST("/api/articles/{article_id}/revise", {
+      params: { path: { article_id: articleId } },
+      body: { reason },
+    }),
+  );
+}
+
 /** Put an article that was taken down back on the site (D-044). */
 export async function republishArticle(articleId: string, api: ApiClient = defaultApi) {
   return unwrap(
