@@ -31,6 +31,7 @@ ROLES = (
 MATRIX = {
     "web_search":           (A, D, D, D, A, D, D, D, D, A),
     "fetch_url":            (A, D, D, D, A, D, D, D, D, A),
+    "compare_13f":          (A, D, D, D, D, D, D, D, D, D),  # D-037
     "read_evidence":        (A, A, A, A, A, A, A, D, D, A),
     "search_evidence":      (A, A, A, A, A, A, A, D, D, D),
     "create_claim":         (D, A, D, D, D, D, D, D, D, D),

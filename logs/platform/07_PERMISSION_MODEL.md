@@ -18,6 +18,7 @@
 | Action | Researcher | Analyst | Writer | Editor | Marketing | CEO | Finance(P5) | Human |
 |---|---|---|---|---|---|---|---|---|
 | web_search / fetch_url | ALLOW | DENY | DENY | DENY | ALLOW | DENY | DENY | — |
+| compare_13f（D-037） | ALLOW | DENY | DENY | DENY | DENY | DENY | DENY | — |
 | read_evidence / search_evidence | ALLOW | ALLOW | ALLOW | ALLOW | ALLOW | ALLOW(摘要) | DENY | — |
 | create_claim / link_evidence | DENY | ALLOW | DENY | DENY | DENY | DENY | DENY | — |
 | list_claims（T-505 新增：讀主張與引文） | ALLOW | ALLOW | ALLOW | ALLOW | ALLOW | ALLOW | DENY | — |
