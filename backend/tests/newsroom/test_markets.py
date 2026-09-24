@@ -71,3 +71,10 @@ async def test_a_filer_that_moved_is_the_same_source_with_a_new_address(db_sessi
 
     again = await markets.seed_markets(db_session, actor=ACTOR, slug=slug)
     assert again.added == [] and "CIK=0002026053" in ackman.url
+
+
+def test_searches_run_twice_a_day_to_stay_inside_the_free_plan():
+    """D-038: 3 searches x 2 a day x 30 days = 180 of Tavily's 1,000 free credits a month."""
+    searches = [s for s in markets.SOURCES if s.kind == "search_query"]
+    assert len(searches) == 3
+    assert {s.poll_interval_seconds for s in searches} == {12 * 3600}

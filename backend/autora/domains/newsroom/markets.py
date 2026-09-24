@@ -18,7 +18,8 @@ Its sources, and why each is set up the way it is:
 - **AI companies' press releases** (NVIDIA, OpenAI, Google AI, Microsoft), whose feeds answer
   automated readers. TSMC's refuses them (403) and Anthropic has none; AMD's timed out when tried.
 - **Searches** for Taiwan's market and the AI supply chain, which have no feed a program may read.
-  Each search costs a Tavily credit, so they run every six hours, not every hour.
+  Each search costs a Tavily credit, so they run twice a day: three searches, about 180 credits
+  a month of the free plan's 1,000, leaving the rest for the researcher's own searches.
 
 Scion Asset Management (Michael Burry) is on the list the user chose, but its last 13F was filed
 on 2025-11-03: it may never produce another story. Kept, because a filing would be news.
@@ -63,7 +64,6 @@ MISSION = (
 )
 
 HALF_DAY = 12 * 3600
-SIX_HOURS = 6 * 3600
 
 
 def edgar_13f(cik: str) -> str:
@@ -125,7 +125,7 @@ def _search(query: str) -> MarketSource:
         trust_level=Decimal("0.5"),
         language="zh-TW",
         config={"query": query, "k": 5, "recency_days": 2},
-        poll_interval_seconds=SIX_HOURS,
+        poll_interval_seconds=HALF_DAY,
     )
 
 
