@@ -56,7 +56,10 @@ describe("the screen invents nothing (AC-S6)", () => {
     expect(hits(timers, "stores")).toEqual([]);
     expect(hits(timers, "realtime/reducer.ts")).toEqual([]);
     expect(hits(timers, "realtime/snapshot.ts")).toEqual([]);
-    expect(hits(timers, "features")).toEqual([]);
+    // One exception, by name: after paying, the done page waits and asks the API again whether
+    // PAYUNi's notification has arrived (D-034). What it shows is still only what the API says.
+    expect(hits(timers, "features").filter((hit) => !hit.startsWith("features/site/PaymentDone.tsx:"))).toEqual([]);
+    expect(hits(timers, "features/site/PaymentDone.tsx")).toHaveLength(1);
   });
 
   it("the socket's own timers are the connection's, and are listed here by name", () => {

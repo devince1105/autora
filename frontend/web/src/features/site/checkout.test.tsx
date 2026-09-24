@@ -34,8 +34,9 @@ afterEach(() => {
 
 describe("what a year costs", () => {
   it("is what the API says, not what the page was written with", async () => {
-    vi.spyOn(globalThis, "fetch").mockReturnValue(respond({ ...OFFER, amount: "480.000000" }));
+    const fetchMock = vi.spyOn(globalThis, "fetch").mockReturnValue(respond({ ...OFFER, amount: "480.000000" }));
     const offer = await fetchOffer("lumen");
+    expect(String(fetchMock.mock.calls[0][0])).toContain("interval=year");
     expect(offer).not.toBeNull();
     expect(formatOffer(offer!, "zh-TW")).toBe("NT$480");
   });
@@ -64,7 +65,13 @@ describe("starting a checkout", () => {
     expect(page.url).toBe(PAGE.url);
     const [, init] = fetchMock.mock.calls[0];
     expect(init?.credentials).toBe("include");
-    expect(JSON.parse(String(init?.body))).toEqual({ lang: "zh-TW", company: "lumen" });
+    expect(JSON.parse(String(init?.body))).toEqual({ lang: "zh-TW", company: "lumen", interval: "year" });
+  });
+
+  it("asks for a month when a month is chosen (D-034)", async () => {
+    const fetchMock = vi.spyOn(globalThis, "fetch").mockReturnValue(respond(PAGE, 201));
+    await startCheckout("zh-TW", undefined, "month");
+    expect(JSON.parse(String(fetchMock.mock.calls[0][1]?.body)).interval).toBe("month");
   });
 
   it.each([
@@ -105,10 +112,19 @@ describe("the paywall", () => {
     vi.spyOn(HTMLFormElement.prototype, "submit").mockImplementation(() => undefined);
   });
 
-  function mockCalls(offer: unknown, checkout: () => Promise<Response>) {
-    vi.spyOn(globalThis, "fetch").mockImplementation((input) =>
-      String(input).includes("/api/checkout/offer") ? respond(offer) : checkout(),
-    );
+  const MONTH = { ...OFFER, amount: "30.000000", interval: "month" };
+
+  /** The API: ``year`` for the yearly offer, ``month`` for the monthly one (unavailable if null). */
+  function mockCalls(
+    year: unknown,
+    checkout: () => Promise<Response>,
+    month: unknown = { ...MONTH, available: false },
+  ) {
+    return vi.spyOn(globalThis, "fetch").mockImplementation((input) => {
+      const url = String(input);
+      if (!url.includes("/api/checkout/offer")) return checkout();
+      return respond(url.includes("interval=month") ? month : year);
+    });
   }
 
   it("shows the price the API charges", async () => {
@@ -117,24 +133,57 @@ describe("the paywall", () => {
     await waitFor(() => expect(screen.getByTestId("members-only").textContent).toContain("NT$480"));
   });
 
+  it("offers a month and a year side by side, and says what a year saves (D-034)", async () => {
+    mockCalls({ ...OFFER, amount: "330.000000" }, () => respond(PAGE, 201), MONTH);
+    render(<MembersOnly lang="zh-TW" path="/news/zh-TW/articles/x" company="lumen" />);
+    await waitFor(() => expect(screen.getByTestId("plan-month").textContent).toContain("NT$30"));
+    expect(screen.getByTestId("plan-year").textContent).toContain("NT$330");
+    expect(screen.getByTestId("plan-year").textContent).toContain("比月繳省 8%");
+  });
+
+  it("leaves out a plan the API does not sell, rather than show a price nobody can pay", async () => {
+    mockCalls(OFFER, () => respond(PAGE, 201));
+    render(<MembersOnly lang="zh-TW" path="/news/zh-TW/articles/x" company="lumen" />);
+    await waitFor(() => expect(screen.queryByTestId("plan-month")).toBeNull());
+    expect(screen.getByTestId("plan-year")).toBeTruthy();
+  });
+
+  it("orders the plan that was chosen", async () => {
+    const fetchMock = mockCalls(OFFER, () => respond(PAGE, 201), MONTH);
+    render(<MembersOnly lang="zh-TW" path="/news/zh-TW/articles/x" company="lumen" />);
+    fireEvent.click(await screen.findByRole("button", { name: "選擇月繳" }));
+    await waitFor(() => expect(document.querySelector("form")).not.toBeNull());
+    const order = fetchMock.mock.calls.find(([url]) => String(url).endsWith("/api/checkout"));
+    expect(JSON.parse(String(order![1]!.body)).interval).toBe("month");
+  });
+
+  it("says what paying agrees to, with the policies a click away", () => {
+    mockCalls(OFFER, () => respond(PAGE, 201));
+    render(<MembersOnly lang="zh-TW" path="/news/zh-TW/articles/x" />);
+    const notice = screen.getByTestId("members-only");
+    expect(notice.textContent).toContain("不會自動扣款");
+    expect(screen.getByRole("link", { name: "服務條款" }).getAttribute("href")).toBe("/news/zh-TW/terms");
+    expect(screen.getByRole("link", { name: "退款政策" }).getAttribute("href")).toBe("/news/zh-TW/refund");
+  });
+
   it("takes the reader to PAYUNi", async () => {
     mockCalls(OFFER, () => respond(PAGE, 201));
     render(<MembersOnly lang="zh-TW" path="/news/zh-TW/articles/x" company="lumen" />);
-    fireEvent.click(screen.getByRole("button", { name: "成為會員" }));
+    fireEvent.click(screen.getByRole("button", { name: "選擇年繳" }));
     await waitFor(() => expect(document.querySelector("form")?.action).toBe(PAGE.url));
   });
 
   it("says so when the site has no store yet, instead of a dead end", async () => {
     mockCalls({ ...OFFER, available: false }, () => respond({}, 503));
     render(<MembersOnly lang="zh-TW" path="/news/zh-TW/articles/x" />);
-    fireEvent.click(screen.getByRole("button", { name: "成為會員" }));
+    fireEvent.click(screen.getByRole("button", { name: "選擇年繳" }));
     expect((await screen.findByRole("status")).textContent).toContain("即將開放");
   });
 
   it("says try again when the payment page could not be opened", async () => {
     mockCalls(OFFER, () => respond({}, 500));
     render(<MembersOnly lang="zh-TW" path="/news/zh-TW/articles/x" />);
-    fireEvent.click(screen.getByRole("button", { name: "成為會員" }));
+    fireEvent.click(screen.getByRole("button", { name: "選擇年繳" }));
     expect((await screen.findByRole("status")).textContent).toContain("請稍後再試");
   });
 
@@ -143,7 +192,7 @@ describe("the paywall", () => {
     const assign = vi.fn();
     Object.defineProperty(window, "location", { value: { assign }, writable: true });
     render(<MembersOnly lang="zh-TW" path="/news/zh-TW/articles/x" />);
-    fireEvent.click(screen.getByRole("button", { name: "成為會員" }));
+    fireEvent.click(screen.getByRole("button", { name: "選擇年繳" }));
     await waitFor(() =>
       expect(assign).toHaveBeenCalledWith(
         "/news/zh-TW/login?next=%2Fnews%2Fzh-TW%2Farticles%2Fx",
@@ -154,7 +203,7 @@ describe("the paywall", () => {
   it("never puts a secret in the page", async () => {
     mockCalls(OFFER, () => respond(PAGE, 201));
     render(<MembersOnly lang="en" path="/news/en/articles/x" company="lumen" />);
-    fireEvent.click(screen.getByRole("button", { name: "Become a member" }));
+    fireEvent.click(screen.getByRole("button", { name: "Choose yearly" }));
     await waitFor(() => expect(document.querySelector("form")).not.toBeNull());
     const sent = Array.from(document.querySelectorAll("form input")).map((i) => i.getAttribute("name"));
     expect(sent).toEqual(["MerID", "Version", "EncryptInfo", "HashInfo"]);

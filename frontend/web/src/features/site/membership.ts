@@ -1,8 +1,11 @@
-// What a year costs when the API has not said yet (D-025).
+// What a month and a year cost when the API has not said yet (D-025, D-034).
 //
-// The paywall asks ``/api/checkout/offer`` and shows what the database actually charges (T-702).
-// This number is only the fallback for the moment before that answer arrives, and for a site
-// whose API is unreachable — a price in a sentence that disagrees with the price in the database
-// is worse than no price at all, so nothing else should reach for it.
-export const MEMBERSHIP_PRICE_TWD = 360;
+// The paywall and the pricing page ask ``/api/checkout/offer`` and show what the database
+// actually charges (T-702). These numbers are only the fallback for the moment before that
+// answer arrives, and for a site whose API is unreachable — a price in a sentence that disagrees
+// with the price in the database is worse than no price at all, so nothing else should reach
+// for them. Keep them equal to what ``scripts/seed_membership.py`` puts on sale.
+import type { Interval } from "./checkout";
+
+export const MEMBERSHIP_PRICES_TWD: Record<Interval, number> = { month: 30, year: 330 };
 export const MEMBERSHIP_CURRENCY = "TWD";

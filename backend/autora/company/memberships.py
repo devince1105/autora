@@ -129,13 +129,18 @@ async def retire_price(session: AsyncSession, price: Price) -> Price:
 
 
 async def offer(
-    session: AsyncSession, company_id: uuid.UUID, *, key: str = PRODUCT_KEY
+    session: AsyncSession,
+    company_id: uuid.UUID,
+    *,
+    interval: PriceInterval | str = PriceInterval.YEAR,
+    key: str = PRODUCT_KEY,
 ) -> Price | None:
-    """What a company's membership costs today, or None when it is not for sale.
+    """What a month or a year of a company's membership costs today, or None when that one is
+    not for sale (D-034: a month and a year are sold side by side).
 
-    The newest active price of a live product wins: raising the price is adding one and retiring
-    the old, so that what was bought at the old price keeps pointing at the price it was bought
-    at. Nobody's year changes because the next year costs more.
+    The newest active price of a live product for that interval wins: raising the price is adding
+    one and retiring the old, so that what was bought at the old price keeps pointing at the
+    price it was bought at. Nobody's year changes because the next year costs more.
     """
     return await session.scalar(
         select(Price)
@@ -143,6 +148,7 @@ async def offer(
         .where(
             Price.company_id == company_id,
             Price.state == PriceState.ACTIVE.value,
+            Price.interval == PriceInterval(interval).value,
             Product.key == key,
             Product.state != ProductState.RETIRED.value,
         )

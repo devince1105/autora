@@ -204,8 +204,9 @@ export interface paths {
         };
         /**
          * Get Offer
-         * @description What a year costs here. ``available`` is false when nothing is for sale yet, which is a
-         *     fact about the site rather than an error — the page says "soon" instead of a price.
+         * @description What a month or a year costs here. ``available`` is false when that one is not for sale
+         *     yet, which is a fact about the site rather than an error — the page says "soon" instead of a
+         *     price.
          */
         get: operations["get_offer_api_checkout_offer_get"];
         put?: never;
@@ -1215,6 +1216,12 @@ export interface components {
         CheckoutRequest: {
             /** Company */
             company?: string | null;
+            /**
+             * Interval
+             * @default year
+             * @enum {string}
+             */
+            interval: "month" | "year";
             /**
              * Lang
              * @default zh-TW
@@ -3176,6 +3183,7 @@ export interface operations {
         parameters: {
             query?: {
                 company?: string | null;
+                interval?: "month" | "year";
             };
             header?: never;
             path?: never;

@@ -10,6 +10,7 @@ in ``tests/infra/test_payuni.py``.
 
 import re
 import uuid
+from datetime import UTC, datetime, timedelta
 from decimal import Decimal
 from types import SimpleNamespace
 
@@ -19,7 +20,15 @@ from sqlalchemy import func, select
 
 from autora.company import memberships
 from autora.company.organization import add_business_unit, add_product
-from autora.db.models import BusinessUnitState, Company, Order, OrderState, Payment, ProductState
+from autora.db.models import (
+    BusinessUnitState,
+    Company,
+    Order,
+    OrderState,
+    Payment,
+    PriceInterval,
+    ProductState,
+)
 from autora.infra.payments import payuni
 from autora.infra.settings import load_settings
 from autora.runtime.actor import Actor
@@ -82,7 +91,7 @@ async def company(db_session):
     return SimpleNamespace(id=row.id, slug=row.slug)
 
 
-async def _for_sale(db_session, company, amount="360"):
+async def _for_sale(db_session, company, amount="360", month=None):
     unit = await add_business_unit(
         db_session, company_id=company.id, key="ai_media", name="AI Media",
         actor=OPERATOR, state=BusinessUnitState.ACTIVE,
@@ -92,6 +101,10 @@ async def _for_sale(db_session, company, amount="360"):
         business_unit_id=unit.id, actor=OPERATOR, state=ProductState.LIVE,
     )  # fmt: skip
     price = await memberships.add_price(db_session, product, amount=Decimal(amount))
+    if month is not None:
+        await memberships.add_price(
+            db_session, product, amount=Decimal(month), interval=PriceInterval.MONTH
+        )
     await db_session.commit()
     return price
 
@@ -139,6 +152,26 @@ async def test_the_offer_is_the_price_that_was_set(shop, db_session, company):
     offer = (await shop.get("/api/checkout/offer", params={"company": company.slug})).json()
     assert Decimal(offer.pop("amount")) == Decimal("360")
     assert offer == {"currency": "TWD", "interval": "year", "available": True}
+
+
+async def test_a_month_and_a_year_are_each_their_own_price(shop, db_session, company):
+    """D-034: both on sale at once, and asking for one never answers with the other."""
+    await _for_sale(db_session, company, amount="330", month="30")
+    ask = {"company": company.slug}
+    year = (await shop.get("/api/checkout/offer", params=ask | {"interval": "year"})).json()
+    month = (await shop.get("/api/checkout/offer", params=ask | {"interval": "month"})).json()
+    assert (Decimal(year["amount"]), year["interval"]) == (Decimal("330"), "year")
+    assert (Decimal(month["amount"]), month["interval"]) == (Decimal("30"), "month")
+    assert Decimal((await shop.get("/api/checkout/offer", params=ask)).json()["amount"]) == 330
+
+
+async def test_a_month_that_is_not_for_sale_is_not_the_year_instead(shop, db_session, company):
+    await _for_sale(db_session, company)
+    offer = (
+        await shop.get("/api/checkout/offer", params={"company": company.slug, "interval": "month"})
+    ).json()
+    assert offer["available"] is False
+    assert offer["interval"] == "month"
 
 
 # --- starting a checkout ------------------------------------------------------------------------
@@ -191,6 +224,36 @@ async def test_the_form_carries_the_order_and_can_be_opened_with_the_shop_s_key(
     assert sent["TradeAmt"] == "360"
     assert sent["UsrMail"] == ADDRESS
     assert sent["NotifyURL"].endswith("/api/payments/payuni/notify")
+
+
+async def test_a_month_is_ordered_at_the_month_s_price_and_buys_a_month(
+    shop, db_session, company, mailbox
+):
+    await _for_sale(db_session, company, amount="330", month="30")
+    await _sign_in(shop, mailbox)
+    checkout = (
+        await shop.post("/api/checkout", json={"company": company.slug, "interval": "month"})
+    ).json()
+    sent = payuni.unseal(
+        checkout["fields"]["EncryptInfo"], checkout["fields"]["HashInfo"], key=KEY, iv=IV
+    )
+    assert (sent["TradeAmt"], sent["ProdDesc"]) == ("30", "Autora 會員一個月")
+
+    await shop.post(
+        "/api/payments/payuni/notify", data=_notification(checkout["mer_trade_no"], amount="30")
+    )
+    until = datetime.fromisoformat(await _member_until(shop, company))
+    now = datetime.now(UTC)
+    assert now + timedelta(days=27) < until < now + timedelta(days=32), "a month, not a year"
+
+
+async def test_an_interval_nobody_sells_is_refused(shop, db_session, company, mailbox):
+    await _for_sale(db_session, company)
+    await _sign_in(shop, mailbox)
+    week = await shop.post("/api/checkout", json={"company": company.slug, "interval": "week"})
+    month = await shop.post("/api/checkout", json={"company": company.slug, "interval": "month"})
+    assert week.status_code == 422
+    assert month.status_code == 404
 
 
 async def test_nothing_is_for_sale_is_a_404_not_an_order(shop, company, mailbox):

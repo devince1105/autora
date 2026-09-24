@@ -55,6 +55,11 @@ services:
     build:
       context: ..
       dockerfile: infra/Dockerfile.web
+      args:
+        SITE_OPERATOR: ${SITE_OPERATOR:-}
+        SITE_OPERATOR_OWNER: ${SITE_OPERATOR_OWNER:-}
+        SITE_CONTACT_EMAIL: ${SITE_CONTACT_EMAIL:-}
+        SITE_CONTACT_PHONE: ${SITE_CONTACT_PHONE:-}
     environment:
       NEXT_PUBLIC_API_URL: http://localhost:8000
       # the public site is rendered on the server, which reaches the API inside the network

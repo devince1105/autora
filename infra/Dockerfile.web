@@ -9,6 +9,10 @@ COPY frontend/event-schema/package.json frontend/event-schema/
 RUN pnpm install --frozen-lockfile
 
 FROM deps AS build
+# The public site's footer and policies are rendered at build time (D-034).
+ARG SITE_OPERATOR SITE_OPERATOR_OWNER SITE_CONTACT_EMAIL SITE_CONTACT_PHONE
+ENV SITE_OPERATOR=$SITE_OPERATOR SITE_OPERATOR_OWNER=$SITE_OPERATOR_OWNER \
+    SITE_CONTACT_EMAIL=$SITE_CONTACT_EMAIL SITE_CONTACT_PHONE=$SITE_CONTACT_PHONE
 COPY . .
 RUN pnpm -F web build
 

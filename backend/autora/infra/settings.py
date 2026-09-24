@@ -121,7 +121,7 @@ class Settings(BaseSettings):
     payuni_mer_id: str | None = None
     payuni_hash_key: SecretStr | None = None
     payuni_hash_iv: SecretStr | None = None
-    payuni_return_url: str = "http://localhost:3000/news/zh-TW/membership/done"
+    payuni_return_url: str = "http://localhost:3000/news/zh-TW/membership/return"
     """Where the reader's browser comes back to after paying."""
     payuni_notify_url: str = "http://localhost:8000/api/payments/payuni/notify"
     """Where PAYUNi posts the result, server to server. The one that decides anything."""

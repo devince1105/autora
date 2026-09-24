@@ -120,8 +120,9 @@ describe("the article page", () => {
     expect(screen.getByText(MEMBERS_ONLY.blocks[0].text)).toBeTruthy();
     expect(screen.queryByText(ARTICLE.blocks[2].text)).toBeNull();
     const notice = screen.getByTestId("members-only");
-    expect(notice.textContent).toContain("NT$360"); // which dollar, said once and from one place
-    expect(notice.textContent).toContain("已經是會員？請先登入。");
+    expect(notice.textContent).toContain("NT$330"); // which dollar, said once and from one place
+    expect(notice.textContent).toContain("NT$30");
+    expect(notice.textContent).toContain("已經是會員？");
     const link = within(notice).getByRole("link", { name: "登入" });
     expect(link.getAttribute("href")).toBe(`/news/zh-TW/login?next=${encodeURIComponent(ARTICLE.path)}`);
   });
@@ -131,12 +132,12 @@ describe("the article page", () => {
     const notice = screen.getByTestId("members-only");
     expect(within(notice).queryByRole("status")).toBeNull();
 
-    fireEvent.click(within(notice).getByRole("button", { name: "成為會員" }));
+    fireEvent.click(within(notice).getByRole("button", { name: "選擇年繳" }));
 
     const started = await vi.waitFor(() =>
       vi.mocked(globalThis.fetch).mock.calls.find(([url]) => String(url).endsWith("/api/checkout")),
     );
-    expect(JSON.parse(String(started![1]!.body))).toEqual({ lang: "zh-TW", company: "lumen-daily" });
+    expect(JSON.parse(String(started![1]!.body))).toEqual({ lang: "zh-TW", company: "lumen-daily", interval: "year" });
   });
 
   it("a free article says nothing about membership", () => {

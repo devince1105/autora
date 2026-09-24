@@ -1169,6 +1169,49 @@ T-611 之後，商業迴圈已經有 CEO 評估機會、策略師把機會寫成
 
 ---
 
+## D-034：月繳與年繳、會員方案頁與三份政策
+
+使用者要申請統一金流的新商店（原本的商店給 shop.nanguado.com 用了），審核要看網站上有沒有價格和政策。決定：Autora 以 nanguado（個人）為經營者、網址 autora.nanguado.com；**月繳 NT$30、年繳 NT$330，都是單次付款、不自動扣款**。
+
+### 後端：不用 migration
+
+`prices.interval` 本來就允許 `month`，`add_interval` 本來就會算「下個月同一天」，訂單記的是哪一個價格——所以只改了「目前售價」：
+
+- `memberships.offer(session, company_id, interval=...)`，不指定是年，原本的呼叫者（報表的 `OfferView`、測試）行為不變。
+- `GET /api/checkout/offer?interval=month|year`、`POST /api/checkout` 多一個 `interval`（預設 `year`）；統一金流付款頁的商品說明跟著變成「Autora 會員一個月／一年」。
+- `seed_membership.py` 一次上架兩個價格：`--month 30 --year 330`，給 0 就下架那一個。
+- 新測試：兩個價格各自回答、沒賣月繳時不會拿年繳充數、買月繳付 30 元得到一個月（不是一年）、不認得的期間回 422。
+
+### 前端
+
+- `PlanPicker`：月繳與年繳兩張卡、年繳標出「比月繳省 8%」，價格來自 API；API 說沒賣的方案不顯示；下面寫「單次付款，不會自動扣款」與「付款即表示你同意服務條款與退款政策」（連結）。付費牆與會員方案頁共用。
+- 新頁面：`/news/{lang}/pricing`、`terms`、`privacy`、`refund`，中英文都有；每一頁的頁尾有四個連結、經營者與聯絡信箱。
+- **政策照程式寫**：單次付款、提早續購接在原到期日之後、卡號不經過本站、登入連結 15 分鐘、登入 60 天、email 只在讀者表、閱讀統計用每天更換的隨機編號——這些都對得上程式。政策裡不寫價格（測試會擋）。
+- **經營者資料放環境變數**：`SITE_OPERATOR`、`SITE_OPERATOR_OWNER`、`SITE_CONTACT_EMAIL`、`SITE_CONTACT_PHONE`。repo 是公開的，負責人姓名與電話不進版本庫；在 `next build` 時讀，Docker 建置改成用 build args 帶進去。
+
+### 順帶發現：付款完回來是 404
+
+`PAYUNI_RETURN_URL` 指向 `/news/zh-TW/membership/done`，但這個頁面從來沒有做。統一金流用表單 POST 把讀者帶回來，頁面收不了 POST，所以：
+
+- `membership/return` 是路由，POST 和 GET 都回 303 轉到 `membership/done`，不讀統一金流帶回來的任何東西（會員資格只由伺服器之間的通知給）。
+- `membership/done` 每 2 秒問一次 API「是不是會員了」，最多 10 次；是就寫到期日，沒登入請他登入，一直沒等到就說「還沒收到付款確認」並給聯絡信箱。
+- `PAYUNI_RETURN_URL` 的預設值與 `.env.example` 改成 `/membership/return`。
+- 「狀態不能由計時器推動」的檢查（AC-S6）原本禁止 `features/` 裡出現任何計時器；done 頁的計時器只是等一下再問 API，在測試裡**點名**允許這一個，跟 socket 的三個計時器同樣處理。
+
+### 驗證
+
+- 瀏覽器：會員方案頁向 API 要了 `newsroom-demo` 的月繳與年繳價格（NT$30、NT$330，不是備用數字）；沒登入按「Choose monthly」→ API 回 401 → 轉到登入頁、登入後回到方案頁；退款政策在手機寬度（375 px）沒有橫向捲動；`POST /news/zh-TW/membership/return` 回 303 到 done 頁。
+- 後端：付款與會員相關 85 個測試；全部 1637 個跑一次有 1 個失敗——`test_business_verbs` 的 `test_every_one_of_them_is_recorded_whatever_happened`，單獨跑有沒有這批修改都會過。原因是同一個交易寫進的三筆 `CommandRecord` 的 `created_at`（`now()` 是交易開始時間）相同，排序不固定；跟這批無關，另開任務處理。lint、格式、匯入規則、OpenAPI 文件是最新的，全過。
+- 前端：型別檢查、lint、全部測試（新加 17 個政策／頁尾／返回頁測試、付費牆 5 個）。
+
+### 還沒做
+
+- **退款沒有程式**：政策寫了 7 天內全額退款，目前要人到統一金流後台退款、再手動把會員期間結束。
+- **實際付款沒有實測**：新商店開好、把商店代號與兩把金鑰填進 `.env` 後，要在沙箱實際付一筆月繳與一筆年繳。
+- 公開站頁首的「本站為示範」提示還在，正式上線前要拿掉或改寫。
+
+---
+
 ## 提交紀錄
 
 | 提交 | 日期 | 內容 | 持續整合 |

@@ -1,6 +1,6 @@
-"""Buying a year of membership, and hearing back that it was paid for (T-702, D-024).
+"""Buying a month or a year of membership, and hearing back that it was paid for (T-702, D-024).
 
-- GET  /api/checkout/offer[?company=<slug>] -> what a year costs, or nothing for sale
+- GET  /api/checkout/offer[?interval=month|year&company=<slug>] -> what it costs, or nothing
 - POST /api/checkout                        -> an order, and the form that opens PAYUNi's page
 - POST /api/payments/payuni/notify          -> PAYUNi telling us the money arrived
 
@@ -18,7 +18,7 @@ from __future__ import annotations
 
 import uuid
 from decimal import Decimal
-from typing import Annotated
+from typing import Annotated, Literal
 from urllib.parse import parse_qsl
 
 from fastapi import APIRouter, Cookie, Depends, HTTPException, Query, Request, Response, status
@@ -27,7 +27,7 @@ from sqlalchemy import select
 
 from autora.accounts import SESSION_COOKIE, customer_ref, reader_for
 from autora.company import memberships, orders
-from autora.db.models import Company, Price
+from autora.db.models import Company, Price, PriceInterval
 from autora.infra.payments import payuni
 from autora.infra.settings import Settings
 from autora.runtime.actor import Actor
@@ -40,8 +40,10 @@ PROVIDER = "payuni"
 SessionCookie = Annotated[str | None, Cookie(alias=SESSION_COOKIE)]
 SettingsDep = Annotated[Settings, Depends(settings_dep)]
 CompanySlug = Annotated[str | None, Query(max_length=100)]
+Interval = Literal["month", "year"]
 
-PRODUCT_DESCRIPTION = "Autora 會員一年"
+PRODUCT_DESCRIPTIONS = {"month": "Autora 會員一個月", "year": "Autora 會員一年"}
+"""What PAYUNi's page and the buyer's receipt call it, by what one payment buys (D-034)."""
 
 
 class Offer(BaseModel):
@@ -55,6 +57,7 @@ class Offer(BaseModel):
 
 class CheckoutRequest(BaseModel):
     company: str | None = Field(default=None, max_length=100)
+    interval: Interval = "year"
     lang: str = Field(default="zh-TW", pattern=r"^[a-z]{2}(-[A-Z][A-Za-z]{1,3})?$")
 
 
@@ -88,13 +91,20 @@ def _secrets(settings: Settings) -> tuple[str, str, str]:
 
 
 @router.get("/api/checkout/offer")
-async def get_offer(session: Session, company: CompanySlug = None) -> Offer:
-    """What a year costs here. ``available`` is false when nothing is for sale yet, which is a
-    fact about the site rather than an error — the page says "soon" instead of a price."""
+async def get_offer(
+    session: Session, company: CompanySlug = None, interval: Interval = "year"
+) -> Offer:
+    """What a month or a year costs here. ``available`` is false when that one is not for sale
+    yet, which is a fact about the site rather than an error — the page says "soon" instead of a
+    price."""
     company_id = await _company_id(session, company)
-    price = None if company_id is None else await memberships.offer(session, company_id)
+    price = (
+        None
+        if company_id is None
+        else await memberships.offer(session, company_id, interval=PriceInterval(interval))
+    )
     if price is None:
-        return Offer(amount=Decimal(0), currency="TWD", interval="year", available=False)
+        return Offer(amount=Decimal(0), currency="TWD", interval=interval, available=False)
     return Offer(amount=price.amount, currency=price.currency, interval=price.interval)
 
 
@@ -116,7 +126,11 @@ async def start_checkout(
         raise HTTPException(status.HTTP_401_UNAUTHORIZED, "sign in before buying a membership")
     mer_id, key, iv = _secrets(settings)
     company_id = await _company_id(session, body.company)
-    price = None if company_id is None else await memberships.offer(session, company_id)
+    price = (
+        None
+        if company_id is None
+        else await memberships.offer(session, company_id, interval=PriceInterval(body.interval))
+    )
     if price is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "nothing is for sale here yet")
 
@@ -134,7 +148,7 @@ async def start_checkout(
             iv=iv,
             mer_trade_no=order.mer_trade_no,
             amount=order.amount,
-            description=PRODUCT_DESCRIPTION,
+            description=PRODUCT_DESCRIPTIONS[body.interval],
             return_url=settings.payuni_return_url,
             notify_url=settings.payuni_notify_url,
             email=reader.email,

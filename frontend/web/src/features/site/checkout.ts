@@ -1,4 +1,4 @@
-// Buying a year, from the browser (T-702, D-024).
+// Buying a month or a year, from the browser (T-702, D-024, D-034).
 //
 // Paying happens on PAYUNi's own page, not here: this file asks our API to open an order and
 // hands back the sealed form that opens that page, then posts it. Nothing secret passes through
@@ -6,6 +6,9 @@
 // anything that happens here. The year arrives when PAYUNi tells our server, server to server,
 // which may well be before the reader's browser finds its way back.
 import { API_URL } from "@/config";
+
+/** What one payment buys. Both are sold side by side (D-034); neither renews by itself. */
+export type Interval = "month" | "year";
 
 export interface Offer {
   amount: string;
@@ -32,11 +35,12 @@ export class CheckoutError extends Error {
   }
 }
 
-/** What a year costs here, or null when the site has nothing for sale yet. */
-export async function fetchOffer(company?: string): Promise<Offer | null> {
-  const query = company ? `?company=${encodeURIComponent(company)}` : "";
+/** What a month or a year costs here, or null when that one is not for sale. */
+export async function fetchOffer(company?: string, interval: Interval = "year"): Promise<Offer | null> {
+  const query = new URLSearchParams({ interval });
+  if (company) query.set("company", company);
   try {
-    const response = await fetch(`${API_URL}/api/checkout/offer${query}`, {
+    const response = await fetch(`${API_URL}/api/checkout/offer?${query}`, {
       credentials: "include",
     });
     if (!response.ok) return null;
@@ -48,14 +52,18 @@ export async function fetchOffer(company?: string): Promise<Offer | null> {
 }
 
 /** Open an order. Throws ``CheckoutError`` rather than returning a half-answer. */
-export async function startCheckout(lang: string, company?: string): Promise<CheckoutPage> {
+export async function startCheckout(
+  lang: string,
+  company?: string,
+  interval: Interval = "year",
+): Promise<CheckoutPage> {
   let response: Response;
   try {
     response = await fetch(`${API_URL}/api/checkout`, {
       method: "POST",
       credentials: "include",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ lang, company: company ?? null }),
+      body: JSON.stringify({ lang, company: company ?? null, interval }),
     });
   } catch {
     throw new CheckoutError("failed");
