@@ -151,6 +151,50 @@ async def test_tool_loop_history_mapping():
     ], "reasoning is not sent back"  # fmt: skip
 
 
+async def test_a_tool_call_s_thought_signature_goes_back_with_it():
+    """D-039: Gemini answers 400 to a history whose tool calls lost their thought_signature."""
+    signature = {"google": {"thought_signature": "Es8CCswC"}}
+    server = Server(
+        (200, _completion(
+            {"content": None,
+             "tool_calls": [{"id": "call_7", "type": "function", "extra_content": signature,
+                             "function": {"name": "echo_note", "arguments": '{"text": "x"}'}},
+                            {"id": "call_8", "type": "function",
+                             "function": {"name": "echo_note", "arguments": '{"text": "y"}'}}]},
+            finish_reason="tool_calls",
+        ), {})
+    )  # fmt: skip
+    provider = _provider(server)
+    first = await provider.complete(_request(tools=[TOOL]), BINDING)
+
+    history = [
+        Message.user("write a note"),
+        Message(role="assistant", content=first.content),
+        Message(role="user", content=[
+            ToolResultBlock(tool_use_id="call_7", content="{}"),
+            ToolResultBlock(tool_use_id="call_8", content="{}"),
+        ]),
+    ]  # fmt: skip
+    await provider.complete(_request(messages=history, tools=[TOOL]), BINDING)
+    calls = server.last["messages"][1]["tool_calls"]
+    assert calls[0]["extra_content"] == signature, "sent back, unchanged, on the same call"
+    assert "extra_content" not in calls[1], "a call that had none gets none"
+
+
+async def test_another_provider_s_signature_is_not_sent():
+    history = [
+        Message.user("write a note"),
+        Message(role="assistant", content=[
+            OpaqueBlock(provider="gemini", data={
+                "type": "tool_call_extra", "tool_call_id": "call_1", "extra_content": {"x": 1}}),
+            ToolUseBlock(id="call_1", name="echo_note", input={}),
+        ]),
+    ]  # fmt: skip
+    server = Server()
+    await _provider(server).complete(_request(messages=history), BINDING)  # this one is "nvidia"
+    assert "extra_content" not in server.last["messages"][1]["tool_calls"][0]
+
+
 # --- response ------------------------------------------------------------------------------
 
 

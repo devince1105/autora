@@ -1355,6 +1355,20 @@ T-611 之後，商業迴圈已經有 CEO 評估機會、策略師把機會寫成
 
 ---
 
+## 切到 Gemini：模型選擇與 thought_signature
+
+使用者填了 `GEMINI_API_KEY`，要求切換。
+
+**選模型**：用 Google 的模型清單查帳號可用的模型，實測三個（一句繁中事實、一次工具呼叫）：`gemini-3.8-flash` 各 3 秒、照實、呼叫正確；`gemini-3.5-flash-lite` 各 1 秒、照實、呼叫正確；`gemini-pro-latest` 回答被截斷（「2,4」）、沒有呼叫工具（先花預算在思考）。選 3.8-flash 為主、3.5-flash-lite 為備援，價格記 0（免費方案）。本機 `.env`：`MODEL_PROVIDER=gemini`。嵌入維持 NVIDIA。
+
+**第 2 期**：上一期已 DONE，把 `company.cycle_start` 再提前一次開第 2 期。一分鐘內 CEO、總編輯、研究員都動了，總編輯開了三則 13F（巴菲特、杜肯米勒、段永平），研究員已經跑了 `compare_13f`——但**每個代理的第二次呼叫都被 Gemini 回 400**：「Function call is missing a thought_signature」。Gemini 在工具呼叫的 `extra_content.google.thought_signature` 放一個簽章，下一輪必須原樣送回；我們的轉接器是照 NVIDIA 寫的，不認得的欄位直接丟掉。先停 worker 保住剩下的嘗試次數：巴菲特的研究三次用完、這一則這一期取消；杜肯米勒與段永平的研究各剩一次。
+
+**修正**（`openai_compat.py`）：回應裡工具呼叫的 `extra_content` 存成 `OpaqueBlock`（本來就是「供應商專屬、要原樣送回」的區塊），下一輪組 request 時掛回同一個工具呼叫；別家供應商的不送。新測試 2 個（簽章原樣回到同一個呼叫、沒有簽章的呼叫不加；別家的不送）。實測：真的對 Gemini 跑兩輪工具迴圈，第二輪用繁中寫出「增持 Alphabet（Class A）共 24,541,369 股（增幅約 45.2%）」，數字與證據一致。
+
+**另外**：用終端機分頁啟動 worker 時，oh-my-zsh 的「要不要更新？」提示吃掉指令的第一個字元（`.venv` 變 `venv`），worker 根本沒起來。不去回答那個提示（答成 Y 會替使用者更新 oh-my-zsh），改成背景執行，輸出寫到 `data/logs/worker.log`（在 .gitignore 內）。
+
+---
+
 ## 提交紀錄
 
 | 提交 | 日期 | 內容 | 持續整合 |

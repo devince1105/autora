@@ -15,6 +15,9 @@ Translation choices:
   gateway validates the reply and the runner repairs it (T-207 / T-211).
 - **Reasoning** text (``reasoning_content`` / ``reasoning``) is kept as an ``OpaqueBlock`` for the
   trace and not sent back: these APIs do not expect it in later turns.
+- A tool call's **``extra_content``** is kept as an ``OpaqueBlock`` too, and *is* sent back, on the
+  same call, next turn. Gemini puts a ``thought_signature`` there and refuses (HTTP 400) a
+  history whose tool calls come back without it (D-039); servers that send none get none.
 - **Usage**: cached prompt tokens are reported as ``cache_read_tokens`` and not also as input.
 - **Errors**: timeouts, connection errors, 429 and 5xx allow the router's fallback alias; other
   4xx do not. 429, 5xx and connection errors are retried briefly first (honouring
@@ -48,6 +51,9 @@ from autora.runtime.models.types import (
 )
 
 NVIDIA_BASE_URL = "https://integrate.api.nvidia.com/v1"
+
+TOOL_CALL_EXTRA = "tool_call_extra"
+"""An ``OpaqueBlock`` holding one tool call's ``extra_content``, to be sent back with it."""
 
 _STOP_REASONS: dict[str, StopReason] = {
     "stop": "end_turn",
@@ -127,12 +133,20 @@ class OpenAICompatibleProvider:
     def _messages(self, message: Message) -> list[dict[str, Any]]:
         if message.role == "assistant":
             text = "".join(b.text for b in message.content if isinstance(b, TextBlock))
+            extras = {
+                b.data["tool_call_id"]: b.data["extra_content"]
+                for b in message.content
+                if isinstance(b, OpaqueBlock)
+                and b.provider == self.name
+                and b.data.get("type") == TOOL_CALL_EXTRA
+            }
             calls = [
                 {
                     "id": b.id,
                     "type": "function",
                     "function": {"name": b.name, "arguments": json.dumps(b.input)},
                 }
+                | ({"extra_content": extras[b.id]} if b.id in extras else {})
                 for b in message.content
                 if isinstance(b, ToolUseBlock)
             ]
@@ -213,9 +227,21 @@ class OpenAICompatibleProvider:
             content.append(TextBlock(text=message["content"]))
         for call in message.get("tool_calls") or []:
             function = call.get("function") or {}
+            call_id = call.get("id") or f"call_{uuid.uuid4().hex[:12]}"
+            if call.get("extra_content"):
+                content.append(
+                    OpaqueBlock(
+                        provider=self.name,
+                        data={
+                            "type": TOOL_CALL_EXTRA,
+                            "tool_call_id": call_id,
+                            "extra_content": call["extra_content"],
+                        },
+                    )
+                )
             content.append(
                 ToolUseBlock(
-                    id=call.get("id") or f"call_{uuid.uuid4().hex[:12]}",
+                    id=call_id,
                     name=function.get("name", ""),
                     input=_arguments(function.get("arguments")),
                 )
