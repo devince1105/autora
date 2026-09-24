@@ -5,14 +5,25 @@ import Link from "next/link";
 import type { Operator } from "./operator";
 import { words, type Lang } from "./i18n";
 
-export function SiteFooter({ lang, operator }: { lang: Lang; operator: Operator }) {
+export function SiteFooter({
+  lang,
+  operator,
+  membershipOpen = false,
+}: {
+  lang: Lang;
+  operator: Operator;
+  membershipOpen?: boolean;
+}) {
   const w = words(lang);
-  const links = [
-    ["pricing", w.pricing],
-    ["terms", w.terms],
-    ["privacy", w.privacy],
-    ["refund", w.refund],
-  ] as const;
+  // while everything is free there is nothing to price and nothing to refund (D-035)
+  const links = (
+    [
+      ["pricing", w.pricing, membershipOpen],
+      ["terms", w.terms, true],
+      ["privacy", w.privacy, true],
+      ["refund", w.refund, membershipOpen],
+    ] as const
+  ).filter(([, , shown]) => shown);
   return (
     <footer data-testid="site-footer" className="mt-12 border-t border-line">
       <div className="mx-auto max-w-2xl px-4 py-6 text-sm text-muted">

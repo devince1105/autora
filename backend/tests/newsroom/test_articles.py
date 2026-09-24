@@ -4,6 +4,7 @@ import itertools
 import json
 import uuid
 from pathlib import Path
+from types import SimpleNamespace
 
 import pytest
 from sqlalchemy import func, select
@@ -12,6 +13,7 @@ import autora.domains.newsroom as newsroom
 from autora.app import build_embedder, build_policy_engine
 from autora.db.models import Company, EventRecord
 from autora.db.repositories.companies import upsert_policy
+from autora.domains.newsroom.advice import NO_ADVICE_KEY, advice_problems
 from autora.domains.newsroom.articles import (
     ARTICLE_FSM,
     Block,
@@ -369,3 +371,105 @@ async def test_other_companies_and_permissions(newsroom_desk):
     assert engine.decide(agent, "write_draft", role="writer").outcome == "allow"
     assert engine.decide(agent, "write_draft", role="analyst").outcome == "deny"
     assert engine.decide(agent, "read_draft", role="editor").outcome == "allow"
+
+
+# --- no advice in the newsroom's own voice (D-035) ------------------------------------------
+
+
+def _version(lang, title, blocks, summary=None):
+    return SimpleNamespace(
+        lang=lang,
+        title=title,
+        summary=summary,
+        blocks=[SimpleNamespace(type="paragraph", text=t, claim_ids=c) for t, c in blocks],
+    )
+
+
+FACT, NUMBER, SAID, VIEW = uuid.uuid4(), uuid.uuid4(), uuid.uuid4(), uuid.uuid4()
+TYPES = {FACT: "fact", NUMBER: "number", SAID: "attribution", VIEW: "opinion"}
+
+
+def test_plain_reporting_passes_even_with_market_words():
+    """「加碼」is what Berkshire did; a rule that refused it would refuse the news."""
+    version = _version(
+        "zh-TW",
+        "波克夏上季加碼西方石油、減持蘋果",
+        [("波克夏第二季加碼西方石油 1,200 萬股。", [NUMBER]), ("同季減持蘋果。", [FACT])],
+    )
+    assert advice_problems([version], TYPES) == []
+
+
+@pytest.mark.parametrize(
+    "text",
+    ["台積電值得逢低布局。", "建議投資人買進輝達。", "輝達股價可望上漲。", "目標價 1,500 元。",
+     "Nvidia is poised to rally.", "It is worth buying at these levels."],
+)  # fmt: skip
+def test_advice_or_a_forecast_nobody_said_is_refused(text):
+    version = _version("zh-TW", "標題", [(text, [FACT])])
+    [issue] = advice_problems([version], TYPES)
+    assert "cites no one" in issue
+
+
+def test_the_same_words_are_fine_as_somebody_elses():
+    version = _version(
+        "zh-TW",
+        "摩根士丹利調升台積電目標價",
+        [("摩根士丹利將目標價上調至 1,500 元，維持買進評等。", [SAID])],
+    )
+    assert advice_problems([version], TYPES) == []
+
+
+def test_the_newsroom_never_has_a_view_not_even_when_quoting():
+    version = _version("en", "Title", [("We think the analysts are right.", [SAID])])
+    [issue] = advice_problems([version], TYPES)
+    assert "own view" in issue
+
+
+def test_titles_cite_nothing_so_advice_there_is_always_ours():
+    advice = _version("zh-TW", "輝達值得買進", [("輝達公布財報。", [SAID])])
+    forecast_alone = _version("zh-TW", "輝達可望再創高", [("輝達公布財報。", [FACT])])
+    forecast_reported = _version(
+        "zh-TW", "分析師：輝達可望再創高", [("高盛表示可望再創高。", [SAID])]
+    )
+    assert "own voice" in advice_problems([advice], TYPES)[0]
+    assert "nobody in the article made" in advice_problems([forecast_alone], TYPES)[0]
+    assert advice_problems([forecast_reported], TYPES) == []
+
+
+def test_an_opinion_claim_cannot_be_cited():
+    version = _version("zh-TW", "標題", [("這是一個合理的第一步。", [VIEW])])
+    assert "is an opinion" in advice_problems([version], TYPES)[0]
+
+
+async def _no_advice(d):
+    async with d["committed"]() as session:
+        await upsert_policy(
+            session, d["company"].id, NO_ADVICE_KEY, True, updated_by={"kind": "human", "id": "t"}
+        )
+        await session.commit()
+
+
+async def test_with_the_policy_on_the_analyst_cannot_record_an_opinion(newsroom_desk):
+    d = newsroom_desk
+    args = {
+        "story_id": str(d["story"].id),
+        "text": "A sensible first step.",
+        "claim_type": "opinion",
+    }
+    assert (await d["call"]("create_claim", args)).ok, "off by default: the demo newsroom may"
+    await _no_advice(d)
+    refused = await d["call"]("create_claim", args)
+    assert not refused.ok and "attribution" in refused.message
+
+
+async def test_with_the_policy_on_a_draft_that_advises_is_not_saved(newsroom_desk):
+    d = newsroom_desk
+    advising = draft(d["story"].id, d["claims"])
+    advising["versions"][1]["blocks"][0]["text"] = "太陽能板與儲能電池，值得逢低布局。"
+    assert (await d["call"]("write_draft", advising, step=801)).ok, "off by default"
+
+    await _no_advice(d)
+    advising["versions"][1]["blocks"][0]["text"] = "太陽能板與儲能電池，建議投資人買進。"
+    refused = await d["call"]("write_draft", advising, step=802)
+    assert not refused.ok and "cites no one" in refused.message
+    assert (await d["call"]("write_draft", draft(d["story"].id, d["claims"]), step=803)).ok

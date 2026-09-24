@@ -27,6 +27,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from autora.db.models import EventRecord, Task
 from autora.db.repositories.companies import get_policies
+from autora.domains.newsroom.advice import NO_ADVICE_BRIEF, no_advice
 from autora.domains.newsroom.agents.researcher import task_story_id
 from autora.domains.newsroom.models import Article, ArticleVersion, Claim, ClaimStatus, Story
 from autora.domains.newsroom.policy import language_policy
@@ -108,7 +109,8 @@ async def draft_context(session: AsyncSession, ctx: RunContext) -> str | None:
     story = await session.get(Story, story_id) if story_id else None
     if story is None or story.company_id != ctx.company_id:
         return "No story found for this task: report that, do not guess one."
-    policy = language_policy(await get_policies(session, ctx.company_id))
+    policies = await get_policies(session, ctx.company_id)
+    policy = language_policy(policies)
     others = [lang for lang in policy.langs if lang != policy.primary]
     lines = [
         f"Story: {story.title}",
@@ -117,6 +119,8 @@ async def draft_context(session: AsyncSession, ctx: RunContext) -> str | None:
         + (f", then {', '.join(others)}" if others else "")
         + ("; all are required." if policy.require_all else "; the others are optional."),
     ]
+    if no_advice(policies):
+        lines.append(NO_ADVICE_BRIEF)
 
     notes = await upstream_analysis(session, ctx)
     wanted = list(dict.fromkeys(c for n in notes for c in n.get("claim_ids", [])))

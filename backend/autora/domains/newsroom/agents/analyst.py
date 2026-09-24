@@ -22,6 +22,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from autora.db.models import Task
 from autora.db.repositories.companies import get_policies
+from autora.domains.newsroom.advice import NO_ADVICE_BRIEF, no_advice
 from autora.domains.newsroom.agents.researcher import task_story_id
 from autora.domains.newsroom.factcheck import check_claim
 from autora.domains.newsroom.models import Claim, ClaimType, Evidence, Story
@@ -94,6 +95,8 @@ async def analysis_context(session: AsyncSession, ctx: RunContext) -> str | None
     if story is None or story.company_id != ctx.company_id:
         return "No story found for this task: report that, do not guess one."
     lines = [f"Story: {story.title}", f"Story id: {story.id}"]
+    if no_advice(await get_policies(session, ctx.company_id)):
+        lines.append(NO_ADVICE_BRIEF)
     upstream = (
         (await session.scalars(select(Task).where(Task.id.in_(ctx.task.depends_on)))).all()
         if ctx.task.depends_on

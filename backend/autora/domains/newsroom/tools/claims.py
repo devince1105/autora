@@ -24,6 +24,8 @@ from pydantic import BaseModel, Field
 from sqlalchemy import select
 from sqlalchemy.dialects.postgresql import insert
 
+from autora.db.repositories.companies import get_policies
+from autora.domains.newsroom.advice import no_advice, opinion_refused
 from autora.domains.newsroom.events import ClaimCreated
 from autora.domains.newsroom.models import (
     Claim,
@@ -172,6 +174,10 @@ async def create_claim(args: CreateClaimArgs, ctx: ToolContext) -> ToolResult:
     )
     if existing is None:
         story = await _story(ctx, args.story_id)
+        if args.claim_type == ClaimType.OPINION and no_advice(
+            await get_policies(ctx.session, ctx.company_id)
+        ):
+            raise ClaimError(opinion_refused())
         located = [await _locate(ctx, ref) for ref in args.evidence]  # all found, or nothing
         claim = Claim(
             company_id=ctx.company_id,

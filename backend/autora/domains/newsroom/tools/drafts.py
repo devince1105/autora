@@ -18,6 +18,7 @@ from pydantic import BaseModel, Field, model_validator
 from sqlalchemy import func, select
 
 from autora.db.repositories.companies import get_policies
+from autora.domains.newsroom.advice import advice_problems, no_advice
 from autora.domains.newsroom.articles import (
     ArticleState,
     ClaimFacts,
@@ -98,21 +99,20 @@ async def write_draft(args: WriteDraftArgs, ctx: ToolContext) -> ToolResult:
     story = await session.get(Story, args.story_id)
     if story is None or story.company_id != ctx.company_id:
         raise DraftError(f"no story {args.story_id}")
-    policy = language_policy(await get_policies(session, ctx.company_id))
+    policies = await get_policies(session, ctx.company_id)
+    policy = language_policy(policies)
     article = await session.scalar(
         select(Article).where(Article.story_id == story.id).with_for_update()
     )
     cited = set().union(*(v.cited() for v in args.versions))
-    facts = {
-        claim_id: ClaimFacts(story_id=story_id, status=status)
-        for claim_id, story_id, status in (
-            await session.execute(
-                select(Claim.id, Claim.story_id, Claim.status).where(
-                    Claim.id.in_(cited), Claim.company_id == ctx.company_id
-                )
+    rows = (
+        await session.execute(
+            select(Claim.id, Claim.story_id, Claim.status, Claim.claim_type).where(
+                Claim.id.in_(cited), Claim.company_id == ctx.company_id
             )
-        ).all()
-    }
+        )
+    ).all()
+    facts = {claim_id: ClaimFacts(story_id=sid, status=status) for claim_id, sid, status, _ in rows}
     issues = check_draft(
         args.versions,
         story_id=story.id,
@@ -121,6 +121,8 @@ async def write_draft(args: WriteDraftArgs, ctx: ToolContext) -> ToolResult:
         policy=policy,
         claims=facts,
     )
+    if no_advice(policies):
+        issues += advice_problems(args.versions, {row.id: row.claim_type for row in rows})
     if issues:
         raise DraftError("the draft was not saved:\n- " + "\n- ".join(issues))
 

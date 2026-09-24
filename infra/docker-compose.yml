@@ -60,6 +60,7 @@ services:
         SITE_OPERATOR_OWNER: ${SITE_OPERATOR_OWNER:-}
         SITE_CONTACT_EMAIL: ${SITE_CONTACT_EMAIL:-}
         SITE_CONTACT_PHONE: ${SITE_CONTACT_PHONE:-}
+        SITE_MEMBERSHIP_OPEN: ${SITE_MEMBERSHIP_OPEN:-false}
     environment:
       NEXT_PUBLIC_API_URL: http://localhost:8000
       # the public site is rendered on the server, which reaches the API inside the network

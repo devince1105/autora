@@ -9,6 +9,7 @@ import { POST } from "@/app/(site)/news/[lang]/membership/return/route";
 import { LANGS } from "./i18n";
 import { LEGAL_PAGES, legalDoc } from "./legal";
 import { LegalView } from "./LegalView";
+import { membershipOpen } from "./membership";
 import { operator } from "./operator";
 import { PaymentDone } from "./PaymentDone";
 import { yearlySaving } from "./PlanPicker";
@@ -32,8 +33,8 @@ describe("who runs the site", () => {
     expect(operator({ SITE_OPERATOR_OWNER: "  ", SITE_CONTACT_PHONE: "" }).owner).toBeNull();
   });
 
-  it("is on every page's footer, with the four links", () => {
-    render(<SiteFooter lang="zh-TW" operator={PERSON} />);
+  it("is on every page's footer, with the four links once membership is on sale", () => {
+    render(<SiteFooter lang="zh-TW" operator={PERSON} membershipOpen />);
     const footer = screen.getByTestId("site-footer");
     expect(footer.textContent).toContain("經營者：Nanguado（王小明）");
     expect(footer.textContent).toContain("02-1234-5678");
@@ -45,6 +46,18 @@ describe("who runs the site", () => {
       "/news/zh-TW/refund",
       "mailto:service@nanguado.com",
     ]);
+  });
+
+  it("while the site is free, links no pricing and no refund policy (D-035)", () => {
+    render(<SiteFooter lang="zh-TW" operator={PERSON} />);
+    const hrefs = Array.from(screen.getByTestId("site-footer").querySelectorAll("a")).map((a) => a.getAttribute("href"));
+    expect(hrefs).toEqual(["/news/zh-TW/terms", "/news/zh-TW/privacy", "mailto:service@nanguado.com"]);
+  });
+
+  it("is free until somebody says otherwise", () => {
+    expect(membershipOpen({})).toBe(false);
+    expect(membershipOpen({ SITE_MEMBERSHIP_OPEN: "false" })).toBe(false);
+    expect(membershipOpen({ SITE_MEMBERSHIP_OPEN: " TRUE " })).toBe(true);
   });
 
   it("says nothing it was not given", () => {

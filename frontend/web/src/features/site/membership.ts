@@ -9,3 +9,10 @@ import type { Interval } from "./checkout";
 
 export const MEMBERSHIP_PRICES_TWD: Record<Interval, number> = { month: 30, year: 330 };
 export const MEMBERSHIP_CURRENCY = "TWD";
+
+/** Whether membership is on sale at all (D-035). Off until the operator turns it on: the site
+ * starts free, and a pricing page for something nobody can buy would only confuse. Read on the
+ * server at build time, like the operator's details. */
+export function membershipOpen(env: Record<string, string | undefined> = process.env): boolean {
+  return env.SITE_MEMBERSHIP_OPEN?.trim().toLowerCase() === "true";
+}

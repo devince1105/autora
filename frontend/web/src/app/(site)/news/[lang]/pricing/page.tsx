@@ -4,6 +4,7 @@ import { notFound } from "next/navigation";
 
 import { SITE_COMPANY } from "@/config";
 import { isLang, words } from "@/features/site/i18n";
+import { membershipOpen } from "@/features/site/membership";
 import { PlanPicker } from "@/features/site/PlanPicker";
 
 export async function generateMetadata({ params }: { params: Promise<{ lang: string }> }) {
@@ -16,6 +17,16 @@ export default async function Page({ params }: { params: Promise<{ lang: string 
   if (!isLang(lang)) notFound();
   const w = words(lang);
   const here = `/news/${lang}/pricing`;
+  if (!membershipOpen()) {
+    return (
+      <article className="mx-auto max-w-2xl px-4 py-8">
+        <h1 className="text-2xl font-bold">{w.pricing}</h1>
+        <p data-testid="membership-closed" className="mt-2 leading-relaxed">
+          {w.pricingClosed}
+        </p>
+      </article>
+    );
+  }
   return (
     <article className="mx-auto max-w-2xl px-4 py-8">
       <h1 className="text-2xl font-bold">{w.pricing}</h1>

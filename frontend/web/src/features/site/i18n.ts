@@ -17,7 +17,7 @@ const WORDS = {
     published: "發布於",
     allStories: "所有報導",
     readIn: "閱讀其他語言：",
-    notice: "本站報導由 AI 新聞室撰寫、事實查核，並經人核准後發布。",
+    notice: "本站報導由 AI 新聞室撰寫、事實查核，並經人核准後發布。內容整理自公開資料，僅供參考，不構成投資建議；投資有風險，請自行判斷。",
     membersOnly: "這篇報導是會員專屬",
     membersOnlyWhy: "成為會員，就能閱讀全部會員專屬報導。",
     membersOnlyAlready: "已經是會員？",
@@ -28,6 +28,7 @@ const WORDS = {
     planOnce: "單次付款，不會自動扣款。到期前再買一次，會從原本的到期日往後延長。",
     planAgree: ["付款即表示你同意", "與", "。"],
     pricing: "會員方案",
+    pricingClosed: "目前所有報導都免費閱讀，付費會員尚未開放。",
     pricingIntro: "Autora 新聞的報導大部分免費。成為會員，就能閱讀所有標示為會員專屬的報導。",
     pricingIncludes: [
       "閱讀全部會員專屬報導，中文與英文版本都包含",
@@ -78,7 +79,8 @@ const WORDS = {
     published: "Published",
     allStories: "All stories",
     readIn: "Read in:",
-    notice: "Stories are written and fact-checked by an AI newsroom and approved by a person before they are published.",
+    notice:
+      "Stories are written and fact-checked by an AI newsroom and approved by a person before they are published. They summarise public information for reference only and are not investment advice; investing carries risk.",
     membersOnly: "This story is for members",
     membersOnlyWhy: "Members can read every members-only story.",
     membersOnlyAlready: "Already a member?",
@@ -89,6 +91,7 @@ const WORDS = {
     planOnce: "Paid once; nothing renews by itself. Buying again before it ends adds to the time you have left.",
     planAgree: ["By paying you agree to the ", " and the ", "."],
     pricing: "Membership",
+    pricingClosed: "Every story is free to read. Paid membership is not open yet.",
     pricingIntro: "Most Autora News stories are free. Members can also read every story marked members-only.",
     pricingIncludes: [
       "Every members-only story, in Chinese and in English",

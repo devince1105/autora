@@ -6,6 +6,7 @@ import type { ReactNode } from "react";
 
 import { MemberBadge } from "@/features/site/MemberBadge";
 import { isLang, LANG_NAMES, LANGS, words } from "@/features/site/i18n";
+import { membershipOpen } from "@/features/site/membership";
 import { operator } from "@/features/site/operator";
 import { SiteFooter } from "@/features/site/SiteFooter";
 
@@ -36,7 +37,7 @@ export default async function SiteLayout({
         </nav>
       </header>
       <main>{children}</main>
-      <SiteFooter lang={lang} operator={operator()} />
+      <SiteFooter lang={lang} operator={operator()} membershipOpen={membershipOpen()} />
     </div>
   );
 }
