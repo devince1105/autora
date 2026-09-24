@@ -9,6 +9,7 @@ Autora 是一個 AI Autonomous Company 平台。第一個 Business Domain 是 **
 |---|---|---|
 | `platform/` | 平台層架構（Company Model、Agent Runtime、Agent Spec、Newsroom Domain、Business/Revenue、Permission、Memory、Model Gateway、Database、Event Catalog、API、Roadmap、Task Breakdown、Acceptance、Risks）— 16 份 | ✅ |
 | `3d-office/` | 3D Office / Realtime / Agent State / Event Model / Newsroom Integration 與對應的 Roadmap、Task Breakdown、Acceptance、Risks — 12 份 | ✅ |
+| `trading/` | AI 交易代理（第二個真實業務 `domains/trading`）：架構提案、OKX 整合、Risk Engine、Phase 0 模擬盤與 Phase 1 計畫（D-037）— 1 份 | 📝 提案 |
 
 ## 開發紀錄
 
