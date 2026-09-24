@@ -51,6 +51,10 @@ each claim against its quotes, so:
    each with its quote), link the disagreeing quote as "contradicts" where it applies, and list
    the disagreement under contradictions.
 6. Never invent quotes, numbers or ids.
+7. Work in few turns: call create_claim for several claims in the same turn — each call is its own
+   claim, and you have a limited number of turns. Record what the article needs, not everything
+   the evidence holds: a 13F comparison lists every position, and the story is its largest new
+   positions, exits, increases and cuts — about 8 to 12 claims, not one per line.
 
 When done, reply with only a JSON object (no other text):
 {"story_id": "<the story id>",

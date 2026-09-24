@@ -470,3 +470,44 @@ async def test_a_filing_source_makes_every_item_its_own_story(db_session):
     await db_session.flush()
     outcome = await desk().cluster_pending(db_session, company.id)
     assert outcome.new_story_ids == []
+
+
+async def test_a_story_whose_production_failed_goes_back_on_the_desk(db_session):
+    """D-040: a workflow that failed (the model timed out every time) left its story
+    IN_PRODUCTION for good, where the editor-in-chief never sees it again."""
+    from autora.db.models import WorkflowRun
+
+    company = await unique_company(db_session, "unfinished")
+    project = Project(company_id=company.id, name="p")
+    db_session.add(project)
+    await db_session.flush()
+
+    async def story(*run_states):
+        made = Story(company_id=company.id, title=f"s{len(run_states)}", state="IN_PRODUCTION")
+        db_session.add(made)
+        await db_session.flush()
+        for state in run_states:
+            db_session.add(
+                WorkflowRun(
+                    company_id=company.id,
+                    project_id=project.id,
+                    template_name="newsroom.story",
+                    params={"story_id": str(made.id)},
+                    state=state,
+                )  # fmt: skip
+            )
+        await db_session.flush()
+        return made
+
+    failed = await story("FAILED")
+    cancelled_then_failed = await story("CANCELLED", "FAILED")
+    retried = await story("FAILED", "RUNNING")  # a second try is still going
+    finished = await story("FAILED", "SUCCEEDED")
+    never_started = await story()
+
+    returned = await desk().return_unfinished(db_session, company.id)
+    assert {s.id for s in returned} == {failed.id, cancelled_then_failed.id}
+    assert failed.state == StoryState.SELECTED
+    for untouched in (retried, finished, never_started):
+        assert untouched.state == StoryState.IN_PRODUCTION
+    assert await desk().return_unfinished(db_session, company.id) == [], "safe to repeat"

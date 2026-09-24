@@ -33,10 +33,10 @@ from datetime import UTC, datetime, timedelta
 from decimal import Decimal
 from typing import Any
 
-from sqlalchemy import Float, bindparam, func, literal, select, text
+from sqlalchemy import Float, String, bindparam, cast, func, literal, select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from autora.db.models import Project
+from autora.db.models import Project, WorkflowRun, WorkflowRunState
 from autora.db.vector import HalfVector
 from autora.domains.newsroom.events import StoryDiscovered, StoryDropped, StorySelected
 from autora.domains.newsroom.models import (
@@ -64,7 +64,9 @@ STORY_FSM = StateMachine(
         {
             S.DISCOVERED: [S.SELECTED, S.IGNORED, S.DROPPED],
             S.SELECTED: [S.IN_PRODUCTION, S.DROPPED],
-            S.IN_PRODUCTION: [S.PUBLISHED, S.DROPPED],
+            S.IN_PRODUCTION: [S.PUBLISHED, S.DROPPED, S.SELECTED],
+            # back to SELECTED: its workflow failed or was cancelled, and it is still worth doing
+            # (``StoryDesk.return_unfinished``, D-040)
         }
     ),
 )
@@ -354,11 +356,65 @@ class StoryDesk:
             ),
         )
 
+    async def return_unfinished(self, session: AsyncSession, company_id: uuid.UUID) -> list[Story]:
+        """Put back on the desk the stories whose production ended without an article (D-040).
+
+        A story goes IN_PRODUCTION when its workflow starts, and leaves it when the article is
+        published — but a workflow can also fail (a model that times out, a provider that refuses
+        every request) or be cancelled, and then the story stayed IN_PRODUCTION for good: the
+        editor-in-chief only chooses among DISCOVERED and SELECTED stories, so it was never
+        chosen again. Here a story whose workflows have all ended, none of them in success, goes
+        back to SELECTED, where the desk can commission it again or let it go. Safe to repeat.
+        """
+        story_id = WorkflowRun.params["story_id"].astext
+        runs = (
+            select(story_id.label("story_id"), WorkflowRun.state)
+            .where(WorkflowRun.company_id == company_id, story_id.is_not(None))
+            .subquery()
+        )
+        stuck = list(
+            await session.scalars(
+                select(Story)
+                .where(
+                    Story.company_id == company_id,
+                    Story.state == S.IN_PRODUCTION.value,
+                    select(runs.c.story_id)
+                    .where(
+                        runs.c.story_id == cast(Story.id, String),
+                        runs.c.state.in_(
+                            [WorkflowRunState.FAILED.value, WorkflowRunState.CANCELLED.value]
+                        ),
+                    )
+                    .exists(),
+                    ~select(runs.c.story_id)
+                    .where(
+                        runs.c.story_id == cast(Story.id, String),
+                        runs.c.state.not_in(
+                            [WorkflowRunState.FAILED.value, WorkflowRunState.CANCELLED.value]
+                        ),
+                    )
+                    .exists(),
+                )
+                .with_for_update(skip_locked=True)
+            )
+        )
+        for story in stuck:
+            await STORY_FSM.transition(
+                session,
+                story,
+                S.SELECTED,
+                actor=self.actor,
+                reason="its production ended without an article; back on the desk",
+            )
+        return stuck
+
     def schedule_handler(self) -> Handler:
-        """The ``newsroom.cluster_stories`` handler: cluster the company's pending items."""
+        """The ``newsroom.cluster_stories`` handler: cluster the company's pending items, and put
+        back on the desk what production left unfinished."""
 
         async def handler(session: AsyncSession, schedule, scheduled_for: datetime) -> None:
             await self.cluster_pending(session, schedule.company_id)
+            await self.return_unfinished(session, schedule.company_id)
 
         return handler
 
