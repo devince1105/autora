@@ -25,6 +25,7 @@ from autora.runtime.models.types import ModelRequest, ToolResultBlock, ToolUseBl
 ROLE = "ceo"
 STRATEGIST = "strategist"
 FINANCE = "finance"
+BUSINESS = "business"
 DEFAULT_ALLOCATION = Decimal("160")
 """In the base currency (D-023): the USD 5 of before, at 32."""
 
@@ -41,6 +42,8 @@ def respond(request: ModelRequest) -> FakeTurn | None:
         return _propose(request)
     if role == FINANCE and task == "review_budgets":
         return _review_budgets(request)
+    if role == BUSINESS and task == "watch_market":
+        return _watch_market(request)
     return None
 
 
@@ -62,6 +65,29 @@ def _review_budgets(request: ModelRequest) -> FakeTurn:
                 "unchanged_because": (
                     "The simulated finance officer reports the numbers and proposes no budget "
                     "changes: that is a person's judgement, not a script's."
+                ),
+            }
+        )
+    )
+
+
+def _watch_market(request: ModelRequest) -> FakeTurn:
+    """The scripted business developer (T-706): **look, write nothing, say what it saw.**
+
+    It never discovers an opportunity. A script that did would fill the company's list of things
+    to consider with inventions the CEO would then spend real reviews on — so it reports how many
+    opportunities are already open and leaves the list as it is. Enough to run the weekly look
+    end to end, and plainly not market research.
+    """
+    open_now = len(_snapshot(request).get("opportunities", []))
+    return FakeTurn(
+        text=json.dumps(
+            {
+                "summary": f"The company is looking at {open_now} open opportunities.",
+                "findings": [],
+                "nothing_new_because": (
+                    "The simulated business developer does not search the market, so it writes "
+                    "nothing down: an invented opportunity would cost the CEO a real review."
                 ),
             }
         )

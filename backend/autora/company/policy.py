@@ -110,6 +110,8 @@ ACTIONS = {
     # the business loop (T-611)
     "allocate_exploration_budget": "write",
     "score_opportunity": "write",
+    "discover_opportunity": "write",
+    "record_opportunity_signal": "write",
     "advance_opportunity": "write",
     "reject_opportunity": "write",
     "draft_proposal": "write",
@@ -124,8 +126,9 @@ RULES: list[Rule] = [
     # the executive agents' one tool. Allowing it is not allowing what it asks for: every
     # command is decided again, on its own action, by the pipeline. For the finance agent
     # (T-705) that means: a budget goes to a person (below), and everything else is refused —
-    # there is no rule that lets it write anything on its own
-    *allow("submit_command", "ceo", "strategist", "finance"),
+    # there is no rule that lets it write anything on its own. For the business agent (T-706):
+    # it may record what it noticed, and nothing that decides anything
+    *allow("submit_command", "ceo", "strategist", "finance", "business"),
     *allow("create_cycle_goal", "ceo"),
     *allow(
         "instantiate_workflow",
@@ -155,6 +158,10 @@ RULES: list[Rule] = [
         ),
     ),
     *allow("score_opportunity", "ceo"),  # a number to compare by; it decides nothing
+    # noticing something is cheap and reversible (§6): the business agent writes it down, and
+    # every step after that — scoring, evaluating, proposing, opening — is somebody else's
+    *allow("discover_opportunity", "business"),
+    *allow("record_opportunity_signal", "business"),
     *allow(
         "advance_opportunity",
         "ceo",

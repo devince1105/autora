@@ -44,6 +44,7 @@
 **T-705 · Finance Agent (read-only + BudgetProposal → approval)** / Deps: T-211, T-603 / AC: 無任何寫 transactions 的路徑 / Validate: `pytest tests/business/agents/test_finance.py`
   > 實作（D-031）：測試在 `tests/company/test_finance.py`（照 T-701 的前例：代理與財務是核心、不是某個事業領域）。提案就是 `AllocateBudget` 指令，財務角色送出一律等人審；每期 MEASURING 報表寫完後才問它。
 **T-706 · Business Agent (OpportunityProposal → PROJECT_PROPOSED → HUMAN)** / Deps: T-211, T-604 / Validate: `pytest tests/business/agents/test_business.py`
+  > 實作（D-032）：T-611 之後缺的是漏斗的起點——沒有任何東西會「發現」機會。商業代理每週在 EXECUTING 看一次市場，只能用 `DiscoverOpportunity`／`RecordOpportunitySignal` 記下機會與訊號（寫入時就檢查：公司數字要對得上報表、網頁要是這一輪自己抓的）；照 ARCHITECTURE_V2_1 §6，發現機會不經人審，人仍把關開事業與資本。測試在 `tests/company/test_market_watch.py`。
 **T-707 · Revenue KPIs in snapshot & dashboard** / Deps: T-603, T-309 / Validate: `pytest tests/company/test_reporting_revenue.py && pnpm -F web test dashboard-revenue`
 **T-708 · Phase 7 acceptance** / Validate: `pytest tests/acceptance/test_revenue.py`
 

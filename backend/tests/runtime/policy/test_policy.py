@@ -23,60 +23,66 @@ ROLES = (
     "ceo",
     "finance",
     "strategist",
+    "business",
 )
 
 # One row per action, one column per role, transcribed from platform/07 §3 (P5 finance incl.).
 # Limits are evaluated with facts/args that satisfy them; limit behaviour is tested separately.
 MATRIX = {
-    "web_search":           (A, D, D, D, A, D, D, D, D),
-    "fetch_url":            (A, D, D, D, A, D, D, D, D),
-    "read_evidence":        (A, A, A, A, A, A, A, D, D),
-    "search_evidence":      (A, A, A, A, A, A, A, D, D),
-    "create_claim":         (D, A, D, D, D, D, D, D, D),
-    "link_evidence":        (D, A, D, D, D, D, D, D, D),
-    "list_claims":          (A, A, A, A, A, A, A, D, D),
-    "write_draft":          (D, D, A, D, D, D, D, D, D),
-    "read_draft":           (D, D, A, A, A, D, A, D, D),
-    "run_fact_check":       (D, D, D, A, D, D, D, D, D),
-    "request_revision":     (D, D, D, A, D, D, D, D, D),
-    "accept_draft":         (D, D, D, A, D, D, D, D, D),
-    "approve_article":      (D, D, D, D, D, D, D, D, D),
-    "publish_article":      (D, D, D, D, D, D, D, D, D),
-    "create_distribution":  (D, D, D, D, A, D, D, D, D),
-    "spend_ad_budget":      (D, D, D, D, A, D, D, D, D),
-    "create_cycle_goal":    (D, D, D, D, D, D, A, D, D),
-    "instantiate_workflow": (D, D, D, D, D, A, A, D, D),
-    "create_project":       (D, D, D, D, D, D, H, D, D),
-    "allocate_budget":      (D, D, D, D, D, D, A, H, D),
-    "pause_project":        (D, D, D, D, D, D, A, D, D),
-    "kill_project":         (D, D, D, D, D, D, H, D, D),
-    "update_strategy":      (D, D, D, D, D, D, H, D, D),
-    "record_transaction":   (D, D, D, D, D, D, D, D, D),
-    "payment":              (D, D, D, D, D, D, H, H, D),
-    "delete":               (D, D, D, D, D, D, D, D, D),
-    "pause_agent":          (D, D, D, D, D, D, D, D, D),
-    "resume_agent":         (D, D, D, D, D, D, D, D, D),
+    "web_search":           (A, D, D, D, A, D, D, D, D, A),
+    "fetch_url":            (A, D, D, D, A, D, D, D, D, A),
+    "read_evidence":        (A, A, A, A, A, A, A, D, D, A),
+    "search_evidence":      (A, A, A, A, A, A, A, D, D, D),
+    "create_claim":         (D, A, D, D, D, D, D, D, D, D),
+    "link_evidence":        (D, A, D, D, D, D, D, D, D, D),
+    "list_claims":          (A, A, A, A, A, A, A, D, D, D),
+    "write_draft":          (D, D, A, D, D, D, D, D, D, D),
+    "read_draft":           (D, D, A, A, A, D, A, D, D, D),
+    "run_fact_check":       (D, D, D, A, D, D, D, D, D, D),
+    "request_revision":     (D, D, D, A, D, D, D, D, D, D),
+    "accept_draft":         (D, D, D, A, D, D, D, D, D, D),
+    "approve_article":      (D, D, D, D, D, D, D, D, D, D),
+    "publish_article":      (D, D, D, D, D, D, D, D, D, D),
+    "create_distribution":  (D, D, D, D, A, D, D, D, D, D),
+    "spend_ad_budget":      (D, D, D, D, A, D, D, D, D, D),
+    "create_cycle_goal":    (D, D, D, D, D, D, A, D, D, D),
+    "instantiate_workflow": (D, D, D, D, D, A, A, D, D, D),
+    "create_project":       (D, D, D, D, D, D, H, D, D, D),
+    "allocate_budget":      (D, D, D, D, D, D, A, H, D, D),
+    "pause_project":        (D, D, D, D, D, D, A, D, D, D),
+    "kill_project":         (D, D, D, D, D, D, H, D, D, D),
+    "update_strategy":      (D, D, D, D, D, D, H, D, D, D),
+    "record_transaction":   (D, D, D, D, D, D, D, D, D, D),
+    "payment":              (D, D, D, D, D, D, H, H, D, D),
+    "delete":               (D, D, D, D, D, D, D, D, D, D),
+    "pause_agent":          (D, D, D, D, D, D, D, D, D, D),
+    "resume_agent":         (D, D, D, D, D, D, D, D, D, D),
     # The desk head (T-605b): it commissions stories and starts the work it commissions, under
     # the company's own cap on workflows per cycle.
-    "commission_story":     (D, D, D, D, D, A, D, D, D),
+    "commission_story":     (D, D, D, D, D, A, D, D, D, D),
     # The executive's one tool. Allowing it is not allowing what it asks for: every command is
     # decided again on its own action (T-605a). The finance officer's too (T-705): what it asks
-    # for is an allocation, and that goes to a person (allocate_budget, finance: H above).
-    "submit_command":       (D, D, D, D, D, D, A, A, A),
+    # for is an allocation, and that goes to a person (allocate_budget, finance: H above). The
+    # business agent's too (T-706): what it may ask for is below.
+    "submit_command":       (D, D, D, D, D, D, A, A, A, A),
     # Echo domain (T-213), not in platform/07: each echo desk writes its own note.
-    "echo_note":            (A, A, A, D, D, D, D, D, D),
+    "echo_note":            (A, A, A, D, D, D, D, D, D, D),
     # The business loop (T-611, ARCHITECTURE_V2_1 §5-§6). The CEO looks, scores, validates and
     # walks away on its own; a person decides what is irreversible or spends real capital.
-    "allocate_exploration_budget": (D, D, D, D, D, D, A, D, D),
-    "score_opportunity":           (D, D, D, D, D, D, A, D, D),
-    "advance_opportunity":         (D, D, D, D, D, D, A, D, D),
-    "reject_opportunity":          (D, D, D, D, D, D, A, D, D),
-    "draft_proposal":              (D, D, D, D, D, D, A, D, A),
-    "submit_proposal":             (D, D, D, D, D, D, A, D, A),
-    "create_business_unit":        (D, D, D, D, D, D, H, D, D),
-    "scale_business_unit":         (D, D, D, D, D, D, A, D, D),
-    "pause_business_unit":         (D, D, D, D, D, D, A, D, D),
-    "wind_down_business_unit":     (D, D, D, D, D, D, H, D, D),
+    "allocate_exploration_budget": (D, D, D, D, D, D, A, D, D, D),
+    "score_opportunity":           (D, D, D, D, D, D, A, D, D, D),
+    "advance_opportunity":         (D, D, D, D, D, D, A, D, D, D),
+    "reject_opportunity":          (D, D, D, D, D, D, A, D, D, D),
+    "draft_proposal":              (D, D, D, D, D, D, A, D, A, D),
+    "submit_proposal":             (D, D, D, D, D, D, A, D, A, D),
+    "create_business_unit":        (D, D, D, D, D, D, H, D, D, D),
+    "scale_business_unit":         (D, D, D, D, D, D, A, D, D, D),
+    "pause_business_unit":         (D, D, D, D, D, D, A, D, D, D),
+    "wind_down_business_unit":     (D, D, D, D, D, D, H, D, D, D),
+    # The business agent (T-706) writes down what it noticed and does nothing else in the loop;
+    # it reads the web with the newsroom's tools, lent to it by the composition root (above).
+    "discover_opportunity":        (D, D, D, D, D, D, D, D, D, A),
+    "record_opportunity_signal":   (D, D, D, D, D, D, D, D, D, A),
 }  # fmt: skip
 
 WITHIN_LIMITS = {

@@ -10,7 +10,7 @@ const POSES = ["sit_idle", "sit_think", "sit_type", "sit_read", "stand", "walk",
 const SCREENS = ["off", "dim", "active", "alert"];
 const LIGHTS = ["off", "on", "blink_amber", "blink_red"];
 const TONES = ["muted", "info", "active", "warn", "error", "success"];
-const ROLES = ["researcher", "analyst", "writer", "editor", "marketing", "ceo", "finance"];
+const ROLES = ["researcher", "analyst", "writer", "editor", "marketing", "ceo", "finance", "business"];
 
 function expectValid(v: VisualState) {
   expect(POSES).toContain(v.pose);

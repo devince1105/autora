@@ -32,10 +32,10 @@ async def test_the_chart_separates_the_company_s_functions_from_its_business(api
     # what the company does for itself, and has nobody doing yet
     assert [d["key"] for d in org["shared"]["departments"]] == ["executive"]
     executive = org["shared"]["departments"][0]
-    # the CEO's chair, and the finance officer's beside it (T-705)
-    assert [r["key"] for r in executive["roles"]] == ["ceo", "finance"]
+    # the CEO's chair, and the finance officer's (T-705) and business developer's (T-706)
+    assert [r["key"] for r in executive["roles"]] == ["business", "ceo", "finance"]  # by key
     # this fixture staffs the newsroom only; the demo seed also hires a CEO (T-605a)
-    assert [r["held_by"] for r in executive["roles"]] == [[], []]
+    assert [r["held_by"] for r in executive["roles"]] == [[], [], []]
     assert executive["headcount"] == 0
 
     # the business it is in

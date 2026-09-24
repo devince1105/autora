@@ -29,7 +29,7 @@ import uuid
 from collections.abc import Awaitable, Callable, Mapping
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
-from decimal import Decimal
+from decimal import Decimal, InvalidOperation
 
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -362,6 +362,47 @@ async def latest(
     if project_id is not None:
         stmt = stmt.where(KpiSnapshot.project_id == project_id)
     return await session.scalar(stmt)
+
+
+async def figure_issue(
+    session: AsyncSession,
+    company_id: uuid.UUID,
+    *,
+    metric: str,
+    value: str,
+    scope: KpiScope = KpiScope.COMPANY,
+    scope_id: uuid.UUID | None = None,
+) -> str | None:
+    """Why a figure an agent cites is not the one the last report stored — or None when it is.
+
+    Agents that argue from the company's numbers (the finance officer's budgets, the business
+    agent's opportunities) cite them as ``metric = value``; this looks the metric up in the
+    latest snapshot of that scope. Numbers compare as numbers (``412.5`` is ``412.500000``).
+    """
+    if scope is not KpiScope.COMPANY and scope_id is None:
+        return f"{metric}: a {scope.value} figure must name which one"
+    snapshot = await latest(
+        session,
+        company_id,
+        scope=scope,
+        business_unit_id=scope_id if scope is KpiScope.BUSINESS_UNIT else None,
+        project_id=scope_id if scope is KpiScope.PROJECT else None,
+    )
+    if snapshot is None:
+        return f"{metric}: there is no report for that {scope.value}"
+    if metric not in snapshot.metrics:
+        return f"{metric} is not in the {scope.value} report"
+    stored = snapshot.metrics[metric]
+    said, held = _as_decimal(value), _as_decimal(stored)
+    same = (said == held) if said is not None and held is not None else str(stored) == value
+    return None if same else f"{metric} is {stored} in the report, not {value}"
+
+
+def _as_decimal(value: object) -> Decimal | None:
+    try:
+        return Decimal(str(value))
+    except (InvalidOperation, ValueError):
+        return None
 
 
 async def history(

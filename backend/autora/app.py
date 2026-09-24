@@ -54,22 +54,31 @@ def load_models() -> None:
     import autora.domains.newsroom.models  # noqa: F401
 
 
+RESEARCH_TOOLS = ("web_search", "fetch_url", "read_evidence")
+"""The newsroom's tools for looking outside, lent to the company's business agent (T-706). Core
+does not know which domain can search the web; this is the one place that connects them."""
+
+
 def build_policy_engine() -> PolicyEngine:
     """The policy engine with every layer's rules registered."""
     from autora.company import policy as company_policy
+    from autora.company.agents.business import ROLE as BUSINESS
     from autora.domains.echo import policy as echo_policy
     from autora.domains.newsroom import policy as newsroom_policy
-    from autora.runtime.policy import PolicyEngine
+    from autora.runtime.policy import PolicyEngine, allow
 
     engine = PolicyEngine()
     company_policy.register(engine)
     newsroom_policy.register(engine)
     echo_policy.register(engine)
+    # reading only: the business agent may search and capture pages to cite, nothing else the
+    # newsroom's tools do (fetch_url stores a snapshot of the page, which is what makes it citable)
+    engine.add([rule for tool in RESEARCH_TOOLS for rule in allow(tool, BUSINESS)])
     return engine
 
 
 def build_templates() -> TemplateRegistry:
-    from autora.company import executive, exploration, finance
+    from autora.company import executive, exploration, finance, market_watch
     from autora.domains import echo, newsroom
     from autora.runtime.dag import TemplateRegistry
 
@@ -77,6 +86,7 @@ def build_templates() -> TemplateRegistry:
     executive.register_templates(templates)  # the company's own work: planning and review
     finance.register_templates(templates)  # reading the books once a cycle is measured (T-705)
     exploration.register_templates(templates)  # and finding out what else it might do
+    market_watch.register_templates(templates)  # and looking for it in the first place (T-706)
     echo.register_templates(templates)
     newsroom.register_templates(templates)
     return templates
@@ -85,7 +95,7 @@ def build_templates() -> TemplateRegistry:
 def build_behaviors(snapshots: SnapshotBuilder | None = None) -> BehaviorRegistry:
     """Every agent the runtime can run. The company's own come first: they must still work when
     every domain is deleted (ARCHITECTURE_V2_1 §9)."""
-    from autora.company.agents import ceo, finance, strategist
+    from autora.company.agents import business, ceo, finance, strategist
     from autora.domains import echo
     from autora.domains.newsroom import agents as newsroom_agents
     from autora.runtime.behaviors import BehaviorRegistry
@@ -94,6 +104,7 @@ def build_behaviors(snapshots: SnapshotBuilder | None = None) -> BehaviorRegistr
     ceo.register_behaviors(behaviors, snapshots)
     strategist.register_behaviors(behaviors, snapshots)
     finance.register_behaviors(behaviors, snapshots)
+    business.register_behaviors(behaviors, snapshots, research_tools=RESEARCH_TOOLS)
     echo.register_behaviors(behaviors)
     newsroom_agents.register_behaviors(behaviors)
     return behaviors
@@ -271,6 +282,7 @@ def build_runtime(settings: Settings | None = None) -> Runtime:
     from autora.company import executive as company_executive
     from autora.company import exploration as company_exploration
     from autora.company import finance as company_finance
+    from autora.company import market_watch as company_market_watch
     from autora.company import memberships as company_memberships
     from autora.company import opportunities as company_opportunities
     from autora.company import summary as daily_summary
@@ -310,14 +322,14 @@ def build_runtime(settings: Settings | None = None) -> Runtime:
     cycles.when_entering(CycleStage.MEASURING, ledger.stage_hook())
     cycles.when_entering(CycleStage.MEASURING, reporting.stage_hook())
     # and then the finance agent reads what reporting has just stored (T-705); MEASURING waits
-    # for its review, so the CEO reviews the cycle with the budget proposals already in the inbox
+    # for its review, so by REVIEWING the budget proposals are already waiting for a person
     company_finance.FinanceDesk(workflows).install(cycles)
     snapshots = SnapshotBuilder(reporting, ledger)
     snapshots.register(newsroom_kpis.NAME, newsroom_kpis.candidates)
     approvals = ApprovalService(task_manager)
     commands = CommandBus(policy=policy, approvals=approvals, workflows=workflows)
     company_verbs.register(commands)
-    company_business_verbs.register(commands)  # the business loop's eight (T-611)
+    company_business_verbs.register(commands)  # the business loop's ten (T-611, T-706)
     commands.install()
     # stale opportunities drop out first, then the rules fire, and only then does the CEO read
     # the cycle it is reviewing: it sees a company the deterministic parts have already acted on
@@ -327,6 +339,8 @@ def build_runtime(settings: Settings | None = None) -> Runtime:
     executive.install(cycles)
     # after the plan is settled: an exploration spends the budget the day already has
     company_exploration.Exploration(workflows).install(cycles)
+    # and once a week the business agent looks for what to explore next (T-706)
+    company_market_watch.MarketWatchDesk(workflows).install(cycles)
     # last, so the day it describes is fully settled: the review is recorded by then (T-607)
     cycles.when_entering(CycleStage.DONE, daily_summary.stage_hook())
     runtime = Runtime(

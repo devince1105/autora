@@ -47,6 +47,7 @@ export const ROLE_LABEL: Record<string, string> = {
   marketing: "行銷",
   ceo: "執行長",
   finance: "財務長",
+  business: "商業開發",
 };
 
 /** Workflow steps no agent runs (T-514) that an agent can be waiting on. */

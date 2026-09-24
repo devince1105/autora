@@ -1,6 +1,6 @@
 """The commands of the business loop (logs/ARCHITECTURE_V2_1.md §5–§6, T-611).
 
-Eight verbs, on the same pipeline as every other: parsed, decided by the policy engine,
+Ten verbs, on the same pipeline as every other: parsed, decided by the policy engine,
 checked by the handler, recorded in ``commands_log``. They are separate from
 :mod:`autora.company.verbs` only because they answer a different question — not "what should
 we do today" but "what business should we be in".
@@ -27,13 +27,19 @@ from sqlalchemy import select
 
 from autora.company import events as company_events
 from autora.company import opportunities as opportunities_service
+from autora.company import reporting as company_reporting
 from autora.company.commands import CommandBus, CommandSpec, Context, Refused
 from autora.company.ledger import Ledger
 from autora.company.verbs import AllocateBudget, allocate_budget
 from autora.db.models import (
+    AgentRun,
     BusinessProposal,
     BusinessUnit,
     BusinessUnitState,
+    CommandOutcome,
+    CommandRecord,
+    EventRecord,
+    KpiScope,
     Opportunity,
     OpportunityState,
     Product,
@@ -49,6 +55,13 @@ from autora.runtime.events.schema import new_event
 
 CAPITAL_CATEGORY = "capital_allocation"
 KEY_PATTERN = r"^[a-z][a-z0-9_]*$"
+
+SIGNAL_SOURCES = ("company", "web", "person")
+"""Where an observation came from: the company's own report, a page an agent captured, or a
+person. The first two are checked when an agent writes them; the last is only a person's."""
+MAX_DISCOVERED_PER_RUN = 3
+"""New opportunities one agent run may record. Noticing ten things in an afternoon is not
+market research, it is a list; the CEO compares them one cycle at a time anyway (§4)."""
 
 
 # --- payloads ---------------------------------------------------------------------------------
@@ -82,6 +95,41 @@ class AdvanceOpportunity(BaseModel):
 class RejectOpportunity(BaseModel):
     opportunity_id: uuid.UUID
     reason: str = Field(min_length=1)
+
+
+class SignalInput(BaseModel):
+    """One observation about an opportunity, as whoever made it states it."""
+
+    source: str = Field(pattern="^(" + "|".join(SIGNAL_SOURCES) + ")$")
+    summary: str = Field(min_length=1, max_length=1000)
+    metric: str | None = Field(default=None, pattern=r"^[a-z][a-z0-9_.]*$", max_length=80)
+    value: Decimal | None = None
+    business_unit_id: uuid.UUID | None = None
+    """For a ``company`` figure about one business rather than the whole company."""
+    evidence_ref: str | None = Field(default=None, max_length=500)
+    """For ``web``: the id of what the agent's own tools captured in this run (fetch_url's
+    ``evidence_id``). A person may put a link here instead."""
+
+
+class DiscoverOpportunity(BaseModel):
+    """Something that might be a business, with at least one thing observed about it.
+
+    Cheap and reversible (§6): it is a line in the company's list of things to look at, and it
+    commits nothing. An opportunity with no observation behind it is a hunch, so one is required.
+    """
+
+    key: str = Field(pattern=KEY_PATTERN, max_length=80)
+    title: str = Field(min_length=1, max_length=200)
+    thesis: str = Field(min_length=20, max_length=2000)
+    market: str | None = Field(default=None, max_length=1000)
+    signals: list[SignalInput] = Field(min_length=1, max_length=5)
+
+
+class RecordOpportunitySignal(BaseModel):
+    """One more observation about an opportunity the company is still looking at."""
+
+    opportunity_id: uuid.UUID
+    signal: SignalInput
 
 
 class DraftProposal(BaseModel):
@@ -211,6 +259,146 @@ async def reject_opportunity(ctx: Context, command: RejectOpportunity) -> dict[s
         reason=command.reason,
     )
     return {"opportunity_id": str(opportunity.id), "state": opportunity.state}
+
+
+async def discover_opportunity(ctx: Context, command: DiscoverOpportunity) -> dict[str, Any]:
+    """Record an opportunity and what was observed about it — every signal checked first, so a
+    discovery with one bad citation writes nothing at all."""
+    if ctx.run_id is not None:
+        found = await _discovered_by_run(ctx)
+        if found >= MAX_DISCOVERED_PER_RUN:
+            raise Refused(
+                f"this run already recorded {found} new opportunities; "
+                f"{MAX_DISCOVERED_PER_RUN} is the most one look at the market may add"
+            )
+    refs = [await _checked_signal(ctx, signal) for signal in command.signals]
+    try:
+        opportunity = await opportunities_service.discover(
+            ctx.session,
+            company_id=ctx.company_id,
+            key=command.key,
+            title=command.title,
+            thesis=command.thesis,
+            market=command.market,
+            actor=ctx.actor,
+            run_id=ctx.run_id,
+        )
+    except opportunities_service.DuplicateOpportunity:
+        raise Refused(
+            f"the company already has an opportunity {command.key!r} (it may have been "
+            "rejected: that is kept on purpose); add a signal to it instead, or pick a new key"
+        ) from None
+    signals = [
+        await _record_signal(ctx, opportunity, signal, ref)
+        for signal, ref in zip(command.signals, refs, strict=True)
+    ]
+    return {
+        "opportunity_id": str(opportunity.id),
+        "key": opportunity.key,
+        "signal_ids": [str(signal.id) for signal in signals],
+    }
+
+
+async def record_opportunity_signal(
+    ctx: Context, command: RecordOpportunitySignal
+) -> dict[str, Any]:
+    """Add evidence to an opportunity still being looked at. A decided one is left as decided."""
+    opportunity = await _opportunity(ctx, command.opportunity_id)
+    if opportunity.state not in opportunities_service.OPEN_STATES:
+        raise Refused(
+            f"opportunity {opportunity.key} is {opportunity.state}; it was decided already"
+        )
+    ref = await _checked_signal(ctx, command.signal)
+    signal = await _record_signal(ctx, opportunity, command.signal, ref)
+    return {"opportunity_id": str(opportunity.id), "signal_ids": [str(signal.id)]}
+
+
+async def _checked_signal(ctx: Context, signal: SignalInput) -> str | None:
+    """Refuse an observation an agent cannot back; return the evidence ref to store.
+
+    An agent's figures are the report's figures, and an agent's pages are pages its own tools
+    captured in this run. Nothing else it says becomes a signal. A person is not checked: the
+    record says who wrote it, and a person answers for their own observations.
+    """
+    if ctx.run_id is None:
+        return signal.evidence_ref
+    if signal.source == "person":
+        raise Refused("an agent's observation is not a person's; say where it came from")
+    if signal.source == "company":
+        if signal.metric is None or signal.value is None:
+            raise Refused("a company signal cites a metric and its value from the report")
+        issue = await company_reporting.figure_issue(
+            ctx.session,
+            ctx.company_id,
+            metric=signal.metric,
+            value=str(signal.value),
+            scope=KpiScope.BUSINESS_UNIT if signal.business_unit_id else KpiScope.COMPANY,
+            scope_id=signal.business_unit_id,
+        )
+        if issue:
+            raise Refused(issue)
+        return None
+    # web: something this run's own tools captured, named by its id
+    cited = (signal.evidence_ref or "").rsplit(":", 1)[-1].strip()
+    try:
+        cited_id = uuid.UUID(cited)
+    except ValueError:
+        raise Refused(
+            "a web signal cites the id of a page captured in this run (fetch_url's evidence_id)"
+        ) from None
+    produced = await _produced_by_run(ctx)
+    if cited_id not in produced:
+        raise Refused(f"{cited_id} was not captured in this run; fetch the page first")
+    return f"{produced[cited_id]}:{cited_id}"
+
+
+async def _record_signal(
+    ctx: Context, opportunity: Opportunity, signal: SignalInput, evidence_ref: str | None
+):
+    return await opportunities_service.add_signal(
+        ctx.session,
+        opportunity,
+        source=signal.source,
+        summary=signal.summary,
+        metric=signal.metric,
+        value=signal.value,
+        evidence_ref=evidence_ref,
+        actor=ctx.actor,
+        run_id=ctx.run_id,
+    )
+
+
+async def _produced_by_run(ctx: Context) -> dict[uuid.UUID, str]:
+    """What the tool calls of this run's task produced (any attempt), id -> type."""
+    task_id = await ctx.session.scalar(select(AgentRun.task_id).where(AgentRun.id == ctx.run_id))
+    if task_id is None:
+        return {}
+    payloads = (
+        await ctx.session.scalars(
+            select(EventRecord.payload).where(
+                EventRecord.task_id == task_id, EventRecord.event_type == "TOOL_COMPLETED"
+            )
+        )
+    ).all()
+    return {
+        uuid.UUID(ref["id"]): str(ref["type"])
+        for payload in payloads
+        for ref in payload.get("produced") or []
+    }
+
+
+async def _discovered_by_run(ctx: Context) -> int:
+    return len(
+        (
+            await ctx.session.scalars(
+                select(CommandRecord.id).where(
+                    CommandRecord.run_id == ctx.run_id,
+                    CommandRecord.command == "DiscoverOpportunity",
+                    CommandRecord.outcome == CommandOutcome.DONE.value,
+                )
+            )
+        ).all()
+    )
 
 
 async def draft_proposal(ctx: Context, command: DraftProposal) -> dict[str, Any]:
@@ -525,6 +713,20 @@ def register(bus: CommandBus) -> None:
             "reject_opportunity",
             reject_opportunity,
             summary=lambda c: f"Reject {c.opportunity_id}: {c.reason}",
+        ),
+        CommandSpec(
+            "DiscoverOpportunity",
+            DiscoverOpportunity,
+            "discover_opportunity",
+            discover_opportunity,
+            summary=lambda c: f"Discovered: {c.title}",
+        ),
+        CommandSpec(
+            "RecordOpportunitySignal",
+            RecordOpportunitySignal,
+            "record_opportunity_signal",
+            record_opportunity_signal,
+            summary=lambda c: f"Observed about {c.opportunity_id}: {c.signal.summary[:100]}",
         ),
         CommandSpec(
             "DraftProposal",

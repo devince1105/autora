@@ -28,7 +28,7 @@ KPI snapshot the cycle stored and refuses a figure that is not there.
 from __future__ import annotations
 
 import uuid
-from decimal import Decimal, InvalidOperation
+from decimal import Decimal
 from typing import Literal
 
 from pydantic import BaseModel, Field
@@ -181,13 +181,6 @@ async def said_what_it_proposed(
     return issues
 
 
-def _as_decimal(value: object) -> Decimal | None:
-    try:
-        return Decimal(str(value))
-    except (InvalidOperation, ValueError):
-        return None
-
-
 async def the_numbers_are_the_reports(
     session: AsyncSession, ctx: RunContext, output: BaseModel
 ) -> list[str]:
@@ -197,32 +190,16 @@ async def the_numbers_are_the_reports(
     issues = []
     for proposal in output.proposals:
         for cited in proposal.evidence:
-            scope = KpiScope(cited.scope)
-            if scope is not KpiScope.COMPANY and cited.scope_id is None:
-                issues.append(f"{cited.metric}: a {cited.scope} figure must name which one")
-                continue
-            snapshot = await company_reporting.latest(
+            issue = await company_reporting.figure_issue(
                 session,
                 ctx.company_id,
-                scope=scope,
-                business_unit_id=cited.scope_id if scope is KpiScope.BUSINESS_UNIT else None,
-                project_id=cited.scope_id if scope is KpiScope.PROJECT else None,
+                metric=cited.metric,
+                value=cited.value,
+                scope=KpiScope(cited.scope),
+                scope_id=cited.scope_id,
             )
-            if snapshot is None:
-                issues.append(f"{cited.metric}: there is no report for that {cited.scope}")
-                continue
-            if cited.metric not in snapshot.metrics:
-                issues.append(f"{cited.metric} is not in the {cited.scope} report")
-                continue
-            stored = snapshot.metrics[cited.metric]
-            said, held = _as_decimal(cited.value), _as_decimal(stored)
-            same = (
-                (said == held)
-                if said is not None and held is not None
-                else str(stored) == cited.value
-            )
-            if not same:
-                issues.append(f"{cited.metric} is {stored} in the report, not {cited.value}")
+            if issue:
+                issues.append(issue)
     return issues
 
 

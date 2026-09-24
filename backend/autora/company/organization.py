@@ -246,6 +246,7 @@ async def add_product(
 EXECUTIVE = "executive"
 CEO_ROLE = "ceo"
 FINANCE_ROLE = "finance"
+BUSINESS_ROLE = "business"
 """The finance officer's position (T-705): the same string ``agents.finance.ROLE`` dispatches on."""
 
 
@@ -253,7 +254,7 @@ async def bootstrap_executive(
     session: AsyncSession, company_id: uuid.UUID, *, actor: Actor
 ) -> tuple[Department, Role]:
     """Give a company the one department every company has, the position that leads it, and
-    the finance officer's beside it.
+    the finance officer's and the business developer's beside it.
 
     A company runs businesses through departments, so it needs at least one that belongs to no
     business: the one that decides which businesses to run. The position is defined here; the
@@ -299,6 +300,21 @@ async def bootstrap_executive(
             responsibilities=(
                 "Reads the books once a cycle is measured and proposes budgets where they no "
                 "longer fit. Cannot move money: every proposal is a person's decision."
+            ),
+        )
+    # and so does the business developer (T-706): it looks for what the company could do next,
+    # and writes it down for the CEO to decide about
+    if await role_by_key(session, company_id, BUSINESS_ROLE) is None:
+        await add_role(
+            session,
+            company_id=company_id,
+            key=BUSINESS_ROLE,
+            title="Business Development",
+            department_id=department.id,
+            actor=actor,
+            responsibilities=(
+                "Looks at the market and the company's numbers once a week and writes down what "
+                "might be a business. Decides nothing: scoring, proposing and opening are others'."
             ),
         )
     return department, role
