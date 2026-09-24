@@ -187,6 +187,45 @@ async def test_a_goal_nobody_measures_says_so(db_session):
     assert snapshot.goals[0].trend_7d is None
 
 
+async def test_a_cycle_being_reviewed_is_shown_with_what_was_just_measured(db_session):
+    """T-708: in MEASURING (the finance officer) and REVIEWING (the CEO), the numbers the agents
+    review are today's, which reporting has already stored — not yesterday's, and not nothing.
+    Once the day is over and the next one plans, the same cycle is shown as the finished one."""
+    from autora.db.models import KpiScope, KpiSnapshot
+
+    company, (media,) = await _company(db_session)
+    yesterday = Cycle(
+        company_id=company.id, seq=1, stage="DONE", started_at=START - timedelta(days=1),
+        ended_at=START - timedelta(hours=18), review={"summary": "a quiet day"},
+    )  # fmt: skip
+    today = Cycle(company_id=company.id, seq=2, stage="REVIEWING", started_at=START)
+    db_session.add_all([yesterday, today])
+    await db_session.flush()
+    for cycle, revenue in ((yesterday, "0"), (today, "360")):
+        db_session.add(
+            KpiSnapshot(
+                company_id=company.id, cycle_id=cycle.id, scope=KpiScope.COMPANY.value,
+                metrics={"revenue": revenue}, period_start=cycle.started_at,
+                period_end=cycle.started_at + timedelta(hours=13),
+            )
+        )  # fmt: skip
+    await db_session.flush()
+
+    reviewing = await _builder().build(db_session, company.id, now=NOW)
+    assert (reviewing.last_cycle.seq, reviewing.last_cycle.stage) == (2, "REVIEWING")
+    assert reviewing.last_cycle.kpis == {"revenue": "360"}
+    assert reviewing.last_cycle.review is None, "today has not been reviewed yet"
+
+    today.stage, today.ended_at = "DONE", START + timedelta(hours=17)
+    today.review = {"summary": "first revenue"}
+    db_session.add(Cycle(company_id=company.id, seq=3, stage="PLANNING",
+                         started_at=START + timedelta(days=1)))  # fmt: skip
+    await db_session.flush()
+    planning = await _builder().build(db_session, company.id, now=NOW + timedelta(days=1))
+    assert (planning.last_cycle.seq, planning.last_cycle.kpis) == (2, {"revenue": "360"})
+    assert planning.last_cycle.review == "first revenue"
+
+
 async def test_the_last_finished_cycle_is_reported_with_what_broke(db_session):
     company, (media,) = await _company(db_session)
     project = await _project(db_session, company, media)

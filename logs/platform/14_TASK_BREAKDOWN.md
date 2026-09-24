@@ -47,6 +47,7 @@
   > 實作（D-032）：T-611 之後缺的是漏斗的起點——沒有任何東西會「發現」機會。商業代理每週在 EXECUTING 看一次市場，只能用 `DiscoverOpportunity`／`RecordOpportunitySignal` 記下機會與訊號（寫入時就檢查：公司數字要對得上報表、網頁要是這一輪自己抓的）；照 ARCHITECTURE_V2_1 §6，發現機會不經人審，人仍把關開事業與資本。測試在 `tests/company/test_market_watch.py`。
 **T-707 · Revenue KPIs in snapshot & dashboard** / Deps: T-603, T-309 / Validate: `pytest tests/company/test_reporting_revenue.py && pnpm -F web test dashboard-revenue`
 **T-708 · Phase 7 acceptance** / Validate: `pytest tests/acceptance/test_revenue.py`
+  > 實作（D-033）：付款經真的 webhook 端點寫入後，模擬跑完一天，檢查儀表板、操作者看的那一期、財務長與 CEO 拿到的文件；「Marketing 超額被攔」因 T-703 延後（D-022），驗的是「根本沒有花錢的路」加上等著的規則會把超額送給人。沒有連統一金流的伺服器（沙箱還不能下單）。過程中修掉快照的 `last_cycle` 在 MEASURING／REVIEWING 是空的。
 
 ## 3. Phase 8 — Multi-company
 

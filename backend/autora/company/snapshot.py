@@ -158,6 +158,14 @@ class ProposalLine(BaseModel):
 
 
 class LastCycle(BaseModel):
+    """The most recent cycle that has been measured, and what was measured.
+
+    Usually yesterday's. But from the moment reporting has measured today — in MEASURING, where
+    the finance officer reads the books, and in REVIEWING, where the CEO reviews the day — it is
+    today, still open: the review is *of* these numbers, and yesterday's would be the wrong day
+    (T-708 found both agents looking at an empty block).
+    """
+
     seq: int | None = None
     stage: str | None = None
     kpis: dict[str, Any] = {}
@@ -464,12 +472,19 @@ class SnapshotBuilder:
     async def _last_cycle(
         self, session: AsyncSession, company_id: uuid.UUID, cycle: Cycle | None
     ) -> LastCycle:
-        done = await session.scalar(
+        measured = await latest(session, company_id)
+        subject = await session.scalar(
             select(Cycle)
             .where(Cycle.company_id == company_id, Cycle.ended_at.is_not(None))
             .order_by(Cycle.seq.desc())
             .limit(1)
         )
+        if measured is not None and measured.cycle_id is not None:
+            if subject is None or measured.cycle_id != subject.id:
+                # the open cycle has been measured already: that is the one being reviewed
+                current = await session.get(Cycle, measured.cycle_id)
+                if current is not None and current.company_id == company_id:
+                    subject = current
         pending_count = int(
             await session.scalar(
                 select(func.count())
@@ -481,24 +496,23 @@ class SnapshotBuilder:
             )
             or 0
         )
-        if done is None:
+        if subject is None:
             return LastCycle(approvals_pending=pending_count)
-        measured = await latest(session, company_id)
         failed = (
             await session.scalars(
                 select(Task.display_name).where(
-                    Task.cycle_id == done.id, Task.state == TaskState.FAILED.value
+                    Task.cycle_id == subject.id, Task.state == TaskState.FAILED.value
                 )
             )
         ).all()
-        review = done.review or {}
+        review = subject.review or {}
         return LastCycle(
-            seq=done.seq,
-            stage=done.stage,
-            kpis=dict(measured.metrics) if measured and measured.cycle_id == done.id else {},
+            seq=subject.seq,
+            stage=subject.stage,
+            kpis=dict(measured.metrics) if measured and measured.cycle_id == subject.id else {},
             failed_tasks=list(failed),
             approvals_pending=pending_count,
-            planned_by=(done.plan or {}).get("by"),
+            planned_by=(subject.plan or {}).get("by"),
             review=review.get("summary"),
             review_missing=review.get("reason") if review.get("missing") else None,
         )

@@ -4,6 +4,7 @@ The reader tables are the only place a person's address exists, so the tests tha
 are about what is *not* stored, and about a link being usable exactly once.
 """
 
+import uuid
 from datetime import UTC, datetime, timedelta
 
 import pytest
@@ -15,7 +16,11 @@ from autora.accounts.service import AccountError
 NOW = datetime(2026, 9, 23, 9, 0, tzinfo=UTC)
 
 
-async def _link(session, email="reader@example.com", *, now=NOW):
+async def _link(session, email=None, *, now=NOW):
+    """A link for a reader of this test's own. Readers are shared by every company, and tests
+    that commit (the acceptance tests) leave theirs in the database for the rest of the run."""
+    if email is None:  # not `or`: "" is a case of its own (not an address)
+        email = f"reader-{uuid.uuid4().hex[:8]}@example.com"
     return await service.request_link(session, email, now=now)
 
 
@@ -28,7 +33,11 @@ def test_a_reader_is_an_address_and_when_they_were_last_here():
 async def test_the_link_is_emailed_and_only_its_hash_is_kept(db_session):
     link = await _link(db_session)
 
-    stored = (await db_session.scalars(select(models.LoginToken))).all()
+    stored = (
+        await db_session.scalars(
+            select(models.LoginToken).where(models.LoginToken.reader_id == link.reader.id)
+        )
+    ).all()
     assert len(stored) == 1
     assert stored[0].token_hash != link.token, "a database dump must not be a set of live links"
     assert stored[0].token_hash == service.hash_token(link.token)
@@ -79,7 +88,10 @@ async def test_only_the_session_s_hash_is_stored(db_session):
     link = await _link(db_session)
     _, token = await service.redeem(db_session, link.token, now=NOW)
 
-    row = await db_session.scalar(select(models.ReaderSession))
+    # this reader's: tests that commit (the acceptance tests) leave readers of their own behind
+    row = await db_session.scalar(
+        select(models.ReaderSession).where(models.ReaderSession.reader_id == link.reader.id)
+    )
     assert row.token_hash == service.hash_token(token) != token
 
 
