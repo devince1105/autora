@@ -10,7 +10,10 @@ export const metadata = {
 
 export default function RootLayout({ children }: { children: ReactNode }) {
   return (
-    <html lang="zh-TW">
+    // Browser extensions write attributes onto <html> before React loads (Immersive Translate
+    // adds data-immersive-translate-page-theme), which React reports as a hydration mismatch.
+    // This ignores attribute differences on this one element only, not on anything inside it.
+    <html lang="zh-TW" suppressHydrationWarning>
       <body>
         <Providers>{children}</Providers>
       </body>
