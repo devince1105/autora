@@ -38,11 +38,11 @@ describe("the market strip", () => {
       .getAllByRole("listitem")
       .filter((li) => li.title); // ours; the US stocks come after
     expect(items.map((li) => li.textContent)).toEqual([
-      "加權指數9/2448,024.60▼−0.28%",
-      "聯發科(2454.TW)9/241,650▲+0.92%",
-      "標普5009/247,725.55▲+0.28%",
-      "美國10年期公債9/244.12%▼−0.03",
-      "比特幣83,268▼−1.18%", // crypto trades all day: no day, "24 小時" in its title
+      "加權指數48,024.60▼−0.28%",
+      "聯發科2454.TW1,650▲+0.92%",
+      "標普5007,725.55▲+0.28%",
+      "美國10年期公債4.12%▼−0.03",
+      "比特幣83,268▼−1.18%",
     ]);
     expect(items[0]!.getAttribute("title")).toBe("收盤 9/24・TWSE");
     expect(items[2]!.getAttribute("title")).toBe("前一交易日收盤 9/24・FRED");
@@ -54,18 +54,18 @@ describe("the market strip", () => {
     const [down, up] = within(screen.getByTestId("market-strip"))
       .getAllByRole("listitem")
       .filter((li) => li.title);
-    expect(up!.textContent).toContain("MediaTek(2454.TW)");
+    expect(up!.textContent).toContain("MediaTek2454.TW");
     expect(down!.querySelector(".text-fall")).toBeTruthy();
     expect(up!.querySelector(".text-rise")).toBeTruthy();
 
   });
 
-  it("ends with the US stocks in the same row, and keeps them when ours are missing", () => {
+  it("has the US stocks in the same block, and keeps them when ours are missing", () => {
     vi.stubGlobal("matchMedia", () => ({ matches: false, addEventListener: vi.fn(), removeEventListener: vi.fn() }));
     render(<MarketStrip quotes={[]} lang="zh-TW" />);
-    const row = within(screen.getByTestId("market-strip")).getByRole("list");
-    expect(within(row).getByTestId("us-stocks")).toBeTruthy();
-    expect(within(row).getByRole("link", { name: /TradingView/ }).getAttribute("rel")).toContain("nofollow");
+    const block = within(screen.getByTestId("market-strip"));
+    expect(block.getByTestId("us-stocks")).toBeTruthy();
+    expect(block.getByRole("link", { name: /TradingView/ }).getAttribute("rel")).toContain("nofollow");
     vi.unstubAllGlobals();
   });
 
@@ -106,7 +106,13 @@ describe("the US stocks (TradingView)", () => {
       expect(names).toContain(wanted);
     }
     expect(quotesConfig("zh-TW", "dark").symbols[0]).toEqual({ proName: "NASDAQ:NVDA", title: "輝達" });
-    expect(quotesConfig("en", "light")).toMatchObject({ locale: "en", colorTheme: "light", isTransparent: true });
+    // "regular" is TradingView's one-line tape (44px); its "compact" is two lines (72px)
+    expect(quotesConfig("en", "light")).toMatchObject({
+      locale: "en",
+      colorTheme: "light",
+      isTransparent: true,
+      displayMode: "regular",
+    });
     expect(quotesConfig("en", "light").symbols[0]!.title).toBe("NVDA");
   });
 

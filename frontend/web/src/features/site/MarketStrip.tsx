@@ -48,26 +48,23 @@ function Quote({ quote, lang }: { quote: PublicQuote; lang: Lang }) {
   const way = direction(quote);
   const change = formatChange(quote);
   const day = new Intl.DateTimeFormat(lang, { month: "numeric", day: "numeric", timeZone: "UTC" }).format(new Date(quote.as_of));
+  // one line, as TradingView's tape draws its quotes beside it: the same height and size, so
+  // the Taiwan figures and the US ones read as one strip. The day and source are in the title.
   return (
     <li
-      className="flex h-[58px] shrink-0 flex-col justify-center gap-0.5 rounded-md bg-canvas px-3 whitespace-nowrap"
+      className="flex h-11 shrink-0 items-center gap-1.5 border-r border-line pr-4 pl-1 text-sm whitespace-nowrap last:border-r-0"
       title={`${w.basis[quote.basis]} ${day}・${quote.source}`}
     >
-      <span className="flex items-baseline gap-1 text-xs">
-        <span className="font-medium">{w.quoteNames[quote.key] ?? quote.key}</span>
-        {twCode(quote.key) ? <span className="text-[0.65rem] text-muted">({twCode(quote.key)})</span> : null}
-        {quote.basis !== "24h" ? <span className="text-[0.65rem] text-muted">{day}</span> : null}
-      </span>
-      <span className="flex items-baseline gap-1.5 text-sm">
-        <span className="font-semibold tabular-nums">{formatValue(quote, lang)}</span>
-        {change ? (
-          <span className={`tabular-nums ${TONE[way]}`}>
-            <span aria-hidden>{ARROW[way]}</span>
-            <span className="sr-only">{way === "rise" ? "+" : way === "fall" ? "−" : ""}</span>
-            {change}
-          </span>
-        ) : null}
-      </span>
+      <span className="font-semibold">{w.quoteNames[quote.key] ?? quote.key}</span>
+      {twCode(quote.key) ? <span className="text-xs text-muted">{twCode(quote.key)}</span> : null}
+      <span className="tabular-nums">{formatValue(quote, lang)}</span>
+      {change ? (
+        <span className={`tabular-nums ${TONE[way]}`}>
+          <span aria-hidden>{ARROW[way]}</span>
+          <span className="sr-only">{way === "rise" ? "+" : way === "fall" ? "−" : ""}</span>
+          {change}
+        </span>
+      ) : null}
     </li>
   );
 }
@@ -80,22 +77,27 @@ export function MarketStrip({ quotes, lang }: { quotes: PublicQuote[]; lang: Lan
   const arrow = "hidden size-7 shrink-0 place-items-center rounded-md text-muted hover:bg-canvas hover:text-ink sm:grid";
   return (
     <section aria-label={w.markets} className="border-b border-line print:hidden" data-testid="market-strip">
-      {/* the whole width of the window, not the page's column: a wider window shows more figures */}
-      <div className="flex items-center gap-2 px-4 py-2">
-        {/* relative: the screen-reader signs inside are absolutely positioned, and without a
-            positioned row they escape its clipping and widen the whole page */}
-        <ul ref={list} className="relative flex min-w-0 flex-1 gap-2 overflow-x-auto [scrollbar-width:none]">
-          {quotes.map((quote) => (
-            <Quote key={quote.key} quote={quote} lang={lang} />
-          ))}
+      {/* the whole width of the window, not the page's column: a wider window shows more. Our
+          cards on the left, the US stocks beside them (under them on a phone), one block */}
+      <div className="flex flex-col px-4 lg:flex-row lg:items-center lg:gap-4">
+        <div className="flex min-w-0 items-center gap-2 lg:w-1/2">
+          {/* relative: the screen-reader signs inside are absolutely positioned, and without a
+              positioned row they escape its clipping and widen the whole page */}
+          <ul ref={list} className="relative flex min-w-0 flex-1 gap-3 overflow-x-auto [scrollbar-width:none]">
+            {quotes.map((quote) => (
+              <Quote key={quote.key} quote={quote} lang={lang} />
+            ))}
+          </ul>
+          <button type="button" aria-label={w.scrollLeft} onClick={() => scroll(-240)} className={arrow}>
+            ‹
+          </button>
+          <button type="button" aria-label={w.scrollRight} onClick={() => scroll(240)} className={arrow}>
+            ›
+          </button>
+        </div>
+        <div className="min-w-0 lg:w-1/2">
           <UsStocks lang={lang} />
-        </ul>
-        <button type="button" aria-label={w.scrollLeft} onClick={() => scroll(-240)} className={arrow}>
-          ‹
-        </button>
-        <button type="button" aria-label={w.scrollRight} onClick={() => scroll(240)} className={arrow}>
-          ›
-        </button>
+        </div>
       </div>
     </section>
   );
