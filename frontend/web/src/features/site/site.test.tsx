@@ -70,7 +70,8 @@ describe("the article page", () => {
     expect(screen.getByRole("heading", { level: 2, name: "重點" })).toBeTruthy();
     expect(screen.getByText("微電網串連 1,200 組屋頂太陽能板。").tagName).toBe("P");
     expect(screen.getByText("停電時可以撐六小時。").tagName).toBe("BLOCKQUOTE");
-    expect(screen.getByText(/流明日報（示範）/)).toBeTruthy();
+    expect(screen.getByText(/艾矽鯨・/)).toBeTruthy(); // the site's name, not the company's
+    expect(screen.queryByText(/流明日報（示範）/)).toBeNull();
     expect(screen.getByText(formatDate("zh-TW", ARTICLE.published_at)).tagName).toBe("TIME");
     const sources = within(screen.getByRole("heading", { name: "資料來源" }).parentElement!);
     const links = sources.getAllByRole("link");

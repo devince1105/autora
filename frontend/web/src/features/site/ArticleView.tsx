@@ -16,7 +16,8 @@ export function ArticleView({ article, lang }: { article: PublicArticle; lang: L
         <h1 className="text-3xl font-bold leading-tight">{article.title}</h1>
         {article.summary ? <p className="mt-3 text-lg text-muted">{article.summary}</p> : null}
         <p className="mt-4 text-sm text-muted">
-          {article.company ? <span>{article.company}・</span> : null}
+          {/* the site's own name in the page's language, not the company's one spelling (D-043) */}
+          <span>{w.site}・</span>
           {w.published} <time dateTime={article.published_at}>{formatDate(lang, article.published_at)}</time>
           {article.revised_at ? (
             <>
