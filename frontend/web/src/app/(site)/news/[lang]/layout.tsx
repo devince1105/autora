@@ -38,7 +38,7 @@ export default async function SiteLayout({
               <SiteName lang={lang} />
             </span>
           </Link>
-          <p className="mt-1.5 text-xs text-muted">{w.tagline}</p>
+          <p className="mt-1.5 text-xs whitespace-nowrap text-muted">{w.tagline}</p>
         </div>
         {/* the reader's controls together, top right: the other language, light or dark, sign-in */}
         <span className="flex shrink-0 items-center gap-1 text-sm print:hidden">

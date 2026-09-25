@@ -140,7 +140,7 @@ const WORDS = {
   },
   en: {
     site: "AiSiWhale",
-    tagline: "AI & tech investing, from the filings",
+    tagline: "AI & tech investing",
     latest: "Latest stories",
     empty: "No stories yet.",
     sources: "Sources",
