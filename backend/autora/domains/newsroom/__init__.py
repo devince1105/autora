@@ -10,7 +10,7 @@ from __future__ import annotations
 
 from typing import Protocol
 
-from autora.domains.newsroom import planning, workflow
+from autora.domains.newsroom import official_trades, planning, workflow
 from autora.domains.newsroom.activity_links import activity_links
 from autora.domains.newsroom.planning import EditorialPlanning
 from autora.domains.newsroom.workflow import register_templates as _register_workflow_templates
@@ -41,6 +41,8 @@ def register(runtime: RuntimeParts) -> None:
     runtime.approvals.on_decided(
         workflow.APPROVE_ACTION, workflow.on_article_decided(runtime.policy)
     )
+    # a person checked a transcribed transaction report: on the stock pages, or never (D-051)
+    runtime.approvals.on_decided(official_trades.APPROVAL_ACTION, official_trades.on_report_decided)
     runtime.task_manager.link_hooks.append(activity_links)
     # the desk plans its own day, after the company has set the budget (T-605b)
     EditorialPlanning(runtime.workflows).install(runtime.cycles)

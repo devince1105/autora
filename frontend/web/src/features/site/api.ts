@@ -14,6 +14,7 @@ export type PublicArticleSummary = Schemas["PublicArticleSummary"];
 export type PublicQuote = Schemas["PublicQuote"];
 export type PublicStock = Schemas["PublicStock"];
 export type PublicHolder = Schemas["PublicHolder"];
+export type PublicTrade = Schemas["PublicTrade"];
 
 export interface SiteClientOptions {
   baseUrl?: string;

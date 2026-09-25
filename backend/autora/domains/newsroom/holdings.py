@@ -63,12 +63,21 @@ class Stock:
         return f"{self.market}:{self.symbol}"
 
     @property
+    def tickers(self) -> tuple[str, ...]:
+        """Its US tickers, as an official's report names it: its own, or its ADR's (D-051)."""
+        if self.market == "us":
+            return (self.symbol,)
+        return tuple(t for t in (US_LISTINGS.get(self.symbol),) if t)
+
+    @property
     def terms(self) -> tuple[str, ...]:
         """What an article that mentions it would say."""
         return (self.symbol, self.zh, self.en, *self.aliases)
 
 
 _TSM = ("874039100",)
+US_LISTINGS = {"2330": "TSM"}
+"""A Taiwan stock's US listing, where it has one."""
 
 STOCKS: dict[str, Stock] = {
     s.symbol: s

@@ -50,6 +50,30 @@ const NVDA: PublicStock = {
     holder({}),
     holder({ investor: "麥可・貝瑞", filer: "Scion", change: "new", put_call: "PUT", shares: 1000000, previous_shares: 0 }),
   ],
+  trades: [
+    {
+      person: "川普",
+      kind: "sale",
+      traded_on: "2026-02-05",
+      amount_min: 250001,
+      amount_max: 500000,
+      amount_text: "$250,001 - $500,000",
+      late: true,
+      received_on: "2026-05-12",
+      report_url: "https://extapps2.oge.gov/r.pdf#page=2",
+    },
+    {
+      person: "川普",
+      kind: "purchase",
+      traded_on: "2026-01-26",
+      amount_min: 50000001,
+      amount_max: null,
+      amount_text: "Over $50,000,000",
+      late: false,
+      received_on: "2026-05-12",
+      report_url: "https://extapps2.oge.gov/r.pdf#page=3",
+    },
+  ],
   articles: [
     {
       article_id: "a1",
@@ -96,6 +120,19 @@ describe("a stock's page", () => {
     const bare = { ...NVDA.quote!, open: null, high: null, low: null, previous_close: null, market_cap: null };
     render(<StockView stock={{ ...NVDA, quote: bare }} lang="en" />);
     expect(document.querySelector("article header dl")).toBeNull();
+  });
+
+  it("lists public figures' trades, as ranges, each with the page of its report", () => {
+    render(<StockView stock={NVDA} lang="zh-TW" />);
+    const [sold, bought] = screen.getAllByTestId("trade");
+    expect(sold!.textContent).toContain("川普賣出US$250,001 – US$500,000");
+    expect(sold!.textContent).toContain("逾 30 天才申報");
+    expect(within(sold!).getByRole("link").getAttribute("href")).toBe("https://extapps2.oge.gov/r.pdf#page=2");
+    expect(bought!.textContent).toContain("買進US$50,000,000 以上");
+    expect(document.body.textContent).toContain("經人工對照原件核准後才顯示");
+    cleanup();
+    render(<StockView stock={{ ...NVDA, trades: [] }} lang="zh-TW" />);
+    expect(document.body.textContent).toContain("最近的交易申報沒有這檔股票");
   });
 
   it("a Taiwan stock says what 13F does and does not cover; an empty one says so", () => {

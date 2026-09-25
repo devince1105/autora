@@ -5,7 +5,7 @@ import { useState, type ReactNode } from "react";
 
 import { ApiError } from "@/api/client";
 
-import { STATES, type ApprovalCard, type ApprovalState, type Decision } from "./model";
+import { STATES, type ApprovalCard, type ApprovalState, type Decision, type OfficialReportCheck } from "./model";
 
 const SENT_LABEL: Record<Decision, string> = {
   approve: "已送出核准",
@@ -15,6 +15,36 @@ const SENT_LABEL: Record<Decision, string> = {
 
 function time(iso: string): string {
   return new Date(iso).toLocaleString("zh-TW", { hour12: false });
+}
+
+/** A transcription to check against the scan (D-051): where it is, how much was read, and the
+ * rows a stock page will show — each with its page, to find it in the PDF. */
+function OfficialReportPreview({ check }: { check: OfficialReportCheck }) {
+  return (
+    <div className="mt-2 grid gap-2 rounded-lg border border-line bg-canvas p-3 text-sm" data-testid="official-report">
+      <p>
+        <a href={check.url} target="_blank" rel="noopener noreferrer" className="text-accent underline">
+          開啟原始申報（PDF，{check.pages} 頁）
+        </a>
+        <span className="text-muted">
+          ・{check.person}・OGE 收件 {check.receivedOn}・轉錄 {check.rows} 筆
+        </span>
+      </p>
+      {check.unreadable ? (
+        <p className="text-warn">有 {check.unreadable} 筆的日期或金額讀不清，網站上不會顯示這些欄位。</p>
+      ) : null}
+      <p className="text-muted">會出現在個股頁的 {check.stockRows} 筆（請對照 PDF 的頁碼與列號）：</p>
+      {check.stocks.length ? (
+        <ul className="max-h-64 overflow-y-auto font-mono text-xs leading-relaxed">
+          {check.stocks.map((line) => (
+            <li key={line}>{line}</li>
+          ))}
+        </ul>
+      ) : (
+        <p className="text-xs text-muted">沒有股票代號的交易（多半是債券），不會出現在個股頁。</p>
+      )}
+    </div>
+  );
 }
 
 function Card({
@@ -51,6 +81,8 @@ function Card({
       <h3 className="mt-1 font-medium break-words">{card.summary}</h3>
       {card.article && preview ? (
         preview(card)
+      ) : card.officialReport ? (
+        <OfficialReportPreview check={card.officialReport} />
       ) : (
         <pre className="mt-2 overflow-x-auto rounded-lg border border-line bg-canvas p-3 text-xs">
           {JSON.stringify(card.details, null, 2)}

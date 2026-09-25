@@ -30,6 +30,7 @@ const KIND_LABEL: Record<string, string> = {
   kill: "終止專案",
   strategy: "策略",
   article: "文章",
+  official_report: "名人交易申報",
 };
 
 const ACTOR_KIND: Record<string, string> = { system: "系統", human: "人員", agent: "代理" };
@@ -51,7 +52,36 @@ export interface ApprovalCard {
   canSendBack: boolean;
   /** The article to read before deciding (D-046): its id and the draft that was submitted. */
   article: { id: string; draftGroupId: string | null } | null;
+  /** A transcribed official's transaction report to check against its scan (D-051). */
+  officialReport: OfficialReportCheck | null;
   decision: { by: string; at: string; reason: string | null } | null;
+}
+
+export interface OfficialReportCheck {
+  url: string;
+  person: string;
+  receivedOn: string;
+  pages: number;
+  rows: number;
+  unreadable: number;
+  stockRows: number;
+  /** "p.2 #66 NVDA sale 2026-02-05 $250,001 - $500,000": each with its page, to find it. */
+  stocks: string[];
+}
+
+function officialReport(kind: string, payload: Record<string, unknown>): OfficialReportCheck | null {
+  if (kind !== "official_report" || typeof payload.report !== "string") return null;
+  const n = (v: unknown) => (typeof v === "number" ? v : 0);
+  return {
+    url: payload.report,
+    person: String(payload.person ?? ""),
+    receivedOn: String(payload.received_on ?? ""),
+    pages: n(payload.pages),
+    rows: n(payload.rows),
+    unreadable: n(payload.unreadable),
+    stockRows: n(payload.stock_rows),
+    stocks: Array.isArray(payload.stocks) ? payload.stocks.map(String) : [],
+  };
 }
 
 function actorName(actor: Record<string, unknown> | null, agents: Record<string, AgentState>): string {
@@ -90,6 +120,7 @@ export function approvalCard(approval: Approval, agents: Record<string, AgentSta
             draftGroupId: typeof payload.draft_group_id === "string" ? payload.draft_group_id : null,
           }
         : null,
+    officialReport: officialReport(approval.kind, payload),
     decision: approval.decided_at
       ? { by: actorName(approval.decided_by, agents), at: approval.decided_at, reason: approval.reason }
       : null,

@@ -20,6 +20,8 @@ dependencies = [
   "anthropic>=1.6,<2",
   # AES-256-GCM for the payment provider's envelope (D-024; the standard library has no GCM)
   "cryptography>=43,<47",
+  # splitting OGE's scanned PDF reports into pages for transcription (D-051); pure Python
+  "pypdf>=5,<7",
 ]
 
 [project.optional-dependencies]

@@ -2432,6 +2432,35 @@ export interface components {
             quote: components["schemas"]["PublicQuote"] | null;
             /** Symbol */
             symbol: string;
+            /**
+             * Trades
+             * @default []
+             */
+            trades: components["schemas"]["PublicTrade"][];
+        };
+        /** PublicTrade */
+        PublicTrade: {
+            /** Amount Max */
+            amount_max: number | null;
+            /** Amount Min */
+            amount_min: number | null;
+            /** Amount Text */
+            amount_text: string;
+            /** Kind */
+            kind: string;
+            /** Late */
+            late: boolean | null;
+            /** Person */
+            person: string;
+            /**
+             * Received On
+             * Format: date
+             */
+            received_on: string;
+            /** Report Url */
+            report_url: string;
+            /** Traded On */
+            traded_on: string | null;
         };
         /** QuoteView */
         QuoteView: {

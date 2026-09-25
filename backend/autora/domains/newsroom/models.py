@@ -215,6 +215,72 @@ class InvestorPosition(IdMixin, CreatedAtMixin, Base):
     """The whole filing's value, for each position's share of it."""
 
 
+class OfficialReportStatus(StrEnum):
+    PENDING = "pending"
+    """Transcribed, waiting for a person to check it against the scan."""
+    APPROVED = "approved"
+    REJECTED = "rejected"
+
+
+class OfficialReport(IdMixin, TimestampMixin, Base):
+    """A public official's transaction report (D-051): so far the President's OGE Form 278-T.
+
+    OGE publishes these as scanned PDFs: the rows are transcribed by a model, page by page, and
+    shown on the site only once a person has approved them — a misread amount must not reach a
+    stock page as a fact. One row per report, whatever became of it, so it is not read twice."""
+
+    __tablename__ = "official_reports"
+    __table_args__ = (
+        UniqueConstraint("company_id", "url"),
+        check_in("status", OfficialReportStatus),
+    )
+
+    company_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("companies.id"))
+    person: Mapped[str]
+    """As the site names them: ``川普``."""
+    filer: Mapped[str]
+    """As the report's index names them: ``Trump, Donald J``."""
+    form: Mapped[str]
+    """As the index gives it: ``278 Transaction``, ``278 Transaction (Amended 08/12/2025)``."""
+    url: Mapped[str]
+    received_on: Mapped[date] = mapped_column(Date)
+    pages: Mapped[int]
+    status: Mapped[str] = mapped_column(server_default=OfficialReportStatus.PENDING.value)
+    approval_id: Mapped[uuid.UUID | None]
+    model: Mapped[str]
+    """The model that transcribed it."""
+
+
+class OfficialTrade(IdMixin, CreatedAtMixin, Base):
+    """One transaction in an official's report, as transcribed (D-051). ``amount_*`` is the
+    report's range — the law asks for no more; nothing here is exact."""
+
+    __tablename__ = "official_trades"
+    __table_args__ = (
+        Index("ix_official_trades_ticker", "company_id", "ticker"),
+        Index("ix_official_trades_report", "report_id"),
+    )
+
+    company_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("companies.id"))
+    report_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("official_reports.id"))
+    page: Mapped[int]
+    number: Mapped[int]
+    """The row's number in the report."""
+    description: Mapped[str]
+    ticker: Mapped[str | None]
+    """When the description ends with one (``BANK OF AMERICA CORPORATION - BAC``): what a stock
+    page finds it by. Bonds and funds have none."""
+    kind: Mapped[str]
+    """``purchase``, ``sale``, ``partial sale``, ``exchange`` — as the report says."""
+    traded_on: Mapped[date | None] = mapped_column(Date)
+    late: Mapped[bool | None]
+    """Reported more than 30 days after the trade."""
+    amount_min: Mapped[int | None] = mapped_column(Numeric(20, 0))
+    amount_max: Mapped[int | None] = mapped_column(Numeric(20, 0))
+    """None for the top range, which has no upper bound (``Over $50,000,000``)."""
+    amount_text: Mapped[str]
+
+
 class Story(IdMixin, TimestampMixin, Base):
     """A topic worth writing about (T-504): source items about the same thing, from any number
     of sources. Found by clustering, not by a model; ``score`` ranks candidates."""

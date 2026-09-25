@@ -187,6 +187,12 @@ async def test_add_source_validates_and_creates_one_schedule(db_session):
         ("newsroom.cluster_stories", "newsroom.cluster_stories", "2-59/5 * * * *"),
         (POLL_SCHEDULE, POLL_SCHEDULE, "*/5 * * * *"),
         ("newsroom.refresh_holdings", "newsroom.refresh_holdings", "40 */6 * * *"),  # D-049
+        # D-051
+        (
+            "newsroom.refresh_official_trades",
+            "newsroom.refresh_official_trades",
+            "20 */6 * * *",
+        ),
     ]
 
     bad = [

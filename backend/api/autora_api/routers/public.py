@@ -30,6 +30,7 @@ from autora.db.models import Company
 from autora.domains.newsroom.holdings import STOCKS, PublicHolder, holders
 from autora.domains.newsroom.market_strip import PublicQuote, QuoteBoard, build_board
 from autora.domains.newsroom.models import AnalyticsEventType
+from autora.domains.newsroom.official_trades import PublicTrade, trades_for
 from autora.domains.newsroom.site import (
     MAX_LIST,
     BeaconRejected,
@@ -119,6 +120,8 @@ class PublicStock(BaseModel):
     """From the market strip's board; None when its service has not answered."""
     holders: list[PublicHolder]
     """The tracked investors' positions in it (a Taiwan stock: in its US listing), largest first."""
+    trades: list[PublicTrade] = []
+    """Public officials' trades in it, from their checked transaction reports (D-051)."""
     articles: list[PublicArticleSummary]
 
 
@@ -145,6 +148,7 @@ async def get_stock(
         name=stock.zh if lang.startswith("zh") else stock.en,
         quote=quote,
         holders=await holders(session, stock, company_id=company_id),
+        trades=await trades_for(session, stock.tickers, company_id=company_id),
         articles=await published_articles_mentioning(
             session, lang, stock.terms, company_slug=company
         ),

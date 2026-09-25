@@ -3,7 +3,7 @@
 // name it. Server-rendered; nothing on it is advice, and it says so.
 import Link from "next/link";
 
-import type { PublicHolder, PublicStock } from "./api";
+import type { PublicHolder, PublicStock, PublicTrade } from "./api";
 import { formatDate, words, type Lang } from "./i18n";
 import { ARROW, direction, formatCap, formatChange, formatPrice, formatValue, stockCode, TONE } from "./quote";
 
@@ -69,6 +69,40 @@ function Holder({ holder, lang }: { holder: PublicHolder; lang: Lang }) {
           </dd>
         </div>
       </dl>
+    </li>
+  );
+}
+
+function amountRange(lang: Lang, trade: PublicTrade): string {
+  const s = words(lang).stock;
+  const money = (n: number) => `US$${new Intl.NumberFormat(lang).format(n)}`;
+  if (trade.amount_min === null || trade.amount_min === undefined) return trade.amount_text || "—";
+  if (trade.amount_max === null || trade.amount_max === undefined) return s.over(money(trade.amount_min - 1));
+  return `${money(trade.amount_min)} – ${money(trade.amount_max)}`;
+}
+
+const TRADE_TONE: Record<string, string> = {
+  purchase: "text-rise border-rise/40",
+  sale: "text-fall border-fall/40",
+  "partial sale": "text-fall border-fall/40",
+};
+
+function Trade({ trade, lang }: { trade: PublicTrade; lang: Lang }) {
+  const s = words(lang).stock;
+  return (
+    <li className="flex flex-wrap items-center gap-x-3 gap-y-1 py-3 text-sm" data-testid="trade">
+      <span className="font-semibold">{trade.person}</span>
+      <span className={`rounded-full border px-2 py-px text-xs ${TRADE_TONE[trade.kind] ?? "border-line text-muted"}`}>
+        {s.kinds[trade.kind] ?? trade.kind}
+      </span>
+      <span className="tabular-nums">{amountRange(lang, trade)}</span>
+      <span className="text-xs text-muted tabular-nums">
+        {trade.traded_on ? formatDate(lang, trade.traded_on) : "—"}
+        {trade.late ? `・${s.late}` : ""}
+      </span>
+      <a href={trade.report_url} rel="noopener nofollow" className="ml-auto text-xs text-accent hover:underline">
+        {s.report} ↗
+      </a>
     </li>
   );
 }
@@ -143,6 +177,22 @@ export function StockView({ stock, lang }: { stock: PublicStock; lang: Lang }) {
           </>
         ) : (
           <p className="mt-3 text-muted">{stock.market === "tw" ? s.twNo13f : s.holdersNone}</p>
+        )}
+      </section>
+
+      <section className="mt-10" aria-labelledby="trades">
+        <h2 id="trades" className="text-xl font-bold">
+          {s.trades}
+        </h2>
+        <p className="mt-2 text-xs leading-relaxed text-muted">{s.tradesNote}</p>
+        {stock.trades.length ? (
+          <ul className="mt-2 divide-y divide-line">
+            {stock.trades.map((trade, i) => (
+              <Trade key={`${trade.report_url}-${i}`} trade={trade} lang={lang} />
+            ))}
+          </ul>
+        ) : (
+          <p className="mt-3 text-muted">{s.tradesNone}</p>
         )}
       </section>
 

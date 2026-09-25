@@ -3913,6 +3913,14 @@
      "symbol": {
       "title": "Symbol",
       "type": "string"
+     },
+     "trades": {
+      "default": [],
+      "items": {
+       "$ref": "#/components/schemas/PublicTrade"
+      },
+      "title": "Trades",
+      "type": "array"
      }
     },
     "required": [
@@ -3924,6 +3932,89 @@
      "articles"
     ],
     "title": "PublicStock",
+    "type": "object"
+   },
+   "PublicTrade": {
+    "properties": {
+     "amount_max": {
+      "anyOf": [
+       {
+        "type": "integer"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Amount Max"
+     },
+     "amount_min": {
+      "anyOf": [
+       {
+        "type": "integer"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Amount Min"
+     },
+     "amount_text": {
+      "title": "Amount Text",
+      "type": "string"
+     },
+     "kind": {
+      "title": "Kind",
+      "type": "string"
+     },
+     "late": {
+      "anyOf": [
+       {
+        "type": "boolean"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Late"
+     },
+     "person": {
+      "title": "Person",
+      "type": "string"
+     },
+     "received_on": {
+      "format": "date",
+      "title": "Received On",
+      "type": "string"
+     },
+     "report_url": {
+      "title": "Report Url",
+      "type": "string"
+     },
+     "traded_on": {
+      "anyOf": [
+       {
+        "format": "date",
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Traded On"
+     }
+    },
+    "required": [
+     "person",
+     "kind",
+     "traded_on",
+     "amount_min",
+     "amount_max",
+     "amount_text",
+     "late",
+     "received_on",
+     "report_url"
+    ],
+    "title": "PublicTrade",
     "type": "object"
    },
    "QuoteView": {

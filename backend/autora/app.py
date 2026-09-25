@@ -159,6 +159,7 @@ def build_scheduler(
     session_factory: async_sessionmaker[AsyncSession],
     worker_id: str,
     cycles: CycleRunner | None = None,
+    approvals: ApprovalService | None = None,
 ) -> Scheduler:
     """The scheduler with the company's daily cycle (T-601) and every domain's handlers
     (newsroom: the source poller T-501, story clustering T-504, the analytics collector
@@ -166,6 +167,12 @@ def build_scheduler(
     from autora.company.cycle import CYCLE_START_SCHEDULE
     from autora.domains.newsroom.analytics import ANALYTICS_SCHEDULE, AnalyticsCollector
     from autora.domains.newsroom.holdings import HOLDINGS_SCHEDULE, HoldingsKeeper
+    from autora.domains.newsroom.official_trades import (
+        OFFICIAL_SCHEDULE,
+        GeminiTranscriber,
+        HttpFetch,
+        OfficialTradesKeeper,
+    )
     from autora.domains.newsroom.settings import get_newsroom_settings
     from autora.domains.newsroom.sources import POLL_SCHEDULE, SourcePoller
     from autora.domains.newsroom.stories import CLUSTER_SCHEDULE, StoryDesk
@@ -182,6 +189,19 @@ def build_scheduler(
     scheduler.register(CLUSTER_SCHEDULE, desk.schedule_handler())
     scheduler.register(ANALYTICS_SCHEDULE, AnalyticsCollector().schedule_handler())
     scheduler.register(HOLDINGS_SCHEDULE, HoldingsKeeper(fetcher).schedule_handler())
+    # officials' scanned reports need a model that reads a PDF (Gemini's) and a person to check
+    # what it read; without either, nothing is transcribed (D-051)
+    key = settings.gemini_api_key if settings else None
+    model = settings.frontier_model_id if settings else None
+    transcriber = (
+        GeminiTranscriber(key.get_secret_value(), model, settings.gemini_timeout_seconds)
+        if settings and key and model
+        else None
+    )
+    officials = OfficialTradesKeeper(
+        HttpFetch(settings.fetch_contact_email if settings else None), transcriber, approvals
+    )
+    scheduler.register(OFFICIAL_SCHEDULE, officials.schedule_handler())
     if cycles is not None:
         scheduler.register(CYCLE_START_SCHEDULE, cycles.schedule_handler())
     return scheduler
@@ -421,7 +441,9 @@ def build_worker(
         task_manager=runtime.task_manager,
         runner=runner,
         approvals=runtime.approvals,
-        scheduler=build_scheduler(settings, session_factory, settings.worker_id, runtime.cycles),
+        scheduler=build_scheduler(
+            settings, session_factory, settings.worker_id, runtime.cycles, runtime.approvals
+        ),
         services=ServiceDispatcher(
             session_factory=session_factory,
             registry=runtime.services,
