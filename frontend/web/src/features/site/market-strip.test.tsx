@@ -5,6 +5,7 @@ import { cleanup, render, screen, within } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { fetchMarkets, type PublicQuote } from "./api";
+import { advance } from "./drift";
 import { formatChange, formatValue, MarketStrip } from "./MarketStrip";
 import { SiteFooter } from "./SiteFooter";
 
@@ -97,5 +98,19 @@ describe("the market strip", () => {
     );
     expect(await fetchMarkets({ baseUrl: "http://api", fetch: listed })).toHaveLength(5);
     expect((listed.mock.calls[0]![0] as Request).url).toBe("http://api/api/public/markets");
+  });
+});
+
+describe("the strip's drift", () => {
+  it("moves at its speed and wraps where the second copy begins", () => {
+    expect(advance(0, 1, 1000)).toBe(30);
+    expect(advance(990, 1, 1000)).toBe(20); // past one copy: back to the same place in the first
+    expect(advance(10, 0.5, 0)).toBe(10); // nothing to loop over: stays
+  });
+
+  it("does not draw a second copy when the figures already fit", () => {
+    render(<MarketStrip quotes={QUOTES} lang="zh-TW" />);
+    // jsdom lays nothing out: every width is 0, so nothing overflows
+    expect(within(screen.getByTestId("market-strip")).getAllByRole("listitem", { hidden: true })).toHaveLength(QUOTES.length);
   });
 });

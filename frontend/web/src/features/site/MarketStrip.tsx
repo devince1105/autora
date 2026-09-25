@@ -1,13 +1,15 @@
 // The strip of market figures under the site's header (D-048), after Bloomberg's: name, figure,
 // change, red for up and green for down as Taiwanese readers expect. Taiwan, US indices and
-// stocks, rates, oil and crypto, all from the API in one form. It scrolls sideways by hand
-// (arrows on a wide screen, a swipe on a phone) and never by itself: a moving line is hard to read
-// and harder to tap. Every figure says what it is — a close, the previous close, 24 hours.
+// stocks, rates, oil and crypto, all from the API in one form. It drifts slowly to the left and
+// loops (drift.ts), stopping under the pointer; it also scrolls by hand (arrows on a wide screen,
+// a swipe on a phone). Every figure says what it is — a close, the previous close, the latest,
+// 24 hours.
 "use client";
 
 import { useRef } from "react";
 
 import type { PublicQuote } from "./api";
+import { useDrift } from "./drift";
 import { words, type Lang } from "./i18n";
 
 const DECIMALS: Record<string, number> = { btc: 0 };
@@ -51,7 +53,7 @@ function direction(quote: PublicQuote): "rise" | "fall" | "flat" {
 const ARROW = { rise: "↑", fall: "↓", flat: "" } as const;
 const TONE = { rise: "text-rise", fall: "text-fall", flat: "text-muted" } as const;
 
-function Quote({ quote, lang }: { quote: PublicQuote; lang: Lang }) {
+function Quote({ quote, lang, copy = false }: { quote: PublicQuote; lang: Lang; copy?: boolean }) {
   const w = words(lang);
   const way = direction(quote);
   const change = formatChange(quote);
@@ -61,6 +63,7 @@ function Quote({ quote, lang }: { quote: PublicQuote; lang: Lang }) {
   // the title.
   return (
     <li
+      aria-hidden={copy || undefined}
       className="flex h-9 shrink-0 items-center gap-1.5 pr-3 text-xs whitespace-nowrap"
       title={`${w.basis[quote.basis]} ${day}・${quote.source}`}
     >
@@ -83,8 +86,13 @@ function Quote({ quote, lang }: { quote: PublicQuote; lang: Lang }) {
 export function MarketStrip({ quotes, lang }: { quotes: PublicQuote[]; lang: Lang }) {
   const w = words(lang);
   const list = useRef<HTMLUListElement>(null);
+  // it drifts slowly and loops: the figures are drawn a second time, for the eye only
+  const loops = useDrift(list, quotes.length);
   if (quotes.length === 0) return null;
-  const scroll = (by: number) => list.current?.scrollBy({ left: by, behavior: "smooth" });
+  const scroll = (by: number) => {
+    list.current?.dispatchEvent(new Event("drift:rest"));
+    list.current?.scrollBy({ left: by, behavior: "smooth" });
+  };
   const arrow = "hidden size-7 shrink-0 place-items-center rounded-md text-muted hover:bg-canvas hover:text-ink sm:grid";
   return (
     <section aria-label={w.markets} className="border-b border-line print:hidden" data-testid="market-strip">
@@ -99,6 +107,9 @@ export function MarketStrip({ quotes, lang }: { quotes: PublicQuote[]; lang: Lan
           {quotes.map((quote) => (
             <Quote key={quote.key} quote={quote} lang={lang} />
           ))}
+          {loops
+            ? quotes.map((quote) => <Quote key={`${quote.key}:again`} quote={quote} lang={lang} copy />)
+            : null}
         </ul>
         <button type="button" aria-label={w.scrollRight} onClick={() => scroll(240)} className={arrow}>
           ›
