@@ -38,11 +38,11 @@ describe("the market strip", () => {
       .getAllByRole("listitem")
       .filter((li) => li.title); // ours; the US stocks come after
     expect(items.map((li) => li.textContent)).toEqual([
-      "加權指數48,024.60▼−0.28%",
-      "聯發科2454.TW1,650▲+0.92%",
-      "標普5007,725.55▲+0.28%",
-      "美國10年期公債4.12%▼−0.03",
-      "比特幣83,268▼−1.18%",
+      "加權指數48,024.60−0.28%↓",
+      "聯發科2454.TW1,650+0.92%↑",
+      "標普5007,725.55+0.28%↑",
+      "美國10年期公債4.12%−0.03↓",
+      "比特幣83,268−1.18%↓",
     ]);
     expect(items[0]!.getAttribute("title")).toBe("收盤 9/24・TWSE");
     expect(items[2]!.getAttribute("title")).toBe("前一交易日收盤 9/24・FRED");

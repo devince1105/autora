@@ -40,6 +40,11 @@ export const US_TICKERS: readonly [symbol: string, zh: string][] = [
   ["NASDAQ:QQQ", "那斯達克100 ETF"],
 ];
 
+/** The tape's own height in its one-line ("regular") mode, transparent (px). */
+const TAPE_HEIGHT = 44;
+/** Drawn at this size, so its text is the strip's 12px. */
+export const SCALE = 0.7;
+
 export function quotesConfig(lang: Lang, theme: Theme) {
   return {
     symbols: US_TICKERS.map(([proName, zh]) => ({
@@ -100,11 +105,19 @@ export function UsStocks({ lang }: { lang: Lang }) {
       {/* color-scheme light: TradingView's page declares none (so light), and a browser paints an
           opaque light backdrop behind a frame whose scheme differs from its element's — in dark
           mode that was a white band. Its colours are the widget's colorTheme either way. */}
-      <div
-        ref={box}
-        className="tradingview-widget-container min-w-0 flex-1 [color-scheme:light]"
-        data-testid="us-stocks"
-      />
+      {/* TradingView's text cannot be sized, so the tape is drawn larger and scaled down to the
+          strip's 12px; its box is widened by as much, so it still fills the room it is given */}
+      <div className="min-w-0 flex-1 overflow-hidden" style={{ height: TAPE_HEIGHT * SCALE }}>
+        <div
+          style={{ width: `${100 / SCALE}%`, height: TAPE_HEIGHT, transform: `scale(${SCALE})`, transformOrigin: "left top" }}
+        >
+          <div
+            ref={box}
+            className="tradingview-widget-container h-full [color-scheme:light]"
+            data-testid="us-stocks"
+          />
+        </div>
+      </div>
       <a
         href="https://www.tradingview.com/"
         rel="noopener nofollow"

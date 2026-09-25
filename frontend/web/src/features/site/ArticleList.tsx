@@ -1,10 +1,10 @@
 // The site's front page (D-047): the newest story large, then the rest as a list of headlines —
-// a news reader scans headlines, and these stories have no pictures to put in cards. Above them,
-// the sections; below, the way to older ones.
+// a news reader scans headlines, and these stories have no pictures to put in cards. Below them,
+// the way to older ones. The sections are in the header (SectionNav).
 import Link from "next/link";
 
 import type { PublicArticleSummary } from "./api";
-import { formatDate, SECTIONS, words, type Lang, type Section } from "./i18n";
+import { formatDate, words, type Lang, type Section } from "./i18n";
 
 export const PAGE_SIZE = 10;
 
@@ -15,30 +15,6 @@ export function listHref(lang: Lang, section: Section | null, page = 1): string 
   if (page > 1) query.set("page", String(page));
   const qs = query.toString();
   return `/news/${lang}${qs ? `?${qs}` : ""}`;
-}
-
-function SectionTabs({ lang, section }: { lang: Lang; section: Section | null }) {
-  const w = words(lang);
-  const tabs: [Section | null, string][] = [[null, w.all], ...SECTIONS.map((s): [Section, string] => [s, w.sections[s]])];
-  return (
-    <nav aria-label={w.sectionsLabel} className="-mx-4 overflow-x-auto px-4 print:hidden">
-      <ul className="flex min-w-max gap-1 border-b border-line">
-        {tabs.map(([id, label]) => (
-          <li key={id ?? "all"}>
-            <Link
-              href={listHref(lang, id)}
-              aria-current={id === section ? "page" : undefined}
-              className={`-mb-px block border-b-2 px-3 py-2.5 text-sm ${
-                id === section ? "border-accent font-semibold text-ink" : "border-transparent text-muted hover:text-ink"
-              }`}
-            >
-              {label}
-            </Link>
-          </li>
-        ))}
-      </ul>
-    </nav>
-  );
 }
 
 function Meta({ article, lang }: { article: PublicArticleSummary; lang: Lang }) {
@@ -107,12 +83,11 @@ export function ArticleList({
   const lead = page === 1 ? articles[0] : undefined;
   const rest = lead ? articles.slice(1) : articles;
   return (
-    <section className="mx-auto max-w-3xl px-4 pt-6 pb-10">
+    <section className="mx-auto max-w-3xl px-4 pt-2 pb-10">
       <h1 className="sr-only">
         {section ? w.sections[section] : w.latest}
         {page > 1 ? `・${w.page(page)}` : ""}
       </h1>
-      <SectionTabs lang={lang} section={section} />
       {articles.length === 0 ? (
         <p className="py-16 text-center text-muted">{w.empty}</p>
       ) : (

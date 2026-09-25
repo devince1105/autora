@@ -40,7 +40,7 @@ function direction(quote: PublicQuote): "rise" | "fall" | "flat" {
   return shown > 0 ? "rise" : shown < 0 ? "fall" : "flat";
 }
 
-const ARROW = { rise: "▲", fall: "▼", flat: "" } as const;
+const ARROW = { rise: "↑", fall: "↓", flat: "" } as const;
 const TONE = { rise: "text-rise", fall: "text-fall", flat: "text-muted" } as const;
 
 function Quote({ quote, lang }: { quote: PublicQuote; lang: Lang }) {
@@ -52,17 +52,19 @@ function Quote({ quote, lang }: { quote: PublicQuote; lang: Lang }) {
   // the Taiwan figures and the US ones read as one strip. The day and source are in the title.
   return (
     <li
-      className="flex h-11 shrink-0 items-center gap-1.5 border-r border-line pr-4 pl-1 text-sm whitespace-nowrap last:border-r-0"
+      className="flex h-9 shrink-0 items-center gap-1.5 pr-3 text-xs whitespace-nowrap"
       title={`${w.basis[quote.basis]} ${day}・${quote.source}`}
     >
       <span className="font-semibold">{w.quoteNames[quote.key] ?? quote.key}</span>
-      {twCode(quote.key) ? <span className="text-xs text-muted">{twCode(quote.key)}</span> : null}
-      <span className="tabular-nums">{formatValue(quote, lang)}</span>
+      {twCode(quote.key) ? <span className="text-muted">{twCode(quote.key)}</span> : null}
+      <span className={`font-medium tabular-nums ${TONE[way]}`}>{formatValue(quote, lang)}</span>
       {change ? (
         <span className={`tabular-nums ${TONE[way]}`}>
-          <span aria-hidden>{ARROW[way]}</span>
           <span className="sr-only">{way === "rise" ? "+" : way === "fall" ? "−" : ""}</span>
           {change}
+          <span aria-hidden className="ml-0.5">
+            {ARROW[way]}
+          </span>
         </span>
       ) : null}
     </li>
@@ -77,25 +79,25 @@ export function MarketStrip({ quotes, lang }: { quotes: PublicQuote[]; lang: Lan
   const arrow = "hidden size-7 shrink-0 place-items-center rounded-md text-muted hover:bg-canvas hover:text-ink sm:grid";
   return (
     <section aria-label={w.markets} className="border-b border-line print:hidden" data-testid="market-strip">
-      {/* the whole width of the window, not the page's column: a wider window shows more. Our
-          cards on the left, the US stocks beside them (under them on a phone), one block */}
-      <div className="flex flex-col px-4 lg:flex-row lg:items-center lg:gap-4">
-        <div className="flex min-w-0 items-center gap-2 lg:w-1/2">
+      {/* the whole width of the window, not the page's column: a wider window shows more. Ours
+          on the left, the US stocks beside them (under them on a phone), one strip */}
+      <div className="flex flex-col px-2 lg:flex-row lg:items-center lg:gap-4">
+        <div className="flex min-w-0 items-center lg:w-1/2">
+          <button type="button" aria-label={w.scrollLeft} onClick={() => scroll(-240)} className={arrow}>
+            ‹
+          </button>
           {/* relative: the screen-reader signs inside are absolutely positioned, and without a
               positioned row they escape its clipping and widen the whole page */}
-          <ul ref={list} className="relative flex min-w-0 flex-1 gap-3 overflow-x-auto [scrollbar-width:none]">
+          <ul ref={list} className="relative flex min-w-0 flex-1 gap-3 overflow-x-auto px-2 [scrollbar-width:none]">
             {quotes.map((quote) => (
               <Quote key={quote.key} quote={quote} lang={lang} />
             ))}
           </ul>
-          <button type="button" aria-label={w.scrollLeft} onClick={() => scroll(-240)} className={arrow}>
-            ‹
-          </button>
           <button type="button" aria-label={w.scrollRight} onClick={() => scroll(240)} className={arrow}>
             ›
           </button>
         </div>
-        <div className="min-w-0 lg:w-1/2">
+        <div className="min-w-0 px-2 lg:w-1/2 lg:px-0">
           <UsStocks lang={lang} />
         </div>
       </div>

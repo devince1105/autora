@@ -6,10 +6,17 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { fetchArticles, type PublicArticle, type PublicArticleSummary } from "./api";
 import { ArticleList, listHref } from "./ArticleList";
 import { ArticleView } from "./ArticleView";
+import { currentSection, SectionNav } from "./SectionNav";
 import { pickVoice } from "./ReadingTools";
 import { isSection } from "./i18n";
 import { applyTheme, currentTheme, THEME_KEY, THEME_SCRIPT } from "./theme";
 import { ThemeToggle } from "./ThemeToggle";
+
+const nav = vi.hoisted(() => ({ pathname: "/news/zh-TW", search: "" }));
+vi.mock("next/navigation", () => ({
+  usePathname: () => nav.pathname,
+  useSearchParams: () => new URLSearchParams(nav.search),
+}));
 
 afterEach(() => {
   cleanup();
@@ -50,11 +57,13 @@ describe("the front page", () => {
     const headlines = screen.getAllByRole("heading", { level: 2 }).map((h) => h.textContent);
     expect(headlines).toEqual(["第 1 篇", "第 2 篇", "第 3 篇"]);
     expect(screen.getByRole("heading", { level: 2, name: "第 1 篇" }).closest("article")).toBeTruthy();
-    expect(screen.getAllByText("大戶持股")).toHaveLength(3 + 1); // each story's label and the tab
+    expect(screen.getAllByText("大戶持股")).toHaveLength(3); // each story's label
   });
 
-  it("has a tab per section, the current one marked", () => {
-    render(<ArticleList articles={[summary(1)]} lang="zh-TW" section="ai" />);
+  it("has a tab per section under the masthead, the current one marked", () => {
+    nav.pathname = "/news/zh-TW";
+    nav.search = "section=ai";
+    render(<SectionNav lang="zh-TW" />);
     const tabs = within(screen.getByRole("navigation", { name: "報導分類" })).getAllByRole("link");
     expect(tabs.map((t) => [t.textContent, t.getAttribute("href")])).toEqual([
       ["全部", "/news/zh-TW"],
@@ -65,6 +74,12 @@ describe("the front page", () => {
       ["加密貨幣", "/news/zh-TW?section=crypto"],
     ]);
     expect(tabs.filter((t) => t.getAttribute("aria-current") === "page").map((t) => t.textContent)).toEqual(["AI 科技"]);
+  });
+
+  it("marks no section away from the front page, and all on it without one", () => {
+    expect(currentSection("zh-TW", "/news/zh-TW/articles/x", "ai")).toBeNull();
+    expect(currentSection("zh-TW", "/news/zh-TW", null)).toBe("all");
+    expect(currentSection("en", "/news/en", "nft")).toBe("all");
   });
 
   it("pages to older stories and back, in the same section", () => {
