@@ -20,15 +20,16 @@ function Tabs({ lang, current }: { lang: Lang; current: Section | "all" | null }
   const w = words(lang);
   const tabs: [Section | null, string][] = [[null, w.all], ...SECTIONS.map((s): [Section, string] => [s, w.sections[s]])];
   return (
-    <ul className="mx-auto flex w-max gap-1 px-4">
+    // px-1: with each tab's own px-3, the first label sits on the column's edge, under the masthead
+    <ul className="mx-auto flex max-w-3xl gap-1 px-1">
       {tabs.map(([id, label]) => {
         const here = (id ?? "all") === current;
         return (
-          <li key={id ?? "all"}>
+          <li key={id ?? "all"} className="shrink-0">
             <Link
               href={listHref(lang, id)}
               aria-current={here ? "page" : undefined}
-              className={`block border-b-2 px-3 py-2.5 text-sm ${
+              className={`block border-b-2 px-3 py-2.5 text-sm whitespace-nowrap ${
                 here ? "border-ink font-semibold text-ink" : "border-transparent text-muted hover:text-ink"
               }`}
             >

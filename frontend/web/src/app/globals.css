@@ -83,6 +83,7 @@ body {
 @theme inline {
   --font-display: var(--font-site-sans), system-ui, -apple-system, "PingFang TC", "Noto Sans TC",
     "Microsoft JhengHei", sans-serif;
+  --font-brand: var(--font-site-serif), "Noto Serif TC", "Songti TC", serif;
   --font-reading: var(--font-site-sans), system-ui, -apple-system, "PingFang TC", "Noto Sans TC",
     "Microsoft JhengHei", sans-serif;
 }

@@ -7,6 +7,7 @@ import { fetchArticles, type PublicArticle, type PublicArticleSummary } from "./
 import { ArticleList, listHref } from "./ArticleList";
 import { ArticleView } from "./ArticleView";
 import { currentSection, SectionNav } from "./SectionNav";
+import { SiteName } from "./SiteName";
 import { pickVoice } from "./ReadingTools";
 import { isSection } from "./i18n";
 import { applyTheme, currentTheme, THEME_KEY, THEME_SCRIPT } from "./theme";
@@ -226,5 +227,19 @@ describe("the voice that reads aloud", () => {
   it("never a Mainland or Hong Kong voice for Taiwanese text, and nothing when there is none", () => {
     expect(pickVoice([v("Tingting", "zh-CN"), v("Sinji", "zh-HK")], "zh-TW")).toBeNull();
     expect(pickVoice([v("Eddy (Chinese (Taiwan))", "zh_TW")], "zh-TW")?.name).toBe("Eddy (Chinese (Taiwan))"); // better than nothing
+  });
+});
+
+describe("the site's name on the masthead", () => {
+  it("draws 艾 as a rose heart and still reads 艾矽鯨; English is left as it is", () => {
+    const { container } = render(<SiteName lang="zh-TW" />);
+    expect(container.textContent).toBe("艾矽鯨");
+    const heart = container.querySelector("svg")!;
+    expect(heart.getAttribute("aria-hidden")).toBe("true");
+    expect(heart.getAttribute("class")).toContain("text-rose-600");
+    cleanup();
+    const en = render(<SiteName lang="en" />);
+    expect(en.container.textContent).toBe("AiSiWhale");
+    expect(en.container.querySelector("svg")).toBeNull();
   });
 });

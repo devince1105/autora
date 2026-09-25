@@ -12,6 +12,7 @@ import { isLang, LANG_NAMES, LANGS, words } from "@/features/site/i18n";
 import { membershipOpen } from "@/features/site/membership";
 import { operator } from "@/features/site/operator";
 import { SectionNav } from "@/features/site/SectionNav";
+import { SiteName } from "@/features/site/SiteName";
 import { SiteFooter } from "@/features/site/SiteFooter";
 import { ThemeToggle } from "@/features/site/ThemeToggle";
 
@@ -30,23 +31,30 @@ export default async function SiteLayout({
     <div lang={lang} className="flex min-h-screen flex-col">
       {/* after the WSJ's: the market strip on top, the masthead, then the sections */}
       <MarketStrip quotes={quotes} lang={lang} />
-      <header className="relative px-4 pt-5 pb-3 text-center print:pt-0">
-        <span className="absolute top-3 right-4 flex items-center gap-1 text-sm print:hidden">
-          <ThemeToggle lang={lang} />
-          <MemberBadge lang={lang} />
-        </span>
-        <Link href={`/news/${lang}`} className="inline-block px-20 sm:px-0">
-          <span className="block font-display text-3xl font-black tracking-wider sm:text-5xl">{w.site}</span>
-        </Link>
-        <p className="mt-1.5 flex items-center justify-center gap-3 text-xs text-muted">
-          <span>{w.tagline}</span>
-          <span aria-hidden className="text-line">|</span>
+      <header className="mx-auto flex w-full max-w-3xl items-start justify-between gap-4 px-4 pt-5 pb-3 print:pt-0">
+        <div className="min-w-0">
+          <Link href={`/news/${lang}`} className="inline-block">
+            <span className="block font-display text-3xl font-black tracking-wider sm:text-5xl">
+              <SiteName lang={lang} />
+            </span>
+          </Link>
+          <p className="mt-1.5 text-xs text-muted">{w.tagline}</p>
+        </div>
+        {/* the reader's controls together, top right: the other language, light or dark, sign-in */}
+        <span className="flex shrink-0 items-center gap-1 text-sm print:hidden">
           {LANGS.filter((other) => other !== lang).map((other) => (
-            <Link key={other} href={`/news/${other}`} hrefLang={other} className="hover:text-ink print:hidden">
+            <Link
+              key={other}
+              href={`/news/${other}`}
+              hrefLang={other}
+              className="rounded-md px-2 py-1.5 text-muted hover:bg-canvas hover:text-ink"
+            >
               {LANG_NAMES[other]}
             </Link>
           ))}
-        </p>
+          <ThemeToggle lang={lang} />
+          <MemberBadge lang={lang} />
+        </span>
       </header>
       <SectionNav lang={lang} />
       <main className="flex-1">{children}</main>

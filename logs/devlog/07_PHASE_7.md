@@ -1492,6 +1492,7 @@ T-611 之後，商業迴圈已經有 CEO 評估機會、策略師把機會寫成
 - 使用者換了 FRED 金鑰，但 `.env` 裡仍是 `sugra` 開頭、34 字元（有大寫與底線），FRED 仍回 400；美國四項照舊不顯示。新的紀錄方式確認只記「HTTP 400 from api.stlouisfed.org/…」，不含金鑰。
 - 使用者貼 WSJ 的頁首參考：改成市場指標列在最上方（12px、值與漲跌同色、箭頭在後）、置中的大刊頭、分類改到刊頭下方每頁都有、捲動後固定（`SectionNav`，首頁標出目前分類）。
 - 使用者：「你被 TradingView 的框架限制住了，跟台股一樣用 API 串就好」。說得對：拿掉 TradingView（元件、隱私權政策那段都還原），美股個股改由後端向 Finnhub 抓，跟台股同一種卡片。需要使用者在 `.env` 填 `FINNHUB_API_KEY`（investment-dev 用的那把也可以）。
+- 使用者：刊頭與分類靠左對齊（和文章欄同一條左緣）、「艾」改用 Lucide 的 heart（實心、rose-600，路徑對照 investment-dev 已安裝的 lucide-react 一致；專案沒裝 lucide，只為一個圖示不加套件）、「矽鯨」用襯線（Noto Serif TC 900，只有這兩個字用，瀏覽器只下載它們所在的切片）、語系切換從標語旁移到右上角與深淺色、登入放一起。螢幕閱讀器與複製仍是「艾矽鯨」；英文版名稱不變。
 - **本機資料庫反覆當掉**：頁面偶爾 500，API 紀錄是「the database system is in recovery mode」。Postgres 過去 3 小時 6 次「server process exited with exit code 2」後全體重啟，時間與我跑完整測試重疊（15:38 沒在跑測試也當了一次，原因未查明）；checkpoint 的 sync 一度 316 秒，Docker VM 的磁碟 I/O 非常慢（同時跑著另外 6 個容器，含 SQL Server）。記憶體與磁碟空間都正常。本機環境問題，不是程式；已告知使用者。
 
 ---
