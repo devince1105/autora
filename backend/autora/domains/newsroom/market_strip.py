@@ -35,9 +35,9 @@ Basis = Literal["close", "prev_close", "last", "24h"]
 before); last: the latest trade, against the previous close (the close itself once the market
 has shut); 24h: now, against 24 hours ago (crypto has no close)."""
 
-TW_STOCKS = ("2330", "2317", "2454", "2382", "3231", "6669", "2308", "3711", "2376")
-"""Taiwan stocks on the strip, AI first, by exchange code: TSMC, Hon Hai, MediaTek, Quanta,
-Wistron, Wiwynn, Delta, ASE, Gigabyte — the chips and the AI server supply chain. Keyed
+TW_STOCKS = ("2330", "2317", "2454", "2382", "2308")
+"""Taiwan stocks on the strip, the five that matter most to AI, by exchange code: TSMC, Hon Hai,
+MediaTek, Quanta, Delta — the chips, the servers and their power. Keyed
 ``tw:<code>``; the site shows the code as ``2330.TW``. The strip shows them in this order."""
 
 US_STOCKS = (
