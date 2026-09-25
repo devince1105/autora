@@ -3639,6 +3639,69 @@
     "title": "PublicNeighbour",
     "type": "object"
    },
+   "PublicQuote": {
+    "properties": {
+     "as_of": {
+      "format": "date",
+      "title": "As Of",
+      "type": "string"
+     },
+     "basis": {
+      "enum": [
+       "close",
+       "prev_close",
+       "24h"
+      ],
+      "title": "Basis",
+      "type": "string"
+     },
+     "change": {
+      "anyOf": [
+       {
+        "type": "number"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Change"
+     },
+     "change_pct": {
+      "anyOf": [
+       {
+        "type": "number"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Change Pct"
+     },
+     "key": {
+      "title": "Key",
+      "type": "string"
+     },
+     "source": {
+      "title": "Source",
+      "type": "string"
+     },
+     "value": {
+      "title": "Value",
+      "type": "number"
+     }
+    },
+    "required": [
+     "key",
+     "value",
+     "change",
+     "change_pct",
+     "as_of",
+     "basis",
+     "source"
+    ],
+    "title": "PublicQuote",
+    "type": "object"
+   },
    "PublicSource": {
     "properties": {
      "site": {
@@ -7643,6 +7706,32 @@
      }
     },
     "summary": "Get Article",
+    "tags": [
+     "public"
+    ]
+   }
+  },
+  "/api/public/markets": {
+   "get": {
+    "description": "The figures under the site's header, in the order shown; one a service never gave is\nleft out rather than shown as zero.",
+    "operationId": "markets_api_public_markets_get",
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "items": {
+          "$ref": "#/components/schemas/PublicQuote"
+         },
+         "title": "Response Markets Api Public Markets Get",
+         "type": "array"
+        }
+       }
+      },
+      "description": "Successful Response"
+     }
+    },
+    "summary": "Markets",
     "tags": [
      "public"
     ]

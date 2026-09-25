@@ -29,6 +29,8 @@ export const LEGAL_PAGES = ["terms", "privacy", "refund"] as const;
 export type LegalPage = (typeof LEGAL_PAGES)[number];
 
 const UPDATED = "2026-09-24";
+/** The privacy policy changed on its own: the TradingView quotes (D-048). */
+const PRIVACY_UPDATED = "2026-09-25";
 
 function who(op: Operator, lang: Lang): string {
   if (lang === "en") return op.owner ? `${op.brand} (${op.owner})` : op.brand;
@@ -178,7 +180,7 @@ function privacy(lang: Lang, op: Operator): LegalDoc {
   if (lang === "en") {
     return {
       title: "Privacy Policy",
-      updated: UPDATED,
+      updated: PRIVACY_UPDATED,
       sections: [
         {
           heading: "1. Who is responsible",
@@ -195,7 +197,7 @@ function privacy(lang: Lang, op: Operator): LegalDoc {
               "Your orders and payments (plan, amount, time, the payment provider's reference): to grant your membership and keep accounts.",
               "Reading counts: when you open a story, your browser sends a random id that it replaces every day. It cannot be linked to you or followed from one day to the next, and nothing else about you is sent.",
             ],
-            "We do not collect your card number, your name, your address or your phone number. We do not use advertising or third-party tracking.",
+            "We do not collect your card number, your name, your address or your phone number. We do not use advertising, and apart from the TradingView quotes described below, no third-party tracking.",
           ],
         },
         {
@@ -204,6 +206,7 @@ function privacy(lang: Lang, op: Operator): LegalDoc {
             [
               "PAYUNi (統一金流), to take your payment. We pass your email address so that PAYUNi can send your receipt; your card details go to PAYUNi directly.",
               "Resend, which delivers our sign-in emails, receives your email address for that purpose.",
+              "TradingView shows the US stock quotes under the site's header. Your browser loads them from TradingView directly, so TradingView receives your IP address and browser details and may set cookies, under its own privacy policy. We give TradingView nothing about you.",
               "Our hosting provider stores the data on our behalf.",
             ],
             "Inside our own system, your email address is kept only in the account table. The software that runs the newsroom and the business — including its AI agents — knows members only by an anonymous id.",
@@ -231,7 +234,7 @@ function privacy(lang: Lang, op: Operator): LegalDoc {
   }
   return {
     title: "隱私權政策",
-    updated: UPDATED,
+    updated: PRIVACY_UPDATED,
     sections: [
       {
         heading: "一、蒐集者",
@@ -248,7 +251,7 @@ function privacy(lang: Lang, op: Operator): LegalDoc {
             "訂單與付款紀錄（方案、金額、時間、金流服務商的交易編號）：用來開通會員資格與記帳。",
             "閱讀統計：你打開報導時，瀏覽器會送出一個每天更換的隨機編號。這個編號無法對應到你本人，也無法跨日追蹤，除此之外不會送出任何關於你的資訊。",
           ],
-          "我們不蒐集你的卡號、姓名、地址或電話，也不使用廣告或第三方追蹤工具。",
+          "我們不蒐集你的卡號、姓名、地址或電話，也不使用廣告；除了下面說明的 TradingView 報價元件，不使用第三方追蹤工具。",
         ],
       },
       {
@@ -257,6 +260,7 @@ function privacy(lang: Lang, op: Operator): LegalDoc {
           [
             "統一金流（PAYUNi）：處理付款。我們會提供你的 email，讓統一金流寄送付款通知；信用卡資料由你直接在統一金流的頁面輸入。",
             "Resend：代我們寄送登入信，因此會收到你的 email。",
+            "TradingView：網站頁首下方的美股報價由 TradingView 的元件顯示。你的瀏覽器會直接向 TradingView 載入報價，因此 TradingView 會收到你的 IP 位址與瀏覽器資訊，並可能設定 cookie，依它自己的隱私權政策處理。我們不會提供任何關於你的資料給 TradingView。",
             "主機服務商：代我們保存資料。",
           ],
           "在本站系統內部，你的 email 只存放在帳號資料表中。負責新聞室與營運的程式（包括其中的 AI 代理）只以匿名編號辨識會員。",

@@ -112,6 +112,11 @@ class Settings(BaseSettings):
     """Who to write to about the newsroom's fetching. SEC refuses automated requests that do not
     name one, in exactly the form "Name email" (D-036); other sites are just as happy with it."""
 
+    # --- The public site's market strip (D-048) ---
+    fred_api_key: SecretStr | None = None
+    """FRED (St. Louis Fed), free: the US indices' previous close, the 10-year yield and oil.
+    Without it the strip shows only Taiwan and crypto."""
+
     # --- Blob storage (T-210) ---
     blob_store_dir: Path = Path(__file__).resolve().parents[3] / "data" / "blobs"
     """LocalFS blob root. Relative paths resolve against the current directory."""
@@ -161,6 +166,7 @@ class Settings(BaseSettings):
         "nvidia_api_key",
         "gemini_api_key",
         "tavily_api_key",
+        "fred_api_key",
         "resend_api_key",
         "payuni_mer_id",
         "payuni_hash_key",

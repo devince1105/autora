@@ -11,6 +11,7 @@ import type { Section } from "./i18n";
 
 export type PublicArticle = Schemas["PublicArticle"];
 export type PublicArticleSummary = Schemas["PublicArticleSummary"];
+export type PublicQuote = Schemas["PublicQuote"];
 
 export interface SiteClientOptions {
   baseUrl?: string;
@@ -58,4 +59,14 @@ export async function fetchArticles(lang: string, options: ListOptions = {}): Pr
   });
   if (error !== undefined || !data) throw ApiError.from(response, error);
   return data;
+}
+
+/** The market strip's figures (D-048). Never throws: the strip is left out instead of the page. */
+export async function fetchMarkets(options: SiteClientOptions = {}): Promise<PublicQuote[]> {
+  try {
+    const { data } = await client(options).GET("/api/public/markets");
+    return data ?? [];
+  } catch {
+    return [];
+  }
 }

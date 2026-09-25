@@ -5,6 +5,8 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import type { ReactNode } from "react";
 
+import { fetchMarkets } from "@/features/site/api";
+import { MarketStrip } from "@/features/site/MarketStrip";
 import { MemberBadge } from "@/features/site/MemberBadge";
 import { isLang, LANG_NAMES, LANGS, words } from "@/features/site/i18n";
 import { membershipOpen } from "@/features/site/membership";
@@ -22,6 +24,7 @@ export default async function SiteLayout({
   const { lang } = await params;
   if (!isLang(lang)) notFound();
   const w = words(lang);
+  const quotes = await fetchMarkets();
   return (
     <div lang={lang} className="flex min-h-screen flex-col">
       <header className="sticky top-0 z-30 border-b border-line bg-surface/85 backdrop-blur-md print:static print:border-0">
@@ -48,8 +51,9 @@ export default async function SiteLayout({
           </span>
         </nav>
       </header>
+      <MarketStrip quotes={quotes} lang={lang} />
       <main className="flex-1">{children}</main>
-      <SiteFooter lang={lang} operator={operator()} membershipOpen={membershipOpen()} />
+      <SiteFooter lang={lang} operator={operator()} membershipOpen={membershipOpen()} marketSources={[...new Set(quotes.map((q) => q.source))]} />
     </div>
   );
 }

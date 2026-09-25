@@ -708,6 +708,27 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/public/markets": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Markets
+         * @description The figures under the site's header, in the order shown; one a service never gave is
+         *     left out rather than shown as zero.
+         */
+        get: operations["markets_api_public_markets_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/roles": {
         parameters: {
             query?: never;
@@ -2306,6 +2327,29 @@ export interface components {
             path: string;
             /** Title */
             title: string;
+        };
+        /** PublicQuote */
+        PublicQuote: {
+            /**
+             * As Of
+             * Format: date
+             */
+            as_of: string;
+            /**
+             * Basis
+             * @enum {string}
+             */
+            basis: "close" | "prev_close" | "24h";
+            /** Change */
+            change: number | null;
+            /** Change Pct */
+            change_pct: number | null;
+            /** Key */
+            key: string;
+            /** Source */
+            source: string;
+            /** Value */
+            value: number;
         };
         /** PublicSource */
         PublicSource: {
@@ -4261,6 +4305,26 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    markets_api_public_markets_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PublicQuote"][];
                 };
             };
         };

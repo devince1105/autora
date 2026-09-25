@@ -9,10 +9,13 @@ export function SiteFooter({
   lang,
   operator,
   membershipOpen = false,
+  marketSources = [],
 }: {
   lang: Lang;
   operator: Operator;
   membershipOpen?: boolean;
+  /** Whose figures the market strip shows, to credit them (D-048; CoinGecko asks it). */
+  marketSources?: string[];
 }) {
   const w = words(lang);
   // while everything is free there is nothing to price and nothing to refund (D-035)
@@ -57,6 +60,9 @@ export function SiteFooter({
             </>
           ) : null}
         </p>
+        {marketSources.length ? (
+          <p className="mt-3 text-xs">{w.marketsCredit(marketSources.map((s) => w.sourceNames[s] ?? s))}</p>
+        ) : null}
       </div>
     </footer>
   );

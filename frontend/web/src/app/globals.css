@@ -16,6 +16,9 @@
   --color-danger-soft: #fdf0f0;
   --color-danger-line: #f3c6c6;
   --color-neutral: #9aa3af;
+  /* prices, the Taiwanese way: red is up, green is down (D-048) */
+  --color-rise: #d64545;
+  --color-fall: #1f9d55;
 
   --font-sans: system-ui, -apple-system, "PingFang TC", "Noto Sans TC", "Microsoft JhengHei",
     sans-serif;

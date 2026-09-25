@@ -8,19 +8,22 @@ nothing about the reader either way.
 - GET  /api/public/articles?lang=zh-TW[&company=<slug>][&section=ai][&limit=20][&offset=0]:
   newest published first
 - GET  /api/public/articles/{lang}/{slug}: one published article (404: not published in lang)
+- GET  /api/public/markets: the market strip's figures, closing or delayed (D-048)
 - POST /api/analytics/beacon: {article_id, lang, event_type, session_hash} -> 204
 """
 
 from __future__ import annotations
 
 import uuid
+from functools import lru_cache
 from typing import Annotated, Literal
 
-from fastapi import APIRouter, Cookie, HTTPException, Query, Response, status
+from fastapi import APIRouter, Cookie, Depends, HTTPException, Query, Response, status
 from pydantic import BaseModel, Field
 
 from autora.accounts import SESSION_COOKIE, customer_ref, reader_for
 from autora.company import memberships
+from autora.domains.newsroom.market_strip import PublicQuote, QuoteBoard, build_board
 from autora.domains.newsroom.models import AnalyticsEventType
 from autora.domains.newsroom.site import (
     MAX_LIST,
@@ -31,6 +34,7 @@ from autora.domains.newsroom.site import (
     published_articles,
     record_beacon,
 )
+from autora.infra.settings import get_settings
 from autora_api.deps import Session
 
 router = APIRouter(tags=["public"])
@@ -76,6 +80,20 @@ async def get_article(
     if until is None:
         return article
     return await published_article(session, lang, slug, unlocked=True) or article
+
+
+@lru_cache
+def market_board() -> QuoteBoard:
+    """One board per process: it is the cache, so every reader is served from the same one."""
+    key = get_settings().fred_api_key
+    return build_board(fred_api_key=key.get_secret_value() if key else None)
+
+
+@router.get("/api/public/markets")
+async def markets(board: Annotated[QuoteBoard, Depends(market_board)]) -> list[PublicQuote]:
+    """The figures under the site's header, in the order shown; one a service never gave is
+    left out rather than shown as zero."""
+    return await board.quotes()
 
 
 class Beacon(BaseModel):
