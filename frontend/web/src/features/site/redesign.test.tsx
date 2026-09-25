@@ -6,6 +6,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { fetchArticles, type PublicArticle, type PublicArticleSummary } from "./api";
 import { ArticleList, listHref } from "./ArticleList";
 import { ArticleView } from "./ArticleView";
+import { pickVoice } from "./ReadingTools";
 import { isSection } from "./i18n";
 import { applyTheme, currentTheme, THEME_KEY, THEME_SCRIPT } from "./theme";
 import { ThemeToggle } from "./ThemeToggle";
@@ -181,5 +182,34 @@ describe("a site reached without the page-load script", () => {
     expect(screen.getByRole("button", { name: "Switch to light mode" })).toBeTruthy();
     window.localStorage.removeItem(THEME_KEY);
     site.remove();
+  });
+});
+
+describe("the voice that reads aloud", () => {
+  const v = (name: string, lang: string) => ({ name, lang });
+  const MAC = [
+    v("Eddy (Chinese (Taiwan))", "zh-TW"),
+    v("Flo (Chinese (Taiwan))", "zh-TW"),
+    v("Tingting", "zh-CN"),
+    v("Meijia", "zh-TW"),
+    v("Samantha", "en-US"),
+    v("Albert", "en-US"),
+  ];
+
+  it("is a real Taiwanese voice, not a novelty one that happens to come first", () => {
+    expect(pickVoice(MAC, "zh-TW")?.name).toBe("Meijia");
+    expect(pickVoice(MAC, "en")?.name).toBe("Samantha");
+  });
+
+  it("prefers a neural voice when the system has one", () => {
+    const edge = [v("Microsoft Zhiwei - Chinese (Taiwan)", "zh-TW"), v("Microsoft HsiaoChen Online (Natural) - Chinese (Taiwan)", "zh-TW")];
+    expect(pickVoice(edge, "zh-TW")?.name).toContain("HsiaoChen Online");
+    expect(pickVoice([...MAC, v("Meijia (Enhanced)", "zh-TW")], "zh-TW")?.name).toBe("Meijia (Enhanced)");
+    expect(pickVoice([v("Google 國語（臺灣）", "zh-TW"), ...MAC], "zh-TW")?.name).toBe("Google 國語（臺灣）");
+  });
+
+  it("never a Mainland or Hong Kong voice for Taiwanese text, and nothing when there is none", () => {
+    expect(pickVoice([v("Tingting", "zh-CN"), v("Sinji", "zh-HK")], "zh-TW")).toBeNull();
+    expect(pickVoice([v("Eddy (Chinese (Taiwan))", "zh_TW")], "zh-TW")?.name).toBe("Eddy (Chinese (Taiwan))"); // better than nothing
   });
 });
