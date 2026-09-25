@@ -7708,6 +7708,7 @@
         {
          "enum": [
           "holdings",
+          "figures",
           "ai",
           "tw",
           "us",

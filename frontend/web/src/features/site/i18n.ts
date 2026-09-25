@@ -19,7 +19,7 @@ const WORDS = {
     revised: "更新於",
     allStories: "所有報導",
     all: "全部",
-    sections: { holdings: "大戶持股", ai: "AI 科技", tw: "台股", us: "美股", crypto: "加密貨幣" },
+    sections: { holdings: "大戶持股", figures: "名人持股", ai: "AI 科技", tw: "台股", us: "美股", crypto: "加密貨幣" },
     sectionsLabel: "報導分類",
     newerPage: "← 較新的報導",
     olderPage: "較舊的報導 →",
@@ -171,7 +171,14 @@ const WORDS = {
     revised: "Updated",
     allStories: "All stories",
     all: "All",
-    sections: { holdings: "Holdings", ai: "AI & Tech", tw: "Taiwan", us: "US stocks", crypto: "Crypto" },
+    sections: {
+      holdings: "Holdings",
+      figures: "Public figures",
+      ai: "AI & Tech",
+      tw: "Taiwan",
+      us: "US stocks",
+      crypto: "Crypto",
+    },
     sectionsLabel: "Sections",
     newerPage: "← Newer stories",
     olderPage: "Older stories →",
@@ -302,7 +309,7 @@ const WORDS = {
 } as const;
 
 /** The site's sections (D-047), as the API names them. */
-export const SECTIONS = ["holdings", "ai", "tw", "us", "crypto"] as const;
+export const SECTIONS = ["holdings", "figures", "ai", "tw", "us", "crypto"] as const;
 export type Section = (typeof SECTIONS)[number];
 
 export function isSection(value: unknown): value is Section {

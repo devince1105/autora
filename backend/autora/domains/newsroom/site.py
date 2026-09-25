@@ -15,8 +15,8 @@ Beacons (``record_beacon``) count readers without knowing who they are: the brow
 random id it makes each day (``session_hash``); no IP address or anything else about the reader is
 stored. One count per session, article, language, kind and day: repeats are dropped.
 
-The site is in sections (D-047): big investors' filings, AI and tech, Taiwan stocks, US stocks,
-crypto. An article's section is not stored — it is its story's, which is the section most of the
+The site is in sections (D-047): big investors' filings, public figures' holdings (D-050), AI
+and tech, Taiwan stocks, US stocks, crypto. An article's section is not stored — it is its story's, which is the section most of the
 story's items' sources name (``config.section``). Retagging a source moves what is already
 written.
 """

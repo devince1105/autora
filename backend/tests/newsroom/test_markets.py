@@ -41,7 +41,16 @@ async def test_every_filing_source_says_whose_it_is_and_stands_alone(db_session)
             )
         )
     ).all()
-    assert len(filings) == 5
+    assert len(filings) == 6  # Buffett, Ackman, Burry, Druckenmiller, Duan, Cathie Wood
+    # and a public figure's own filings as an owner (D-050)
+    filings += (
+        await db_session.scalars(
+            select(Source).where(
+                Source.company_id == newsroom.company.id, Source.url.contains("CIK=0000947033")
+            )
+        )
+    ).all()
+    assert len(filings) == 7 and filings[-1].config["section"] == "figures"
     for source in filings:
         assert source.config["own_story"] is True and source.config["max_age_days"] == 120
         assert source.config["title_prefix"] and source.trust_level >= 0.9
@@ -79,9 +88,9 @@ async def test_a_filer_that_moved_is_the_same_source_with_a_new_address(db_sessi
 
 
 def test_searches_run_twice_a_day_to_stay_inside_the_free_plan():
-    """D-038: 4 searches x 2 a day x 30 days = 240 of Tavily's 1,000 free credits a month."""
+    """D-038: 6 searches x 2 a day x 30 days = 360 of Tavily's 1,000 free credits a month."""
     searches = [s for s in markets.SOURCES if s.kind == "search_query"]
-    assert len(searches) == 4
+    assert len(searches) == 6
     assert {s.poll_interval_seconds for s in searches} == {12 * 3600}
 
 

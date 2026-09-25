@@ -63,7 +63,8 @@ NAME = "艾矽鯨"
 PROJECT = "持股動態與科技產業"
 MISSION = (
     "用附原始出處的中英雙語報導，追蹤 AI 與半導體產業的動向、大型投資人的持股變化，"
-    "台股、美股裡的 AI 科技公司，以及加密貨幣的監管、ETF 與市場動態；"
+    "台股、美股裡的 AI 科技公司，名人（如美國總統、國會議員）依法申報的持股與交易，"
+    "以及加密貨幣的監管、ETF 與市場動態；"
     "只報導事實與別人說的話，不提供投資建議。"
 )
 
@@ -123,12 +124,41 @@ def _press(name: str, url: str, section: str = "ai") -> MarketSource:
     )
 
 
-def _search(query: str, section: str) -> MarketSource:
+def edgar_filings(cik: str) -> str:
+    """SEC's Atom feed of every filing a person is named in as the reporting owner (Forms 3, 4,
+    5; Schedule 13D/G), newest first."""
+    return (
+        "https://www.sec.gov/cgi-bin/browse-edgar?action=getcompany"
+        f"&CIK={cik}&type=&dateb=&owner=include&count=10&output=atom"
+    )
+
+
+def _figure(name: str, cik: str) -> MarketSource:
+    """A public figure's own SEC filings as an owner (D-050): what they bought, sold or hold in
+    a listed company, in their own filings. Every filing is its own story, like a 13F."""
+    return MarketSource(
+        name=f"SEC 申報：{name}",
+        kind="rss",
+        url=edgar_filings(cik),
+        trust_level=Decimal("0.95"),
+        language="en",
+        config={
+            TITLE_PREFIX: name,
+            OWN_STORY: True,
+            PRIMARY: True,
+            MAX_AGE_DAYS: 120,
+            SECTION: "figures",
+        },
+        poll_interval_seconds=HALF_DAY,
+    )
+
+
+def _search(query: str, section: str, language: str = "zh-TW") -> MarketSource:
     return MarketSource(
         name=f"搜尋：{query}",
         kind="search_query",
         trust_level=Decimal("0.5"),
-        language="zh-TW",
+        language=language,
         config={"query": query, "k": 5, "recency_days": 2, SECTION: section},
         poll_interval_seconds=HALF_DAY,
     )
@@ -143,6 +173,13 @@ SOURCES: tuple[MarketSource, ...] = (
     _investor("麥可・貝瑞", "Scion Asset Management", "0001649339"),
     _investor("杜肯米勒", "Duquesne Family Office", "0001536411"),
     _investor("段永平", "H&H International Investment", "0001759760"),
+    _investor("木頭姐", "ARK Investment Management", "0001697748"),
+    # public figures (D-050): the President's SEC filings as an owner (Trump Media, DJT), and —
+    # as neither the President's OGE transaction reports nor Congress's STOCK Act reports have a
+    # feed — searches for news of new ones, which the newsroom follows to the filing itself
+    _figure("川普（Donald J. Trump）", "0000947033"),
+    _search("Trump OGE 278-T periodic transaction report stocks bonds", "figures", "en"),
+    _search("Pelosi periodic transaction report stock trades disclosure", "figures", "en"),
     _press("NVIDIA Newsroom", "https://nvidianews.nvidia.com/releases.xml"),
     _press("OpenAI News", "https://openai.com/news/rss.xml"),
     _press("Google AI Blog", "https://blog.google/technology/ai/rss/"),

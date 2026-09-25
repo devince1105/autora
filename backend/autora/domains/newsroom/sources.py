@@ -111,8 +111,9 @@ SECTION = "section"
 of ``SECTIONS``. A story's section is the one most of its items' sources name; a source without
 one adds nothing, and a story none of whose sources name one is only on the front page."""
 
-SECTIONS = ("holdings", "ai", "tw", "us", "crypto")
-"""The site's sections: big investors' filings, AI and tech, Taiwan stocks, US stocks, crypto."""
+SECTIONS = ("holdings", "figures", "ai", "tw", "us", "crypto")
+"""The site's sections: big investors' filings, public figures' holdings and trades (D-050), AI
+and tech, Taiwan stocks, US stocks, crypto."""
 
 
 def content_hash(url: str, title: str) -> str:

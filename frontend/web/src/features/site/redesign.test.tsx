@@ -69,6 +69,7 @@ describe("the front page", () => {
     expect(tabs.map((t) => [t.textContent, t.getAttribute("href")])).toEqual([
       ["全部", "/news/zh-TW"],
       ["大戶持股", "/news/zh-TW?section=holdings"],
+      ["名人持股", "/news/zh-TW?section=figures"],
       ["AI 科技", "/news/zh-TW?section=ai"],
       ["台股", "/news/zh-TW?section=tw"],
       ["美股", "/news/zh-TW?section=us"],
