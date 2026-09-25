@@ -50,15 +50,15 @@ function Quote({ quote, lang }: { quote: PublicQuote; lang: Lang }) {
   const day = new Intl.DateTimeFormat(lang, { month: "numeric", day: "numeric", timeZone: "UTC" }).format(new Date(quote.as_of));
   return (
     <li
-      className="flex h-[47px] shrink-0 flex-col justify-center rounded-md bg-canvas px-3 text-xs whitespace-nowrap"
+      className="flex h-[58px] shrink-0 flex-col justify-center gap-0.5 rounded-md bg-canvas px-3 whitespace-nowrap"
       title={`${w.basis[quote.basis]} ${day}・${quote.source}`}
     >
-      <span className="flex items-baseline gap-1">
+      <span className="flex items-baseline gap-1 text-xs">
         <span className="font-medium">{w.quoteNames[quote.key] ?? quote.key}</span>
         {twCode(quote.key) ? <span className="text-[0.65rem] text-muted">({twCode(quote.key)})</span> : null}
         {quote.basis !== "24h" ? <span className="text-[0.65rem] text-muted">{day}</span> : null}
       </span>
-      <span className="flex items-baseline gap-1.5">
+      <span className="flex items-baseline gap-1.5 text-sm">
         <span className="font-semibold tabular-nums">{formatValue(quote, lang)}</span>
         {change ? (
           <span className={`tabular-nums ${TONE[way]}`}>
@@ -80,10 +80,8 @@ export function MarketStrip({ quotes, lang }: { quotes: PublicQuote[]; lang: Lan
   const arrow = "hidden size-7 shrink-0 place-items-center rounded-md text-muted hover:bg-canvas hover:text-ink sm:grid";
   return (
     <section aria-label={w.markets} className="border-b border-line print:hidden" data-testid="market-strip">
-      <div className="mx-auto flex max-w-5xl items-center gap-2 px-4 py-2">
-        <span className="hidden shrink-0 text-xs font-semibold md:inline" title={w.marketsNote}>
-          {w.markets}
-        </span>
+      {/* the whole width of the window, not the page's column: a wider window shows more figures */}
+      <div className="flex items-center gap-2 px-4 py-2">
         {/* relative: the screen-reader signs inside are absolutely positioned, and without a
             positioned row they escape its clipping and widen the whole page */}
         <ul ref={list} className="relative flex min-w-0 flex-1 gap-2 overflow-x-auto [scrollbar-width:none]">

@@ -20,8 +20,9 @@ export const QUOTES_SCRIPT = "https://s3.tradingview.com/external-embedding/embe
 /** The widget's own size for one quote (px): room for a logo, a name, a price and a change. */
 const PER_QUOTE = 168;
 const HEIGHT = 72;
-/** Drawn at this size, so its cards are as tall as the strip's. */
-export const SCALE = 0.65;
+/** Drawn at this size, so its cards are as tall as the strip's (58px): large enough that its
+ * names and prices read at the size of ours. */
+export const SCALE = 0.8;
 
 /** What the tape shows, AI first: the chips (GPUs, custom chips, foundry, memory, tools), then
  * the cloud and model companies, then the rest of the big names, then the Nasdaq 100 as its ETF. */
