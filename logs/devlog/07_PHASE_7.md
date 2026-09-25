@@ -1494,6 +1494,7 @@ T-611 之後，商業迴圈已經有 CEO 評估機會、策略師把機會寫成
 - 使用者：「你被 TradingView 的框架限制住了，跟台股一樣用 API 串就好」。說得對：拿掉 TradingView（元件、隱私權政策那段都還原），美股個股改由後端向 Finnhub 抓，跟台股同一種卡片。需要使用者在 `.env` 填 `FINNHUB_API_KEY`（investment-dev 用的那把也可以）。
 - 使用者：刊頭與分類靠左對齊（和文章欄同一條左緣）、「艾」改用 Lucide 的 heart（實心、rose-600，路徑對照 investment-dev 已安裝的 lucide-react 一致；專案沒裝 lucide，只為一個圖示不加套件）、「矽鯨」用襯線（Noto Serif TC 900，只有這兩個字用，瀏覽器只下載它們所在的切片）、語系切換從標語旁移到右上角與深淺色、登入放一起。螢幕閱讀器與複製仍是「艾矽鯨」；英文版名稱不變。
 - 使用者：愛心不要描邊（stroke-width 0）、英文名 AiSiWhale 也用襯線、英文標語縮成一行（「AI & tech investing」）、台股只留最重要的五個以內：台積電、鴻海、聯發科、廣達、台達電。使用者問跑馬燈是不是抓不到美股：對，`.env` 的 `FINNHUB_API_KEY` 還是空的、FRED 仍是 `sugra` 那個值，所以目前只有台股與加密貨幣。
+- 使用者填好 Finnhub 金鑰：重啟 API 後 16 檔美股都有最新價（例：輝達 NVDA 225.38 +0.36%↑，滑鼠提示「最新價 9/25・Finnhub」），跑馬燈共 24 項、手機寬度沒有橫向捲動。FRED 仍是 `sugra` 那個值、仍 400（紀錄只有「HTTP 400 from api.stlouisfed.org/…」），美國四項指數仍不顯示。
 - **本機資料庫反覆當掉**：頁面偶爾 500，API 紀錄是「the database system is in recovery mode」。Postgres 過去 3 小時 6 次「server process exited with exit code 2」後全體重啟，時間與我跑完整測試重疊（15:38 沒在跑測試也當了一次，原因未查明）；checkpoint 的 sync 一度 316 秒，Docker VM 的磁碟 I/O 非常慢（同時跑著另外 6 個容器，含 SQL Server）。記憶體與磁碟空間都正常。本機環境問題，不是程式；已告知使用者。
 
 ---
