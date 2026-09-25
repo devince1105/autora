@@ -1498,6 +1498,7 @@ T-611 之後，商業迴圈已經有 CEO 評估機會、策略師把機會寫成
 - 使用者：上方跑馬燈緩慢移動。自己寫（`drift.ts`），不再受制於第三方元件：每秒 30px 向左、畫兩份無縫循環（第二份對螢幕閱讀器隱藏）、滑鼠移上或鍵盤聚焦就停、手機觸碰或按箭頭後停 4 秒再走、系統設定「減少動態」或全部放得下時不動。瀏覽器實測：2 秒移動 60px、滑鼠移上時 0px、捲到尾端後接回「加權指數」。
 - 使用者：美股只挑最重要的十檔（NVDA、MSFT、AAPL、GOOGL、AMZN、META、AVGO、TSM、TSLA、AMD）加 QQQ、VOO 與那斯達克指數；台股加 0050。那斯達克綜合指數由 FRED 提供（Finnhub 免費方案不含指數），等 FRED 金鑰正確後才會出現。重啟 API 後實際回傳 21 項：加權、台股五檔加 0050（112.40）、美股十檔、QQQ、VOO、比特幣、以太幣。
 - 使用者：美股按市值排列，加 MU、QQQ、VOO、那斯達克，「先調整這樣就好」。用 Finnhub 公司資料取市值（台積電 ADR 的市值是新台幣，照 31.8 換成美元），2026-09-25 的順序：NVDA 5.41T、AAPL 4.90T、GOOGL 4.19T、MSFT 3.70T、AMZN 2.69T、TSM 2.04T、META 1.98T、AVGO 1.67T、TSLA 1.49T、MU 1.22T、AMD 1.03T。順序寫在程式裡並註明日期（排名變動不頻繁；自動排序要另一個匯率來源，不值得），之後是 QQQ、VOO、那斯達克指數（FRED）。拿掉標普500 指數（VOO 代表它）。
+- 使用者：台股加富邦台50（006208.TW）。使用者又換了 FRED 金鑰，但 `.env` 第 90 行仍是 `sugra_` 開頭 34 字元；試過 FRED 舊 API（400：不是 32 個小寫英數字）與新版 v2（Bearer 可接受格式，但回 401「The credentials are not registered」），確定不是 FRED 的金鑰，請使用者直接到 fredaccount.stlouisfed.org/apikeys 申請。
 - **本機資料庫反覆當掉**：頁面偶爾 500，API 紀錄是「the database system is in recovery mode」。Postgres 過去 3 小時 6 次「server process exited with exit code 2」後全體重啟，時間與我跑完整測試重疊（15:38 沒在跑測試也當了一次，原因未查明）；checkpoint 的 sync 一度 316 秒，Docker VM 的磁碟 I/O 非常慢（同時跑著另外 6 個容器，含 SQL Server）。記憶體與磁碟空間都正常。本機環境問題，不是程式；已告知使用者。
 
 ---
