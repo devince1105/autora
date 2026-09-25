@@ -25,7 +25,7 @@ const q = (over: Partial<PublicQuote>): PublicQuote => ({
 const QUOTES = [
   q({}),
   q({ key: "tw:2454", value: 1650, change: 15, change_pct: 0.92 }),
-  q({ key: "spx", value: 7725.55, change: 21.56, change_pct: 0.28, basis: "prev_close", source: "FRED" }),
+  q({ key: "nasdaq", value: 27054.06, change: 115.83, change_pct: 0.43, basis: "prev_close", source: "FRED" }),
   q({ key: "us10y", value: 4.12, change: -0.03, change_pct: null, basis: "prev_close", source: "FRED" }),
   q({ key: "btc", value: 83268, change: -994.1, change_pct: -1.18, as_of: "2026-09-25", basis: "24h", source: "CoinGecko" }),
 ];
@@ -38,7 +38,7 @@ describe("the market strip", () => {
     expect(items.map((li) => li.textContent)).toEqual([
       "加權指數48,024.60−0.28%↓",
       "聯發科2454.TW1,650+0.92%↑",
-      "標普5007,725.55+0.28%↑",
+      "那斯達克27,054.06+0.43%↑",
       "美國10年期公債4.12%−0.03↓",
       "比特幣83,268−1.18%↓",
     ]);

@@ -28,8 +28,9 @@ def _fred(values):
 
 
 FRED = {
-    "SP500": _fred([("2026-09-24", "7725.55"), ("2026-09-23", "."), ("2026-09-22", "7703.99")]),
-    "NASDAQCOM": _fred([("2026-09-24", "27054.06"), ("2026-09-23", "26938.23")]),
+    "NASDAQCOM": _fred(
+        [("2026-09-24", "27054.06"), ("2026-09-23", "."), ("2026-09-22", "26938.23")]
+    ),
     "DGS10": _fred([("2026-09-24", "4.12"), ("2026-09-23", "4.15")]),
     "DCOILWTICO": _fred([("2026-09-24", ".")]),  # only a holiday: left out
 }
@@ -86,7 +87,7 @@ async def test_each_service_read_right_and_shown_in_order():
     shown = await _board([], Clock()).quotes()
     assert [q.key for q in shown] == [
         *("taiex", "tw:2330", "tw:2317", "tw:2454", "tw:0050"),
-        *("spx", "nasdaq", "us:NVDA", "us:TSM", "us10y", "btc", "eth"),
+        *("us:NVDA", "us:TSM", "nasdaq", "us10y", "btc", "eth"),
     ]
     by = {q.key: q for q in shown}
     assert (by["taiex"].value, by["taiex"].change, by["taiex"].change_pct) == (
@@ -100,7 +101,7 @@ async def test_each_service_read_right_and_shown_in_order():
     assert by["tw:2454"].value == 1650.0  # thousands separators read
     assert (by["tw:0050"].value, by["tw:0050"].change) == (112.4, -0.05)  # an ETF, like a stock
     # the day FRED has no figure for is skipped: the change is against the day before that
-    assert by["spx"].change == pytest.approx(21.56) and by["spx"].basis == "prev_close"
+    assert by["nasdaq"].change == pytest.approx(115.83) and by["nasdaq"].basis == "prev_close"
     assert by["us10y"].change == pytest.approx(-0.03) and by["us10y"].change_pct is None
     assert by["btc"].basis == "24h" and by["btc"].change_pct == -0.34 and by["btc"].change < 0
     nvda = by["us:NVDA"]

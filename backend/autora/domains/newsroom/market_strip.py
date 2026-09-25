@@ -42,18 +42,19 @@ Yuanta Taiwan 50 (0050). Keyed
 ``tw:<code>``; the site shows the code as ``2330.TW``. The strip shows them in this order."""
 
 US_STOCKS = (
-    "NVDA", "MSFT", "AAPL", "GOOGL", "AMZN", "META", "AVGO", "TSM", "TSLA", "AMD",
+    "NVDA", "AAPL", "GOOGL", "MSFT", "AMZN", "TSM", "META", "AVGO", "TSLA", "MU", "AMD",
     "QQQ", "VOO",
 )  # fmt: skip
-"""US stocks on the strip: the ten that matter most — to AI and by size — then the Nasdaq 100 and
-the S&P 500 as their ETFs. Keyed ``us:<symbol>``. (The Nasdaq Composite itself is FRED's.)"""
+"""US stocks on the strip: the ones that matter most, largest first — by market value on
+2026-09-25 (Finnhub's profiles; TSMC's, in NT$, at 31.8 to the dollar), to be re-ranked by hand
+now and then — then the Nasdaq 100 and the S&P 500 as their ETFs. Keyed ``us:<symbol>``. The
+Nasdaq Composite itself comes after them, from FRED."""
 
 ORDER = (
     "taiex",
     *(f"tw:{code}" for code in TW_STOCKS),
-    "spx",
-    "nasdaq",
     *(f"us:{symbol}" for symbol in US_STOCKS),
+    "nasdaq",
     "us10y",
     "wti",
     "btc",
@@ -67,7 +68,8 @@ FRED = "https://api.stlouisfed.org/fred/series/observations"
 COINGECKO = "https://api.coingecko.com/api/v3/simple/price"
 FINNHUB = "https://finnhub.io/api/v1/quote"
 
-FRED_SERIES = {"spx": "SP500", "nasdaq": "NASDAQCOM", "us10y": "DGS10", "wti": "DCOILWTICO"}
+FRED_SERIES = {"nasdaq": "NASDAQCOM", "us10y": "DGS10", "wti": "DCOILWTICO"}
+"""No S&P 500 index: VOO, beside the Nasdaq 100's QQQ, stands for it."""
 COINS = {"btc": "bitcoin", "eth": "ethereum"}
 
 
@@ -322,6 +324,6 @@ def build_board(*, fred_api_key: str | None, finnhub_api_key: str | None = None)
     if fred_api_key:
         feeds.append(Feed("fred", fred(fred_api_key), every_seconds=6 * 3600))
     if finnhub_api_key:
-        # 12 symbols every 5 minutes: well inside the free plan's 60 calls a minute
+        # 13 symbols every 5 minutes: well inside the free plan's 60 calls a minute
         feeds.append(Feed("finnhub", finnhub(finnhub_api_key), every_seconds=5 * 60))
     return QuoteBoard(feeds)
