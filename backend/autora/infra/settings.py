@@ -116,6 +116,9 @@ class Settings(BaseSettings):
     fred_api_key: SecretStr | None = None
     """FRED (St. Louis Fed), free: the US indices' previous close, the 10-year yield and oil.
     Without it the strip shows only Taiwan and crypto."""
+    finnhub_api_key: SecretStr | None = None
+    """Finnhub, free for personal use: US stocks' latest price on the strip. Without it they are
+    left out. Its paid plan (or another licensed feed) before the site is public."""
 
     # --- Blob storage (T-210) ---
     blob_store_dir: Path = Path(__file__).resolve().parents[3] / "data" / "blobs"
@@ -167,6 +170,7 @@ class Settings(BaseSettings):
         "gemini_api_key",
         "tavily_api_key",
         "fred_api_key",
+        "finnhub_api_key",
         "resend_api_key",
         "payuni_mer_id",
         "payuni_hash_key",

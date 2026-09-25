@@ -19,7 +19,7 @@ from functools import lru_cache
 from typing import Annotated, Literal
 
 from fastapi import APIRouter, Cookie, Depends, HTTPException, Query, Response, status
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, SecretStr
 
 from autora.accounts import SESSION_COOKIE, customer_ref, reader_for
 from autora.company import memberships
@@ -85,8 +85,15 @@ async def get_article(
 @lru_cache
 def market_board() -> QuoteBoard:
     """One board per process: it is the cache, so every reader is served from the same one."""
-    key = get_settings().fred_api_key
-    return build_board(fred_api_key=key.get_secret_value() if key else None)
+    settings = get_settings()
+    return build_board(
+        fred_api_key=_secret(settings.fred_api_key),
+        finnhub_api_key=_secret(settings.finnhub_api_key),
+    )
+
+
+def _secret(value: SecretStr | None) -> str | None:
+    return value.get_secret_value() if value else None
 
 
 @router.get("/api/public/markets")

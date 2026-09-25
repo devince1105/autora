@@ -32,6 +32,10 @@ FRED = {
     "DGS10": _fred([("2026-09-24", "4.12"), ("2026-09-23", "4.15")]),
     "DCOILWTICO": _fred([("2026-09-24", ".")]),  # only a holiday: left out
 }
+FINNHUB = {
+    "NVDA": {"c": 224.53, "d": 2.25, "dp": 1.0122, "pc": 222.28, "t": 1790280000},
+    "TSM": {"c": 351.45, "d": -1.1, "dp": -0.312, "pc": 352.55, "t": 1790280000},
+}  # any other symbol: all zeros, as Finnhub answers for one it has nothing for
 COINS = {
     "bitcoin": {"usd": 83932, "usd_24h_change": -0.3368, "last_updated_at": 1790300000},
     "ethereum": {"usd": 2695.31, "usd_24h_change": 1.0004},
@@ -51,6 +55,10 @@ def _transport(calls: list[str], *, broken: set[str] = frozenset()):
         if url.startswith(quotes.FRED):
             assert request.url.params["api_key"] == "k"
             return httpx.Response(200, json=FRED[request.url.params["series_id"]])
+        if url.startswith(quotes.FINNHUB):
+            assert request.headers["X-Finnhub-Token"] == "fk" and "fk" not in url
+            empty = {"c": 0, "d": None, "dp": None, "pc": 0, "t": 0}
+            return httpx.Response(200, json=FINNHUB.get(request.url.params["symbol"], empty))
         if url.startswith(quotes.COINGECKO):
             return httpx.Response(200, json=COINS)
         return httpx.Response(404)
@@ -67,7 +75,7 @@ class Clock:
 
 
 def _board(calls, clock, **kw):
-    board = build_board(fred_api_key="k")
+    board = build_board(fred_api_key="k", finnhub_api_key="fk")
     board._client = lambda: httpx.AsyncClient(transport=_transport(calls, **kw))
     board._clock = clock
     return board
@@ -77,7 +85,7 @@ async def test_each_service_read_right_and_shown_in_order():
     shown = await _board([], Clock()).quotes()
     assert [q.key for q in shown] == [
         *("taiex", "tw:2330", "tw:2317", "tw:2454"),
-        *("spx", "nasdaq", "us10y", "btc", "eth"),
+        *("spx", "nasdaq", "us:NVDA", "us:TSM", "us10y", "btc", "eth"),
     ]
     by = {q.key: q for q in shown}
     assert (by["taiex"].value, by["taiex"].change, by["taiex"].change_pct) == (
@@ -93,7 +101,10 @@ async def test_each_service_read_right_and_shown_in_order():
     assert by["spx"].change == pytest.approx(21.56) and by["spx"].basis == "prev_close"
     assert by["us10y"].change == pytest.approx(-0.03) and by["us10y"].change_pct is None
     assert by["btc"].basis == "24h" and by["btc"].change_pct == -0.34 and by["btc"].change < 0
-    assert {q.source for q in shown} == {"TWSE", "FRED", "CoinGecko"}
+    nvda = by["us:NVDA"]
+    assert (nvda.value, nvda.change, nvda.change_pct, nvda.basis) == (224.53, 2.25, 1.01, "last")
+    assert by["us:TSM"].change_pct == -0.31
+    assert {q.source for q in shown} == {"TWSE", "FRED", "Finnhub", "CoinGecko"}
 
 
 async def test_asked_again_only_when_the_figures_are_old():
@@ -103,9 +114,10 @@ async def test_asked_again_only_when_the_figures_are_old():
     first = len(calls)
     await board.quotes()
     assert len(calls) == first  # a second reader: served from the board
-    clock.now += 5 * 60  # crypto is due, the exchange and FRED are not
+    clock.now += 5 * 60
     await board.quotes()
-    assert calls[first:] == ["api.coingecko.com"]
+    # crypto and the US stocks are due, the exchange and FRED are not
+    assert set(calls[first:]) == {"api.coingecko.com", "finnhub.io"}
 
 
 async def test_a_failing_service_keeps_its_last_figures_and_is_not_hammered():
@@ -125,6 +137,8 @@ async def test_a_failing_service_keeps_its_last_figures_and_is_not_hammered():
 
 async def test_without_a_fred_key_the_us_figures_are_left_out_not_faked():
     assert [f.name for f in build_board(fred_api_key=None).feeds] == ["twse", "coingecko"]
+    names = [f.name for f in build_board(fred_api_key=None, finnhub_api_key="fk").feeds]
+    assert names == ["twse", "coingecko", "finnhub"]
     never = QuoteBoard(
         [Feed("down", quotes.coingecko, every_seconds=60)],
         client=lambda: httpx.AsyncClient(transport=_transport([], broken={"api.coingecko.com"})),

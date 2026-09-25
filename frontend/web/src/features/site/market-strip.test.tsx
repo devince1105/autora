@@ -6,9 +6,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { fetchMarkets, type PublicQuote } from "./api";
 import { formatChange, formatValue, MarketStrip } from "./MarketStrip";
-import { legalDoc } from "./legal";
 import { SiteFooter } from "./SiteFooter";
-import { QUOTES_SCRIPT, quotesConfig, US_TICKERS, UsStocks } from "./UsStocks";
 
 afterEach(cleanup);
 
@@ -35,8 +33,7 @@ describe("the market strip", () => {
   it("names each figure in the reader's language, with its change and its day", () => {
     render(<MarketStrip quotes={QUOTES} lang="zh-TW" />);
     const items = within(screen.getByTestId("market-strip"))
-      .getAllByRole("listitem")
-      .filter((li) => li.title); // ours; the US stocks come after
+      .getAllByRole("listitem");
     expect(items.map((li) => li.textContent)).toEqual([
       "加權指數48,024.60−0.28%↓",
       "聯發科2454.TW1,650+0.92%↑",
@@ -52,21 +49,27 @@ describe("the market strip", () => {
   it("is red when it rises and green when it falls, as in Taiwan", () => {
     render(<MarketStrip quotes={QUOTES.slice(0, 2)} lang="en" />);
     const [down, up] = within(screen.getByTestId("market-strip"))
-      .getAllByRole("listitem")
-      .filter((li) => li.title);
+      .getAllByRole("listitem");
     expect(up!.textContent).toContain("MediaTek2454.TW");
     expect(down!.querySelector(".text-fall")).toBeTruthy();
     expect(up!.querySelector(".text-rise")).toBeTruthy();
 
   });
 
-  it("has the US stocks in the same block, and keeps them when ours are missing", () => {
-    vi.stubGlobal("matchMedia", () => ({ matches: false, addEventListener: vi.fn(), removeEventListener: vi.fn() }));
-    render(<MarketStrip quotes={[]} lang="zh-TW" />);
-    const block = within(screen.getByTestId("market-strip"));
-    expect(block.getByTestId("us-stocks")).toBeTruthy();
-    expect(block.getByRole("link", { name: /TradingView/ }).getAttribute("rel")).toContain("nofollow");
-    vi.unstubAllGlobals();
+  it("is not there at all when there are no figures", () => {
+    const { container } = render(<MarketStrip quotes={[]} lang="zh-TW" />);
+    expect(container.innerHTML).toBe("");
+  });
+
+  it("shows a US stock like a Taiwan one: its name and its code", () => {
+    const nvda = q({ key: "us:NVDA", value: 224.53, change: 2.25, change_pct: 1.01, basis: "last", source: "Finnhub" });
+    render(<MarketStrip quotes={[nvda]} lang="zh-TW" />);
+    const item = within(screen.getByTestId("market-strip")).getByRole("listitem");
+    expect(item.textContent).toBe("輝達NVDA224.53+1.01%↑");
+    expect(item.getAttribute("title")).toBe("最新價 9/24・Finnhub");
+    cleanup();
+    render(<MarketStrip quotes={[nvda]} lang="en" />);
+    expect(within(screen.getByTestId("market-strip")).getByRole("listitem").textContent).toBe("NVDA224.53+1.01%↑");
   });
 
   it("formats a figure for what it is", () => {
@@ -94,48 +97,5 @@ describe("the market strip", () => {
     );
     expect(await fetchMarkets({ baseUrl: "http://api", fetch: listed })).toHaveLength(5);
     expect((listed.mock.calls[0]![0] as Request).url).toBe("http://api/api/public/markets");
-  });
-});
-
-describe("the US stocks (TradingView)", () => {
-  afterEach(() => vi.unstubAllGlobals());
-
-  it("has the stocks asked for, named in the reader's language", () => {
-    const names = US_TICKERS.map(([symbol]) => symbol.split(":")[1]);
-    for (const wanted of ["NVDA", "AAPL", "GOOGL", "AMZN", "META", "MSFT", "TSLA", "AMD", "MU", "QQQ"]) {
-      expect(names).toContain(wanted);
-    }
-    expect(quotesConfig("zh-TW", "dark").symbols[0]).toEqual({ proName: "NASDAQ:NVDA", title: "輝達" });
-    // "regular" is TradingView's one-line tape (44px); its "compact" is two lines (72px)
-    expect(quotesConfig("en", "light")).toMatchObject({
-      locale: "en",
-      colorTheme: "light",
-      isTransparent: true,
-      displayMode: "regular",
-    });
-    expect(quotesConfig("en", "light").symbols[0]!.title).toBe("NVDA");
-  });
-
-  it("loads TradingView's script with the site's language and light or dark, and credits it", () => {
-    vi.stubGlobal("matchMedia", () => ({ matches: false, addEventListener: vi.fn(), removeEventListener: vi.fn() }));
-    const site = document.createElement("div");
-    site.setAttribute("data-site", "");
-    site.setAttribute("data-theme", "dark");
-    document.body.appendChild(site);
-    const list = document.createElement("ul");
-    site.appendChild(list);
-    render(<UsStocks lang="zh-TW" />, { container: list });
-    const script = screen.getByTestId("us-stocks").querySelector("script")!;
-    expect(script.src).toBe(QUOTES_SCRIPT);
-    expect(JSON.parse(script.text)).toMatchObject({ colorTheme: "dark", locale: "zh_TW" });
-    expect(screen.getByRole("link", { name: /美股報價/ }).getAttribute("href")).toBe("https://www.tradingview.com/");
-    site.remove();
-  });
-
-  it("the privacy policy tells readers about it", () => {
-    const operator = { brand: "Nanguado", owner: null, email: "service@example.test", phone: null };
-    for (const lang of ["zh-TW", "en"] as const) {
-      expect(JSON.stringify(legalDoc("privacy", lang, operator))).toContain("TradingView");
-    }
   });
 });

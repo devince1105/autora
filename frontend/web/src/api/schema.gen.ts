@@ -2339,7 +2339,7 @@ export interface components {
              * Basis
              * @enum {string}
              */
-            basis: "close" | "prev_close" | "24h";
+            basis: "close" | "prev_close" | "last" | "24h";
             /** Change */
             change: number | null;
             /** Change Pct */

@@ -3650,6 +3650,7 @@
       "enum": [
        "close",
        "prev_close",
+       "last",
        "24h"
       ],
       "title": "Basis",

@@ -38,6 +38,22 @@ const WORDS = {
       "tw:2308": "台達電",
       "tw:3711": "日月光投控",
       "tw:2376": "技嘉",
+      "us:NVDA": "輝達",
+      "us:AVGO": "博通",
+      "us:TSM": "台積電 ADR",
+      "us:AMD": "超微",
+      "us:MU": "美光",
+      "us:ASML": "艾司摩爾",
+      "us:ARM": "安謀",
+      "us:MSFT": "微軟",
+      "us:GOOGL": "Alphabet",
+      "us:AMZN": "亞馬遜",
+      "us:META": "Meta",
+      "us:ORCL": "甲骨文",
+      "us:PLTR": "Palantir",
+      "us:AAPL": "蘋果",
+      "us:TSLA": "特斯拉",
+      "us:QQQ": "那斯達克100 ETF",
       spx: "標普500",
       nasdaq: "那斯達克",
       us10y: "美國10年期公債",
@@ -45,10 +61,18 @@ const WORDS = {
       btc: "比特幣",
       eth: "以太幣",
     } as Record<string, string>,
-    basis: { close: "收盤", prev_close: "前一交易日收盤", "24h": "24 小時漲跌" } as Record<string, string>,
+    basis: { close: "收盤", prev_close: "前一交易日收盤", last: "最新價", "24h": "24 小時漲跌" } as Record<
+      string,
+      string
+    >,
     marketsNote: "收盤或延遲資料，僅供參考",
     marketsCredit: (sources: string[]) => `市場資料：${sources.join("、")}。收盤或延遲資料，僅供參考。`,
-    sourceNames: { TWSE: "臺灣證券交易所", FRED: "FRED（聖路易聯邦準備銀行）", CoinGecko: "CoinGecko" } as Record<
+    sourceNames: {
+      TWSE: "臺灣證券交易所",
+      FRED: "FRED（聖路易聯邦準備銀行）",
+      Finnhub: "Finnhub",
+      CoinGecko: "CoinGecko",
+    } as Record<
       string,
       string
     >,
@@ -150,13 +174,17 @@ const WORDS = {
       btc: "Bitcoin",
       eth: "Ether",
     } as Record<string, string>,
-    basis: { close: "Close", prev_close: "Previous close", "24h": "24-hour change" } as Record<string, string>,
+    basis: { close: "Close", prev_close: "Previous close", last: "Latest", "24h": "24-hour change" } as Record<
+      string,
+      string
+    >,
     marketsNote: "Closing or delayed figures, for reference only",
     marketsCredit: (sources: string[]) =>
       `Market data: ${sources.join(", ")}. Closing or delayed figures, for reference only.`,
     sourceNames: {
       TWSE: "Taiwan Stock Exchange",
       FRED: "FRED (Federal Reserve Bank of St. Louis)",
+      Finnhub: "Finnhub",
       CoinGecko: "CoinGecko",
     } as Record<string, string>,
     scrollLeft: "Scroll left",

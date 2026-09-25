@@ -2,8 +2,12 @@
 
 Every number is one the site may show and says what it is: the Taiwan Stock Exchange's closing
 figures (its OpenAPI, government open data), the previous day's close for US indices, the 10-year
-yield and oil from FRED (the St. Louis Fed's service; a free key), and crypto's 24-hour change from
-CoinGecko (no key, credited on the page). No LLM, no search credits.
+yield and oil from FRED (the St. Louis Fed's service; a free key), US stocks' latest price from
+Finnhub (a free key), and crypto's 24-hour change from CoinGecko (no key, credited on the page).
+No LLM, no search credits.
+
+Finnhub's free plan is for personal use: fine while the site is being built, and to be replaced by
+its paid plan (or another licensed feed) before the site is public (D-048).
 
 A reader's page never waits on these services. The board keeps the last good figures in the
 process and asks each service again only when that service's figures are old enough to have
@@ -26,20 +30,30 @@ from pydantic import BaseModel
 
 log = logging.getLogger(__name__)
 
-Basis = Literal["close", "prev_close", "24h"]
+Basis = Literal["close", "prev_close", "last", "24h"]
 """close: the exchange's close that day; prev_close: the last close FRED has (US: the day
-before); 24h: now, against 24 hours ago (crypto has no close)."""
+before); last: the latest trade, against the previous close (the close itself once the market
+has shut); 24h: now, against 24 hours ago (crypto has no close)."""
 
 TW_STOCKS = ("2330", "2317", "2454", "2382", "3231", "6669", "2308", "3711", "2376")
 """Taiwan stocks on the strip, AI first, by exchange code: TSMC, Hon Hai, MediaTek, Quanta,
 Wistron, Wiwynn, Delta, ASE, Gigabyte — the chips and the AI server supply chain. Keyed
 ``tw:<code>``; the site shows the code as ``2330.TW``. The strip shows them in this order."""
 
+US_STOCKS = (
+    "NVDA", "AVGO", "TSM", "AMD", "MU", "ASML", "ARM",
+    "MSFT", "GOOGL", "AMZN", "META", "ORCL", "PLTR", "AAPL", "TSLA", "QQQ",
+)  # fmt: skip
+"""US stocks on the strip, AI first: the chips (GPUs, custom chips, foundry, memory, tools), then
+the cloud and model companies, then the other big names, then the Nasdaq 100 as its ETF. Keyed
+``us:<symbol>``."""
+
 ORDER = (
     "taiex",
     *(f"tw:{code}" for code in TW_STOCKS),
     "spx",
     "nasdaq",
+    *(f"us:{symbol}" for symbol in US_STOCKS),
     "us10y",
     "wti",
     "btc",
@@ -51,6 +65,7 @@ TWSE_INDEX = "https://openapi.twse.com.tw/v1/exchangeReport/MI_INDEX"
 TWSE_STOCKS = "https://openapi.twse.com.tw/v1/exchangeReport/STOCK_DAY_ALL"
 FRED = "https://api.stlouisfed.org/fred/series/observations"
 COINGECKO = "https://api.coingecko.com/api/v3/simple/price"
+FINNHUB = "https://finnhub.io/api/v1/quote"
 
 FRED_SERIES = {"spx": "SP500", "nasdaq": "NASDAQCOM", "us10y": "DGS10", "wti": "DCOILWTICO"}
 COINS = {"btc": "bitcoin", "eth": "ethereum"}
@@ -154,6 +169,36 @@ def fred(api_key: str) -> Callable[[httpx.AsyncClient], Awaitable[list[PublicQuo
                     as_of=date.fromisoformat(day),
                     basis="prev_close",
                     source="FRED",
+                )
+            )
+        return out
+
+    return fetch
+
+
+def finnhub(api_key: str) -> Callable[[httpx.AsyncClient], Awaitable[list[PublicQuote]]]:
+    """Each of ``US_STOCKS`` at its latest price (``c``), against the previous close (``d``,
+    ``dp``). The key goes in a header, not the URL. A symbol Finnhub has nothing for (all zeros)
+    is left out."""
+
+    async def fetch(client: httpx.AsyncClient) -> list[PublicQuote]:
+        out = []
+        for symbol in US_STOCKS:
+            response = await client.get(
+                FINNHUB, params={"symbol": symbol}, headers={"X-Finnhub-Token": api_key}
+            )
+            row = response.raise_for_status().json()
+            if not row.get("c") or not row.get("t"):
+                continue
+            out.append(
+                PublicQuote(
+                    key=f"us:{symbol}",
+                    value=float(row["c"]),
+                    change=None if row.get("d") is None else round(float(row["d"]), 4),
+                    change_pct=None if row.get("dp") is None else round(float(row["dp"]), 2),
+                    as_of=datetime.fromtimestamp(row["t"], UTC).date(),
+                    basis="last",
+                    source="Finnhub",
                 )
             )
         return out
@@ -268,12 +313,15 @@ class QuoteBoard:
         feed.quotes.update({q.key: q for q in fresh})
 
 
-def build_board(*, fred_api_key: str | None) -> QuoteBoard:
-    """The site's board. Without a FRED key the US figures are left out, not faked."""
+def build_board(*, fred_api_key: str | None, finnhub_api_key: str | None = None) -> QuoteBoard:
+    """The site's board. Without a key, that service's figures are left out, not faked."""
     feeds = [
         Feed("twse", twse, every_seconds=30 * 60),
         Feed("coingecko", coingecko, every_seconds=5 * 60),
     ]
     if fred_api_key:
         feeds.append(Feed("fred", fred(fred_api_key), every_seconds=6 * 3600))
+    if finnhub_api_key:
+        # 16 symbols every 5 minutes: well inside the free plan's 60 calls a minute
+        feeds.append(Feed("finnhub", finnhub(finnhub_api_key), every_seconds=5 * 60))
     return QuoteBoard(feeds)
