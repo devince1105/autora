@@ -1,6 +1,6 @@
 // The site's name as the masthead draws it: in Chinese, 艾 (ài, "AI") is a heart — Lucide's
-// "heart", filled in rose-600 — before 矽鯨 in a serif. Screen readers and copy-paste still get
-// 艾矽鯨.
+// "heart", filled in rose-600 — before 矽鯨 in a serif; in English, AiSiWhale in the same serif.
+// Screen readers and copy-paste still get 艾矽鯨.
 import { words, type Lang } from "./i18n";
 
 /** Lucide's heart (ISC licence), filled. */
@@ -14,7 +14,7 @@ function Heart({ className }: { className?: string }) {
 
 export function SiteName({ lang }: { lang: Lang }) {
   const name = words(lang).site;
-  if (lang !== "zh-TW" || !name.startsWith("艾")) return <>{name}</>;
+  if (lang !== "zh-TW" || !name.startsWith("艾")) return <span className="font-brand">{name}</span>;
   return (
     <span className="inline-flex items-center">
       <Heart className="mr-[0.08em] size-[0.9em] text-rose-600" />

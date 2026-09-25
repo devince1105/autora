@@ -231,7 +231,7 @@ describe("the voice that reads aloud", () => {
 });
 
 describe("the site's name on the masthead", () => {
-  it("draws 艾 as a rose heart and still reads 艾矽鯨; English is left as it is", () => {
+  it("draws 艾 as a rose heart and still reads 艾矽鯨; in English, the name in the same serif", () => {
     const { container } = render(<SiteName lang="zh-TW" />);
     expect(container.textContent).toBe("艾矽鯨");
     const heart = container.querySelector("svg")!;
@@ -241,5 +241,6 @@ describe("the site's name on the masthead", () => {
     const en = render(<SiteName lang="en" />);
     expect(en.container.textContent).toBe("AiSiWhale");
     expect(en.container.querySelector("svg")).toBeNull();
+    expect(en.container.querySelector(".font-brand")?.textContent).toBe("AiSiWhale");
   });
 });
