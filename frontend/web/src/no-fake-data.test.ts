@@ -58,8 +58,12 @@ describe("the screen invents nothing (AC-S6)", () => {
     expect(hits(timers, "realtime/snapshot.ts")).toEqual([]);
     // One exception, by name: after paying, the done page waits and asks the API again whether
     // PAYUNi's notification has arrived (D-034). What it shows is still only what the API says.
-    expect(hits(timers, "features").filter((hit) => !hit.startsWith("features/site/PaymentDone.tsx:"))).toEqual([]);
+    // And one animation, by name: the market strip's slow drift (D-048) moves its scroll
+    // position, frame by frame. It changes where the figures are, never what they are.
+    const named = ["features/site/PaymentDone.tsx:", "features/site/drift.ts:"];
+    expect(hits(timers, "features").filter((hit) => !named.some((file) => hit.startsWith(file)))).toEqual([]);
     expect(hits(timers, "features/site/PaymentDone.tsx")).toHaveLength(1);
+    expect(hits(timers, "features/site/drift.ts")).toHaveLength(2); // the first frame and the next
   });
 
   it("the socket's own timers are the connection's, and are listed here by name", () => {
