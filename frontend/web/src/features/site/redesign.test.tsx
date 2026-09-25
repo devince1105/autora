@@ -9,7 +9,7 @@ import { ArticleView } from "./ArticleView";
 import { currentSection, SectionNav } from "./SectionNav";
 import { SiteName } from "./SiteName";
 import { pickVoice } from "./ReadingTools";
-import { isSection } from "./i18n";
+import { isFilter, isSection, sectionsOf, topicOf } from "./i18n";
 import { applyTheme, currentTheme, THEME_KEY, THEME_SCRIPT } from "./theme";
 import { ThemeToggle } from "./ThemeToggle";
 
@@ -68,8 +68,7 @@ describe("the front page", () => {
     const tabs = within(screen.getByRole("navigation", { name: "報導分類" })).getAllByRole("link");
     expect(tabs.map((t) => [t.textContent, t.getAttribute("href")])).toEqual([
       ["全部", "/news/zh-TW"],
-      ["大戶持股", "/news/zh-TW?section=holdings"],
-      ["名人持股", "/news/zh-TW?section=figures"],
+      ["持股觀察", "/news/zh-TW?section=watch"],
       ["AI 科技", "/news/zh-TW?section=ai"],
       ["台股", "/news/zh-TW?section=tw"],
       ["美股", "/news/zh-TW?section=us"],
@@ -82,6 +81,9 @@ describe("the front page", () => {
     expect(currentSection("zh-TW", "/news/zh-TW/articles/x", "ai")).toBeNull();
     expect(currentSection("zh-TW", "/news/zh-TW", null)).toBe("all");
     expect(currentSection("en", "/news/en", "nft")).toBe("all");
+    // a section inside 持股觀察 lights the tab it is under
+    expect(currentSection("zh-TW", "/news/zh-TW", "figures")).toBe("watch");
+    expect(currentSection("zh-TW", "/news/zh-TW", "watch")).toBe("watch");
   });
 
   it("pages to older stories and back, in the same section", () => {
@@ -121,7 +123,7 @@ describe("the article page", () => {
     vi.stubGlobal("fetch", vi.fn(() => Promise.resolve(new Response(null, { status: 204 }))));
     render(<ArticleView article={ARTICLE} lang="zh-TW" />);
     const crumbs = within(screen.getByRole("navigation", { name: "breadcrumb" })).getAllByRole("link");
-    expect(crumbs.map((a) => a.getAttribute("href"))).toEqual(["/news/zh-TW", "/news/zh-TW?section=holdings"]);
+    expect(crumbs.map((a) => a.getAttribute("href"))).toEqual(["/news/zh-TW", "/news/zh-TW?section=watch", "/news/zh-TW?section=holdings"]);
     const newer = screen.getByRole("link", { name: /較新一篇/ });
     expect(newer.getAttribute("href")).toBe("/news/zh-TW/articles/s0");
     expect(newer.textContent).toContain("較新的那篇");
@@ -243,5 +245,34 @@ describe("the site's name on the masthead", () => {
     expect(en.container.textContent).toBe("AiSiWhale");
     expect(en.container.querySelector("svg")).toBeNull();
     expect(en.container.querySelector(".font-brand")?.textContent).toBe("AiSiWhale");
+  });
+});
+
+describe("持股觀察: two sections under one tab, told apart by tags (D-050)", () => {
+  it("has a tag for each inside it, the current one marked; other tabs have none", () => {
+    render(<ArticleList articles={[summary(1)]} lang="zh-TW" section="figures" />);
+    const tags = within(screen.getByRole("navigation", { name: "持股觀察的分類" })).getAllByRole("link");
+    expect(tags.map((t) => [t.textContent, t.getAttribute("href"), t.getAttribute("aria-current")])).toEqual([
+      ["全部", "/news/zh-TW?section=watch", null],
+      ["大戶持股", "/news/zh-TW?section=holdings", null],
+      ["名人持股", "/news/zh-TW?section=figures", "page"],
+    ]);
+    cleanup();
+    render(<ArticleList articles={[summary(1)]} lang="zh-TW" section="ai" />);
+    expect(screen.queryByRole("navigation", { name: "持股觀察的分類" })).toBeNull();
+  });
+
+  it("asks for both sections at once, and knows which tab a section is under", () => {
+    expect(sectionsOf("watch")).toEqual(["holdings", "figures"]);
+    expect(sectionsOf("figures")).toEqual(["figures"]);
+    expect(topicOf("holdings")).toBe("watch");
+    expect(isFilter("watch") && isFilter("ai") && !isFilter("nft")).toBe(true);
+  });
+
+  it("an article inside it has the tab and its section in the breadcrumb", () => {
+    vi.stubGlobal("fetch", vi.fn(() => Promise.resolve(new Response(null, { status: 204 }))));
+    render(<ArticleView article={ARTICLE} lang="zh-TW" />);
+    const crumbs = within(screen.getByRole("navigation", { name: "breadcrumb" })).getAllByRole("link");
+    expect(crumbs.map((a) => a.textContent)).toEqual(["艾矽鯨", "持股觀察", "大戶持股"]);
   });
 });

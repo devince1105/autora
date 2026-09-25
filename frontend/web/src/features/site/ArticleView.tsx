@@ -6,7 +6,7 @@ import Link from "next/link";
 import type { PublicArticle } from "./api";
 import { listHref } from "./ArticleList";
 import { Beacon } from "./Beacon";
-import { formatDate, isLang, isSection, LANG_NAMES, words, type Lang } from "./i18n";
+import { filterName, formatDate, isLang, isSection, LANG_NAMES, tagsOf, topicOf, words, type Lang } from "./i18n";
 import { MembersOnly } from "./MembersOnly";
 import { ListenButton, PrintButton } from "./ReadingTools";
 
@@ -21,6 +21,15 @@ export function ArticleView({ article, lang }: { article: PublicArticle; lang: L
         <Link href={`/news/${lang}`} className="hover:text-ink">
           {w.site}
         </Link>
+        {/* a section inside a tab of several (持股觀察) has the tab first, then itself */}
+        {section && tagsOf(topicOf(section)).length ? (
+          <>
+            <span className="mx-2">/</span>
+            <Link href={listHref(lang, topicOf(section))} className="hover:text-ink">
+              {filterName(lang, topicOf(section))}
+            </Link>
+          </>
+        ) : null}
         {section ? (
           <>
             <span className="mx-2">/</span>

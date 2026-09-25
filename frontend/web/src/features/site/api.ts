@@ -47,8 +47,8 @@ export async function fetchArticle(
 
 export interface ListOptions extends SiteClientOptions {
   company?: string;
-  /** Only this section (D-047). */
-  section?: Section;
+  /** Only these sections (D-047); several for a tab of several (D-050). */
+  section?: Section | Section[];
   limit?: number;
   offset?: number;
 }
@@ -57,7 +57,9 @@ export interface ListOptions extends SiteClientOptions {
 export async function fetchArticles(lang: string, options: ListOptions = {}): Promise<PublicArticleSummary[]> {
   const { company, section, limit, offset } = options;
   const { data, error, response } = await client(options).GET("/api/public/articles", {
-    params: { query: { lang, company, section, limit, offset } },
+    params: {
+      query: { lang, company, section: section === undefined ? undefined : [section].flat(), limit, offset },
+    },
   });
   if (error !== undefined || !data) throw ApiError.from(response, error);
   return data;

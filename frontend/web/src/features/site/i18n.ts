@@ -21,6 +21,8 @@ const WORDS = {
     all: "全部",
     sections: { holdings: "大戶持股", figures: "名人持股", ai: "AI 科技", tw: "台股", us: "美股", crypto: "加密貨幣" },
     sectionsLabel: "報導分類",
+    topics: { watch: "持股觀察" } as Record<string, string>,
+    tagsLabel: "持股觀察的分類",
     newerPage: "← 較新的報導",
     olderPage: "較舊的報導 →",
     page: (n: number) => `第 ${n} 頁`,
@@ -182,6 +184,8 @@ const WORDS = {
       crypto: "Crypto",
     },
     sectionsLabel: "Sections",
+    topics: { watch: "Holdings watch" } as Record<string, string>,
+    tagsLabel: "Holdings watch, by kind",
     newerPage: "← Newer stories",
     olderPage: "Older stories →",
     page: (n: number) => `Page ${n}`,
@@ -318,6 +322,47 @@ export type Section = (typeof SECTIONS)[number];
 
 export function isSection(value: unknown): value is Section {
   return typeof value === "string" && (SECTIONS as readonly string[]).includes(value);
+}
+
+/** The site's tabs (D-050). Most are one section; 持股觀察 (``watch``) is two — the big investors'
+ * filings and the public figures' — told apart inside it by tags. */
+export const TOPICS = ["watch", "ai", "tw", "us", "crypto"] as const;
+export type Topic = (typeof TOPICS)[number];
+
+const TOPIC_SECTIONS: Record<Topic, readonly Section[]> = {
+  watch: ["holdings", "figures"],
+  ai: ["ai"],
+  tw: ["tw"],
+  us: ["us"],
+  crypto: ["crypto"],
+};
+
+/** What ``?section=`` may say: a tab, or one of the sections inside a tab of several. */
+export type Filter = Topic | Section;
+
+export function isFilter(value: unknown): value is Filter {
+  return isSection(value) || (typeof value === "string" && (TOPICS as readonly string[]).includes(value));
+}
+
+/** The sections a filter shows. */
+export function sectionsOf(filter: Filter): Section[] {
+  return isSection(filter) ? [filter] : [...TOPIC_SECTIONS[filter]];
+}
+
+/** The tab a section is under. */
+export function topicOf(section: Section): Topic {
+  return TOPICS.find((topic) => TOPIC_SECTIONS[topic].includes(section))!;
+}
+
+/** The tags inside a tab: its sections, when it has more than one. */
+export function tagsOf(topic: Topic): readonly Section[] {
+  return TOPIC_SECTIONS[topic].length > 1 ? TOPIC_SECTIONS[topic] : [];
+}
+
+/** A filter's name: a tab's, or a section's. */
+export function filterName(lang: Lang, filter: Filter): string {
+  const w = words(lang);
+  return isSection(filter) ? w.sections[filter] : (w.topics[filter] ?? w.sections[filter as Section]);
 }
 
 export function words(lang: Lang) {

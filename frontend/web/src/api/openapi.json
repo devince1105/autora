@@ -7772,15 +7772,18 @@
       "schema": {
        "anyOf": [
         {
-         "enum": [
-          "holdings",
-          "figures",
-          "ai",
-          "tw",
-          "us",
-          "crypto"
-         ],
-         "type": "string"
+         "items": {
+          "enum": [
+           "holdings",
+           "figures",
+           "ai",
+           "tw",
+           "us",
+           "crypto"
+          ],
+          "type": "string"
+         },
+         "type": "array"
         },
         {
          "type": "null"

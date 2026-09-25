@@ -5,8 +5,8 @@ Most articles are free and need no sign-in. A members-only one comes back as its
 the rest of the text is never sent to a browser that may not read it. The beacon carries
 nothing about the reader either way.
 
-- GET  /api/public/articles?lang=zh-TW[&company=<slug>][&section=ai][&limit=20][&offset=0]:
-  newest published first
+- GET  /api/public/articles?lang=zh-TW[&company=<slug>][&section=ai…][&limit=20][&offset=0]:
+  newest published first (``section`` may be given more than once: any of them)
 - GET  /api/public/articles/{lang}/{slug}: one published article (404: not published in lang)
 - GET  /api/public/markets: the market strip's figures, closing or delayed (D-048)
 - GET  /api/public/stocks/{symbol}?lang=zh-TW[&company=<slug>]: a stock's page — its figure, the
@@ -58,7 +58,7 @@ async def list_articles(
     session: Session,
     lang: Annotated[str, Query(pattern=r"^[a-z]{2}(-[A-Z][A-Za-z]{1,3})?$", max_length=10)],
     company: Annotated[str | None, Query(max_length=100)] = None,
-    section: Annotated[Section | None, Query()] = None,
+    section: Annotated[list[Section] | None, Query()] = None,
     limit: Annotated[int, Query(ge=1, le=MAX_LIST)] = 20,
     offset: Annotated[int, Query(ge=0, le=10_000)] = 0,
 ) -> list[PublicArticleSummary]:

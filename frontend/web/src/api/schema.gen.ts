@@ -4318,7 +4318,7 @@ export interface operations {
             query: {
                 lang: string;
                 company?: string | null;
-                section?: ("holdings" | "figures" | "ai" | "tw" | "us" | "crypto") | null;
+                section?: ("holdings" | "figures" | "ai" | "tw" | "us" | "crypto")[] | null;
                 limit?: number;
                 offset?: number;
             };

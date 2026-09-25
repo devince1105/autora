@@ -104,6 +104,11 @@ async def test_an_article_is_in_the_section_most_of_its_sources_name(public, new
     assert (await public.get("/api/public/articles", params=list_ | {"section": "tw"})).json() == []
     one = await public.get(f"/api/public/articles/zh-TW/{ai[0]['slug']}")
     assert one.json()["section"] == "ai"
+    # several sections: any of them (the site's 持股觀察 is two, D-050)
+    both = await public.get("/api/public/articles", params=list_ | {"section": ["tw", "ai"]})
+    assert [a["section"] for a in both.json()] == ["ai"]
+    neither = await public.get("/api/public/articles", params=list_ | {"section": ["tw", "us"]})
+    assert neither.json() == []
     bad = await public.get("/api/public/articles", params=list_ | {"section": "nft"})
     assert bad.status_code == 422
 

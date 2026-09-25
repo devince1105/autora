@@ -8,17 +8,19 @@ import { usePathname, useSearchParams } from "next/navigation";
 import { Suspense } from "react";
 
 import { listHref } from "./ArticleList";
-import { isSection, SECTIONS, words, type Lang, type Section } from "./i18n";
+import { filterName, isFilter, isSection, topicOf, TOPICS, type Lang, type Topic, words } from "./i18n";
 
-/** Which tab is current: on the front page, its section or "all"; on any other page, none. */
-export function currentSection(lang: Lang, pathname: string, section: string | null): Section | "all" | null {
+/** Which tab is current: on the front page, its tab (a section's is the tab it is under) or
+ * "all"; on any other page, none. */
+export function currentSection(lang: Lang, pathname: string, section: string | null): Topic | "all" | null {
   if (pathname !== `/news/${lang}`) return null;
-  return isSection(section) ? section : "all";
+  if (!isFilter(section)) return "all";
+  return isSection(section) ? topicOf(section) : section;
 }
 
-function Tabs({ lang, current }: { lang: Lang; current: Section | "all" | null }) {
+function Tabs({ lang, current }: { lang: Lang; current: Topic | "all" | null }) {
   const w = words(lang);
-  const tabs: [Section | null, string][] = [[null, w.all], ...SECTIONS.map((s): [Section, string] => [s, w.sections[s]])];
+  const tabs: [Topic | null, string][] = [[null, w.all], ...TOPICS.map((t): [Topic, string] => [t, filterName(lang, t)])];
   return (
     // px-1: with each tab's own px-3, the first label sits on the column's edge, under the masthead
     <ul className="mx-auto flex max-w-3xl gap-1 px-1">

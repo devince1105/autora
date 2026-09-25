@@ -2,7 +2,7 @@ import { notFound } from "next/navigation";
 
 import { fetchArticles } from "@/features/site/api";
 import { ArticleList, PAGE_SIZE } from "@/features/site/ArticleList";
-import { isLang, isSection, words } from "@/features/site/i18n";
+import { filterName, isFilter, isLang, sectionsOf, words } from "@/features/site/i18n";
 
 export const revalidate = 30;
 
@@ -11,7 +11,7 @@ type Search = Promise<{ [key: string]: string | string[] | undefined }>;
 
 async function where(searchParams: Search) {
   const query = await searchParams;
-  const section = isSection(query.section) ? query.section : null;
+  const section = isFilter(query.section) ? query.section : null;
   const page = Math.min(Math.max(Number.parseInt(String(query.page ?? "1"), 10) || 1, 1), 500);
   return { section, page };
 }
@@ -21,7 +21,7 @@ export async function generateMetadata({ params, searchParams }: { params: Param
   if (!isLang(lang)) return {};
   const { section } = await where(searchParams);
   const w = words(lang);
-  return { title: section ? `${w.sections[section]} · ${w.site}` : w.site };
+  return { title: section ? `${filterName(lang, section)} · ${w.site}` : w.site };
 }
 
 export default async function Page({ params, searchParams }: { params: Params; searchParams: Search }) {
@@ -31,7 +31,7 @@ export default async function Page({ params, searchParams }: { params: Params; s
   // one more than a page: whether it comes back says whether there is a next page
   const found = await fetchArticles(lang, {
     company: process.env.SITE_COMPANY || undefined,
-    section: section ?? undefined,
+    section: section ? sectionsOf(section) : undefined,
     limit: PAGE_SIZE + 1,
     offset: (page - 1) * PAGE_SIZE,
   });

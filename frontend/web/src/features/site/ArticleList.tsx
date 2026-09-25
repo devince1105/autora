@@ -1,17 +1,28 @@
 // The site's front page (D-047): the newest story large, then the rest as a list of headlines —
 // a news reader scans headlines, and these stories have no pictures to put in cards. Below them,
-// the way to older ones. The sections are in the header (SectionNav).
+// the way to older ones. The tabs are in the header (SectionNav); a tab of several sections
+// (持股觀察, D-050) has its tags here, and every story says its section as a tag.
 import Link from "next/link";
 
 import type { PublicArticleSummary } from "./api";
-import { formatDate, words, type Lang, type Section } from "./i18n";
+import {
+  filterName,
+  formatDate,
+  isSection,
+  tagsOf,
+  topicOf,
+  words,
+  type Filter,
+  type Lang,
+  type Section,
+} from "./i18n";
 
 export const PAGE_SIZE = 10;
 
-/** The front page's address for a section and a page (page 1 and "all" are left out). */
-export function listHref(lang: Lang, section: Section | null, page = 1): string {
+/** The front page's address for a tab or a section, and a page (page 1 and "all" are left out). */
+export function listHref(lang: Lang, filter: Filter | null, page = 1): string {
   const query = new URLSearchParams();
-  if (section) query.set("section", section);
+  if (filter) query.set("section", filter);
   if (page > 1) query.set("page", String(page));
   const qs = query.toString();
   return `/news/${lang}${qs ? `?${qs}` : ""}`;
@@ -22,7 +33,11 @@ function Meta({ article, lang }: { article: PublicArticleSummary; lang: Lang }) 
   const section = article.section as Section | null | undefined;
   return (
     <p className="flex flex-wrap items-center gap-x-2 text-xs text-muted">
-      {section ? <span className="font-semibold text-accent">{w.sections[section]}</span> : null}
+      {section ? (
+        <span className="rounded-full border border-accent/40 px-2 py-px font-semibold text-accent">
+          {w.sections[section]}
+        </span>
+      ) : null}
       <time dateTime={article.published_at}>{formatDate(lang, article.published_at)}</time>
       {article.revised_at ? (
         <span>
@@ -64,6 +79,31 @@ function Row({ article, lang }: { article: PublicArticleSummary; lang: Lang }) {
   );
 }
 
+/** A tab of several sections' tags: all of it, or one of them. */
+function Tags({ lang, filter }: { lang: Lang; filter: Filter }) {
+  const w = words(lang);
+  const topic = isSection(filter) ? topicOf(filter) : filter;
+  const tags = tagsOf(topic);
+  if (!tags.length) return null;
+  const chips: [Filter, string][] = [[topic, w.all], ...tags.map((t): [Filter, string] => [t, w.sections[t]])];
+  return (
+    <nav aria-label={w.tagsLabel} className="flex flex-wrap gap-2 pt-4 print:hidden">
+      {chips.map(([id, label]) => (
+        <Link
+          key={id}
+          href={listHref(lang, id)}
+          aria-current={id === filter ? "page" : undefined}
+          className={`rounded-full border px-3 py-1 text-xs ${
+            id === filter ? "border-ink bg-ink font-semibold text-surface" : "border-line text-muted hover:text-ink"
+          }`}
+        >
+          {label}
+        </Link>
+      ))}
+    </nav>
+  );
+}
+
 export function ArticleList({
   articles,
   lang,
@@ -73,7 +113,8 @@ export function ArticleList({
 }: {
   articles: PublicArticleSummary[];
   lang: Lang;
-  section?: Section | null;
+  /** The tab or the section shown (``?section=``). */
+  section?: Filter | null;
   page?: number;
   /** Is there a next page? (The page asked for one more than it shows.) */
   hasMore?: boolean;
@@ -85,9 +126,10 @@ export function ArticleList({
   return (
     <section className="mx-auto max-w-3xl px-4 pt-2 pb-10">
       <h1 className="sr-only">
-        {section ? w.sections[section] : w.latest}
+        {section ? filterName(lang, section) : w.latest}
         {page > 1 ? `・${w.page(page)}` : ""}
       </h1>
+      {section ? <Tags lang={lang} filter={section} /> : null}
       {articles.length === 0 ? (
         <p className="py-16 text-center text-muted">{w.empty}</p>
       ) : (

@@ -247,19 +247,21 @@ async def published_articles(
     lang: str,
     *,
     company_slug: str | None = None,
-    section: str | None = None,
+    section: str | list[str] | None = None,
     limit: int = 20,
     offset: int = 0,
 ) -> list[PublicArticleSummary]:
     """Newest first. ``offset`` pages through them; a page that comes back shorter than
-    ``limit`` is the last."""
+    ``limit`` is the last. ``section`` may be several: the site's 持股觀察 (holdings watch) is the
+    big investors' and the public figures' together (D-050)."""
     query = _published(lang).order_by(Article.published_at.desc(), Article.id.desc())
     if company_slug is not None:
         query = query.join(Company, Company.id == Article.company_id).where(
             Company.slug == company_slug
         )
-    if section is not None:
-        query = query.where(_section() == section)
+    if section:
+        sections = [section] if isinstance(section, str) else list(section)
+        query = query.where(_section().in_(sections))
     query = query.limit(min(max(limit, 1), MAX_LIST)).offset(max(offset, 0))
     rows = (await session.execute(query)).all()
     return [_summary(article, version, named) for article, version, named in rows]
