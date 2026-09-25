@@ -678,7 +678,10 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** List Articles */
+        /**
+         * List Articles
+         * @description Newest first; ``offset`` pages through them (D-047).
+         */
         get: operations["list_articles_api_public_articles_get"];
         put?: never;
         post?: never;
@@ -2233,6 +2236,8 @@ export interface components {
              * @default false
              */
             locked: boolean;
+            newer?: components["schemas"]["PublicNeighbour"] | null;
+            older?: components["schemas"]["PublicNeighbour"] | null;
             /** Path */
             path: string;
             /**
@@ -2242,6 +2247,8 @@ export interface components {
             published_at: string;
             /** Revised At */
             revised_at?: string | null;
+            /** Section */
+            section?: string | null;
             /** Slug */
             slug: string;
             /** Sources */
@@ -2274,6 +2281,8 @@ export interface components {
             published_at: string;
             /** Revised At */
             revised_at?: string | null;
+            /** Section */
+            section?: string | null;
             /** Slug */
             slug: string;
             /** Summary */
@@ -2287,6 +2296,16 @@ export interface components {
             text: string;
             /** Type */
             type: string;
+        };
+        /**
+         * PublicNeighbour
+         * @description The next article along, newer or older, in the same language and company.
+         */
+        PublicNeighbour: {
+            /** Path */
+            path: string;
+            /** Title */
+            title: string;
         };
         /** PublicSource */
         PublicSource: {
@@ -4182,7 +4201,9 @@ export interface operations {
             query: {
                 lang: string;
                 company?: string | null;
+                section?: ("holdings" | "ai" | "tw" | "us" | "crypto") | null;
                 limit?: number;
+                offset?: number;
             };
             header?: never;
             path?: never;

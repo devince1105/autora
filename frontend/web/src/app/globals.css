@@ -43,3 +43,55 @@
 body {
   @apply bg-canvas text-ink font-sans antialiased;
 }
+
+/* The public site (D-047) chooses light or dark itself: data-theme on its outermost element,
+   set before first paint from what the reader picked, overrides the system's preference. */
+[data-theme="light"] {
+  color-scheme: light;
+  --color-canvas: #f6f7f9;
+  --color-surface: #ffffff;
+  --color-line: #e3e6eb;
+  --color-ink: #15181d;
+  --color-muted: #5b6472;
+  --color-accent: #2f5bea;
+  --color-accent-ink: #ffffff;
+  --color-danger-soft: #fdf0f0;
+  --color-danger-line: #f3c6c6;
+  --color-neutral: #9aa3af;
+}
+
+[data-theme="dark"] {
+  color-scheme: dark;
+  --color-canvas: #0f1216;
+  --color-surface: #171b21;
+  --color-line: #262c35;
+  --color-ink: #e8ebf0;
+  --color-muted: #98a2b1;
+  --color-accent: #6d8dff;
+  --color-accent-ink: #0f1216;
+  --color-danger-soft: #2a1618;
+  --color-danger-line: #5a2a2d;
+  --color-neutral: #5f6875;
+}
+
+/* Its type: one sans for headlines and reading (font-display is the headlines', in case they
+   ever differ). Loaded by next/font on the site's layout, which sets the variable; elsewhere it
+   falls back to the system's. */
+@theme inline {
+  --font-display: var(--font-site-sans), system-ui, -apple-system, "PingFang TC", "Noto Sans TC",
+    "Microsoft JhengHei", sans-serif;
+  --font-reading: var(--font-site-sans), system-ui, -apple-system, "PingFang TC", "Noto Sans TC",
+    "Microsoft JhengHei", sans-serif;
+}
+
+/* Printed, an article is black on white whatever the screen showed. */
+@media print {
+  [data-site] {
+    --color-surface: #ffffff;
+    --color-canvas: #ffffff;
+    --color-ink: #000000;
+    --color-muted: #444444;
+    --color-line: #cccccc;
+    --color-accent: #000000;
+  }
+}

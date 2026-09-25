@@ -48,6 +48,7 @@ from autora.domains.newsroom.sources import (
     MAX_AGE_DAYS,
     OWN_STORY,
     PRIMARY,
+    SECTION,
     TITLE_PREFIX,
     add_source,
 )
@@ -61,7 +62,8 @@ NAME = "艾矽鯨"
 PROJECT = "持股動態與科技產業"
 MISSION = (
     "用附原始出處的中英雙語報導，追蹤 AI 與半導體產業的動向、大型投資人的持股變化，"
-    "以及台股、美股裡的 AI 科技公司；只報導事實與別人說的話，不提供投資建議。"
+    "台股、美股裡的 AI 科技公司，以及加密貨幣的監管、ETF 與市場動態；"
+    "只報導事實與別人說的話，不提供投資建議。"
 )
 
 HALF_DAY = 12 * 3600
@@ -94,6 +96,7 @@ def _investor(
         OWN_STORY: True,
         PRIMARY: True,
         MAX_AGE_DAYS: 120,
+        SECTION: "holdings",
     }
     if predecessors:
         config[PREDECESSORS] = list(predecessors)
@@ -108,24 +111,24 @@ def _investor(
     )
 
 
-def _press(name: str, url: str) -> MarketSource:
+def _press(name: str, url: str, section: str = "ai") -> MarketSource:
     return MarketSource(
         name=name,
         kind="rss",
         url=url,
         trust_level=Decimal("0.8"),
         language="en",
-        config={MAX_AGE_DAYS: 7},
+        config={MAX_AGE_DAYS: 7, SECTION: section},
     )
 
 
-def _search(query: str) -> MarketSource:
+def _search(query: str, section: str) -> MarketSource:
     return MarketSource(
         name=f"搜尋：{query}",
         kind="search_query",
         trust_level=Decimal("0.5"),
         language="zh-TW",
-        config={"query": query, "k": 5, "recency_days": 2},
+        config={"query": query, "k": 5, "recency_days": 2, SECTION: section},
         poll_interval_seconds=HALF_DAY,
     )
 
@@ -143,9 +146,11 @@ SOURCES: tuple[MarketSource, ...] = (
     _press("OpenAI News", "https://openai.com/news/rss.xml"),
     _press("Google AI Blog", "https://blog.google/technology/ai/rss/"),
     _press("Microsoft Source", "https://news.microsoft.com/source/feed/"),
-    _search("台股 AI 伺服器 供應鏈"),
-    _search("台積電 營收 法說會"),
-    _search("美股 科技股 財報"),
+    _search("台股 AI 伺服器 供應鏈", "tw"),
+    _search("台積電 營收 法說會", "tw"),
+    _search("美股 科技股 財報", "us"),
+    _press("CoinDesk", "https://www.coindesk.com/arc/outboundfeeds/rss/", "crypto"),
+    _search("比特幣 以太幣 ETF 監管", "crypto"),
 )
 
 

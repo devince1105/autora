@@ -25,8 +25,12 @@ export function SiteFooter({
     ] as const
   ).filter(([, , shown]) => shown);
   return (
-    <footer data-testid="site-footer" className="mt-12 border-t border-line">
-      <div className="mx-auto max-w-2xl px-4 py-6 text-sm text-muted">
+    <footer data-testid="site-footer" className="mt-12 border-t border-line bg-canvas print:hidden">
+      <div className="mx-auto max-w-5xl px-4 py-8 text-sm text-muted">
+        <p className="mb-3 flex items-baseline gap-3">
+          <span className="font-display text-base font-bold text-ink">{w.site}</span>
+          <span className="text-xs">{w.tagline}</span>
+        </p>
         <nav className="flex flex-wrap gap-x-4 gap-y-1">
           {links.map(([page, label]) => (
             <Link key={page} href={`/news/${lang}/${page}`} className="underline">

@@ -1,31 +1,149 @@
-// The site's front page: the newest published stories in one language.
+// The site's front page (D-047): the newest story large, then the rest as a list of headlines —
+// a news reader scans headlines, and these stories have no pictures to put in cards. Above them,
+// the sections; below, the way to older ones.
 import Link from "next/link";
 
 import type { PublicArticleSummary } from "./api";
-import { formatDate, words, type Lang } from "./i18n";
+import { formatDate, SECTIONS, words, type Lang, type Section } from "./i18n";
 
-export function ArticleList({ articles, lang }: { articles: PublicArticleSummary[]; lang: Lang }) {
+export const PAGE_SIZE = 10;
+
+/** The front page's address for a section and a page (page 1 and "all" are left out). */
+export function listHref(lang: Lang, section: Section | null, page = 1): string {
+  const query = new URLSearchParams();
+  if (section) query.set("section", section);
+  if (page > 1) query.set("page", String(page));
+  const qs = query.toString();
+  return `/news/${lang}${qs ? `?${qs}` : ""}`;
+}
+
+function SectionTabs({ lang, section }: { lang: Lang; section: Section | null }) {
   const w = words(lang);
+  const tabs: [Section | null, string][] = [[null, w.all], ...SECTIONS.map((s): [Section, string] => [s, w.sections[s]])];
   return (
-    <section className="mx-auto max-w-2xl px-4 py-10">
-      <h1 className="text-2xl font-bold">{w.latest}</h1>
+    <nav aria-label={w.sectionsLabel} className="-mx-4 overflow-x-auto px-4 print:hidden">
+      <ul className="flex min-w-max gap-1 border-b border-line">
+        {tabs.map(([id, label]) => (
+          <li key={id ?? "all"}>
+            <Link
+              href={listHref(lang, id)}
+              aria-current={id === section ? "page" : undefined}
+              className={`-mb-px block border-b-2 px-3 py-2.5 text-sm ${
+                id === section ? "border-accent font-semibold text-ink" : "border-transparent text-muted hover:text-ink"
+              }`}
+            >
+              {label}
+            </Link>
+          </li>
+        ))}
+      </ul>
+    </nav>
+  );
+}
+
+function Meta({ article, lang }: { article: PublicArticleSummary; lang: Lang }) {
+  const w = words(lang);
+  const section = article.section as Section | null | undefined;
+  return (
+    <p className="flex flex-wrap items-center gap-x-2 text-xs text-muted">
+      {section ? <span className="font-semibold text-accent">{w.sections[section]}</span> : null}
+      <time dateTime={article.published_at}>{formatDate(lang, article.published_at)}</time>
+      {article.revised_at ? (
+        <span>
+          ・{w.revised} {formatDate(lang, article.revised_at)}
+        </span>
+      ) : null}
+      {article.access === "members" ? (
+        <span className="rounded-full border border-line px-1.5 py-px text-[0.7rem]">{w.member}</span>
+      ) : null}
+    </p>
+  );
+}
+
+function Lead({ article, lang }: { article: PublicArticleSummary; lang: Lang }) {
+  return (
+    <article className="border-b border-line py-8">
+      <Meta article={article} lang={lang} />
+      <h2 className="mt-3 font-display text-3xl leading-snug font-bold sm:text-4xl sm:leading-tight">
+        <Link href={article.path} className="hover:text-accent">
+          {article.title}
+        </Link>
+      </h2>
+      {article.summary ? <p className="mt-4 text-lg leading-relaxed text-muted">{article.summary}</p> : null}
+    </article>
+  );
+}
+
+function Row({ article, lang }: { article: PublicArticleSummary; lang: Lang }) {
+  return (
+    <li className="py-6">
+      <Meta article={article} lang={lang} />
+      <h2 className="mt-2 font-display text-xl leading-snug font-semibold">
+        <Link href={article.path} className="hover:text-accent">
+          {article.title}
+        </Link>
+      </h2>
+      {article.summary ? <p className="mt-2 line-clamp-2 leading-relaxed text-muted">{article.summary}</p> : null}
+    </li>
+  );
+}
+
+export function ArticleList({
+  articles,
+  lang,
+  section = null,
+  page = 1,
+  hasMore = false,
+}: {
+  articles: PublicArticleSummary[];
+  lang: Lang;
+  section?: Section | null;
+  page?: number;
+  /** Is there a next page? (The page asked for one more than it shows.) */
+  hasMore?: boolean;
+}) {
+  const w = words(lang);
+  // only the first page leads with a story: an older page is a plain continuation of the list
+  const lead = page === 1 ? articles[0] : undefined;
+  const rest = lead ? articles.slice(1) : articles;
+  return (
+    <section className="mx-auto max-w-3xl px-4 pt-6 pb-10">
+      <h1 className="sr-only">
+        {section ? w.sections[section] : w.latest}
+        {page > 1 ? `・${w.page(page)}` : ""}
+      </h1>
+      <SectionTabs lang={lang} section={section} />
       {articles.length === 0 ? (
-        <p className="mt-6 text-muted">{w.empty}</p>
+        <p className="py-16 text-center text-muted">{w.empty}</p>
       ) : (
-        <ul className="mt-6 divide-y divide-line">
-          {articles.map((article) => (
-            <li key={article.article_id} className="py-5">
-              <Link href={article.path} className="text-xl font-semibold hover:text-accent">
-                {article.title}
-              </Link>
-              {article.summary ? <p className="mt-1 text-muted">{article.summary}</p> : null}
-              <p className="mt-1 text-sm text-muted">
-                <time dateTime={article.published_at}>{formatDate(lang, article.published_at)}</time>
-              </p>
-            </li>
-          ))}
-        </ul>
+        <>
+          {lead ? <Lead article={lead} lang={lang} /> : null}
+          <ul className="divide-y divide-line">
+            {rest.map((article) => (
+              <Row key={article.article_id} article={article} lang={lang} />
+            ))}
+          </ul>
+        </>
       )}
+      {page > 1 || hasMore ? (
+        <nav className="mt-4 flex items-center justify-between border-t border-line pt-6 text-sm print:hidden">
+          {page > 1 ? (
+            <Link href={listHref(lang, section, page - 1)} rel="prev" className="text-accent hover:underline">
+              {w.newerPage}
+            </Link>
+          ) : (
+            <span />
+          )}
+          <span className="text-muted">{w.page(page)}</span>
+          {hasMore ? (
+            <Link href={listHref(lang, section, page + 1)} rel="next" className="text-accent hover:underline">
+              {w.olderPage}
+            </Link>
+          ) : (
+            <span />
+          )}
+        </nav>
+      ) : null}
     </section>
   );
 }

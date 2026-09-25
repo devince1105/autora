@@ -14,6 +14,11 @@ this one is handed a yes or a no.
 Beacons (``record_beacon``) count readers without knowing who they are: the browser sends a
 random id it makes each day (``session_hash``); no IP address or anything else about the reader is
 stored. One count per session, article, language, kind and day: repeats are dropped.
+
+The site is in sections (D-047): big investors' filings, AI and tech, Taiwan stocks, US stocks,
+crypto. An article's section is not stored — it is its story's, which is the section most of the
+story's items' sources name (``config.section``). Retagging a source moves what is already
+written.
 """
 
 from __future__ import annotations
@@ -24,7 +29,7 @@ from datetime import UTC, date, datetime
 from urllib.parse import urlsplit
 
 from pydantic import BaseModel
-from sqlalchemy import select
+from sqlalchemy import func, select, tuple_
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -37,9 +42,13 @@ from autora.domains.newsroom.models import (
     ArticleVersion,
     ClaimEvidence,
     Evidence,
+    Source,
+    SourceItem,
+    StoryItem,
     SupportType,
 )
 from autora.domains.newsroom.publisher import article_path
+from autora.domains.newsroom.sources import SECTION, SECTIONS
 from autora.infra.ids import uuid7
 
 MAX_LIST = 50
@@ -78,6 +87,15 @@ class PublicArticleSummary(BaseModel):
     """When a changed version went up (D-045); the page says so, as a correction should."""
     access: str = ArticleAccess.FREE.value
     """``free`` or ``members`` (D-025). On a list, this is what draws the badge."""
+    section: str | None = None
+    """One of ``SECTIONS`` (D-047), or None when none of its story's sources names one."""
+
+
+class PublicNeighbour(BaseModel):
+    """The next article along, newer or older, in the same language and company."""
+
+    title: str
+    path: str
 
 
 class PublicArticle(PublicArticleSummary):
@@ -93,9 +111,13 @@ class PublicArticle(PublicArticleSummary):
     """Whose article it is — the site asks that company whether this reader is a member."""
     company_slug: str
     """The same company, as the public API names one. The paywall asks what a year costs here."""
+    newer: PublicNeighbour | None = None
+    older: PublicNeighbour | None = None
 
 
-def _summary(article: Article, version: ArticleVersion) -> PublicArticleSummary:
+def _summary(
+    article: Article, version: ArticleVersion, section: str | None
+) -> PublicArticleSummary:
     assert article.published_at is not None
     return PublicArticleSummary(
         access=article.access,
@@ -107,6 +129,25 @@ def _summary(article: Article, version: ArticleVersion) -> PublicArticleSummary:
         summary=version.summary,
         published_at=article.published_at,
         revised_at=article.revised_at,
+        section=section,
+    )
+
+
+def _section():
+    """The section most of the article's story's sources name; ties go to the first in
+    alphabetical order, so an article does not change section from one read to the next."""
+    named = Source.config[SECTION].astext
+    return (
+        select(named)
+        .select_from(StoryItem)
+        .join(SourceItem, SourceItem.id == StoryItem.source_item_id)
+        .join(Source, Source.id == SourceItem.source_id)
+        .where(StoryItem.story_id == Article.story_id, named.in_(SECTIONS))
+        .group_by(named)
+        .order_by(func.count().desc(), named)
+        .limit(1)
+        .correlate(Article)
+        .scalar_subquery()
     )
 
 
@@ -116,7 +157,7 @@ def _published(lang: str):
     On the site is "has a published version and is listed" (D-045), not "is PUBLISHED": an
     article being revised keeps showing what was published until the new version is."""
     return (
-        select(Article, ArticleVersion)
+        select(Article, ArticleVersion, _section())
         .join(ArticleVersion, ArticleVersion.draft_group_id == Article.published_group_id)
         .where(
             Article.published_group_id.is_not(None),
@@ -135,7 +176,7 @@ async def published_article(
     row = (await session.execute(_published(lang).where(Article.slug == slug))).first()
     if row is None:
         return None
-    article, version = row
+    article, version, section = row
     company = await session.get(Company, article.company_id)
     cited: list[uuid.UUID] = []
     for block in version.body:
@@ -163,8 +204,9 @@ async def published_article(
                 sources[url] = PublicSource(title=title or site, site=site, url=url)
     locked = article.access == ArticleAccess.MEMBERS.value and not unlocked
     body = preview(version.body) if locked else version.body
+    newer, older = await _neighbours(session, lang, article)
     return PublicArticle(
-        **_summary(article, version).model_dump(),
+        **_summary(article, version, section).model_dump(),
         locked=locked,
         blocks=[PublicBlock(type=b["type"], text=b["text"]) for b in body],
         sources=[] if locked else list(sources.values()),
@@ -172,19 +214,54 @@ async def published_article(
         company=company.name if company else "",
         company_id=article.company_id,
         company_slug=company.slug if company else "",
+        newer=newer,
+        older=older,
     )
 
 
+async def _neighbours(
+    session: AsyncSession, lang: str, article: Article
+) -> tuple[PublicNeighbour | None, PublicNeighbour | None]:
+    """The article published just after this one and the one just before, as the list orders
+    them (newest first), among the same company's articles on the site in this language."""
+    here = tuple_(Article.published_at, Article.id)
+    at = tuple_(article.published_at, article.id)
+    mine = _published(lang).where(Article.company_id == article.company_id)
+    out: list[PublicNeighbour | None] = []
+    for query in (
+        mine.where(here > at).order_by(Article.published_at.asc(), Article.id.asc()),
+        mine.where(here < at).order_by(Article.published_at.desc(), Article.id.desc()),
+    ):
+        row = (await session.execute(query.limit(1))).first()
+        out.append(
+            None
+            if row is None
+            else PublicNeighbour(title=row[1].title, path=article_path(lang, row[0].slug))
+        )
+    return out[0], out[1]
+
+
 async def published_articles(
-    session: AsyncSession, lang: str, *, company_slug: str | None = None, limit: int = 20
+    session: AsyncSession,
+    lang: str,
+    *,
+    company_slug: str | None = None,
+    section: str | None = None,
+    limit: int = 20,
+    offset: int = 0,
 ) -> list[PublicArticleSummary]:
+    """Newest first. ``offset`` pages through them; a page that comes back shorter than
+    ``limit`` is the last."""
     query = _published(lang).order_by(Article.published_at.desc(), Article.id.desc())
     if company_slug is not None:
         query = query.join(Company, Company.id == Article.company_id).where(
             Company.slug == company_slug
         )
-    rows = (await session.execute(query.limit(min(max(limit, 1), MAX_LIST)))).all()
-    return [_summary(article, version) for article, version in rows]
+    if section is not None:
+        query = query.where(_section() == section)
+    query = query.limit(min(max(limit, 1), MAX_LIST)).offset(max(offset, 0))
+    rows = (await session.execute(query)).all()
+    return [_summary(article, version, named) for article, version, named in rows]
 
 
 class BeaconRejected(Exception):

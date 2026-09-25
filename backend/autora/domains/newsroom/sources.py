@@ -106,6 +106,15 @@ it needs no second source to be believed, so the story desk scores its corrobora
 happened to carry."""
 
 
+SECTION = "section"
+"""``config.section``: which part of the site a story from this source belongs in (D-047) — one
+of ``SECTIONS``. A story's section is the one most of its items' sources name; a source without
+one adds nothing, and a story none of whose sources name one is only on the front page."""
+
+SECTIONS = ("holdings", "ai", "tw", "us", "crypto")
+"""The site's sections: big investors' filings, AI and tech, Taiwan stocks, US stocks, crypto."""
+
+
 def content_hash(url: str, title: str) -> str:
     normalized = _SPACE.sub(" ", title).strip().lower()
     return hashlib.sha256(f"{canonical_url(url)}\n{normalized}".encode()).hexdigest()
@@ -136,6 +145,9 @@ def _validate(kind: SourceKind, url: str | None, config: dict[str, Any]) -> None
     age = config.get(MAX_AGE_DAYS)
     if age is not None and (not isinstance(age, int) or isinstance(age, bool) or age < 1):
         raise SourceConfigError("config.max_age_days must be a whole number of days, 1 or more")
+    section = config.get(SECTION)
+    if section is not None and section not in SECTIONS:
+        raise SourceConfigError(f"config.section must be one of {', '.join(SECTIONS)}")
 
 
 async def ensure_newsroom_schedules(

@@ -5,7 +5,8 @@ Most articles are free and need no sign-in. A members-only one comes back as its
 the rest of the text is never sent to a browser that may not read it. The beacon carries
 nothing about the reader either way.
 
-- GET  /api/public/articles?lang=zh-TW[&company=<slug>][&limit=20]: newest published first
+- GET  /api/public/articles?lang=zh-TW[&company=<slug>][&section=ai][&limit=20][&offset=0]:
+  newest published first
 - GET  /api/public/articles/{lang}/{slug}: one published article (404: not published in lang)
 - POST /api/analytics/beacon: {article_id, lang, event_type, session_hash} -> 204
 """
@@ -13,7 +14,7 @@ nothing about the reader either way.
 from __future__ import annotations
 
 import uuid
-from typing import Annotated
+from typing import Annotated, Literal
 
 from fastapi import APIRouter, Cookie, HTTPException, Query, Response, status
 from pydantic import BaseModel, Field
@@ -34,6 +35,9 @@ from autora_api.deps import Session
 
 router = APIRouter(tags=["public"])
 
+Section = Literal["holdings", "ai", "tw", "us", "crypto"]
+"""The site's sections (``newsroom.sources.SECTIONS``), spelled out for the OpenAPI document."""
+
 SessionCookie = Annotated[str | None, Cookie(alias=SESSION_COOKIE)]
 
 Lang = Annotated[str, Field(pattern=r"^[a-z]{2}(-[A-Z][A-Za-z]{1,3})?$", max_length=10)]
@@ -44,9 +48,14 @@ async def list_articles(
     session: Session,
     lang: Annotated[str, Query(pattern=r"^[a-z]{2}(-[A-Z][A-Za-z]{1,3})?$", max_length=10)],
     company: Annotated[str | None, Query(max_length=100)] = None,
+    section: Annotated[Section | None, Query()] = None,
     limit: Annotated[int, Query(ge=1, le=MAX_LIST)] = 20,
+    offset: Annotated[int, Query(ge=0, le=10_000)] = 0,
 ) -> list[PublicArticleSummary]:
-    return await published_articles(session, lang, company_slug=company, limit=limit)
+    """Newest first; ``offset`` pages through them (D-047)."""
+    return await published_articles(
+        session, lang, company_slug=company, section=section, limit=limit, offset=offset
+    )
 
 
 @router.get("/api/public/articles/{lang}/{slug}")

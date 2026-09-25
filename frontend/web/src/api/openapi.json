@@ -3425,6 +3425,26 @@
       "title": "Locked",
       "type": "boolean"
      },
+     "newer": {
+      "anyOf": [
+       {
+        "$ref": "#/components/schemas/PublicNeighbour"
+       },
+       {
+        "type": "null"
+       }
+      ]
+     },
+     "older": {
+      "anyOf": [
+       {
+        "$ref": "#/components/schemas/PublicNeighbour"
+       },
+       {
+        "type": "null"
+       }
+      ]
+     },
      "path": {
       "title": "Path",
       "type": "string"
@@ -3445,6 +3465,17 @@
        }
       ],
       "title": "Revised At"
+     },
+     "section": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Section"
      },
      "slug": {
       "title": "Slug",
@@ -3528,6 +3559,17 @@
       ],
       "title": "Revised At"
      },
+     "section": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Section"
+     },
      "slug": {
       "title": "Slug",
       "type": "string"
@@ -3576,6 +3618,25 @@
      "text"
     ],
     "title": "PublicBlock",
+    "type": "object"
+   },
+   "PublicNeighbour": {
+    "description": "The next article along, newer or older, in the same language and company.",
+    "properties": {
+     "path": {
+      "title": "Path",
+      "type": "string"
+     },
+     "title": {
+      "title": "Title",
+      "type": "string"
+     }
+    },
+    "required": [
+     "title",
+     "path"
+    ],
+    "title": "PublicNeighbour",
     "type": "object"
    },
    "PublicSource": {
@@ -7409,6 +7470,7 @@
   },
   "/api/public/articles": {
    "get": {
+    "description": "Newest first; ``offset`` pages through them (D-047).",
     "operationId": "list_articles_api_public_articles_get",
     "parameters": [
      {
@@ -7441,6 +7503,29 @@
      },
      {
       "in": "query",
+      "name": "section",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "enum": [
+          "holdings",
+          "ai",
+          "tw",
+          "us",
+          "crypto"
+         ],
+         "type": "string"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Section"
+      }
+     },
+     {
+      "in": "query",
       "name": "limit",
       "required": false,
       "schema": {
@@ -7448,6 +7533,18 @@
        "maximum": 50,
        "minimum": 1,
        "title": "Limit",
+       "type": "integer"
+      }
+     },
+     {
+      "in": "query",
+      "name": "offset",
+      "required": false,
+      "schema": {
+       "default": 0,
+       "maximum": 10000,
+       "minimum": 0,
+       "title": "Offset",
        "type": "integer"
       }
      }

@@ -7,6 +7,8 @@ import { ApiError, type Schemas } from "@/api/client";
 import type { paths } from "@/api/schema.gen";
 import { SERVER_API_URL } from "@/config";
 
+import type { Section } from "./i18n";
+
 export type PublicArticle = Schemas["PublicArticle"];
 export type PublicArticleSummary = Schemas["PublicArticleSummary"];
 
@@ -40,12 +42,19 @@ export async function fetchArticle(
   return data;
 }
 
-export async function fetchArticles(
-  lang: string,
-  options: SiteClientOptions & { company?: string } = {},
-): Promise<PublicArticleSummary[]> {
+export interface ListOptions extends SiteClientOptions {
+  company?: string;
+  /** Only this section (D-047). */
+  section?: Section;
+  limit?: number;
+  offset?: number;
+}
+
+/** Newest first. A page that comes back shorter than ``limit`` is the last. */
+export async function fetchArticles(lang: string, options: ListOptions = {}): Promise<PublicArticleSummary[]> {
+  const { company, section, limit, offset } = options;
   const { data, error, response } = await client(options).GET("/api/public/articles", {
-    params: { query: { lang, company: options.company } },
+    params: { query: { lang, company, section, limit, offset } },
   });
   if (error !== undefined || !data) throw ApiError.from(response, error);
   return data;

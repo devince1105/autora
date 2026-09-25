@@ -18,6 +18,19 @@ const WORDS = {
     published: "發布於",
     revised: "更新於",
     allStories: "所有報導",
+    all: "全部",
+    sections: { holdings: "大戶持股", ai: "AI 科技", tw: "台股", us: "美股", crypto: "加密貨幣" },
+    sectionsLabel: "報導分類",
+    newerPage: "← 較新的報導",
+    olderPage: "較舊的報導 →",
+    page: (n: number) => `第 ${n} 頁`,
+    newerStory: "較新一篇",
+    olderStory: "較舊一篇",
+    listen: "朗讀",
+    stopListening: "停止朗讀",
+    print: "列印",
+    toDark: "切換為深色模式",
+    toLight: "切換為淺色模式",
     readIn: "閱讀其他語言：",
     notice: "本站報導由 AI 新聞室撰寫、事實查核，並經人核准後發布。內容整理自公開資料，僅供參考，不構成投資建議；投資有風險，請自行判斷。",
     membersOnly: "這篇報導是會員專屬",
@@ -82,6 +95,19 @@ const WORDS = {
     published: "Published",
     revised: "Updated",
     allStories: "All stories",
+    all: "All",
+    sections: { holdings: "Holdings", ai: "AI & Tech", tw: "Taiwan", us: "US stocks", crypto: "Crypto" },
+    sectionsLabel: "Sections",
+    newerPage: "← Newer stories",
+    olderPage: "Older stories →",
+    page: (n: number) => `Page ${n}`,
+    newerStory: "Newer story",
+    olderStory: "Older story",
+    listen: "Listen",
+    stopListening: "Stop",
+    print: "Print",
+    toDark: "Switch to dark mode",
+    toLight: "Switch to light mode",
     readIn: "Read in:",
     notice:
       "Stories are written and fact-checked by an AI newsroom and approved by a person before they are published. They summarise public information for reference only and are not investment advice; investing carries risk.",
@@ -139,6 +165,14 @@ const WORDS = {
     verifyFailed: "This link no longer works. Ask for a new one.",
   },
 } as const;
+
+/** The site's sections (D-047), as the API names them. */
+export const SECTIONS = ["holdings", "ai", "tw", "us", "crypto"] as const;
+export type Section = (typeof SECTIONS)[number];
+
+export function isSection(value: unknown): value is Section {
+  return typeof value === "string" && (SECTIONS as readonly string[]).includes(value);
+}
 
 export function words(lang: Lang) {
   return WORDS[lang];

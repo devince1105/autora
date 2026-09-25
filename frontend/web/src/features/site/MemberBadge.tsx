@@ -29,7 +29,11 @@ export function MemberBadge({ lang }: { lang: Lang }) {
 
   if (!me) {
     return (
-      <a href={`/news/${lang}/login`} className="text-sm text-accent underline" data-testid="sign-in">
+      <a
+        href={`/news/${lang}/login`}
+        className="rounded-full border border-line px-3 py-1 text-sm hover:border-accent hover:text-accent"
+        data-testid="sign-in"
+      >
         {w.signIn}
       </a>
     );
@@ -42,7 +46,7 @@ export function MemberBadge({ lang }: { lang: Lang }) {
           {w.member}・{formatDate(lang, me.member_until!)}
         </span>
       ) : (
-        <span className="text-muted">{me.email}</span>
+        <span className="hidden max-w-48 truncate text-muted sm:inline">{me.email}</span>
       )}
       <button
         type="button"
