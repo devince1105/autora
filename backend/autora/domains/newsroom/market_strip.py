@@ -35,18 +35,18 @@ Basis = Literal["close", "prev_close", "last", "24h"]
 before); last: the latest trade, against the previous close (the close itself once the market
 has shut); 24h: now, against 24 hours ago (crypto has no close)."""
 
-TW_STOCKS = ("2330", "2317", "2454", "2382", "2308")
+TW_STOCKS = ("2330", "2317", "2454", "2382", "2308", "0050")
 """Taiwan stocks on the strip, the five that matter most to AI, by exchange code: TSMC, Hon Hai,
-MediaTek, Quanta, Delta — the chips, the servers and their power. Keyed
+MediaTek, Quanta, Delta — the chips, the servers and their power — then the market as its ETF,
+Yuanta Taiwan 50 (0050). Keyed
 ``tw:<code>``; the site shows the code as ``2330.TW``. The strip shows them in this order."""
 
 US_STOCKS = (
-    "NVDA", "AVGO", "TSM", "AMD", "MU", "ASML", "ARM",
-    "MSFT", "GOOGL", "AMZN", "META", "ORCL", "PLTR", "AAPL", "TSLA", "QQQ",
+    "NVDA", "MSFT", "AAPL", "GOOGL", "AMZN", "META", "AVGO", "TSM", "TSLA", "AMD",
+    "QQQ", "VOO",
 )  # fmt: skip
-"""US stocks on the strip, AI first: the chips (GPUs, custom chips, foundry, memory, tools), then
-the cloud and model companies, then the other big names, then the Nasdaq 100 as its ETF. Keyed
-``us:<symbol>``."""
+"""US stocks on the strip: the ten that matter most — to AI and by size — then the Nasdaq 100 and
+the S&P 500 as their ETFs. Keyed ``us:<symbol>``. (The Nasdaq Composite itself is FRED's.)"""
 
 ORDER = (
     "taiex",
@@ -322,6 +322,6 @@ def build_board(*, fred_api_key: str | None, finnhub_api_key: str | None = None)
     if fred_api_key:
         feeds.append(Feed("fred", fred(fred_api_key), every_seconds=6 * 3600))
     if finnhub_api_key:
-        # 16 symbols every 5 minutes: well inside the free plan's 60 calls a minute
+        # 12 symbols every 5 minutes: well inside the free plan's 60 calls a minute
         feeds.append(Feed("finnhub", finnhub(finnhub_api_key), every_seconds=5 * 60))
     return QuoteBoard(feeds)

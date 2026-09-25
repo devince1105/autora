@@ -19,6 +19,7 @@ TWSE_STOCKS = [
     {"Date": "1150924", "Code": "2317", "ClosingPrice": "250.00", "Change": "1.0000"},
     {"Date": "1150924", "Code": "2330", "ClosingPrice": "2475.00", "Change": "-25.0000"},
     {"Date": "1150924", "Code": "2454", "ClosingPrice": "1,650.00", "Change": "15.0000"},
+    {"Date": "1150924", "Code": "0050", "ClosingPrice": "112.40", "Change": "-0.0500"},
 ]
 
 
@@ -84,7 +85,7 @@ def _board(calls, clock, **kw):
 async def test_each_service_read_right_and_shown_in_order():
     shown = await _board([], Clock()).quotes()
     assert [q.key for q in shown] == [
-        *("taiex", "tw:2330", "tw:2317", "tw:2454"),
+        *("taiex", "tw:2330", "tw:2317", "tw:2454", "tw:0050"),
         *("spx", "nasdaq", "us:NVDA", "us:TSM", "us10y", "btc", "eth"),
     ]
     by = {q.key: q for q in shown}
@@ -97,6 +98,7 @@ async def test_each_service_read_right_and_shown_in_order():
     tsmc = by["tw:2330"]
     assert (tsmc.value, tsmc.change, tsmc.change_pct) == (2475.0, -25.0, -1.0)
     assert by["tw:2454"].value == 1650.0  # thousands separators read
+    assert (by["tw:0050"].value, by["tw:0050"].change) == (112.4, -0.05)  # an ETF, like a stock
     # the day FRED has no figure for is skipped: the change is against the day before that
     assert by["spx"].change == pytest.approx(21.56) and by["spx"].basis == "prev_close"
     assert by["us10y"].change == pytest.approx(-0.03) and by["us10y"].change_pct is None

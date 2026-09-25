@@ -1496,6 +1496,7 @@ T-611 之後，商業迴圈已經有 CEO 評估機會、策略師把機會寫成
 - 使用者：愛心不要描邊（stroke-width 0）、英文名 AiSiWhale 也用襯線、英文標語縮成一行（「AI & tech investing」）、台股只留最重要的五個以內：台積電、鴻海、聯發科、廣達、台達電。使用者問跑馬燈是不是抓不到美股：對，`.env` 的 `FINNHUB_API_KEY` 還是空的、FRED 仍是 `sugra` 那個值，所以目前只有台股與加密貨幣。
 - 使用者填好 Finnhub 金鑰：重啟 API 後 16 檔美股都有最新價（例：輝達 NVDA 225.38 +0.36%↑，滑鼠提示「最新價 9/25・Finnhub」），跑馬燈共 24 項、手機寬度沒有橫向捲動。FRED 仍是 `sugra` 那個值、仍 400（紀錄只有「HTTP 400 from api.stlouisfed.org/…」），美國四項指數仍不顯示。
 - 使用者：上方跑馬燈緩慢移動。自己寫（`drift.ts`），不再受制於第三方元件：每秒 30px 向左、畫兩份無縫循環（第二份對螢幕閱讀器隱藏）、滑鼠移上或鍵盤聚焦就停、手機觸碰或按箭頭後停 4 秒再走、系統設定「減少動態」或全部放得下時不動。瀏覽器實測：2 秒移動 60px、滑鼠移上時 0px、捲到尾端後接回「加權指數」。
+- 使用者：美股只挑最重要的十檔（NVDA、MSFT、AAPL、GOOGL、AMZN、META、AVGO、TSM、TSLA、AMD）加 QQQ、VOO 與那斯達克指數；台股加 0050。那斯達克綜合指數由 FRED 提供（Finnhub 免費方案不含指數），等 FRED 金鑰正確後才會出現。重啟 API 後實際回傳 21 項：加權、台股五檔加 0050（112.40）、美股十檔、QQQ、VOO、比特幣、以太幣。
 - **本機資料庫反覆當掉**：頁面偶爾 500，API 紀錄是「the database system is in recovery mode」。Postgres 過去 3 小時 6 次「server process exited with exit code 2」後全體重啟，時間與我跑完整測試重疊（15:38 沒在跑測試也當了一次，原因未查明）；checkpoint 的 sync 一度 316 秒，Docker VM 的磁碟 I/O 非常慢（同時跑著另外 6 個容器，含 SQL Server）。記憶體與磁碟空間都正常。本機環境問題，不是程式；已告知使用者。
 
 ---
