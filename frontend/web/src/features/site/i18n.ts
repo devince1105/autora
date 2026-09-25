@@ -71,6 +71,8 @@ const WORDS = {
       string
     >,
     stock: {
+      day: { open: "開盤", high: "最高", low: "最低", previous_close: "前收" } as Record<string, string>,
+      marketCap: "總市值",
       holders: "大戶持股（13F）",
       holdersNote: (period: string, before: string | null) =>
         `${period} 季底的 13F 申報${before ? `，對比 ${before}` : ""}。13F 只揭露美股多頭部位，申報期限是季底後 45 天。`,
@@ -215,6 +217,8 @@ const WORDS = {
       CoinGecko: "CoinGecko",
     } as Record<string, string>,
     stock: {
+      day: { open: "Open", high: "High", low: "Low", previous_close: "Prev. close" } as Record<string, string>,
+      marketCap: "Market value",
       holders: "Big investors' holdings (13F)",
       holdersNote: (period: string, before: string | null) =>
         `13F filings for the quarter ended ${period}${before ? `, against ${before}` : ""}. A 13F shows only long positions in US-listed securities, filed up to 45 days after the quarter ends.`,

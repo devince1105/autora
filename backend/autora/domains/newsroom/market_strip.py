@@ -64,6 +64,10 @@ ORDER = (
 
 TWSE_INDEX = "https://openapi.twse.com.tw/v1/exchangeReport/MI_INDEX"
 TWSE_STOCKS = "https://openapi.twse.com.tw/v1/exchangeReport/STOCK_DAY_ALL"
+TWSE_COMPANIES = "https://openapi.twse.com.tw/v1/opendata/t187ap03_L"
+"""Listed companies' particulars: the shares issued, for a market value (not ETFs)."""
+FINNHUB_PROFILE = "https://finnhub.io/api/v1/stock/profile2"
+DAY = 24 * 3600
 FRED = "https://api.stlouisfed.org/fred/series/observations"
 COINGECKO = "https://api.coingecko.com/api/v3/simple/price"
 FINNHUB = "https://finnhub.io/api/v1/quote"
@@ -85,6 +89,15 @@ class PublicQuote(BaseModel):
     basis: Basis
     source: str
     """Who the figure is from, for the credit on the page."""
+    # a stock's details, for its page (D-049): the day's range and its size. None where the
+    # service gives none (an index, a coin, an ETF's market value).
+    open: float | None = None
+    high: float | None = None
+    low: float | None = None
+    previous_close: float | None = None
+    market_cap: float | None = None
+    currency: str | None = None
+    """Of the prices and the market value: ``TWD``, ``USD`` (Finnhub gives TSMC's ADR in TWD)."""
 
 
 def _num(text: str) -> float:
@@ -104,8 +117,55 @@ def _pct(change: float, value: float) -> float | None:
 # --- the services --------------------------------------------------------------------------
 
 
-async def twse(client: httpx.AsyncClient) -> list[PublicQuote]:
-    """TAIEX and ``TW_STOCKS`` at the exchange's latest close."""
+class Daily:
+    """Something that changes slowly — shares issued, a market value — asked for at most once a
+    day. A failure is not the figures' failure: what it had stays, or nothing."""
+
+    def __init__(self, clock: Callable[[], float] = time.monotonic) -> None:
+        self.value: dict[str, float] = {}
+        self.fetched_at: float | None = None
+        self._clock = clock
+
+    async def get(self, load: Callable[[], Awaitable[dict[str, float]]]) -> dict[str, float]:
+        now = self._clock()
+        if self.fetched_at is None or now - self.fetched_at >= DAY:
+            self.fetched_at = now
+            try:
+                self.value = await load()
+            except (httpx.HTTPError, ValueError, KeyError, TypeError) as error:
+                log.warning("market strip: a daily figure failed: %s", _describe(error))
+        return self.value
+
+
+def _price(text: str | None) -> float | None:
+    try:
+        return _num(text) if text else None
+    except ValueError:  # "--": no trade that day
+        return None
+
+
+def twse(
+    shares: Daily | None = None,
+) -> Callable[[httpx.AsyncClient], Awaitable[list[PublicQuote]]]:
+    """TAIEX and ``TW_STOCKS`` at the exchange's latest close, with each stock's day (open, high,
+    low, previous close) and its market value (the close times the shares issued)."""
+    issued = shares or Daily()
+
+    async def load_shares(client: httpx.AsyncClient) -> dict[str, float]:
+        rows = (await client.get(TWSE_COMPANIES)).raise_for_status().json()
+        return {
+            row["公司代號"]: _num(row["已發行普通股數或TDR原股發行股數"])
+            for row in rows
+            if row.get("公司代號") in TW_STOCKS and row.get("已發行普通股數或TDR原股發行股數")
+        }
+
+    async def fetch(client: httpx.AsyncClient) -> list[PublicQuote]:
+        return await _twse(client, await issued.get(lambda: load_shares(client)))
+
+    return fetch
+
+
+async def _twse(client: httpx.AsyncClient, shares: dict[str, float]) -> list[PublicQuote]:
     out: list[PublicQuote] = []
     index = (await client.get(TWSE_INDEX)).raise_for_status().json()
     for row in index:
@@ -136,6 +196,12 @@ async def twse(client: httpx.AsyncClient) -> list[PublicQuote]:
                     as_of=_roc_date(row["Date"]),
                     basis="close",
                     source="TWSE",
+                    open=_price(row.get("OpeningPrice")),
+                    high=_price(row.get("HighestPrice")),
+                    low=_price(row.get("LowestPrice")),
+                    previous_close=round(value - change, 4),
+                    market_cap=value * shares[row["Code"]] if row["Code"] in shares else None,
+                    currency="TWD",
                 )
             )
     return out
@@ -178,12 +244,32 @@ def fred(api_key: str) -> Callable[[httpx.AsyncClient], Awaitable[list[PublicQuo
     return fetch
 
 
-def finnhub(api_key: str) -> Callable[[httpx.AsyncClient], Awaitable[list[PublicQuote]]]:
+def finnhub(
+    api_key: str, profiles: Daily | None = None
+) -> Callable[[httpx.AsyncClient], Awaitable[list[PublicQuote]]]:
     """Each of ``US_STOCKS`` at its latest price (``c``), against the previous close (``d``,
-    ``dp``). The key goes in a header, not the URL. A symbol Finnhub has nothing for (all zeros)
-    is left out."""
+    ``dp``), with its day (``o``, ``h``, ``l``, ``pc``) and — from its profile, once a day — its
+    market value. The key goes in a header, not the URL. A symbol Finnhub has nothing for (all
+    zeros) is left out."""
+    caps = profiles or Daily()
+    currencies: dict[str, str] = {}
+    headers = {"X-Finnhub-Token": api_key}
+
+    async def load_caps(client: httpx.AsyncClient) -> dict[str, float]:
+        out = {}
+        for symbol in US_STOCKS:
+            row = (
+                (await client.get(FINNHUB_PROFILE, params={"symbol": symbol}, headers=headers))
+                .raise_for_status()
+                .json()
+            )
+            if row.get("marketCapitalization"):
+                out[symbol] = float(row["marketCapitalization"]) * 1_000_000  # given in millions
+                currencies[symbol] = str(row.get("currency") or "USD")
+        return out
 
     async def fetch(client: httpx.AsyncClient) -> list[PublicQuote]:
+        market_caps = await caps.get(lambda: load_caps(client))
         out = []
         for symbol in US_STOCKS:
             response = await client.get(
@@ -201,6 +287,12 @@ def finnhub(api_key: str) -> Callable[[httpx.AsyncClient], Awaitable[list[Public
                     as_of=datetime.fromtimestamp(row["t"], UTC).date(),
                     basis="last",
                     source="Finnhub",
+                    open=row.get("o") or None,
+                    high=row.get("h") or None,
+                    low=row.get("l") or None,
+                    previous_close=row.get("pc") or None,
+                    market_cap=market_caps.get(symbol),
+                    currency=currencies.get(symbol, "USD") if symbol in market_caps else "USD",
                 )
             )
         return out
@@ -318,7 +410,7 @@ class QuoteBoard:
 def build_board(*, fred_api_key: str | None, finnhub_api_key: str | None = None) -> QuoteBoard:
     """The site's board. Without a key, that service's figures are left out, not faked."""
     feeds = [
-        Feed("twse", twse, every_seconds=30 * 60),
+        Feed("twse", twse(), every_seconds=30 * 60),
         Feed("coingecko", coingecko, every_seconds=5 * 60),
     ]
     if fred_api_key:

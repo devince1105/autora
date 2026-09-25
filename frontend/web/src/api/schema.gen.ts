@@ -2391,8 +2391,20 @@ export interface components {
             change: number | null;
             /** Change Pct */
             change_pct: number | null;
+            /** Currency */
+            currency?: string | null;
+            /** High */
+            high?: number | null;
             /** Key */
             key: string;
+            /** Low */
+            low?: number | null;
+            /** Market Cap */
+            market_cap?: number | null;
+            /** Open */
+            open?: number | null;
+            /** Previous Close */
+            previous_close?: number | null;
             /** Source */
             source: string;
             /** Value */

@@ -25,6 +25,19 @@ export function label(key: string, names: Record<string, string>): [name: string
   return [name, code === name ? null : code];
 }
 
+const MONEY: Record<string, string> = { TWD: "NT$", USD: "US$" };
+
+/** A market value, short: ``NT$64.2兆``, ``US$5.4T``. */
+export function formatCap(value: number, currency: string | null | undefined, lang: Lang): string {
+  const short = new Intl.NumberFormat(lang, { notation: "compact", maximumFractionDigits: 1 }).format(value);
+  return `${MONEY[currency ?? ""] ?? ""}${short}`;
+}
+
+/** A price of the stock's, with its decimals (``formatValue``'s rule). */
+export function formatPrice(quote: PublicQuote, price: number, lang: Lang): string {
+  return formatValue({ ...quote, value: price }, lang);
+}
+
 export function formatValue(quote: PublicQuote, lang: Lang): string {
   // a Taiwan stock is quoted to its tick: whole dollars above 1,000, else two places
   const digits = DECIMALS[quote.key] ?? (quote.key.startsWith("tw:") && quote.value >= 1000 ? 0 : 2);

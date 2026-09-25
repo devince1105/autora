@@ -31,7 +31,21 @@ const NVDA: PublicStock = {
   symbol: "NVDA",
   market: "us",
   name: "輝達",
-  quote: { key: "us:NVDA", value: 225.17, change: 0.59, change_pct: 0.26, as_of: "2026-09-25", basis: "last", source: "Finnhub" },
+  quote: {
+    key: "us:NVDA",
+    value: 225.17,
+    change: 0.59,
+    change_pct: 0.26,
+    as_of: "2026-09-25",
+    basis: "last",
+    source: "Finnhub",
+    open: 225.26,
+    high: 226.94,
+    low: 223.13,
+    previous_close: 224.58,
+    market_cap: 5.412e12,
+    currency: "USD",
+  },
   holders: [
     holder({}),
     holder({ investor: "麥可・貝瑞", filer: "Scion", change: "new", put_call: "PUT", shares: 1000000, previous_shares: 0 }),
@@ -67,6 +81,21 @@ describe("a stock's page", () => {
     expect(burry!.textContent).toContain("新建倉・賣權（看跌）");
     expect(burry!.textContent).toContain("標的股數");
     expect(burry!.querySelector(".text-rise")).toBeNull();
+  });
+
+  it("gives the day's figures and the market value, as the watch cards do", () => {
+    render(<StockView stock={NVDA} lang="zh-TW" />);
+    const card = document.querySelector("article header dl")!;
+    expect(card.textContent).toBe("開盤225.26最高226.94最低223.13前收224.58總市值US$5.4兆");
+    cleanup();
+    // an ETF: its day, and no market value; an index or nothing at all: no card
+    const etf = { ...NVDA.quote!, key: "tw:0050", market_cap: null, currency: "TWD" };
+    render(<StockView stock={{ ...NVDA, quote: etf }} lang="zh-TW" />);
+    expect(document.querySelector("article header dl")!.textContent).not.toContain("總市值");
+    cleanup();
+    const bare = { ...NVDA.quote!, open: null, high: null, low: null, previous_close: null, market_cap: null };
+    render(<StockView stock={{ ...NVDA, quote: bare }} lang="en" />);
+    expect(document.querySelector("article header dl")).toBeNull();
   });
 
   it("a Taiwan stock says what 13F does and does not cover; an empty one says so", () => {

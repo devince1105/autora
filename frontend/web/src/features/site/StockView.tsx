@@ -5,7 +5,12 @@ import Link from "next/link";
 
 import type { PublicHolder, PublicStock } from "./api";
 import { formatDate, words, type Lang } from "./i18n";
-import { ARROW, direction, formatChange, formatValue, stockCode, TONE } from "./quote";
+import { ARROW, direction, formatCap, formatChange, formatPrice, formatValue, stockCode, TONE } from "./quote";
+
+// the day's figures, after the watch cards the site's owner uses: the high in the rising colour,
+// the low in the falling one
+const DAY = ["open", "high", "low", "previous_close"] as const;
+const DAY_TONE: Record<string, string> = { high: "text-rise", low: "text-fall" };
 
 function usd(lang: Lang, value: number): string {
   return `US$${new Intl.NumberFormat(lang, { notation: "compact", maximumFractionDigits: 1 }).format(value)}`;
@@ -100,6 +105,24 @@ export function StockView({ stock, lang }: { stock: PublicStock; lang: Lang }) {
         ) : (
           <p className="mt-3 text-muted">{s.noQuote}</p>
         )}
+        {quote && (DAY.some((k) => quote[k] !== null && quote[k] !== undefined) || quote.market_cap) ? (
+          <dl className="mt-5 grid grid-cols-2 gap-x-8 gap-y-2 rounded-lg border border-line p-4 text-sm tabular-nums sm:grid-cols-4">
+            {DAY.map((k) =>
+              quote[k] !== null && quote[k] !== undefined ? (
+                <div key={k} className="flex justify-between gap-3">
+                  <dt className="text-muted">{s.day[k]}</dt>
+                  <dd className={`font-medium ${DAY_TONE[k] ?? ""}`}>{formatPrice(quote, quote[k]!, lang)}</dd>
+                </div>
+              ) : null,
+            )}
+            {quote.market_cap ? (
+              <div className="col-span-2 flex justify-between gap-3 border-t border-line pt-2 sm:col-span-4">
+                <dt className="text-muted">{s.marketCap}</dt>
+                <dd className="font-medium">{formatCap(quote.market_cap, quote.currency, lang)}</dd>
+              </div>
+            ) : null}
+          </dl>
+        ) : null}
       </header>
 
       <section className="mt-8" aria-labelledby="holders">

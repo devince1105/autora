@@ -23,4 +23,11 @@ async def test_the_public_endpoint(api):
         "as_of": "2026-09-24",
         "basis": "close",
         "source": "TWSE",
+        # an index has no day's range or market value
+        "open": None,
+        "high": None,
+        "low": None,
+        "previous_close": None,
+        "market_cap": None,
+        "currency": None,
     }

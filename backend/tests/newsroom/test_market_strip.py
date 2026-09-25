@@ -17,7 +17,15 @@ TWSE_INDEX = [
 ]  # fmt: skip
 TWSE_STOCKS = [
     {"Date": "1150924", "Code": "2317", "ClosingPrice": "250.00", "Change": "1.0000"},
-    {"Date": "1150924", "Code": "2330", "ClosingPrice": "2475.00", "Change": "-25.0000"},
+    {
+        "Date": "1150924",
+        "Code": "2330",
+        "OpeningPrice": "2480.00",
+        "HighestPrice": "2490.00",
+        "LowestPrice": "2470.00",
+        "ClosingPrice": "2475.00",
+        "Change": "-25.0000",
+    },
     {"Date": "1150924", "Code": "2454", "ClosingPrice": "1,650.00", "Change": "15.0000"},
     {"Date": "1150924", "Code": "0050", "ClosingPrice": "112.40", "Change": "-0.0500"},
 ]
@@ -34,8 +42,22 @@ FRED = {
     "DGS10": _fred([("2026-09-24", "4.12"), ("2026-09-23", "4.15")]),
     "DCOILWTICO": _fred([("2026-09-24", ".")]),  # only a holiday: left out
 }
+TWSE_COMPANIES = [
+    {"公司代號": "2330", "已發行普通股數或TDR原股發行股數": "25932370067"},
+    {"公司代號": "9999", "已發行普通股數或TDR原股發行股數": "1"},
+]
+PROFILES = {"NVDA": {"marketCapitalization": 5412377.87, "currency": "USD"}}
 FINNHUB = {
-    "NVDA": {"c": 224.53, "d": 2.25, "dp": 1.0122, "pc": 222.28, "t": 1790280000},
+    "NVDA": {
+        "c": 224.53,
+        "d": 2.25,
+        "dp": 1.0122,
+        "o": 223,
+        "h": 226.1,
+        "l": 222.9,
+        "pc": 222.28,
+        "t": 1790280000,
+    },
     "TSM": {"c": 351.45, "d": -1.1, "dp": -0.312, "pc": 352.55, "t": 1790280000},
 }  # any other symbol: all zeros, as Finnhub answers for one it has nothing for
 COINS = {
@@ -57,6 +79,10 @@ def _transport(calls: list[str], *, broken: set[str] = frozenset()):
         if url.startswith(quotes.FRED):
             assert request.url.params["api_key"] == "k"
             return httpx.Response(200, json=FRED[request.url.params["series_id"]])
+        if url.startswith(quotes.TWSE_COMPANIES):
+            return httpx.Response(200, json=TWSE_COMPANIES)
+        if url.startswith(quotes.FINNHUB_PROFILE):
+            return httpx.Response(200, json=PROFILES.get(request.url.params["symbol"], {}))
         if url.startswith(quotes.FINNHUB):
             assert request.headers["X-Finnhub-Token"] == "fk" and "fk" not in url
             empty = {"c": 0, "d": None, "dp": None, "pc": 0, "t": 0}
@@ -98,6 +124,10 @@ async def test_each_service_read_right_and_shown_in_order():
     assert by["taiex"].as_of == date(2026, 9, 24) and by["taiex"].basis == "close"
     tsmc = by["tw:2330"]
     assert (tsmc.value, tsmc.change, tsmc.change_pct) == (2475.0, -25.0, -1.0)
+    # its day and its size: the close times the shares the company has issued
+    assert (tsmc.open, tsmc.high, tsmc.low, tsmc.previous_close) == (2480, 2490, 2470, 2500)
+    assert tsmc.market_cap == 2475 * 25932370067 and tsmc.currency == "TWD"
+    assert by["tw:0050"].market_cap is None  # an ETF has no shares issued in that list
     assert by["tw:2454"].value == 1650.0  # thousands separators read
     assert (by["tw:0050"].value, by["tw:0050"].change) == (112.4, -0.05)  # an ETF, like a stock
     # the day FRED has no figure for is skipped: the change is against the day before that
@@ -106,6 +136,9 @@ async def test_each_service_read_right_and_shown_in_order():
     assert by["btc"].basis == "24h" and by["btc"].change_pct == -0.34 and by["btc"].change < 0
     nvda = by["us:NVDA"]
     assert (nvda.value, nvda.change, nvda.change_pct, nvda.basis) == (224.53, 2.25, 1.01, "last")
+    assert (nvda.open, nvda.high, nvda.low, nvda.previous_close) == (223, 226.1, 222.9, 222.28)
+    assert nvda.market_cap == pytest.approx(5412377.87e6) and nvda.currency == "USD"
+    assert by["us:TSM"].market_cap is None  # no profile: no market value, the rest still there
     assert by["us:TSM"].change_pct == -0.31
     assert {q.source for q in shown} == {"TWSE", "FRED", "Finnhub", "CoinGecko"}
 
