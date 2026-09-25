@@ -162,18 +162,18 @@ def build_scheduler(
 ) -> Scheduler:
     """The scheduler with the company's daily cycle (T-601) and every domain's handlers
     (newsroom: the source poller T-501, story clustering T-504, the analytics collector
-    T-516)."""
+    T-516, the 13F positions for the stock pages D-049)."""
     from autora.company.cycle import CYCLE_START_SCHEDULE
     from autora.domains.newsroom.analytics import ANALYTICS_SCHEDULE, AnalyticsCollector
+    from autora.domains.newsroom.holdings import HOLDINGS_SCHEDULE, HoldingsKeeper
     from autora.domains.newsroom.settings import get_newsroom_settings
     from autora.domains.newsroom.sources import POLL_SCHEDULE, SourcePoller
     from autora.domains.newsroom.stories import CLUSTER_SCHEDULE, StoryDesk
     from autora.runtime.scheduler import Scheduler
 
     scheduler = Scheduler(session_factory, worker_id)
-    poller = SourcePoller(
-        fetcher=build_page_fetcher(settings), search=build_search_provider(settings)
-    )
+    fetcher = build_page_fetcher(settings)
+    poller = SourcePoller(fetcher=fetcher, search=build_search_provider(settings))
     scheduler.register(POLL_SCHEDULE, poller.schedule_handler())
     # the newsroom's own knob, read by the newsroom (ARCHITECTURE_V2_1 §9)
     desk = StoryDesk(
@@ -181,6 +181,7 @@ def build_scheduler(
     )
     scheduler.register(CLUSTER_SCHEDULE, desk.schedule_handler())
     scheduler.register(ANALYTICS_SCHEDULE, AnalyticsCollector().schedule_handler())
+    scheduler.register(HOLDINGS_SCHEDULE, HoldingsKeeper(fetcher).schedule_handler())
     if cycles is not None:
         scheduler.register(CYCLE_START_SCHEDULE, cycles.schedule_handler())
     return scheduler

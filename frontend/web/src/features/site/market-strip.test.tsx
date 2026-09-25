@@ -6,7 +6,8 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { fetchMarkets, type PublicQuote } from "./api";
 import { advance } from "./drift";
-import { formatChange, formatValue, MarketStrip } from "./MarketStrip";
+import { MarketStrip } from "./MarketStrip";
+import { formatChange, formatValue } from "./quote";
 import { SiteFooter } from "./SiteFooter";
 
 afterEach(cleanup);

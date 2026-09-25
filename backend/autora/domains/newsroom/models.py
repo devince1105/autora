@@ -169,6 +169,52 @@ class StoryState(StrEnum):
     IGNORED = "IGNORED"
 
 
+class PositionChange(StrEnum):
+    NEW = "new"
+    INCREASED = "increased"
+    DECREASED = "decreased"
+    UNCHANGED = "unchanged"
+    SOLD_OUT = "sold_out"
+
+
+class InvestorPosition(IdMixin, CreatedAtMixin, Base):
+    """One position in a tracked investor's latest 13F-HR, against the quarter before (D-049).
+
+    What the stock pages show: who holds a stock and what they did with it. Written by
+    ``holdings.refresh_holdings`` from the same comparison ``compare_13f`` gives the newsroom
+    (``thirteenf.compare``), one row per position, sold-out ones included; a newer filing
+    replaces the source's rows."""
+
+    __tablename__ = "investor_positions"
+    __table_args__ = (
+        check_in("change", PositionChange),
+        Index("ix_investor_positions_cusip", "company_id", "cusip"),
+        Index("ix_investor_positions_source", "source_id"),
+    )
+
+    company_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("companies.id"))
+    source_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("sources.id"))
+    """The 13F source it came from: who the investor is (its ``title_prefix``)."""
+    filer: Mapped[str]
+    cik: Mapped[str]
+    accession: Mapped[str]
+    period: Mapped[date] = mapped_column(Date)
+    previous_period: Mapped[date | None] = mapped_column(Date)
+    cusip: Mapped[str]
+    issuer: Mapped[str]
+    title_of_class: Mapped[str]
+    put_call: Mapped[str] = mapped_column(server_default="")
+    kind: Mapped[str]
+    """``SH`` (shares) or ``PRN`` (principal)."""
+    amount: Mapped[int] = mapped_column(Numeric(20, 0))
+    value_usd: Mapped[int] = mapped_column(Numeric(20, 0))
+    previous_amount: Mapped[int] = mapped_column(Numeric(20, 0))
+    previous_value_usd: Mapped[int] = mapped_column(Numeric(20, 0))
+    change: Mapped[str]
+    portfolio_value_usd: Mapped[int] = mapped_column(Numeric(20, 0))
+    """The whole filing's value, for each position's share of it."""
+
+
 class Story(IdMixin, TimestampMixin, Base):
     """A topic worth writing about (T-504): source items about the same thing, from any number
     of sources. Found by clustering, not by a model; ``score`` ranks candidates."""

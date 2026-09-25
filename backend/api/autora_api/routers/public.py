@@ -9,6 +9,8 @@ nothing about the reader either way.
   newest published first
 - GET  /api/public/articles/{lang}/{slug}: one published article (404: not published in lang)
 - GET  /api/public/markets: the market strip's figures, closing or delayed (D-048)
+- GET  /api/public/stocks/{symbol}?lang=zh-TW[&company=<slug>]: a stock's page — its figure, the
+  tracked investors' 13F positions in it, our articles that name it (D-049)
 - POST /api/analytics/beacon: {article_id, lang, event_type, session_hash} -> 204
 """
 
@@ -20,9 +22,12 @@ from typing import Annotated, Literal
 
 from fastapi import APIRouter, Cookie, Depends, HTTPException, Query, Response, status
 from pydantic import BaseModel, Field, SecretStr
+from sqlalchemy import select
 
 from autora.accounts import SESSION_COOKIE, customer_ref, reader_for
 from autora.company import memberships
+from autora.db.models import Company
+from autora.domains.newsroom.holdings import STOCKS, PublicHolder, holders
 from autora.domains.newsroom.market_strip import PublicQuote, QuoteBoard, build_board
 from autora.domains.newsroom.models import AnalyticsEventType
 from autora.domains.newsroom.site import (
@@ -32,6 +37,7 @@ from autora.domains.newsroom.site import (
     PublicArticleSummary,
     published_article,
     published_articles,
+    published_articles_mentioning,
     record_beacon,
 )
 from autora.infra.settings import get_settings
@@ -101,6 +107,48 @@ async def markets(board: Annotated[QuoteBoard, Depends(market_board)]) -> list[P
     """The figures under the site's header, in the order shown; one a service never gave is
     left out rather than shown as zero."""
     return await board.quotes()
+
+
+class PublicStock(BaseModel):
+    symbol: str
+    market: str
+    """``us`` or ``tw``."""
+    name: str
+    """In the language asked for."""
+    quote: PublicQuote | None
+    """From the market strip's board; None when its service has not answered."""
+    holders: list[PublicHolder]
+    """The tracked investors' positions in it (a Taiwan stock: in its US listing), largest first."""
+    articles: list[PublicArticleSummary]
+
+
+@router.get("/api/public/stocks/{symbol}")
+async def get_stock(
+    symbol: str,
+    session: Session,
+    board: Annotated[QuoteBoard, Depends(market_board)],
+    lang: Annotated[str, Query(pattern=r"^[a-z]{2}(-[A-Z][A-Za-z]{1,3})?$", max_length=10)],
+    company: Annotated[str | None, Query(max_length=100)] = None,
+) -> PublicStock:
+    stock = STOCKS.get(symbol.upper())
+    if stock is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, f"no page for {symbol}")
+    company_id = None
+    if company is not None:
+        company_id = await session.scalar(select(Company.id).where(Company.slug == company))
+        if company_id is None:
+            raise HTTPException(status.HTTP_404_NOT_FOUND, f"no company {company}")
+    quote = next((q for q in await board.quotes() if q.key == stock.key), None)
+    return PublicStock(
+        symbol=stock.symbol,
+        market=stock.market,
+        name=stock.zh if lang.startswith("zh") else stock.en,
+        quote=quote,
+        holders=await holders(session, stock, company_id=company_id),
+        articles=await published_articles_mentioning(
+            session, lang, stock.terms, company_slug=company
+        ),
+    )
 
 
 class Beacon(BaseModel):

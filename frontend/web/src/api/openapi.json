@@ -3620,6 +3620,90 @@
     "title": "PublicBlock",
     "type": "object"
    },
+   "PublicHolder": {
+    "properties": {
+     "change": {
+      "title": "Change",
+      "type": "string"
+     },
+     "filer": {
+      "title": "Filer",
+      "type": "string"
+     },
+     "filing_url": {
+      "title": "Filing Url",
+      "type": "string"
+     },
+     "investor": {
+      "title": "Investor",
+      "type": "string"
+     },
+     "period": {
+      "format": "date",
+      "title": "Period",
+      "type": "string"
+     },
+     "portfolio_pct": {
+      "anyOf": [
+       {
+        "type": "number"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Portfolio Pct"
+     },
+     "previous_period": {
+      "anyOf": [
+       {
+        "format": "date",
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Previous Period"
+     },
+     "previous_shares": {
+      "title": "Previous Shares",
+      "type": "integer"
+     },
+     "put_call": {
+      "title": "Put Call",
+      "type": "string"
+     },
+     "shares": {
+      "title": "Shares",
+      "type": "integer"
+     },
+     "title_of_class": {
+      "title": "Title Of Class",
+      "type": "string"
+     },
+     "value_usd": {
+      "title": "Value Usd",
+      "type": "integer"
+     }
+    },
+    "required": [
+     "investor",
+     "filer",
+     "period",
+     "previous_period",
+     "change",
+     "title_of_class",
+     "put_call",
+     "shares",
+     "previous_shares",
+     "value_usd",
+     "portfolio_pct",
+     "filing_url"
+    ],
+    "title": "PublicHolder",
+    "type": "object"
+   },
    "PublicNeighbour": {
     "description": "The next article along, newer or older, in the same language and company.",
     "properties": {
@@ -3724,6 +3808,56 @@
      "url"
     ],
     "title": "PublicSource",
+    "type": "object"
+   },
+   "PublicStock": {
+    "properties": {
+     "articles": {
+      "items": {
+       "$ref": "#/components/schemas/PublicArticleSummary"
+      },
+      "title": "Articles",
+      "type": "array"
+     },
+     "holders": {
+      "items": {
+       "$ref": "#/components/schemas/PublicHolder"
+      },
+      "title": "Holders",
+      "type": "array"
+     },
+     "market": {
+      "title": "Market",
+      "type": "string"
+     },
+     "name": {
+      "title": "Name",
+      "type": "string"
+     },
+     "quote": {
+      "anyOf": [
+       {
+        "$ref": "#/components/schemas/PublicQuote"
+       },
+       {
+        "type": "null"
+       }
+      ]
+     },
+     "symbol": {
+      "title": "Symbol",
+      "type": "string"
+     }
+    },
+    "required": [
+     "symbol",
+     "market",
+     "name",
+     "quote",
+     "holders",
+     "articles"
+    ],
+    "title": "PublicStock",
     "type": "object"
    },
    "QuoteView": {
@@ -7733,6 +7867,76 @@
      }
     },
     "summary": "Markets",
+    "tags": [
+     "public"
+    ]
+   }
+  },
+  "/api/public/stocks/{symbol}": {
+   "get": {
+    "operationId": "get_stock_api_public_stocks__symbol__get",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "symbol",
+      "required": true,
+      "schema": {
+       "title": "Symbol",
+       "type": "string"
+      }
+     },
+     {
+      "in": "query",
+      "name": "lang",
+      "required": true,
+      "schema": {
+       "maxLength": 10,
+       "pattern": "^[a-z]{2}(-[A-Z][A-Za-z]{1,3})?$",
+       "title": "Lang",
+       "type": "string"
+      }
+     },
+     {
+      "in": "query",
+      "name": "company",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "maxLength": 100,
+         "type": "string"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Company"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/PublicStock"
+        }
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Get Stock",
     "tags": [
      "public"
     ]

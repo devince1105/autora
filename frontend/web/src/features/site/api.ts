@@ -12,6 +12,8 @@ import type { Section } from "./i18n";
 export type PublicArticle = Schemas["PublicArticle"];
 export type PublicArticleSummary = Schemas["PublicArticleSummary"];
 export type PublicQuote = Schemas["PublicQuote"];
+export type PublicStock = Schemas["PublicStock"];
+export type PublicHolder = Schemas["PublicHolder"];
 
 export interface SiteClientOptions {
   baseUrl?: string;
@@ -69,4 +71,18 @@ export async function fetchMarkets(options: SiteClientOptions = {}): Promise<Pub
   } catch {
     return [];
   }
+}
+
+/** A stock's page (D-049), or null when the site has no page for that symbol. */
+export async function fetchStock(
+  symbol: string,
+  lang: string,
+  options: SiteClientOptions & { company?: string } = {},
+): Promise<PublicStock | null> {
+  const { data, error, response } = await client(options).GET("/api/public/stocks/{symbol}", {
+    params: { path: { symbol }, query: { lang, company: options.company } },
+  });
+  if (response.status === 404) return null;
+  if (error !== undefined || !data) throw ApiError.from(response, error);
+  return data;
 }

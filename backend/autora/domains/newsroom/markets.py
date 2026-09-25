@@ -51,6 +51,7 @@ from autora.domains.newsroom.sources import (
     SECTION,
     TITLE_PREFIX,
     add_source,
+    ensure_newsroom_schedules,
 )
 from autora.domains.newsroom.tools.filings import PREDECESSORS
 from autora.domains.newsroom.workflow import staff_newsroom
@@ -235,5 +236,7 @@ async def seed_markets(
             poll_interval_seconds=spec.poll_interval_seconds,
         )
         added.append(spec.name)
+    # the schedules too: one added later (the 13F positions, D-049) reaches a company seeded before
+    await ensure_newsroom_schedules(session, company.id)
     sources = (await session.scalars(select(Source).where(Source.company_id == company.id))).all()
     return MarketsNewsroom(company=company, project=project, sources=list(sources), added=added)

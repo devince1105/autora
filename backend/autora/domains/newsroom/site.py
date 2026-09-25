@@ -23,13 +23,14 @@ written.
 
 from __future__ import annotations
 
+import re
 import uuid
 from dataclasses import dataclass
 from datetime import UTC, date, datetime
 from urllib.parse import urlsplit
 
 from pydantic import BaseModel
-from sqlalchemy import func, select, tuple_
+from sqlalchemy import Text, cast, func, or_, select, tuple_
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -261,6 +262,41 @@ async def published_articles(
         query = query.where(_section() == section)
     query = query.limit(min(max(limit, 1), MAX_LIST)).offset(max(offset, 0))
     rows = (await session.execute(query)).all()
+    return [_summary(article, version, named) for article, version, named in rows]
+
+
+async def published_articles_mentioning(
+    session: AsyncSession,
+    lang: str,
+    terms: tuple[str, ...],
+    *,
+    company_slug: str | None = None,
+    limit: int = 10,
+) -> list[PublicArticleSummary]:
+    """The newest published articles in ``lang`` whose title, summary or text names any of
+    ``terms`` (D-049, a stock page's "our coverage"). A Latin term matches as a whole word and
+    in its own case — ``MU`` is not in "MUST", ``Meta`` is not "metadata" — others anywhere."""
+    text_of = func.concat_ws(
+        " ", ArticleVersion.title, ArticleVersion.summary, cast(ArticleVersion.body, Text)
+    )
+    matches = []
+    for term in terms:
+        if term.isascii():
+            matches.append(text_of.op("~")(rf"\m{re.escape(term)}\M"))
+        else:
+            matches.append(text_of.contains(term, autoescape=True))
+    if not matches:
+        return []
+    query = (
+        _published(lang)
+        .where(or_(*matches))
+        .order_by(Article.published_at.desc(), Article.id.desc())
+    )
+    if company_slug is not None:
+        query = query.join(Company, Company.id == Article.company_id).where(
+            Company.slug == company_slug
+        )
+    rows = (await session.execute(query.limit(min(max(limit, 1), MAX_LIST)))).all()
     return [_summary(article, version, named) for article, version, named in rows]
 
 

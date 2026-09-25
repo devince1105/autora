@@ -729,6 +729,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/public/stocks/{symbol}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Stock */
+        get: operations["get_stock_api_public_stocks__symbol__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/roles": {
         parameters: {
             query?: never;
@@ -2318,6 +2335,36 @@ export interface components {
             /** Type */
             type: string;
         };
+        /** PublicHolder */
+        PublicHolder: {
+            /** Change */
+            change: string;
+            /** Filer */
+            filer: string;
+            /** Filing Url */
+            filing_url: string;
+            /** Investor */
+            investor: string;
+            /**
+             * Period
+             * Format: date
+             */
+            period: string;
+            /** Portfolio Pct */
+            portfolio_pct: number | null;
+            /** Previous Period */
+            previous_period: string | null;
+            /** Previous Shares */
+            previous_shares: number;
+            /** Put Call */
+            put_call: string;
+            /** Shares */
+            shares: number;
+            /** Title Of Class */
+            title_of_class: string;
+            /** Value Usd */
+            value_usd: number;
+        };
         /**
          * PublicNeighbour
          * @description The next article along, newer or older, in the same language and company.
@@ -2359,6 +2406,20 @@ export interface components {
             title: string;
             /** Url */
             url: string;
+        };
+        /** PublicStock */
+        PublicStock: {
+            /** Articles */
+            articles: components["schemas"]["PublicArticleSummary"][];
+            /** Holders */
+            holders: components["schemas"]["PublicHolder"][];
+            /** Market */
+            market: string;
+            /** Name */
+            name: string;
+            quote: components["schemas"]["PublicQuote"] | null;
+            /** Symbol */
+            symbol: string;
         };
         /** QuoteView */
         QuoteView: {
@@ -4325,6 +4386,40 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["PublicQuote"][];
+                };
+            };
+        };
+    };
+    get_stock_api_public_stocks__symbol__get: {
+        parameters: {
+            query: {
+                lang: string;
+                company?: string | null;
+            };
+            header?: never;
+            path: {
+                symbol: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PublicStock"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };

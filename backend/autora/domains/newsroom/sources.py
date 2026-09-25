@@ -153,11 +153,17 @@ def _validate(kind: SourceKind, url: str | None, config: dict[str, Any]) -> None
 async def ensure_newsroom_schedules(
     session: AsyncSession, company_id: uuid.UUID, *, now: datetime | None = None
 ) -> list[Schedule]:
-    """The company's poll schedule and, two minutes behind it, the story clustering (T-504)."""
+    """The company's poll schedule and, two minutes behind it, the story clustering (T-504); and
+    the refresh of its investors' 13F positions for the stock pages (D-049)."""
+    from autora.domains.newsroom.holdings import HOLDINGS_CRON, HOLDINGS_SCHEDULE
     from autora.domains.newsroom.stories import CLUSTER_CRON, CLUSTER_SCHEDULE
 
     schedules = []
-    for name, cron in ((POLL_SCHEDULE, POLL_CRON), (CLUSTER_SCHEDULE, CLUSTER_CRON)):
+    for name, cron in (
+        (POLL_SCHEDULE, POLL_CRON),
+        (CLUSTER_SCHEDULE, CLUSTER_CRON),
+        (HOLDINGS_SCHEDULE, HOLDINGS_CRON),
+    ):
         existing = await session.scalar(
             select(Schedule).where(Schedule.company_id == company_id, Schedule.name == name)
         )
