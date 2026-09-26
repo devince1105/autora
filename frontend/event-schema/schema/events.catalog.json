@@ -1782,7 +1782,8 @@
                 "company",
                 "project",
                 "task",
-                "run"
+                "run",
+                "daily"
               ],
               "title": "Scope",
               "type": "string"

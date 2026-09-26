@@ -8,6 +8,7 @@ Budget scopes, checked before every call (logs/platform/02_COMPANY_MODEL.md §5,
 | task    | ``tasks.budget_usd``                    | model calls of this task (all runs)  |
 | project | ``budgets`` rows of the project, hard   | project's calls in the period window |
 | company | ``budgets`` rows with no project, hard  | company's calls in the period window |
+| daily   | ``MODEL_DAILY_CAP_USD``, all companies  | every company's calls, this UTC day  |
 
 Spend = recorded ``model_calls.cost_usd`` + open reservations (in-flight calls), all in USD.
 ``budgets`` are in the base currency (TWD, D-023) and are converted to USD before comparing;
@@ -15,6 +16,10 @@ run and task caps are meter figures and already USD. A call is
 refused if spend + its estimated cost exceeds any limit; the refusal is recorded as a
 BUDGET_EXHAUSTED event (committed even though the call does not happen) and raised as
 ``BudgetExceeded``. Soft caps (``hard_cap = false``) are not enforced here; reporting uses them.
+
+The daily cap is not governance but the bill's safety net: whatever the companies' budgets say,
+the provider is not paid more than this in a day (a whole prepaid balance went in three days
+while every call was priced at 0).
 
 Concurrency: reservation happens under a per-company transaction advisory lock, so two
 concurrent calls cannot both fit under the same remaining budget.
@@ -26,6 +31,8 @@ Known limits of this version:
   actually belongs to, not against the calendar day it happens to fall in. A company with no
   open cycle falls back to the day window.
 - Only model cost is counted. Tool costs join when tool usage is recorded in the ledger.
+- A business unit's budget (D-017) is not enforced here yet: it is neither the company's nor a
+  project's, and counting a unit's spend means knowing which unit each call's project is in.
 """
 
 from __future__ import annotations
@@ -140,6 +147,8 @@ class DbCostGuard:
     reservation_ttl: timedelta = timedelta(minutes=15)
     clock: Callable[[], datetime] = field(default=lambda: datetime.now(UTC))
     fx: Fx = field(default_factory=Fx.from_settings)
+    daily_cap_usd: Decimal | None = None
+    """Every company's model calls together, per UTC day. None or 0: no cap."""
 
     async def reserve(self, request: ModelRequest, binding: ModelBinding) -> Reservation | None:
         ctx = request.context
@@ -151,7 +160,15 @@ class DbCostGuard:
                 text("SELECT pg_advisory_xact_lock(:ns, hashtext(:company))"),
                 {"ns": _LOCK_NAMESPACE, "company": str(ctx.company_id)},
             )
-            for limit in await self._limits(session, request, now):
+            limits = await self._limits(session, request, now)
+            if self.daily_cap_usd:
+                # one lock for everybody: two companies' calls must not both fit under the cap
+                await session.execute(
+                    text("SELECT pg_advisory_xact_lock(:ns, hashtext('*daily*'))"),
+                    {"ns": _LOCK_NAMESPACE},
+                )
+                limits.append(_Limit("daily", self.daily_cap_usd, _window_start("day", now)))
+            for limit in limits:
                 spent = await self._spent(session, ctx.company_id, limit, now)
                 if spent + amount > limit.amount:
                     await self._record_exhausted(session, request, limit, spent, amount)
@@ -236,8 +253,12 @@ class DbCostGuard:
                         project_id=ctx.project_id,
                     )
                 )
+        # the company's own budgets: neither a project's nor a business unit's (a unit's budget
+        # is not the company's — one unit's 0 once capped every call the company made)
         for budget in await session.scalars(
-            select(Budget).where(*budget_filter, Budget.project_id.is_(None))
+            select(Budget).where(
+                *budget_filter, Budget.project_id.is_(None), Budget.business_unit_id.is_(None)
+            )
         ):
             limits.append(
                 _Limit(
@@ -257,7 +278,8 @@ class DbCostGuard:
         self, session: AsyncSession, company_id: uuid.UUID, limit: _Limit, now: datetime
     ) -> Decimal:
         def scoped(model):
-            conditions = [model.company_id == company_id]
+            # the daily cap counts every company's calls; the rest, this company's
+            conditions = [] if limit.scope == "daily" else [model.company_id == company_id]
             if limit.run_id is not None:
                 conditions.append(model.run_id == limit.run_id)
             if limit.task_id is not None:
@@ -297,6 +319,7 @@ class DbCostGuard:
             "task": ("task", ctx.task_id),
             "project": ("project", ctx.project_id),
             "company": ("company", ctx.company_id),
+            "daily": ("company", ctx.company_id),
         }[limit.scope]
         await emit(
             session,

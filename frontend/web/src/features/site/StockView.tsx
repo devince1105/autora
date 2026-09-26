@@ -191,16 +191,33 @@ export function StockView({ stock, lang }: { stock: PublicStock; lang: Lang }) {
         <h2 id="trades" className="text-xl font-bold">
           {s.trades}
         </h2>
-        <p className="mt-2 text-xs leading-relaxed text-muted">{s.tradesNote}</p>
+        {/* D-052: pointed to where these are already published, not compiled here — any trades
+            a person has checked from our own transcriptions (D-051, now off) still show */}
         {stock.trades.length ? (
-          <ul className="mt-2 divide-y divide-line">
-            {stock.trades.map((trade, i) => (
-              <Trade key={`${trade.report_url}-${i}`} trade={trade} lang={lang} />
-            ))}
-          </ul>
-        ) : (
-          <p className="mt-3 text-muted">{s.tradesNone}</p>
-        )}
+          <>
+            <p className="mt-2 text-xs leading-relaxed text-muted">{s.tradesNote}</p>
+            <ul className="mt-2 divide-y divide-line">
+              {stock.trades.map((trade, i) => (
+                <Trade key={`${trade.report_url}-${i}`} trade={trade} lang={lang} />
+              ))}
+            </ul>
+          </>
+        ) : null}
+        <p className="mt-3 text-sm text-muted">{s.tradesElsewhere}</p>
+        <ul className="mt-2 flex flex-wrap gap-2 text-sm" data-testid="trackers">
+          {s.trackers.map(([label, href]) => (
+            <li key={href}>
+              <a
+                href={href}
+                target="_blank"
+                rel="noopener nofollow"
+                className="inline-block rounded-full border border-line px-3 py-1 hover:border-accent hover:text-accent"
+              >
+                {label} ↗
+              </a>
+            </li>
+          ))}
+        </ul>
       </section>
 
       <section className="mt-10" aria-labelledby="coverage">

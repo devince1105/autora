@@ -46,6 +46,12 @@ def providers_from_settings(
                 base_url=settings.gemini_base_url,
                 api_key=settings.gemini_api_key.get_secret_value(),
                 timeout_s=settings.gemini_timeout_seconds,
+                # its thinking is billed as output and is on unless asked otherwise
+                extra_body=(
+                    {"reasoning_effort": settings.gemini_reasoning_effort}
+                    if settings.gemini_reasoning_effort
+                    else None
+                ),
             )
         }
 

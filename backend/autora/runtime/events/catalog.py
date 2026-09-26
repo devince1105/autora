@@ -386,7 +386,8 @@ class PolicyDenied(EventPayload):
 class BudgetExhausted(EventPayload):
     """Raised by the runtime cost guard when a model call would exceed a hard budget."""
 
-    scope: Literal["company", "project", "task", "run"]
+    scope: Literal["company", "project", "task", "run", "daily"]
+    """``daily``: every company's calls together hit the day's cap (``MODEL_DAILY_CAP_USD``)."""
     project_id: uuid.UUID | None = None
     task_id: uuid.UUID | None = None
     limit: Decimal = Field(ge=0)

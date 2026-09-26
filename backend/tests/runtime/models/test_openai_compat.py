@@ -368,3 +368,39 @@ def test_switching_provider_is_one_setting():
     assert list(nvidia) == ["nvidia"] and list(anthropic) == ["anthropic"]
     assert list(gemini) == ["gemini"]
     assert isinstance(anthropic["anthropic"], AnthropicProvider)
+
+
+# --- what a call is billed (the Gemini bill, D-052) -------------------------------------------
+
+
+async def test_gemini_s_thinking_is_billed_as_output():
+    """Gemini's compatible endpoint leaves its thinking out of completion_tokens and puts it only
+    in total_tokens — billed as output all the same."""
+    server = Server((200, _completion({"content": "hi"}, total_tokens=120 + 30 + 4000), {}))
+    response = await _provider(server).complete(_request(), BINDING)
+    assert response.usage.output_tokens == 30 + 4000
+
+
+async def test_openai_s_convention_is_not_counted_twice():
+    """Where completion_tokens already includes the reasoning, total is prompt + completion."""
+    server = Server((200, _completion({"content": "hi"}, total_tokens=150), {}))
+    assert (await _provider(server).complete(_request(), BINDING)).usage.output_tokens == 30
+    server = Server((200, _completion({"content": "hi"}), {}))  # no total at all
+    assert (await _provider(server).complete(_request(), BINDING)).usage.output_tokens == 30
+
+
+async def test_a_provider_s_own_knobs_go_with_every_request():
+    server = Server()
+    await _provider(server, extra_body={"reasoning_effort": "low"}).complete(_request(), BINDING)
+    assert server.last["reasoning_effort"] == "low"
+    await _provider(server).complete(_request(), BINDING)
+    assert "reasoning_effort" not in server.last
+
+
+def test_gemini_is_asked_to_think_little_unless_told_otherwise():
+    base = {"model_provider": "gemini", "gemini_api_key": "AIza-x",
+            "frontier_model_id": "vendor/big", "model_prices": PRICES}  # fmt: skip
+    [provider] = providers_from_settings(_settings(**base)).values()
+    assert provider.extra_body == {"reasoning_effort": "low"}
+    [provider] = providers_from_settings(_settings(**base, gemini_reasoning_effort="")).values()
+    assert provider.extra_body == {}

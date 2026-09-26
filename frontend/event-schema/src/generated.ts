@@ -531,7 +531,7 @@ export const BudgetAllocatedV1Event = z.object({
 });
 
 export const BudgetExhaustedV1Payload = z.object({
-  scope: z.enum(["company", "project", "task", "run"]),
+  scope: z.enum(["company", "project", "task", "run", "daily"]),
   project_id: z.uuid().nullable().default(null),
   task_id: z.uuid().nullable().default(null),
   limit: z.string().regex(new RegExp("^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$")),

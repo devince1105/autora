@@ -72,6 +72,18 @@ class Settings(BaseSettings):
     gemini_base_url: str = "https://generativelanguage.googleapis.com/v1beta/openai"
     gemini_timeout_seconds: float = Field(default=180.0, gt=0)
     """Per request, as for NVIDIA."""
+    gemini_reasoning_effort: Literal["low", "medium", "high", ""] = "low"
+    """How much Gemini thinks before it answers. Its thinking is billed as output tokens and is
+    on by default — one request thought 10,119 tokens to copy a table. "low" keeps it for the
+    agents' judgement calls at a fraction of the cost; "" leaves it to Google."""
+    official_trades_enabled: bool = False
+    """Transcribe officials' transaction reports ourselves (D-051). Off (D-052): a small company
+    points readers to the trackers that already publish these, rather than paying a model to
+    read hundreds of scanned pages; the code stays for the day it is worth it."""
+    model_daily_cap_usd: Decimal = Field(default=Decimal("3"), ge=0)
+    """Every company's model calls together, per UTC day: a call that would pass it is refused
+    (the cost guard). The bill's own safety net, apart from each company's budgets, which are
+    governance. 0 turns it off."""
     frontier_model_id: str | None = None
     fast_model_id: str | None = None
     model_prices: dict[str, dict[str, float]] = {}

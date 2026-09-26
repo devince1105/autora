@@ -76,8 +76,11 @@ class OpenAICompatibleProvider:
         timeout_s: float = 180.0,
         max_retries: int = 2,
         max_retry_wait_s: float = 30.0,
+        extra_body: dict[str, Any] | None = None,
     ):
         self.name = name
+        self.extra_body = dict(extra_body or {})
+        """Sent with every request: a provider's own knobs (Gemini's ``reasoning_effort``)."""
         self.base_url = base_url.rstrip("/")
         self.max_retries = max_retries
         self.max_retry_wait_s = max_retry_wait_s
@@ -98,6 +101,7 @@ class OpenAICompatibleProvider:
             "model": binding.model_id,
             "max_tokens": request.max_output_tokens,
             "stream": False,
+            **self.extra_body,
         }
         if request.tools:
             body["tools"] = [
@@ -259,11 +263,23 @@ class OpenAICompatibleProvider:
             stop_reason=stop,
             usage=Usage(
                 input_tokens=max((usage.get("prompt_tokens") or 0) - cached, 0),
-                output_tokens=usage.get("completion_tokens") or 0,
+                output_tokens=_billed_output(usage),
                 cache_read_tokens=cached,
             ),
             model_id=data.get("model") or binding.model_id,
         )
+
+
+def _billed_output(usage: dict[str, Any]) -> int:
+    """Output tokens as the provider bills them. OpenAI's convention counts a model's reasoning
+    inside ``completion_tokens``; Gemini's compatible endpoint leaves its thinking out of it and
+    only in ``total_tokens`` — yet bills it as output. Whatever the total holds beyond prompt and
+    completion is that thinking: counted here, or every Gemini call looks several times cheaper
+    than it is (it did: 103K output tokens recorded where the bill was far higher)."""
+    prompt = usage.get("prompt_tokens") or 0
+    completion = usage.get("completion_tokens") or 0
+    total = usage.get("total_tokens") or 0
+    return completion + max(total - prompt - completion, 0)
 
 
 def _arguments(raw: Any) -> dict[str, Any]:

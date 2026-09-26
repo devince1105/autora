@@ -340,3 +340,58 @@ async def test_without_an_open_cycle_a_cycle_budget_falls_back_to_the_day(commit
     with pytest.raises(BudgetExceeded) as exc:
         await DbCostGuard(committed).reserve(_request(ctx), BINDING)
     assert exc.value.scope == "company"
+
+
+# --- the bill's own cap: every company's calls, per day (D-052) -------------------------------
+
+FUTURE = datetime(2031, 1, 2, 12, tzinfo=UTC)  # a day nobody else's test has spent on
+
+
+async def test_the_daily_cap_counts_every_company_s_calls(committed, world):
+    from tests.conftest import unique_company
+
+    ctx = world["ctx"]
+    async with committed() as session:
+        other = await unique_company(session)
+        await session.commit()
+    # 0.10 spent today by another company, 0.02 by this one; the call needs ~0.05
+    day = FUTURE.replace(hour=1)
+    other_call = _call(ctx, "0.10", created_at=day)
+    other_call.company_id, other_call.project_id = other.id, None
+    other_call.task_id = other_call.run_id = None
+    await _add(committed, other_call, _call(ctx, "0.02", created_at=day))
+    await _add(committed, _call(ctx, "5", created_at=day - timedelta(days=1)))  # yesterday
+
+    guard = DbCostGuard(committed, clock=lambda: FUTURE, daily_cap_usd=Decimal("0.15"))
+    with pytest.raises(BudgetExceeded) as exc:
+        await guard.reserve(_request(ctx), BINDING)
+    assert exc.value.scope == "daily" and exc.value.spent == Decimal("0.12")
+    assert any(e["scope"] == "daily" for e in await _exhausted_events(committed, ctx))
+
+    roomy = DbCostGuard(committed, clock=lambda: FUTURE, daily_cap_usd=Decimal("0.20"))
+    assert await roomy.reserve(_request(ctx), BINDING) is not None
+    uncapped = DbCostGuard(committed, clock=lambda: FUTURE, daily_cap_usd=None)
+    assert await uncapped.reserve(_request(ctx), BINDING) is not None
+
+
+async def test_a_business_unit_s_budget_is_not_the_company_s(committed, world):
+    """A unit's budget of 0 once capped every call its company made (D-052)."""
+    from autora.db.models import BusinessUnit
+
+    ctx = world["ctx"]
+    async with committed() as session:
+        unit = BusinessUnit(company_id=ctx.company_id, key=f"u{ctx.run_id.hex[:6]}", name="unit")
+        session.add(unit)
+        await session.flush()
+        session.add(
+            Budget(
+                company_id=ctx.company_id,
+                business_unit_id=unit.id,
+                period="cycle",
+                amount=Decimal("0"),
+                currency="TWD",
+                hard_cap=True,
+            )
+        )
+        await session.commit()
+    assert await DbCostGuard(committed).reserve(_request(ctx), BINDING) is not None

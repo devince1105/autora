@@ -103,6 +103,11 @@ const WORDS = {
       owners: { SP: "配偶", JT: "共同持有", DC: "子女" } as Record<string, string>,
       option: "選擇權",
       tradesNone: "我們追蹤的名人最近的交易申報沒有這檔股票。",
+      tradesElsewhere: "美國總統與國會議員依法申報的交易，艾矽鯨不自行整理；可在這些追蹤網站查詢：",
+      trackers: [
+        ["川普的交易（Open Cabinet）", "https://open-cabinet.org/officials/trump-donald-j"],
+        ["佩洛西的交易（Capitol Trades）", "https://www.capitoltrades.com/politicians/P000197"],
+      ] as [string, string][],
       kinds: { purchase: "買進", sale: "賣出", "partial sale": "部分賣出", exchange: "交換" } as Record<string, string>,
       over: (n: string) => `${n} 以上`,
       late: "逾 30 天才申報",
@@ -261,6 +266,12 @@ const WORDS = {
       owners: { SP: "spouse", JT: "joint", DC: "child" } as Record<string, string>,
       option: "Option",
       tradesNone: "No recent transaction report of the figures we follow names it.",
+      tradesElsewhere:
+        "The President's and members of Congress's reported trades are not compiled by AiSiWhale; these trackers publish them:",
+      trackers: [
+        ["Trump's trades (Open Cabinet)", "https://open-cabinet.org/officials/trump-donald-j"],
+        ["Pelosi's trades (Capitol Trades)", "https://www.capitoltrades.com/politicians/P000197"],
+      ] as [string, string][],
       kinds: { purchase: "Bought", sale: "Sold", "partial sale": "Sold part", exchange: "Exchanged" } as Record<string, string>,
       over: (n: string) => `over ${n}`,
       late: "reported 30+ days late",

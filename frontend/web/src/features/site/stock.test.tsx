@@ -134,7 +134,14 @@ describe("a stock's page", () => {
     expect(document.body.textContent).toContain("經人工對照原件核准後才顯示");
     cleanup();
     render(<StockView stock={{ ...NVDA, trades: [] }} lang="zh-TW" />);
-    expect(document.body.textContent).toContain("最近的交易申報沒有這檔股票");
+    // not compiled here: pointed to the trackers that publish them (D-052)
+    expect(document.body.textContent).toContain("艾矽鯨不自行整理");
+    const links = within(screen.getByTestId("trackers")).getAllByRole("link");
+    expect(links.map((a) => a.getAttribute("href"))).toEqual([
+      "https://open-cabinet.org/officials/trump-donald-j",
+      "https://www.capitoltrades.com/politicians/P000197",
+    ]);
+    expect(links[0]!.getAttribute("rel")).toContain("nofollow");
   });
 
   it("a member's spouse's option is shown as the spouse's, and as an option", () => {

@@ -195,7 +195,7 @@ def build_scheduler(
     model = settings.frontier_model_id if settings else None
     transcriber = (
         GeminiTranscriber(key.get_secret_value(), model, settings.gemini_timeout_seconds)
-        if settings and key and model
+        if settings and settings.official_trades_enabled and key and model
         else None
     )
     officials = OfficialTradesKeeper(
@@ -414,7 +414,7 @@ def build_worker(
     gateway = gateway_from_settings(
         settings,
         session_factory,
-        cost_guard=DbCostGuard(session_factory),
+        cost_guard=DbCostGuard(session_factory, daily_cap_usd=settings.model_daily_cap_usd or None),
         fake_default=simulated_model,
     )
     runner = AgentRunner(
