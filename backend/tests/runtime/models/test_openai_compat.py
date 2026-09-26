@@ -426,6 +426,6 @@ def test_gemini_is_asked_to_think_little_unless_told_otherwise():
     base = {"model_provider": "gemini", "gemini_api_key": "AIza-x",
             "frontier_model_id": "vendor/big", "model_prices": PRICES}  # fmt: skip
     [provider] = providers_from_settings(_settings(**base)).values()
-    assert provider.extra_body == {"reasoning_effort": "none"}
+    assert provider.extra_body == {"reasoning_effort": "low"}
     [provider] = providers_from_settings(_settings(**base, gemini_reasoning_effort="")).values()
     assert provider.extra_body == {}
