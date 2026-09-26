@@ -33,7 +33,7 @@ export function StoryView({
             分數 {Math.round(Number(story.score) * 100)}・{story.sources} 個來源・首次出現 {formatTime(story.first_seen_at)}
           </span>
           {story.article ? (
-            <Link href={`/newsroom/articles/${story.article.id}`} className="text-accent underline">
+            <Link href={`/admin/newsroom/articles/${story.article.id}`} className="text-accent underline">
               文章（{label(ARTICLE_STATE, story.article.state)[0]}）
             </Link>
           ) : null}
@@ -102,7 +102,7 @@ export function StoryView({
         {story.workflow_run_ids.length ? null : <Empty>還沒有開始製作。</Empty>}
       </Section>
       <p className="mt-8 text-sm">
-        <Link href={withCompany("/newsroom/stories", story.company_id)} className="text-accent underline">
+        <Link href={withCompany("/admin/newsroom/stories", story.company_id)} className="text-accent underline">
           ← 所有題材
         </Link>
       </p>

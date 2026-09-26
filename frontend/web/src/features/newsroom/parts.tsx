@@ -14,9 +14,9 @@ export function Badge({ text, tone }: { text: string; tone: Tone }) {
 }
 
 const TABS = [
-  ["stories", "題材", "/newsroom/stories"],
-  ["articles", "文章", "/newsroom/articles"],
-  ["sources", "來源", "/newsroom/sources"],
+  ["stories", "題材", "/admin/newsroom/stories"],
+  ["articles", "文章", "/admin/newsroom/articles"],
+  ["sources", "來源", "/admin/newsroom/sources"],
 ] as const;
 
 export function NewsroomHeader({
@@ -46,10 +46,10 @@ export function NewsroomHeader({
           </Link>
         ))}
         <span className="grow" />
-        <Link href={withCompany("/dashboard", companyId)} className="text-accent underline">
+        <Link href={withCompany("/admin/dashboard", companyId)} className="text-accent underline">
           Dashboard
         </Link>
-        <Link href={withCompany("/office", companyId)} className="text-accent underline">
+        <Link href={withCompany("/admin/office", companyId)} className="text-accent underline">
           辦公室
         </Link>
       </nav>

@@ -1,7 +1,7 @@
 // Phase 3 acceptance (T-315, 3d-office/09): two Dashboard tabs show the agent cards changing
 // together; the API is down for 20 s and comes back, the page recovers by itself, its last seq
 // equals the server's head, and the trace of the run that finished meanwhile has every event.
-// The event timeline (/timeline) is the witness for "every event, exactly once": one row per
+// The event timeline (/admin/timeline) is the witness for "every event, exactly once": one row per
 // event, keyed by seq.
 import { expect, test, type APIRequestContext, type Page } from "@playwright/test";
 
@@ -33,7 +33,7 @@ const completedRows = (page: Page) => rows(page).filter({ hasText: "WORKFLOW_RUN
 const live = (page: Page) => page.locator('[role="status"][data-status="live"]');
 
 async function openTimeline(page: Page): Promise<void> {
-  await page.goto(`/timeline?company=${stack.companyId}`);
+  await page.goto(`/admin/timeline?company=${stack.companyId}`);
   await expect(live(page)).toBeVisible({ timeout: 30_000 });
 }
 
@@ -121,7 +121,7 @@ test("two tabs: the agent cards and the events change together, each event once"
   const dashboards = [await context.newPage(), await context.newPage()];
   const timelines = [await context.newPage(), await context.newPage()];
   for (const page of dashboards) {
-    await page.goto(`/dashboard?company=${stack.companyId}`);
+    await page.goto(`/admin/dashboard?company=${stack.companyId}`);
     await expect(live(page)).toBeVisible({ timeout: 30_000 });
     await expect(page.locator('[data-testid^="agent-card-"]')).toHaveCount(3);
   }
@@ -207,7 +207,7 @@ test("API down for 20 s: the page recovers by itself and misses nothing", async 
   const trace = await request.get(`${API_URL}/api/runs/${writerRun}/trace`, { headers: auth });
   const traceSeqs = ((await trace.json()) as { entries: { seq: number }[] }).entries.map((e) => e.seq);
   expect(traceSeqs.length).toBeGreaterThan(5);
-  await page.goto(`/trace/${writerRun}`);
+  await page.goto(`/admin/trace/${writerRun}`);
   const traceRows = page.locator('[data-testid^="row-e"]');
   await expect(traceRows).toHaveCount(traceSeqs.length, { timeout: 15_000 });
   const traceShown = await traceRows.evaluateAll((els) => els.map((el) => Number(el.getAttribute("data-testid")!.slice("row-e".length))));

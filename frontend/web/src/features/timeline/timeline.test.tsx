@@ -108,8 +108,8 @@ describe("view", () => {
     render(<Timeline companyId={replayed.companyId} events={recent} agents={replayed.agents} />);
     const event = [...recent].reverse().find((e) => e.run_id && e.task_id)!;
     const row = screen.getByTestId(`event-${event.seq}`);
-    expect(within(row).getByRole("link", { name: "軌跡" }).getAttribute("href")).toBe(`/trace/${event.run_id}`);
-    expect(within(row).getByRole("link", { name: "任務" }).getAttribute("href")).toBe(`/tasks/${event.task_id}`);
+    expect(within(row).getByRole("link", { name: "軌跡" }).getAttribute("href")).toBe(`/admin/trace/${event.run_id}`);
+    expect(within(row).getByRole("link", { name: "任務" }).getAttribute("href")).toBe(`/admin/tasks/${event.task_id}`);
   });
 
   it("a filter set elsewhere (the store) applies too", () => {

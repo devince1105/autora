@@ -39,7 +39,7 @@ export function CyclesView({ cycles }: { cycles: readonly CycleLine[] }) {
         return (
           <li key={cycle.id} data-testid={`cycle-${cycle.seq}`}>
             <Link
-              href={`/cycles/${cycle.id}`}
+              href={`/admin/cycles/${cycle.id}`}
               className="flex flex-col gap-1 rounded-lg border border-line bg-surface p-4 hover:border-fg/30"
             >
               <span className="flex flex-wrap items-baseline gap-3">

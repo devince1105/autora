@@ -79,7 +79,7 @@ function Live({ data }: { data: PanelData }) {
       {run ? (
         <Row label="本次執行">
           第 {run.attempt} 次嘗試・{run.steps_count} 步・US${Number(run.cost_usd).toFixed(4)}
-          <Link href={`/trace/${run.id}`} className="ml-3 text-accent underline">
+          <Link href={`/admin/trace/${run.id}`} className="ml-3 text-accent underline">
             完整軌跡
           </Link>
         </Row>

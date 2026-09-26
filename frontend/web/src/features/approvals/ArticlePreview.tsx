@@ -115,7 +115,7 @@ export function ArticlePreviewView({
       )}
 
       <Link
-        href={withCompany(`/newsroom/articles/${draft.id}?version=${draft.shown}`, draft.company_id)}
+        href={withCompany(`/admin/newsroom/articles/${draft.id}?version=${draft.shown}`, draft.company_id)}
         className="text-accent underline"
       >
         開啟完整文章頁（論點、引用出處、查核細節）

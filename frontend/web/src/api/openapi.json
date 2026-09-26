@@ -908,6 +908,155 @@
     "title": "BlockView",
     "type": "object"
    },
+   "BudgetIn": {
+    "properties": {
+     "amount": {
+      "anyOf": [
+       {
+        "minimum": 0.0,
+        "type": "number"
+       },
+       {
+        "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+        "type": "string"
+       }
+      ],
+      "title": "Amount"
+     },
+     "period": {
+      "default": "cycle",
+      "enum": [
+       "cycle",
+       "day",
+       "month"
+      ],
+      "title": "Period",
+      "type": "string"
+     },
+     "project_id": {
+      "anyOf": [
+       {
+        "format": "uuid",
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Project Id"
+     }
+    },
+    "required": [
+     "amount"
+    ],
+    "title": "BudgetIn",
+    "type": "object"
+   },
+   "BudgetLine": {
+    "properties": {
+     "amount": {
+      "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+      "title": "Amount",
+      "type": "string"
+     },
+     "currency": {
+      "title": "Currency",
+      "type": "string"
+     },
+     "hard_cap": {
+      "title": "Hard Cap",
+      "type": "boolean"
+     },
+     "id": {
+      "format": "uuid",
+      "title": "Id",
+      "type": "string"
+     },
+     "name": {
+      "title": "Name",
+      "type": "string"
+     },
+     "period": {
+      "title": "Period",
+      "type": "string"
+     },
+     "scope": {
+      "enum": [
+       "company",
+       "project",
+       "business_unit"
+      ],
+      "title": "Scope",
+      "type": "string"
+     },
+     "scope_id": {
+      "anyOf": [
+       {
+        "format": "uuid",
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Scope Id"
+     }
+    },
+    "required": [
+     "id",
+     "scope",
+     "scope_id",
+     "name",
+     "period",
+     "amount",
+     "currency",
+     "hard_cap"
+    ],
+    "title": "BudgetLine",
+    "type": "object"
+   },
+   "BudgetOut": {
+    "properties": {
+     "decision": {
+      "title": "Decision",
+      "type": "string"
+     },
+     "outcome": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Outcome"
+     },
+     "reason": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Reason"
+     },
+     "released_tasks": {
+      "title": "Released Tasks",
+      "type": "integer"
+     }
+    },
+    "required": [
+     "decision",
+     "outcome",
+     "reason",
+     "released_tasks"
+    ],
+    "title": "BudgetOut",
+    "type": "object"
+   },
    "BusinessLine": {
     "properties": {
      "id": {
@@ -977,7 +1126,7 @@
      "projects": {
       "default": [],
       "items": {
-       "$ref": "#/components/schemas/ProjectLine"
+       "$ref": "#/components/schemas/autora__company__snapshot__ProjectLine"
       },
       "title": "Projects",
       "type": "array"
@@ -1122,6 +1271,65 @@
      "currency"
     ],
     "title": "Capital",
+    "type": "object"
+   },
+   "CapitalIn": {
+    "properties": {
+     "amount": {
+      "anyOf": [
+       {
+        "exclusiveMinimum": 0.0,
+        "type": "number"
+       },
+       {
+        "pattern": "^(?!^[-+.]*$)[+-]?0*(?:\\d{0,12}|(?=[\\d.]{1,15}0*$)\\d{0,12}\\.\\d{0,2}0*$)",
+        "type": "string"
+       }
+      ],
+      "title": "Amount"
+     },
+     "memo": {
+      "anyOf": [
+       {
+        "maxLength": 200,
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Memo"
+     },
+     "request_id": {
+      "format": "uuid",
+      "title": "Request Id",
+      "type": "string"
+     }
+    },
+    "required": [
+     "amount",
+     "request_id"
+    ],
+    "title": "CapitalIn",
+    "type": "object"
+   },
+   "CapitalOut": {
+    "properties": {
+     "balance": {
+      "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+      "title": "Balance",
+      "type": "string"
+     },
+     "recorded": {
+      "title": "Recorded",
+      "type": "boolean"
+     }
+    },
+    "required": [
+     "recorded",
+     "balance"
+    ],
+    "title": "CapitalOut",
     "type": "object"
    },
    "Checkout": {
@@ -1335,7 +1543,7 @@
      "company_work": {
       "default": [],
       "items": {
-       "$ref": "#/components/schemas/ProjectLine"
+       "$ref": "#/components/schemas/autora__company__snapshot__ProjectLine"
       },
       "title": "Company Work",
       "type": "array"
@@ -2406,6 +2614,71 @@
     "title": "FailedRunOut",
     "type": "object"
    },
+   "FinanceOut": {
+    "properties": {
+     "balance": {
+      "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+      "title": "Balance",
+      "type": "string"
+     },
+     "budgets": {
+      "items": {
+       "$ref": "#/components/schemas/BudgetLine"
+      },
+      "title": "Budgets",
+      "type": "array"
+     },
+     "currency": {
+      "title": "Currency",
+      "type": "string"
+     },
+     "cycle_seq": {
+      "anyOf": [
+       {
+        "type": "integer"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Cycle Seq"
+     },
+     "cycle_stage": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Cycle Stage"
+     },
+     "projects": {
+      "items": {
+       "$ref": "#/components/schemas/autora_api__routers__finance__ProjectLine"
+      },
+      "title": "Projects",
+      "type": "array"
+     },
+     "spent_today": {
+      "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+      "title": "Spent Today",
+      "type": "string"
+     }
+    },
+    "required": [
+     "currency",
+     "balance",
+     "spent_today",
+     "cycle_seq",
+     "cycle_stage",
+     "budgets",
+     "projects"
+    ],
+    "title": "FinanceOut",
+    "type": "object"
+   },
    "GoalLine": {
     "properties": {
      "current": {
@@ -3023,7 +3296,7 @@
      "exploring": {
       "default": [],
       "items": {
-       "$ref": "#/components/schemas/ProjectLine"
+       "$ref": "#/components/schemas/autora__company__snapshot__ProjectLine"
       },
       "title": "Exploring",
       "type": "array"
@@ -3247,70 +3520,6 @@
      "public_url"
     ],
     "title": "ProductOut",
-    "type": "object"
-   },
-   "ProjectLine": {
-    "properties": {
-     "budget_remaining": {
-      "anyOf": [
-       {
-        "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
-        "type": "string"
-       },
-       {
-        "type": "null"
-       }
-      ],
-      "title": "Budget Remaining"
-     },
-     "failed_tasks": {
-      "default": 0,
-      "title": "Failed Tasks",
-      "type": "integer"
-     },
-     "id": {
-      "format": "uuid",
-      "title": "Id",
-      "type": "string"
-     },
-     "kill_criteria": {
-      "anyOf": [
-       {
-        "additionalProperties": true,
-        "type": "object"
-       },
-       {
-        "type": "null"
-       }
-      ],
-      "title": "Kill Criteria"
-     },
-     "kpis_last_cycle": {
-      "additionalProperties": true,
-      "default": {},
-      "title": "Kpis Last Cycle",
-      "type": "object"
-     },
-     "name": {
-      "title": "Name",
-      "type": "string"
-     },
-     "open_tasks": {
-      "default": 0,
-      "title": "Open Tasks",
-      "type": "integer"
-     },
-     "state": {
-      "title": "State",
-      "type": "string"
-     }
-    },
-    "required": [
-     "id",
-     "name",
-     "state"
-    ],
-    "title": "ProjectLine",
     "type": "object"
    },
    "ProposalLine": {
@@ -5627,6 +5836,94 @@
     ],
     "title": "WorkflowTaskOut",
     "type": "object"
+   },
+   "autora__company__snapshot__ProjectLine": {
+    "properties": {
+     "budget_remaining": {
+      "anyOf": [
+       {
+        "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Budget Remaining"
+     },
+     "failed_tasks": {
+      "default": 0,
+      "title": "Failed Tasks",
+      "type": "integer"
+     },
+     "id": {
+      "format": "uuid",
+      "title": "Id",
+      "type": "string"
+     },
+     "kill_criteria": {
+      "anyOf": [
+       {
+        "additionalProperties": true,
+        "type": "object"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Kill Criteria"
+     },
+     "kpis_last_cycle": {
+      "additionalProperties": true,
+      "default": {},
+      "title": "Kpis Last Cycle",
+      "type": "object"
+     },
+     "name": {
+      "title": "Name",
+      "type": "string"
+     },
+     "open_tasks": {
+      "default": 0,
+      "title": "Open Tasks",
+      "type": "integer"
+     },
+     "state": {
+      "title": "State",
+      "type": "string"
+     }
+    },
+    "required": [
+     "id",
+     "name",
+     "state"
+    ],
+    "title": "ProjectLine",
+    "type": "object"
+   },
+   "autora_api__routers__finance__ProjectLine": {
+    "properties": {
+     "id": {
+      "format": "uuid",
+      "title": "Id",
+      "type": "string"
+     },
+     "name": {
+      "title": "Name",
+      "type": "string"
+     },
+     "state": {
+      "title": "State",
+      "type": "string"
+     }
+    },
+    "required": [
+     "id",
+     "name",
+     "state"
+    ],
+    "title": "ProjectLine",
+    "type": "object"
    }
   },
   "securitySchemes": {
@@ -7036,6 +7333,173 @@
     "summary": "List Cycles",
     "tags": [
      "cycles"
+    ]
+   }
+  },
+  "/api/companies/{company_id}/finance": {
+   "get": {
+    "description": "Operator-only, unlike the dashboard's other reads: this is the company's money.",
+    "operationId": "get_finance_api_companies__company_id__finance_get",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "company_id",
+      "required": true,
+      "schema": {
+       "format": "uuid",
+       "title": "Company Id",
+       "type": "string"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/FinanceOut"
+        }
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "security": [
+     {
+      "HTTPBearer": []
+     }
+    ],
+    "summary": "Get Finance",
+    "tags": [
+     "finance"
+    ]
+   }
+  },
+  "/api/companies/{company_id}/finance/budgets": {
+   "post": {
+    "description": "Set one envelope, as the ``AllocateBudget`` command (replacing the one there was).",
+    "operationId": "set_budget_api_companies__company_id__finance_budgets_post",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "company_id",
+      "required": true,
+      "schema": {
+       "format": "uuid",
+       "title": "Company Id",
+       "type": "string"
+      }
+     }
+    ],
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/BudgetIn"
+       }
+      }
+     },
+     "required": true
+    },
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/BudgetOut"
+        }
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "security": [
+     {
+      "HTTPBearer": []
+     }
+    ],
+    "summary": "Set Budget",
+    "tags": [
+     "finance"
+    ]
+   }
+  },
+  "/api/companies/{company_id}/finance/capital": {
+   "post": {
+    "description": "Money put into the company, in the base currency.",
+    "operationId": "add_capital_api_companies__company_id__finance_capital_post",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "company_id",
+      "required": true,
+      "schema": {
+       "format": "uuid",
+       "title": "Company Id",
+       "type": "string"
+      }
+     }
+    ],
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/CapitalIn"
+       }
+      }
+     },
+     "required": true
+    },
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/CapitalOut"
+        }
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "security": [
+     {
+      "HTTPBearer": []
+     }
+    ],
+    "summary": "Add Capital",
+    "tags": [
+     "finance"
     ]
    }
   },

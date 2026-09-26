@@ -73,7 +73,7 @@ describe("view", () => {
     expect(screen.getByRole("heading", { name: "Echo: analyse" })).toBeTruthy();
     const list = screen.getByRole("list", { name: "軌跡" });
     expect(within(list).getAllByRole("listitem")).toHaveLength(real.entries.length + 1);
-    expect(screen.getByRole("link", { name: "任務與其他嘗試" }).getAttribute("href")).toBe(`/tasks/${real.task_id}`);
+    expect(screen.getByRole("link", { name: "任務與其他嘗試" }).getAttribute("href")).toBe(`/admin/tasks/${real.task_id}`);
     expect(screen.getByText(/10 個事件・4 個步驟・1 次工具呼叫/)).toBeTruthy();
   });
 

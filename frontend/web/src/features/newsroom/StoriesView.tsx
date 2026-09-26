@@ -42,7 +42,7 @@ export function StoriesView({
             return (
               <li key={story.id} className="flex flex-wrap items-center gap-3 px-4 py-3">
                 <Badge text={state} tone={tone} />
-                <Link href={`/newsroom/stories/${story.id}`} className="font-medium hover:text-accent">
+                <Link href={`/admin/newsroom/stories/${story.id}`} className="font-medium hover:text-accent">
                   {story.title}
                 </Link>
                 <span className="grow" />
@@ -51,7 +51,7 @@ export function StoriesView({
                   ・{formatTime(story.first_seen_at)}
                 </span>
                 {story.article ? (
-                  <Link href={`/newsroom/articles/${story.article.id}`} className="text-xs text-accent underline">
+                  <Link href={`/admin/newsroom/articles/${story.article.id}`} className="text-xs text-accent underline">
                     文章
                   </Link>
                 ) : null}

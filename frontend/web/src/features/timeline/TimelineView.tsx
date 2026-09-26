@@ -103,12 +103,12 @@ export function TimelineView(props: TimelineViewProps) {
                 {item.summary ? <span className="min-w-0 break-words text-sm text-muted">{item.summary}</span> : null}
                 <span className="font-mono text-xs text-muted">{item.eventType}</span>
                 {item.runId ? (
-                  <Link href={`/trace/${item.runId}`} className="text-xs text-accent underline">
+                  <Link href={`/admin/trace/${item.runId}`} className="text-xs text-accent underline">
                     軌跡
                   </Link>
                 ) : null}
                 {item.taskId ? (
-                  <Link href={`/tasks/${item.taskId}`} className="text-xs text-accent underline">
+                  <Link href={`/admin/tasks/${item.taskId}`} className="text-xs text-accent underline">
                     任務
                   </Link>
                 ) : null}

@@ -175,7 +175,7 @@ describe("token gate", () => {
       />,
     );
     const link = screen.getByTestId("pending-approvals");
-    expect(link.getAttribute("href")).toBe("/approvals?company=c1");
+    expect(link.getAttribute("href")).toBe("/admin/approvals?company=c1");
     expect(link.textContent).toBe("審批收件匣1");
   });
 });

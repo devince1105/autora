@@ -60,7 +60,7 @@ test("a story from the feeds to the public site, and from the office to its draf
   const company = stack.newsroomCompanyId;
 
   // 1. the story page: the demo feeds were read and clustered; start the microgrid story
-  await page.goto(`/newsroom/stories?company=${company}`);
+  await page.goto(`/admin/newsroom/stories?company=${company}`);
   await page
     .getByRole("link", { name: /microgrid/i })
     .first()
@@ -94,7 +94,7 @@ test("a story from the feeds to the public site, and from the office to its draf
   ).toBeVisible();
 
   // 3. the office: go into the writing room, select the writer, follow its panel to the draft
-  await page.goto(`/office?company=${company}&department=newsroom_writing`);
+  await page.goto(`/admin/office?company=${company}&department=newsroom_writing`);
   await expect(page.locator("[data-office-mode]")).not.toHaveAttribute(
     "data-office-mode",
     "detecting",
@@ -172,7 +172,7 @@ test("a story from the feeds to the public site, and from the office to its draf
   });
 
   // 5. a person approves in the inbox; the article is published, marketing drafts its posts
-  await page.goto(`/approvals?company=${company}`);
+  await page.goto(`/admin/approvals?company=${company}`);
   await page.getByRole("button", { name: "核准" }).click();
   await expect
     .poll(

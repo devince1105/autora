@@ -110,7 +110,7 @@ export function TraceView({
         <span>
           {summary.events} 個事件・{summary.steps} 個步驟・{summary.toolCalls} 次工具呼叫
         </span>
-        <Link className="text-accent underline" href={`/tasks/${trace.task_id}`}>
+        <Link className="text-accent underline" href={`/admin/tasks/${trace.task_id}`}>
           任務與其他嘗試
         </Link>
       </p>
@@ -153,7 +153,7 @@ export function TaskView({ task }: { task: TaskOut }) {
           {task.runs.map((run) => (
             <li key={run.id}>
               <Link
-                href={`/trace/${run.id}`}
+                href={`/admin/trace/${run.id}`}
                 className="flex flex-wrap justify-between gap-2 rounded-lg border border-line bg-surface px-4 py-3 hover:border-accent"
               >
                 <span>

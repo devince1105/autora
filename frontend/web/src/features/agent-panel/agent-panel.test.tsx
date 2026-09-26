@@ -145,13 +145,13 @@ describe("panel: next step, produced, tools", () => {
 describe("panel links", () => {
   it("carry the panel's company, so a click does not land in another company's office (D-041)", () => {
     const raw = [
-      { label: "題材的主張", href: "/newsroom/stories/s1#claims" },
-      { label: "文章草稿 v2", href: "/newsroom/articles/a1?version=2" },
+      { label: "題材的主張", href: "/admin/newsroom/stories/s1#claims" },
+      { label: "文章草稿 v2", href: "/admin/newsroom/articles/a1?version=2" },
       { label: 42, href: "/x" },
     ];
     expect(panelLinks(raw, "c-finance")).toEqual([
-      { label: "題材的主張", href: "/newsroom/stories/s1?company=c-finance#claims" },
-      { label: "文章草稿 v2", href: "/newsroom/articles/a1?version=2&company=c-finance" },
+      { label: "題材的主張", href: "/admin/newsroom/stories/s1?company=c-finance#claims" },
+      { label: "文章草稿 v2", href: "/admin/newsroom/articles/a1?version=2&company=c-finance" },
     ]);
     expect(panelLinks(undefined, "c")).toEqual([]);
   });
@@ -179,7 +179,7 @@ describe("views", () => {
       card: cardModel(agent("WORKING", { tool: "fetch_url" }), NOW)!,
       runId: RUN,
       nextSteps: [{ taskId: "t2", name: "Analyse", role: "analyst", state: "PENDING" }],
-      links: [{ label: "Story", href: "/newsroom/stories/s1" }],
+      links: [{ label: "Story", href: "/admin/newsroom/stories/s1" }],
       run: { id: RUN, attempt: 1, steps_count: 5, cost_usd: "0.0123", output: { note_id: "n1" }, evaluation: null, error: null } as unknown as Run,
       trace: { ...t, steps: [{ seq: 0, kind: "think", summary: "Plan the search", cost_usd: "0.001", has_blob: true, tool_calls: null, created_at: NOW.toISOString() }] } as Trace,
       produced: producedCounts(t),
@@ -197,7 +197,7 @@ describe("views", () => {
     expect(within(dialog).getByText("fetch_url")).toBeTruthy();
     expect(within(dialog).getByTestId("produced-evidence").textContent).toBe("來源 37");
     expect(within(dialog).getByText("Analyse（分析師）")).toBeTruthy();
-    expect(within(dialog).getByRole("link", { name: "Story" }).getAttribute("href")).toBe("/newsroom/stories/s1");
+    expect(within(dialog).getByRole("link", { name: "Story" }).getAttribute("href")).toBe("/admin/newsroom/stories/s1");
     expect(within(dialog).queryByTestId("progress")).toBeNull(); // not reported: no bar
     expect(within(dialog).getByText(/第 1 次嘗試・5 步/)).toBeTruthy();
   });

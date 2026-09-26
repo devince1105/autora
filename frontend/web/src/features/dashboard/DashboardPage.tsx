@@ -6,6 +6,7 @@ import { approvalsQuery, cyclesQuery, kpisQuery } from "@/api/queries";
 import { AgentList, AgentPanel } from "@/features/agent-panel/AgentPanel";
 import { CompanyScope, type Company } from "@/features/company/CompanyScope";
 import { useCompanyStream } from "@/features/company/useCompanyStream";
+import { FinancePanel } from "@/features/finance/FinancePanel";
 import { useNow } from "@/hooks/useNow";
 import { useRealtime } from "@/stores/realtime";
 
@@ -42,6 +43,7 @@ function CompanyDashboard({ company }: { company: Company }) {
         model={model}
         pendingApprovals={pending.data?.length ?? null}
       />
+      <FinancePanel companyId={company.id} />
       <section className="mx-auto max-w-6xl px-4 pb-12" aria-labelledby="agents-heading">
         <h2 id="agents-heading" className="mb-3 text-lg font-semibold">
           代理

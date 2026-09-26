@@ -55,15 +55,15 @@ describe("the company a page shows", () => {
   });
 
   it("keeps the company in links between pages", () => {
-    expect(withCompany("/office", "c-1")).toBe("/office?company=c-1");
+    expect(withCompany("/admin/office", "c-1")).toBe("/admin/office?company=c-1");
   });
 
   it("keeps a link's own query and anchor, as the backend's activity links have (D-041)", () => {
-    expect(withCompany("/newsroom/articles/a1?version=2#fact-check", "c-1")).toBe(
-      "/newsroom/articles/a1?version=2&company=c-1#fact-check",
+    expect(withCompany("/admin/newsroom/articles/a1?version=2#fact-check", "c-1")).toBe(
+      "/admin/newsroom/articles/a1?version=2&company=c-1#fact-check",
     );
-    expect(withCompany("/newsroom/stories/s1#claims", "c-1")).toBe("/newsroom/stories/s1?company=c-1#claims");
-    expect(withCompany("/office?company=old", "c-1")).toBe("/office?company=c-1");
+    expect(withCompany("/admin/newsroom/stories/s1#claims", "c-1")).toBe("/admin/newsroom/stories/s1?company=c-1#claims");
+    expect(withCompany("/admin/office?company=old", "c-1")).toBe("/admin/office?company=c-1");
   });
 
   it("opens on the company last looked at, not the oldest one with agents (D-041)", () => {

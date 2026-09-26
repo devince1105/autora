@@ -28,7 +28,7 @@ export function ArticlesView({ articles }: { articles: readonly ArticleSummary[]
                 <Badge text={state} tone={tone} />
               </td>
               <td className="px-3 py-2">
-                <Link href={`/newsroom/articles/${article.id}`} className="font-medium hover:text-accent">
+                <Link href={`/admin/newsroom/articles/${article.id}`} className="font-medium hover:text-accent">
                   {article.title}
                 </Link>
               </td>

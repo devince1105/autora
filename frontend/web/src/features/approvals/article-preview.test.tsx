@@ -78,7 +78,7 @@ describe("reading the article before deciding", () => {
     expect(meta).toContain("事實查核通過（檢查 12 項）");
     expect(meta).toContain("寫手說明：拿掉「逆勢」");
     expect(screen.queryByText("對照目前發布的版本")).toBeNull(); // nothing on the site to compare
-    expect(screen.getByRole("link").getAttribute("href")).toBe("/newsroom/articles/a1?version=2&company=c1");
+    expect(screen.getByRole("link").getAttribute("href")).toBe("/admin/newsroom/articles/a1?version=2&company=c1");
   });
 
   it("reads each language", () => {

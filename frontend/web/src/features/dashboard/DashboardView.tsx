@@ -214,7 +214,7 @@ export function DashboardView({
         </div>
         <div className="flex items-center gap-4">
           <Link
-            href={withCompany("/approvals", companyId)}
+            href={withCompany("/admin/approvals", companyId)}
             className="text-sm text-accent underline"
             data-testid="pending-approvals"
           >
@@ -225,19 +225,19 @@ export function DashboardView({
               </span>
             ) : null}
           </Link>
-          <Link href={withCompany("/office", companyId)} className="text-sm text-accent underline">
+          <Link href={withCompany("/admin/office", companyId)} className="text-sm text-accent underline">
             辦公室
           </Link>
-          <Link href={withCompany("/newsroom/articles", companyId)} className="text-sm text-accent underline">
+          <Link href={withCompany("/admin/newsroom/articles", companyId)} className="text-sm text-accent underline">
             新聞室
           </Link>
-          <Link href={withCompany("/agents", companyId)} className="text-sm text-accent underline">
+          <Link href={withCompany("/admin/agents", companyId)} className="text-sm text-accent underline">
             代理
           </Link>
-          <Link href={withCompany("/cycles", companyId)} className="text-sm text-accent underline">
+          <Link href={withCompany("/admin/cycles", companyId)} className="text-sm text-accent underline">
             每日週期
           </Link>
-          <Link href={withCompany("/timeline", companyId)} className="text-sm text-accent underline">
+          <Link href={withCompany("/admin/timeline", companyId)} className="text-sm text-accent underline">
             事件時間軸
           </Link>
           <ConnectionBadge connection={model.connection} />

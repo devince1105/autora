@@ -206,7 +206,7 @@ describe("an article", () => {
     show("en");
     expect(within(screen.getByRole("article")).getByText(/NT\$420 million/)).toBeTruthy();
     const versions = within(screen.getByRole("navigation", { name: "版本" }));
-    expect(versions.getByRole("link", { name: /v1/ }).getAttribute("href")).toBe(`/newsroom/articles/${ARTICLE}?version=1`);
+    expect(versions.getByRole("link", { name: /v1/ }).getAttribute("href")).toBe(`/admin/newsroom/articles/${ARTICLE}?version=1`);
     expect(versions.getByRole("link", { name: /v2・已發布/ }).getAttribute("aria-current")).toBe("page");
   });
 
@@ -231,7 +231,7 @@ describe("an article", () => {
     expect(screen.getByText("讀者（共 7 次瀏覽）")).toBeTruthy();
     expect(screen.getByRole("link", { name: "公開頁（en）" }).getAttribute("href")).toBe("/news/en/articles/microgrid-a1b2c3");
     expect(within(document.getElementById("timeline")!).getByText("文章發布")).toBeTruthy();
-    expect(screen.getByRole("link", { name: "題材：Lumen City microgrid" }).getAttribute("href")).toBe(`/newsroom/stories/${STORY}`);
+    expect(screen.getByRole("link", { name: "題材：Lumen City microgrid" }).getAttribute("href")).toBe(`/admin/newsroom/stories/${STORY}`);
   });
 });
 
@@ -280,7 +280,7 @@ describe("a story", () => {
     expect(screen.getByText("還沒有開始製作。")).toBeTruthy();
     fireEvent.click(screen.getByRole("button", { name: "開始製作" }));
     expect(onStart).toHaveBeenCalledOnce();
-    expect(screen.getByRole("link", { name: "文章" }).getAttribute("href")).toBe(`/newsroom/articles?company=${C}`);
+    expect(screen.getByRole("link", { name: "文章" }).getAttribute("href")).toBe(`/admin/newsroom/articles?company=${C}`);
   });
 
   it("cannot be started twice, and says why a start failed", () => {
@@ -311,8 +311,8 @@ describe("the lists", () => {
     );
     fireEvent.click(screen.getByRole("tab", { name: "製作中" }));
     expect(onFilter).toHaveBeenCalledWith("IN_PRODUCTION");
-    expect(screen.getByRole("link", { name: "Lumen City microgrid" }).getAttribute("href")).toBe(`/newsroom/stories/${STORY}`);
-    expect(screen.getByRole("link", { name: "文章" }).getAttribute("href")).toBe(`/newsroom/articles/${ARTICLE}`);
+    expect(screen.getByRole("link", { name: "Lumen City microgrid" }).getAttribute("href")).toBe(`/admin/newsroom/stories/${STORY}`);
+    expect(screen.getByRole("link", { name: "文章" }).getAttribute("href")).toBe(`/admin/newsroom/articles/${ARTICLE}`);
     expect(screen.getByText(/分數 72・3 則來源項目・1 則主張/)).toBeTruthy();
   });
 

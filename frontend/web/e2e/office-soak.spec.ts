@@ -106,7 +106,7 @@ test("the office stays lean and smooth for hours (Phase 4 AC)", async ({ page, r
   await page.addInitScript((token) => window.localStorage.setItem("autora.operatorToken", token), TOKEN);
   const errors: string[] = [];
   page.on("pageerror", (e) => errors.push(e.message));
-  await page.goto(`/office?company=${stack.newsroomCompanyId}`);
+  await page.goto(`/admin/office?company=${stack.newsroomCompanyId}`);
   await expect(page.locator('[data-office-mode="3d"] canvas')).toHaveCount(1, { timeout: 60_000 });
   const cdp = await page.context().newCDPSession(page);
   await cdp.send("Performance.enable");

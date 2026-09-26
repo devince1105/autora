@@ -34,7 +34,7 @@ async def activity_links(
     story_id = _story_id(task)
     if story_id is None or (task.name not in STORY_TASKS and task.name not in ARTICLE_TASKS):
         return []
-    story_href = f"/newsroom/stories/{story_id}"
+    story_href = f"/admin/newsroom/stories/{story_id}"
     if task.name in STORY_TASKS:
         label, anchor = STORY_TASKS[task.name]
         return [{"label": label, "href": story_href + anchor}]
@@ -44,7 +44,7 @@ async def activity_links(
     )
     if article is None:  # the writer has not saved a draft yet
         return [{"label": "題材的主張", "href": f"{story_href}#claims"}]
-    href = f"/newsroom/articles/{article.id}"
+    href = f"/admin/newsroom/articles/{article.id}"
     if task.name == "distribute":
         return [{"label": "發布紀錄", "href": f"{href}#distribution"}]
     version = await session.scalar(

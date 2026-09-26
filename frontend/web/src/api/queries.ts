@@ -27,6 +27,8 @@ export const queryKeys = {
   failedWorkflows: (companyId: string) => ["workflows", "failed", companyId] as const,
   cycles: (companyId: string) => ["cycles", companyId] as const,
   cycle: (cycleId: string) => ["cycle", cycleId] as const,
+  /** Budgets and capital (D-054). */
+  finance: (companyId: string) => ["finance", companyId] as const,
 };
 
 export function companiesQuery(api: ApiClient = defaultApi) {
@@ -367,4 +369,47 @@ export function createQueryClient(): QueryClient {
       mutations: { retry: 0 },
     },
   });
+}
+
+export type Finance = Schemas["FinanceOut"];
+export type BudgetInput = Schemas["BudgetIn"];
+
+/** The company's balance and budget envelopes (D-054): operator-only on the API. */
+export function financeQuery(companyId: string, api: ApiClient = defaultApi) {
+  return queryOptions({
+    queryKey: queryKeys.finance(companyId),
+    queryFn: async () =>
+      unwrap(
+        await api.GET("/api/companies/{company_id}/finance", {
+          params: { path: { company_id: companyId } },
+        }),
+      ),
+    refetchInterval: 60_000,
+  });
+}
+
+/** Set one envelope, as the AllocateBudget command; raising it re-queues the work it blocked. */
+export async function setBudget(companyId: string, body: BudgetInput, api: ApiClient = defaultApi) {
+  return unwrap(
+    await api.POST("/api/companies/{company_id}/finance/budgets", {
+      params: { path: { company_id: companyId } },
+      body,
+    }),
+  );
+}
+
+/** Money put into the company; ``requestId`` makes a double submit one row. */
+export async function addCapital(
+  companyId: string,
+  amount: string,
+  memo: string | null,
+  requestId: string,
+  api: ApiClient = defaultApi,
+) {
+  return unwrap(
+    await api.POST("/api/companies/{company_id}/finance/capital", {
+      params: { path: { company_id: companyId } },
+      body: { amount, memo, request_id: requestId },
+    }),
+  );
 }

@@ -428,6 +428,66 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/companies/{company_id}/finance": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Finance
+         * @description Operator-only, unlike the dashboard's other reads: this is the company's money.
+         */
+        get: operations["get_finance_api_companies__company_id__finance_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/companies/{company_id}/finance/budgets": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Set Budget
+         * @description Set one envelope, as the ``AllocateBudget`` command (replacing the one there was).
+         */
+        post: operations["set_budget_api_companies__company_id__finance_budgets_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/companies/{company_id}/finance/capital": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Add Capital
+         * @description Money put into the company, in the base currency.
+         */
+        post: operations["add_capital_api_companies__company_id__finance_capital_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/companies/{company_id}/kpis": {
         parameters: {
             query?: never;
@@ -1230,6 +1290,55 @@ export interface components {
             /** Type */
             type: string;
         };
+        /** BudgetIn */
+        BudgetIn: {
+            /** Amount */
+            amount: number | string;
+            /**
+             * Period
+             * @default cycle
+             * @enum {string}
+             */
+            period: "cycle" | "day" | "month";
+            /** Project Id */
+            project_id?: string | null;
+        };
+        /** BudgetLine */
+        BudgetLine: {
+            /** Amount */
+            amount: string;
+            /** Currency */
+            currency: string;
+            /** Hard Cap */
+            hard_cap: boolean;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Name */
+            name: string;
+            /** Period */
+            period: string;
+            /**
+             * Scope
+             * @enum {string}
+             */
+            scope: "company" | "project" | "business_unit";
+            /** Scope Id */
+            scope_id: string | null;
+        };
+        /** BudgetOut */
+        BudgetOut: {
+            /** Decision */
+            decision: string;
+            /** Outcome */
+            outcome: string | null;
+            /** Reason */
+            reason: string | null;
+            /** Released Tasks */
+            released_tasks: number;
+        };
         /** BusinessLine */
         BusinessLine: {
             /** Id */
@@ -1260,7 +1369,7 @@ export interface components {
              * Projects
              * @default []
              */
-            projects: components["schemas"]["ProjectLine"][];
+            projects: components["schemas"]["autora__company__snapshot__ProjectLine"][];
             /** State */
             state?: string | null;
             /**
@@ -1304,6 +1413,25 @@ export interface components {
             daily_cap?: string | null;
             /** Daily Spent */
             daily_spent: string;
+        };
+        /** CapitalIn */
+        CapitalIn: {
+            /** Amount */
+            amount: number | string;
+            /** Memo */
+            memo?: string | null;
+            /**
+             * Request Id
+             * Format: uuid
+             */
+            request_id: string;
+        };
+        /** CapitalOut */
+        CapitalOut: {
+            /** Balance */
+            balance: string;
+            /** Recorded */
+            recorded: boolean;
         };
         /**
          * Checkout
@@ -1407,7 +1535,7 @@ export interface components {
              * Company Work
              * @default []
              */
-            company_work: components["schemas"]["ProjectLine"][];
+            company_work: components["schemas"]["autora__company__snapshot__ProjectLine"][];
             /**
              * Domains
              * @default {}
@@ -1847,6 +1975,23 @@ export interface components {
             /** Template Name */
             template_name: string;
         };
+        /** FinanceOut */
+        FinanceOut: {
+            /** Balance */
+            balance: string;
+            /** Budgets */
+            budgets: components["schemas"]["BudgetLine"][];
+            /** Currency */
+            currency: string;
+            /** Cycle Seq */
+            cycle_seq: number | null;
+            /** Cycle Stage */
+            cycle_stage: string | null;
+            /** Projects */
+            projects: components["schemas"]["autora_api__routers__finance__ProjectLine"][];
+            /** Spent Today */
+            spent_today: string;
+        };
         /** GoalLine */
         GoalLine: {
             /** Current */
@@ -2090,7 +2235,7 @@ export interface components {
              * Exploring
              * @default []
              */
-            exploring: components["schemas"]["ProjectLine"][];
+            exploring: components["schemas"]["autora__company__snapshot__ProjectLine"][];
             /**
              * Id
              * Format: uuid
@@ -2182,41 +2327,6 @@ export interface components {
             name: string;
             /** Public Url */
             public_url: string | null;
-            /** State */
-            state: string;
-        };
-        /** ProjectLine */
-        ProjectLine: {
-            /** Budget Remaining */
-            budget_remaining?: string | null;
-            /**
-             * Failed Tasks
-             * @default 0
-             */
-            failed_tasks: number;
-            /**
-             * Id
-             * Format: uuid
-             */
-            id: string;
-            /** Kill Criteria */
-            kill_criteria?: {
-                [key: string]: unknown;
-            } | null;
-            /**
-             * Kpis Last Cycle
-             * @default {}
-             */
-            kpis_last_cycle: {
-                [key: string]: unknown;
-            };
-            /** Name */
-            name: string;
-            /**
-             * Open Tasks
-             * @default 0
-             */
-            open_tasks: number;
             /** State */
             state: string;
         };
@@ -3117,6 +3227,53 @@ export interface components {
             /** State */
             state: string;
         };
+        /** ProjectLine */
+        autora__company__snapshot__ProjectLine: {
+            /** Budget Remaining */
+            budget_remaining?: string | null;
+            /**
+             * Failed Tasks
+             * @default 0
+             */
+            failed_tasks: number;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Kill Criteria */
+            kill_criteria?: {
+                [key: string]: unknown;
+            } | null;
+            /**
+             * Kpis Last Cycle
+             * @default {}
+             */
+            kpis_last_cycle: {
+                [key: string]: unknown;
+            };
+            /** Name */
+            name: string;
+            /**
+             * Open Tasks
+             * @default 0
+             */
+            open_tasks: number;
+            /** State */
+            state: string;
+        };
+        /** ProjectLine */
+        autora_api__routers__finance__ProjectLine: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Name */
+            name: string;
+            /** State */
+            state: string;
+        };
     };
     responses: never;
     parameters: never;
@@ -3919,6 +4076,107 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["CycleLine"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_finance_api_companies__company_id__finance_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                company_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FinanceOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    set_budget_api_companies__company_id__finance_budgets_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                company_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["BudgetIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BudgetOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    add_capital_api_companies__company_id__finance_capital_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                company_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CapitalIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CapitalOut"];
                 };
             };
             /** @description Validation Error */

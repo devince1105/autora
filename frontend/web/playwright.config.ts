@@ -21,7 +21,7 @@ export default defineConfig({
   },
   webServer: {
     command: `pnpm exec next build && pnpm exec next start -p ${WEB_PORT}`,
-    url: `http://localhost:${WEB_PORT}/dashboard`,
+    url: `http://localhost:${WEB_PORT}/admin/dashboard`,
     env: { NEXT_PUBLIC_API_URL: API_URL, NEXT_DIST_DIR: ".next-e2e" },
     timeout: 300_000,
     reuseExistingServer: false,

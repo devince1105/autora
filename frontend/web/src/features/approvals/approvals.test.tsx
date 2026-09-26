@@ -110,7 +110,7 @@ describe("inbox", () => {
   it("approve: sent over REST, then the list changes when the event refreshes it", async () => {
     const { props, view, card } = setup();
     expect(within(card()).getByText(pending.summary)).toBeTruthy();
-    expect(within(card()).getByRole("link", { name: "執行軌跡" }).getAttribute("href")).toBe(`/trace/${pending.run_id}`);
+    expect(within(card()).getByRole("link", { name: "執行軌跡" }).getAttribute("href")).toBe(`/admin/trace/${pending.run_id}`);
 
     fireEvent.click(within(card()).getByRole("button", { name: "核准" }));
     await waitFor(() => expect(within(card()).getByRole("status").textContent).toBe("已送出核准，等待更新…"));

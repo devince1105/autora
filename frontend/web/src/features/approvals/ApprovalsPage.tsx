@@ -50,7 +50,7 @@ function CompanyApprovals({ company }: { company: Company }) {
           <h1 className="mt-1 text-2xl font-semibold">{company.name} 的審批收件匣</h1>
         </div>
         <div className="flex items-center gap-4">
-          <Link href={withCompany("/dashboard", company.id)} className="text-sm text-accent underline">
+          <Link href={withCompany("/admin/dashboard", company.id)} className="text-sm text-accent underline">
             Dashboard
           </Link>
           <ConnectionBadge connection={connectionModel(connection, current !== null, now)} />

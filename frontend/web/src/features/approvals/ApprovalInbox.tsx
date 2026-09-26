@@ -90,12 +90,12 @@ function Card({
       )}
       <p className="mt-2 flex gap-3 text-sm">
         {card.runId ? (
-          <Link href={`/trace/${card.runId}`} className="text-accent underline">
+          <Link href={`/admin/trace/${card.runId}`} className="text-accent underline">
             執行軌跡
           </Link>
         ) : null}
         {card.taskId ? (
-          <Link href={`/tasks/${card.taskId}`} className="text-accent underline">
+          <Link href={`/admin/tasks/${card.taskId}`} className="text-accent underline">
             任務
           </Link>
         ) : null}

@@ -112,14 +112,14 @@ export function ArticleView({
   const text = shownLang ? article.languages[shownLang] : undefined;
   const numbers = claimNumbers(text?.blocks ?? []);
   const claims = orderedClaims(article.claims, numbers);
-  const href = `/newsroom/articles/${article.id}`;
+  const href = `/admin/newsroom/articles/${article.id}`;
 
   return (
     <main className="mx-auto max-w-4xl px-4 pt-8 pb-12">
       <NewsroomHeader companyId={article.company_id} current="articles" eyebrow="Article" title={article.title}>
         <p className="mt-2 flex flex-wrap items-center gap-3 text-sm">
           <Badge text={state} tone={tone} />
-          <Link href={`/newsroom/stories/${article.story_id}`} className="text-accent underline">
+          <Link href={`/admin/newsroom/stories/${article.story_id}`} className="text-accent underline">
             題材：{article.story_title}
           </Link>
           {article.revision_count ? <span className="text-muted">修訂 {article.revision_count} 次</span> : null}

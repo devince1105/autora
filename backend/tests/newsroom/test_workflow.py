@@ -182,11 +182,11 @@ async def test_a_story_goes_to_a_person_then_is_published_and_distributed(commit
             role: (await session.get(AgentActivity, agent.id)).detail.get("links")
             for role, agent in room.agents.items()
         }
-    href = f"/newsroom/articles/{article.id}"
+    href = f"/admin/newsroom/articles/{article.id}"
     assert links["researcher"] == [
-        {"label": "題材與來源", "href": f"/newsroom/stories/{room.story.id}"}
+        {"label": "題材與來源", "href": f"/admin/newsroom/stories/{room.story.id}"}
     ]
-    assert links["analyst"][0]["href"] == f"/newsroom/stories/{room.story.id}#claims"
+    assert links["analyst"][0]["href"] == f"/admin/newsroom/stories/{room.story.id}#claims"
     assert links["writer"] == [{"label": "文章草稿 v1", "href": f"{href}?version=1"}]
     assert links["editor"][1] == {"label": "事實查核", "href": f"{href}?version=1#fact-check"}
     assert links["marketing"] == [{"label": "發布紀錄", "href": f"{href}#distribution"}]

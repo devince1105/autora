@@ -35,7 +35,7 @@ const paused = (page: Page) =>
   page.getByRole("alert").filter({ hasText: "3D 暫停" });
 
 async function open(page: Page, query = ""): Promise<void> {
-  await page.goto(`/office?company=${stack.companyId}${query}`);
+  await page.goto(`/admin/office?company=${stack.companyId}${query}`);
   await expect(office(page)).not.toHaveAttribute(
     "data-office-mode",
     "detecting",
@@ -448,7 +448,7 @@ test("the office is the organisation: enter a department, and the link says so (
   page,
 }) => {
   // the demo newsroom is the company with an org chart: AI Media's newsroom and its teams
-  await page.goto(`/office?company=${stack.newsroomCompanyId}&view=2d`);
+  await page.goto(`/admin/office?company=${stack.newsroomCompanyId}&view=2d`);
   await expect(office(page)).toHaveAttribute("data-office-mode", "2d", {
     timeout: 30_000,
   });
@@ -471,7 +471,7 @@ test("the office is the organisation: enter a department, and the link says so (
 
   // a link into a department opens inside it
   await page.goto(
-    `/office?company=${stack.newsroomCompanyId}&view=2d&department=newsroom_writing`,
+    `/admin/office?company=${stack.newsroomCompanyId}&view=2d&department=newsroom_writing`,
   );
   await expect(page.getByTestId("department-newsroom_writing")).toHaveAttribute(
     "aria-pressed",
@@ -510,7 +510,7 @@ async function settledTags(page: Page): Promise<string[]> {
 test("inside a department, the office draws its people and nobody else (T-600)", async ({
   page,
 }) => {
-  await page.goto(`/office?company=${stack.newsroomCompanyId}`);
+  await page.goto(`/admin/office?company=${stack.newsroomCompanyId}`);
   await expect(office(page)).not.toHaveAttribute("data-office-mode", "detecting", {
     timeout: 30_000,
   });

@@ -28,10 +28,10 @@ function CompanyAgents({ company }: { company: Company }) {
           <h1 className="mt-1 text-2xl font-semibold">{company.name} 的代理</h1>
         </div>
         <div className="flex gap-4 text-sm">
-          <Link href={withCompany("/dashboard", company.id)} className="text-accent underline">
+          <Link href={withCompany("/admin/dashboard", company.id)} className="text-accent underline">
             Dashboard
           </Link>
-          <Link href={withCompany("/office", company.id)} className="text-accent underline">
+          <Link href={withCompany("/admin/office", company.id)} className="text-accent underline">
             辦公室
           </Link>
         </div>

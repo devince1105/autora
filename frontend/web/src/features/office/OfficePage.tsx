@@ -133,7 +133,7 @@ function CompanyOffice({ company }: { company: Company }) {
               </button>
             ))}
           </div>
-          <Link href={withCompany("/dashboard", company.id)} className="text-sm text-accent underline">
+          <Link href={withCompany("/admin/dashboard", company.id)} className="text-sm text-accent underline">
             Dashboard
           </Link>
           <ConnectionBadge connection={connectionModel(connection, realtime !== null, now)} />

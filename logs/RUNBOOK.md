@@ -234,7 +234,7 @@ nvm use 22
 pnpm -F web dev
 ```
 
-打開 http://localhost:3000 會轉到公開站的首頁 `/news/zh-TW`（D-015）；管理畫面在 http://localhost:3000/dashboard 。
+打開 http://localhost:3000 會轉到公開站的首頁 `/news/zh-TW`（D-015）；管理畫面在 http://localhost:3000/admin/dashboard （D-054 起後台都在 /admin 底下，舊網址會自動轉址）。
 
 - **第一次進入要輸入操作者權杖**：填入 `.env` 的 `API_BEARER_TOKEN`。權杖只存在這個瀏覽器（localStorage），不會編進前端程式；API 回 401 時會自動回到輸入畫面。
 - **Dashboard**（階段 3，T-309）：現金、今日營收、今日支出（含模型費用）、工作中代理、進行中任務、今日發布（階段 5 前顯示「—」）、今日目標，以及右上角的連線狀態。代理與任務的數字即時更新；金額在執行結束或帳務事件時更新，另每分鐘重新取一次。網址加 `?company=<公司 ID>` 可指定公司，否則顯示第一間。
