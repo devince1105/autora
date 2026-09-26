@@ -2,6 +2,7 @@
 checked by a person, and only then on the stock pages."""
 
 import io
+import zipfile
 from datetime import date
 
 import httpx
@@ -69,16 +70,47 @@ def row(number, description, amount="$1,001 - $15,000", kind="purchase", day="2/
     }
 
 
+def house_index(*members: dict) -> bytes:
+    """The Clerk's yearly index: a zip holding <year>FD.xml."""
+    fields = ("Prefix", "Last", "First", "Suffix", "FilingType", "StateDst", "Year", "FilingDate")
+    rows = "".join(
+        "<Member>"
+        + "".join(f"<{f}>{m.get(f, '')}</{f}>" for f in fields)
+        + f"<DocID>{m.get('DocID', '')}</DocID></Member>"
+        for m in members
+    )
+    out = io.BytesIO()
+    with zipfile.ZipFile(out, "w") as zipped:
+        zipped.writestr(
+            "2026FD.xml", f'<?xml version="1.0"?><FinancialDisclosure>{rows}</FinancialDisclosure>'
+        )
+    return out.getvalue()
+
+
+PELOSI = {
+    "Prefix": "Hon.",
+    "Last": "Pelosi",
+    "First": "Nancy",
+    "FilingType": "P",
+    "FilingDate": "8/21/2026",
+    "DocID": "20035143",
+}
+PELOSI_URL = "https://disclosures-clerk.house.gov/public_disc/ptr-pdfs/2026/20035143.pdf"
+
+
 class Fetch:
-    def __init__(self, pages=2):
+    def __init__(self, pages=2, house: bytes | None = None):
         self.pages = pages
         self.asked: list[str] = []
+        self.house = house or house_index()  # nobody the site follows
 
     async def json(self, url, params):
         assert url == ot.OGE_INDEX and params["length"] == ot.RECENT
         return INDEX
 
-    async def pdf(self, url):
+    async def file(self, url):
+        if url.endswith("FD.zip"):
+            return self.house if "/2026FD" in url else house_index()
         self.asked.append(url)
         return pdf(self.pages)
 
@@ -90,9 +122,11 @@ class Transcriber:
         self.pages = pages
         self.calls = 0
         self.fail = fail
+        self.forms: list[str] = []
 
-    async def transcribe(self, page_pdf):
+    async def transcribe(self, page_pdf, form="oge"):
         assert page_pdf.startswith(b"%PDF")  # one page, as a PDF
+        self.forms.append(form)
         if self.fail:
             raise ot.TranscribeError("HTTP 503 from the model")
         rows = self.pages[self.calls % len(self.pages)]
@@ -267,9 +301,12 @@ async def test_a_report_that_cannot_be_read_whole_is_not_stored_and_is_tried_aga
     db_session, company
 ):
     service = approvals()
+    fetch = Fetch(2)
     await ot.refresh_official_trades(
-        db_session, company.id, Fetch(2), Transcriber([[]], fail=True), service
+        db_session, company.id, fetch, Transcriber([[]], fail=True), service
     )
+    # the model failing is not the report's fault: the run stops there, the rest are not fetched
+    assert fetch.asked == [REPORT]
     count = (
         select(func.count())
         .select_from(OfficialReport)
@@ -332,3 +369,117 @@ async def test_retagging_brings_the_waiting_card_up_to_date(db_session, company,
     assert await ot.retag(db_session, company.id) == 2  # one row in each of the two reports
     assert approval.payload["stock_rows"] == 1 and "1 筆有股票代號" in approval.summary
     assert approval.payload["stocks"] == ["p.1 #1 AMZN sale 2026-02-05 $5,000,001 - $25,000,000"]
+
+
+# --- members of Congress: the House's reports ---------------------------------------------------
+
+
+def test_the_house_index_gives_the_members_transaction_reports():
+    archive = house_index(
+        PELOSI,
+        PELOSI | {"FilingType": "O", "DocID": "1"},  # an annual report, not transactions
+        {
+            "Last": "Smith",
+            "First": "Jason",
+            "FilingType": "P",
+            "FilingDate": "8/1/2026",
+            "DocID": "2",
+        },
+    )
+    [listed] = ot.parse_house_index(archive, 2026)
+    assert (listed.person, listed.url, listed.received_on, listed.kind) == (
+        "佩洛西",
+        PELOSI_URL,
+        date(2026, 8, 21),
+        "house",
+    )
+
+
+def test_an_index_that_declares_entities_is_refused():
+    out = io.BytesIO()
+    with zipfile.ZipFile(out, "w") as zipped:
+        zipped.writestr("x.xml", '<?xml version="1.0"?><!DOCTYPE x [<!ENTITY a "b">]><x/>')
+    with pytest.raises(ValueError, match="DTD"):
+        ot.parse_house_index(out.getvalue(), 2026)
+
+
+def test_a_house_row_keeps_whose_it_is_and_that_it_is_an_option():
+    raw = {
+        "number": 2,
+        "owner": "SP",
+        "description": "Bloom Energy Corporation Class A Common Stock (BE) [OP]",
+        "type": "P",
+        "date": "07/24/2026",
+        "late": "",
+        "amount": "$1,000,001 - $5,000,000",
+        "details": (
+            "Purchased 100 call options with a strike price of $100 and an expiration date of "
+            "6/17/27."
+        ),
+    }
+    option = ot.parse_row(raw)
+    assert (option.ticker, option.kind, option.owner, option.traded_on) == (
+        "BE",
+        "purchase",
+        "SP",
+        date(2026, 7, 24),
+    )
+    assert option.note.startswith("Purchased 100 call options") and ot.is_option(option.description)
+    shares = ot.parse_row(
+        raw
+        | {
+            "description": "NVIDIA Corporation - Common Stock (NVDA) [ST]",
+            "owner": "",
+            "type": "S (partial)",
+        }
+    )
+    assert (shares.ticker, shares.kind, shares.owner) == ("NVDA", "partial sale", None)
+    assert not ot.is_option(shares.description)
+    assert ot.parse_row(raw | {"description": "REOF XXV, LLC [AB]"}).ticker is None  # an LLC
+    assert (
+        ot.parse_row(raw | {"description": "United States Treasury Bill (912797) [GS]"}).ticker
+        is None
+    )
+
+
+async def test_a_members_report_is_read_with_its_own_form_and_shows_whose_trade(
+    db_session, company
+):
+    service = approvals()
+    transcriber = Transcriber(
+        [
+            [
+                {
+                    "number": 1,
+                    "owner": "SP",
+                    "description": "NVIDIA Corporation - Common Stock (NVDA) [OP]",
+                    "type": "P",
+                    "date": "07/24/2026",
+                    "late": "",
+                    "amount": "$1,000,001 - $5,000,000",
+                    "details": "Purchased 50 call options with a strike price of $100.",
+                }
+            ]
+        ]
+    )
+    fetch = Fetch(pages=1, house=house_index(PELOSI))
+    await ot.refresh_official_trades(db_session, company.id, fetch, transcriber, service)
+    assert fetch.asked == [REPORT, OLDER, PELOSI_URL]  # newest first: 9/22, 8/22, 8/21
+    assert transcriber.forms == ["oge", "oge", "house"]
+    for report in (
+        await db_session.scalars(
+            select(OfficialReport).where(OfficialReport.company_id == company.id)
+        )
+    ).all():
+        await service.decide(
+            db_session, report.approval_id, outcome="approve", actor=Actor.human("vince")
+        )
+    pelosi = [
+        t
+        for t in await ot.trades_for(db_session, ("NVDA",), company_id=company.id)
+        if t.person == "佩洛西"
+    ]
+    [trade] = pelosi
+    assert (trade.owner, trade.option, trade.kind) == ("SP", True, "purchase")
+    assert trade.note == "Purchased 50 call options with a strike price of $100."
+    assert trade.report_url == f"{PELOSI_URL}#page=1"

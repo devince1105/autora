@@ -99,7 +99,9 @@ const WORDS = {
       was: (n: string) => `前季 ${n}`,
       trades: "名人交易",
       tradesNote:
-        "來自美國總統依法申報的交易報告（OGE 278-T）。金額只有申報的區間；報告是掃描檔，由 AI 轉錄、經人工對照原件核准後才顯示。",
+        "來自美國總統（OGE 278-T）與國會議員（STOCK Act）依法申報的交易報告。金額只有申報的區間；報告由 AI 轉錄、經人工對照原件核准後才顯示。",
+      owners: { SP: "配偶", JT: "共同持有", DC: "子女" } as Record<string, string>,
+      option: "選擇權",
       tradesNone: "我們追蹤的名人最近的交易申報沒有這檔股票。",
       kinds: { purchase: "買進", sale: "賣出", "partial sale": "部分賣出", exchange: "交換" } as Record<string, string>,
       over: (n: string) => `${n} 以上`,
@@ -255,7 +257,9 @@ const WORDS = {
       was: (n: string) => `was ${n}`,
       trades: "Public figures' trades",
       tradesNote:
-        "From the President's legally required transaction reports (OGE 278-T). Amounts are the reports' ranges; the reports are scans, transcribed by AI and shown only once a person has checked them against the original.",
+        "From the transaction reports the President (OGE 278-T) and members of Congress (STOCK Act) must file. Amounts are the reports' ranges; the reports are transcribed by AI and shown only once a person has checked them against the original.",
+      owners: { SP: "spouse", JT: "joint", DC: "child" } as Record<string, string>,
+      option: "Option",
       tradesNone: "No recent transaction report of the figures we follow names it.",
       kinds: { purchase: "Bought", sale: "Sold", "partial sale": "Sold part", exchange: "Exchanged" } as Record<string, string>,
       over: (n: string) => `over ${n}`,

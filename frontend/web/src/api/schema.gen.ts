@@ -2450,6 +2450,15 @@ export interface components {
             kind: string;
             /** Late */
             late: boolean | null;
+            /** Note */
+            note?: string | null;
+            /**
+             * Option
+             * @default false
+             */
+            option: boolean;
+            /** Owner */
+            owner?: string | null;
             /** Person */
             person: string;
             /**

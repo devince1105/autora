@@ -14,6 +14,13 @@ unreadable (the filer's name comes out as "Don.JdJln.tmp"). So:
    them against the scan. Only an approved report's trades reach a stock page, each with a link
    to its page in the PDF. A report that could not be read whole is not stored: it is tried again.
 
+Members of Congress file the same kind of report under the STOCK Act, with the Clerk of the House
+(D-051): its yearly index lists every filing, and a Periodic Transaction Report is a PDF too —
+generated rather than scanned, but read the same way, with the form's own prompt. Most of a
+member's trades may be their spouse's (the Owner column: ``SP``), and many are options; both are
+kept and shown, so that a call option bought by a spouse is never read as the member buying the
+stock.
+
 A stock page finds a trade by its ticker: the one a report puts after the name ("BANK OF AMERICA
 CORPORATION - BAC"), or — as other reports name stocks only by issuer ("AMAZON.COM INC", "ALPHABET
 INC CL A") — the one ``ISSUERS`` gives the name of a stock the site has a page for. A bond of the
@@ -29,9 +36,11 @@ import json
 import logging
 import re
 import uuid
+import zipfile
 from dataclasses import dataclass
 from datetime import date, datetime
 from typing import Any, Protocol
+from xml.etree import ElementTree
 
 import httpx
 from pydantic import BaseModel
@@ -62,7 +71,12 @@ PAGES_PER_RUN = 60
 A long backlog takes several runs; a report bigger than this is still read whole, alone."""
 
 FIGURES = {"Trump, Donald": "川普"}
-"""Whose reports: OGE's filer name (its start) → how the site names them."""
+"""Whose OGE reports: the index's filer name (its start) → how the site names them."""
+
+HOUSE_INDEX = "https://disclosures-clerk.house.gov/public_disc/financial-pdfs/{year}FD.zip"
+HOUSE_REPORT = "https://disclosures-clerk.house.gov/public_disc/ptr-pdfs/{year}/{doc}.pdf"
+HOUSE_FIGURES = {("Pelosi", "Nancy"): "佩洛西"}
+"""Whose House reports: (last name, first name) as the Clerk's index gives them → the site's."""
 
 APPROVAL_KIND = "official_report"
 APPROVAL_ACTION = "approve_official_report"
@@ -82,6 +96,9 @@ AMOUNT_RANGES = {
 TOP = 50_000_000
 
 _TICKER = re.compile(r"\s-\s([A-Z]{1,5}(?:\.[A-Z])?)\s*$")
+_HOUSE_TICKER = re.compile(r"\(([A-Z]{1,5}(?:\.[A-Z])?)\)\s*\[(ST|OP|EF)\]")
+"""A House report's asset: "NVIDIA Corporation - Common Stock (NVDA) [ST]" — a stock (ST), an
+option on one (OP) or a fund (EF). Other asset types (bonds, LLCs) have no page."""
 
 ISSUERS: dict[str, tuple[str, ...]] = {
     "NVDA": ("NVIDIA CORP",),
@@ -105,7 +122,7 @@ _DEBT = re.compile(r"\bDUE\b|%|\bNOTES?\b|\bBONDS?\b|\bDEB\b|\bB/E\b|\bREG S\b")
 def ticker_of(description: str) -> str | None:
     """The ticker a report gives after the name, or the one of a stock the site follows whose
     issuer the description names — unless it describes a debt of that issuer."""
-    explicit = _TICKER.search(description)
+    explicit = _TICKER.search(description) or _HOUSE_TICKER.search(description)
     if explicit:
         return explicit.group(1)
     upper = description.upper()
@@ -124,7 +141,14 @@ _KINDS = {
     "sale (partial)": "partial sale",
     "partial sale": "partial sale",
     "exchange": "exchange",
+    # the House's codes
+    "p": "purchase",
+    "s": "sale",
+    "s (partial)": "partial sale",
+    "e": "exchange",
 }
+OWNERS = {"SP", "JT", "DC"}
+"""A House report's Owner column: spouse, joint, dependent child; empty is the member."""
 
 
 class TranscribeError(Exception):
@@ -141,6 +165,8 @@ class Listed:
     form: str
     url: str
     received_on: date
+    kind: str = "oge"
+    """Which form it is, so it is read with the right prompt: ``oge`` or ``house``."""
 
 
 def parse_index(data: dict[str, Any]) -> list[Listed]:
@@ -167,6 +193,56 @@ def parse_index(data: dict[str, Any]) -> list[Listed]:
             )
         )
     return out
+
+
+def parse_house_index(archive: bytes, year: int) -> list[Listed]:
+    """The Periodic Transaction Reports (``FilingType`` P) of the people in ``HOUSE_FIGURES`` in
+    the Clerk's yearly index (a zip holding ``<year>FD.xml``)."""
+    with zipfile.ZipFile(io.BytesIO(archive)) as zipped:
+        name = next(n for n in zipped.namelist() if n.lower().endswith(".xml"))
+        data = zipped.read(name)
+    # untrusted input, as feeds are (feeds.py): a DTD or an entity is refused, not expanded
+    if re.search(rb"<!DOCTYPE|<!ENTITY", data, re.I):
+        raise ValueError("the House's index declares a DTD or entities")
+    root = ElementTree.fromstring(data)
+    out = []
+    for member in root:
+        fields = {child.tag: (child.text or "").strip() for child in member}
+        person = HOUSE_FIGURES.get((fields.get("Last", ""), fields.get("First", "")))
+        if person is None or fields.get("FilingType") != "P" or not fields.get("DocID"):
+            continue
+        filed = parse_date(fields.get("FilingDate", ""))
+        if filed is None:
+            continue
+        out.append(
+            Listed(
+                filer=f"{fields.get('Prefix', '')} {fields['First']} {fields['Last']}".strip(),
+                person=person,
+                form="Periodic Transaction Report",
+                url=HOUSE_REPORT.format(year=year, doc=fields["DocID"]),
+                received_on=filed,
+                kind="house",
+            )
+        )
+    return out
+
+
+async def list_reports(fetch: Fetch, today: date) -> list[Listed]:
+    """Every report to consider, newest first: the President's from OGE, and the members' from
+    the House for this year and last (a report filed in January belongs to last year's list)."""
+    listed = parse_index(await fetch.json(OGE_INDEX, {"draw": 1, "start": 0, "length": RECENT}))
+    for year in (today.year, today.year - 1):
+        try:
+            listed += parse_house_index(await fetch.file(HOUSE_INDEX.format(year=year)), year)
+        except (
+            httpx.HTTPError,
+            zipfile.BadZipFile,
+            ElementTree.ParseError,
+            StopIteration,
+            ValueError,
+        ) as error:
+            log.warning("official trades: the House's %s index not read (%s)", year, error)
+    return sorted(listed, key=lambda item: item.received_on, reverse=True)
 
 
 # --- a row, checked ----------------------------------------------------------------------------
@@ -201,6 +277,10 @@ class Row:
     amount_min: int | None
     amount_max: int | None
     amount_text: str
+    owner: str | None = None
+    """``SP``, ``JT`` or ``DC`` on a House report; None: the filer themself."""
+    note: str | None = None
+    """A House report's description under the row: "Purchased 100 call options…"."""
 
     @property
     def readable(self) -> bool:
@@ -222,6 +302,8 @@ def parse_row(raw: dict[str, Any]) -> Row | None:
     low, high, _ = parse_amount(amount_text)
     late = str(raw.get("late") or "").strip().lower()
     kind = " ".join(str(raw.get("type") or "").lower().split())
+    owner = str(raw.get("owner") or "").strip().upper()
+    note = " ".join(str(raw.get("details") or "").split())
     return Row(
         number=number,
         description=description,
@@ -232,6 +314,8 @@ def parse_row(raw: dict[str, Any]) -> Row | None:
         amount_min=low,
         amount_max=high,
         amount_text=amount_text,
+        owner=owner if owner in OWNERS else None,
+        note=note or None,
     )
 
 
@@ -254,17 +338,35 @@ def split_pages(pdf: bytes) -> list[bytes]:
 class Transcriber(Protocol):
     model: str
 
-    async def transcribe(self, page_pdf: bytes) -> list[dict[str, Any]]: ...
+    async def transcribe(self, page_pdf: bytes, form: str = "oge") -> list[dict[str, Any]]: ...
 
 
-PROMPT = (
-    "This is one page of a U.S. OGE Form 278-T periodic transaction report. Transcribe every row "
-    "of its Transactions table exactly as printed: number, description (verbatim), type, date "
-    "(M/D/YYYY as printed), late (the 'Notification Received Over 30 Days Ago' column, yes or no) "
-    "and amount (the Amount column, verbatim, e.g. '$1,001 - $15,000'). If a cell cannot be read, "
-    "give an empty string; never guess. A page with no transactions table gives no rows."
+_NEVER_GUESS = (
+    " If a cell cannot be read, give an empty string; never guess. A page with no transactions "
+    "table gives no rows."
 )
-_FIELDS = ("number", "description", "type", "date", "late", "amount")
+PROMPTS = {
+    "oge": (
+        "This is one page of a U.S. OGE Form 278-T periodic transaction report. Transcribe every "
+        "row of its Transactions table exactly as printed: number, description (verbatim), type, "
+        "date (M/D/YYYY as printed), late (the 'Notification Received Over 30 Days Ago' column, "
+        "yes or no) and amount (the Amount column, verbatim, e.g. '$1,001 - $15,000'); owner and "
+        "details are empty strings (this form has neither)." + _NEVER_GUESS
+    ),
+    "house": (
+        "This is one page of a U.S. House of Representatives Periodic Transaction Report. "
+        "Transcribe every transaction exactly as printed: number (its position among this page's "
+        "transactions, 1 for the first — the report prints none), owner (the Owner column: SP, "
+        "JT, DC, or an empty string when blank), description (the Asset cell verbatim, with the "
+        "ticker in parentheses and the asset type in brackets, e.g. 'NVIDIA Corporation - Common "
+        "Stock (NVDA) [ST]'), type (the Transaction Type code as printed: P, S, S (partial) or "
+        "E), date (the transaction Date, MM/DD/YYYY), late (an empty string: this form has no "
+        "such column), amount (verbatim, e.g. '$1,000,001 - $5,000,000') and details (the text "
+        "after 'Description:' under the transaction, verbatim, or an empty string)." + _NEVER_GUESS
+    ),
+}
+PROMPT = PROMPTS["oge"]
+_FIELDS = ("number", "owner", "description", "type", "date", "late", "amount", "details")
 SCHEMA = {
     "type": "object",
     "properties": {
@@ -294,7 +396,7 @@ class GeminiTranscriber:
     timeout: float = 180.0
     base_url: str = "https://generativelanguage.googleapis.com/v1beta"
 
-    async def transcribe(self, page_pdf: bytes) -> list[dict[str, Any]]:
+    async def transcribe(self, page_pdf: bytes, form: str = "oge") -> list[dict[str, Any]]:
         body = {
             "contents": [
                 {
@@ -305,7 +407,7 @@ class GeminiTranscriber:
                                 "data": base64.b64encode(page_pdf).decode(),
                             }
                         },
-                        {"text": PROMPT},
+                        {"text": PROMPTS[form]},
                     ]
                 }
             ],
@@ -339,7 +441,7 @@ class GeminiTranscriber:
 class Fetch(Protocol):
     async def json(self, url: str, params: dict[str, Any]) -> dict[str, Any]: ...
 
-    async def pdf(self, url: str) -> bytes: ...
+    async def file(self, url: str) -> bytes: ...
 
 
 class Approvals(Protocol):
@@ -355,7 +457,7 @@ async def read_report(
 
     async def read(page: bytes) -> list[dict[str, Any]]:
         async with limit:
-            return await transcriber.transcribe(page)
+            return await transcriber.transcribe(page, listed.kind)
 
     # all at once, a few at a time; one page failing fails the report (it is read again later)
     transcribed = await asyncio.gather(*(read(page) for page in pages))
@@ -366,6 +468,12 @@ async def read_report(
             if row is not None:
                 rows.append((index, row))
     return len(pages), rows
+
+
+def is_option(description: str) -> bool:
+    """An option on the stock, not the stock: a House report's [OP], or an OGE line naming a
+    call or a put."""
+    return "[OP]" in description or bool(re.search(r"\b(CALL|PUT)S?\b", description.upper()))
 
 
 def approval_payload(report: OfficialReport, rows: list[tuple[int, Row]]) -> dict[str, Any]:
@@ -381,7 +489,10 @@ def approval_payload(report: OfficialReport, rows: list[tuple[int, Row]]) -> dic
         "unreadable": sum(not r.readable for _, r in rows),
         "stock_rows": len(stocks),
         "stocks": [
-            f"p.{page} #{r.number} {r.ticker} {r.kind} {r.traded_on or '?'} {r.amount_text or '?'}"
+            f"p.{page} #{r.number} {r.ticker}"
+            + (f" [{r.owner}]" if r.owner else "")
+            + (" option" if is_option(r.description) else "")
+            + f" {r.kind} {r.traded_on or '?'} {r.amount_text or '?'}"
             for page, r in stocks[:60]
         ],
     }
@@ -395,9 +506,10 @@ async def refresh_official_trades(
     approvals: Approvals,
     *,
     pages_per_run: int = PAGES_PER_RUN,
+    today: date | None = None,
 ) -> int:
     """Read the new reports, newest first, within the run's page budget. How many were stored."""
-    index = await fetch.json(OGE_INDEX, {"draw": 1, "start": 0, "length": RECENT})
+    reports = await list_reports(fetch, today or date.today())
     known = set(
         (
             await session.scalars(
@@ -407,15 +519,20 @@ async def refresh_official_trades(
     )
     stored = 0
     budget = pages_per_run
-    for listed in parse_index(index):
+    for listed in reports:
         if listed.url in known:
             continue
         try:
-            pdf = await fetch.pdf(listed.url)
+            pdf = await fetch.file(listed.url)
             if stored and len(split_pages(pdf)) > budget:
                 break  # the next run starts with it
             pages, rows = await read_report(listed, pdf, transcriber)
-        except (TranscribeError, httpx.HTTPError, ValueError) as error:
+        except TranscribeError as error:
+            # the model, not the report: no other report would fare better this run (a 402 —
+            # credits spent — once went on to download and fail on every report in the list)
+            log.warning("official trades: stopped at %s (%s); next time", listed.url, error)
+            break
+        except (httpx.HTTPError, ValueError) as error:
             log.warning("official trades: %s not read (%s); next time", listed.url, error)
             continue
         report = OfficialReport(
@@ -445,6 +562,8 @@ async def refresh_official_trades(
                     amount_min=row.amount_min,
                     amount_max=row.amount_max,
                     amount_text=row.amount_text,
+                    owner=row.owner,
+                    note=row.note,
                 )
             )
         payload = approval_payload(report, rows)
@@ -488,6 +607,8 @@ def _row(trade: OfficialTrade) -> Row:
         amount_min=int(trade.amount_min) if trade.amount_min is not None else None,
         amount_max=int(trade.amount_max) if trade.amount_max is not None else None,
         amount_text=trade.amount_text,
+        owner=trade.owner,
+        note=trade.note,
     )
 
 
@@ -557,6 +678,12 @@ class PublicTrade(BaseModel):
     """When OGE received the report."""
     report_url: str
     """The scan, opened at the trade's page."""
+    owner: str | None = None
+    """``SP`` (spouse), ``JT`` (joint), ``DC`` (dependent child); None: the person themself."""
+    option: bool = False
+    """An option on the stock, not the stock."""
+    note: str | None = None
+    """What the report says of it: "Purchased 100 call options with a strike price of $100…"."""
 
 
 async def trades_for(
@@ -592,6 +719,9 @@ async def trades_for(
             late=trade.late,
             received_on=report.received_on,
             report_url=f"{report.url}#page={trade.page}",
+            owner=trade.owner,
+            option=is_option(trade.description),
+            note=trade.note,
         )
         for trade, report in (await session.execute(query)).all()
     ]
@@ -612,7 +742,7 @@ class HttpFetch:
         async with httpx.AsyncClient(timeout=self.timeout, headers=self.headers) as client:
             return (await client.get(url, params=params)).raise_for_status().json()
 
-    async def pdf(self, url: str) -> bytes:
+    async def file(self, url: str) -> bytes:
         async with httpx.AsyncClient(
             timeout=self.timeout, headers=self.headers, follow_redirects=True
         ) as client:

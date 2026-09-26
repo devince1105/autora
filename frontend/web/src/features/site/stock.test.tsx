@@ -61,6 +61,7 @@ const NVDA: PublicStock = {
       late: true,
       received_on: "2026-05-12",
       report_url: "https://extapps2.oge.gov/r.pdf#page=2",
+      option: false,
     },
     {
       person: "川普",
@@ -72,6 +73,7 @@ const NVDA: PublicStock = {
       late: false,
       received_on: "2026-05-12",
       report_url: "https://extapps2.oge.gov/r.pdf#page=3",
+      option: false,
     },
   ],
   articles: [
@@ -133,6 +135,28 @@ describe("a stock's page", () => {
     cleanup();
     render(<StockView stock={{ ...NVDA, trades: [] }} lang="zh-TW" />);
     expect(document.body.textContent).toContain("最近的交易申報沒有這檔股票");
+  });
+
+  it("a member's spouse's option is shown as the spouse's, and as an option", () => {
+    const option = {
+      person: "佩洛西",
+      kind: "purchase",
+      traded_on: "2026-07-24",
+      amount_min: 1000001,
+      amount_max: 5000000,
+      amount_text: "$1,000,001 - $5,000,000",
+      late: null,
+      received_on: "2026-08-21",
+      report_url: "https://disclosures-clerk.house.gov/r.pdf#page=1",
+      owner: "SP",
+      option: true,
+      note: "Purchased 50 call options with a strike price of $100.",
+    };
+    render(<StockView stock={{ ...NVDA, trades: [option] }} lang="zh-TW" />);
+    const [trade] = screen.getAllByTestId("trade");
+    expect(trade!.textContent).toContain("佩洛西（配偶）買進選擇權US$1,000,001 – US$5,000,000");
+    expect(trade!.textContent).toContain("Purchased 50 call options with a strike price of $100.");
+    expect(trade!.textContent).not.toContain("逾 30 天");
   });
 
   it("a Taiwan stock says what 13F does and does not cover; an empty one says so", () => {

@@ -91,10 +91,16 @@ function Trade({ trade, lang }: { trade: PublicTrade; lang: Lang }) {
   const s = words(lang).stock;
   return (
     <li className="flex flex-wrap items-center gap-x-3 gap-y-1 py-3 text-sm" data-testid="trade">
-      <span className="font-semibold">{trade.person}</span>
+      {/* whose it is: a member's spouse's trade is the spouse's, and says so */}
+      <span className="font-semibold">
+        {trade.person}
+        {trade.owner ? <span className="font-normal text-muted">（{s.owners[trade.owner] ?? trade.owner}）</span> : null}
+      </span>
       <span className={`rounded-full border px-2 py-px text-xs ${TRADE_TONE[trade.kind] ?? "border-line text-muted"}`}>
         {s.kinds[trade.kind] ?? trade.kind}
       </span>
+      {/* an option is a bet on the stock, not the stock */}
+      {trade.option ? <span className="rounded-full border border-line px-2 py-px text-xs text-muted">{s.option}</span> : null}
       <span className="tabular-nums">{amountRange(lang, trade)}</span>
       <span className="text-xs text-muted tabular-nums">
         {trade.traded_on ? formatDate(lang, trade.traded_on) : "—"}
@@ -103,6 +109,7 @@ function Trade({ trade, lang }: { trade: PublicTrade; lang: Lang }) {
       <a href={trade.report_url} rel="noopener nofollow" className="ml-auto text-xs text-accent hover:underline">
         {s.report} ↗
       </a>
+      {trade.note ? <p className="w-full text-xs text-muted">{trade.note}</p> : null}
     </li>
   );
 }

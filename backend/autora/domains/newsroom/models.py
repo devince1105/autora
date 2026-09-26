@@ -279,6 +279,11 @@ class OfficialTrade(IdMixin, CreatedAtMixin, Base):
     amount_max: Mapped[int | None] = mapped_column(Numeric(20, 0))
     """None for the top range, which has no upper bound (``Over $50,000,000``)."""
     amount_text: Mapped[str]
+    owner: Mapped[str | None]
+    """Whose trade, on a House report: ``SP`` spouse, ``JT`` joint, ``DC`` dependent child. None:
+    the filer's own."""
+    note: Mapped[str | None]
+    """A House report's description of it ("Purchased 100 call options…")."""
 
 
 class Story(IdMixin, TimestampMixin, Base):

@@ -3977,6 +3977,33 @@
       ],
       "title": "Late"
      },
+     "note": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Note"
+     },
+     "option": {
+      "default": false,
+      "title": "Option",
+      "type": "boolean"
+     },
+     "owner": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Owner"
+     },
      "person": {
       "title": "Person",
       "type": "string"
