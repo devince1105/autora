@@ -371,7 +371,8 @@ def test_switching_provider_is_one_setting():
 
 
 def test_openai_goes_through_the_same_adapter_at_openai():
-    """D-053: OpenAI itself, asked to reason little, with its own name for the output cap."""
+    """D-053: OpenAI itself, asked not to reason (Luna refuses tools otherwise), with its own
+    name for the output cap."""
     settings = _settings(
         model_provider="openai", openai_api_key="sk-x", frontier_model_id="vendor/big",
         model_prices=PRICES,
@@ -379,7 +380,7 @@ def test_openai_goes_through_the_same_adapter_at_openai():
     [provider] = providers_from_settings(settings).values()
     assert isinstance(provider, OpenAICompatibleProvider) and provider.name == "openai"
     assert provider.base_url == "https://api.openai.com/v1"
-    assert provider.extra_body == {"reasoning_effort": "low"}
+    assert provider.extra_body == {"reasoning_effort": "none"}
     assert router_from_settings(settings).aliases["frontier"].provider == "openai"
     with pytest.raises(SettingsError) as exc:
         _settings(model_provider="openai")
@@ -425,6 +426,6 @@ def test_gemini_is_asked_to_think_little_unless_told_otherwise():
     base = {"model_provider": "gemini", "gemini_api_key": "AIza-x",
             "frontier_model_id": "vendor/big", "model_prices": PRICES}  # fmt: skip
     [provider] = providers_from_settings(_settings(**base)).values()
-    assert provider.extra_body == {"reasoning_effort": "low"}
+    assert provider.extra_body == {"reasoning_effort": "none"}
     [provider] = providers_from_settings(_settings(**base, gemini_reasoning_effort="")).values()
     assert provider.extra_body == {}

@@ -80,8 +80,10 @@ class Settings(BaseSettings):
     openai_base_url: str = "https://api.openai.com/v1"
     openai_timeout_seconds: float = Field(default=180.0, gt=0)
     """Per request, as for NVIDIA."""
-    openai_reasoning_effort: Literal["none", "minimal", "low", "medium", "high", ""] = "low"
-    """As GEMINI_REASONING_EFFORT: its reasoning is billed as output. "" leaves it to OpenAI."""
+    openai_reasoning_effort: Literal["none", "minimal", "low", "medium", "high", ""] = "none"
+    """As GEMINI_REASONING_EFFORT, but "none" by default: on Chat Completions GPT-5.6 Luna refuses
+    function tools with any other reasoning effort (HTTP 400), and every agent uses tools. Reasoning
+    with tools needs OpenAI's Responses API, which the adapter does not speak."""
     official_trades_enabled: bool = False
     """Transcribe officials' transaction reports ourselves (D-051). Off (D-052): a small company
     points readers to the trackers that already publish these, rather than paying a model to

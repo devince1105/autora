@@ -1555,6 +1555,8 @@ T-611 之後，商業迴圈已經有 CEO 評估機會、策略師把機會寫成
 
 - 評估 OpenAI、Gemini、Anthropic、DeepSeek 的成本：依實測用量，GPT-5.6 Luna 每月約 $8，Gemini 3.8 Flash 約 $28（2027 年起加倍），Claude Sonnet 5 約 $75；DeepSeek 資料送往中國且有審查，不適合台灣新聞站。
 - 使用者比較文風後選 GPT-5.6 Luna。新增 `MODEL_PROVIDER=openai`，沿用 OpenAI 相容介面；OpenAI 推理模型不收 `max_tokens`，所以介面多一個 `max_tokens_field`，OpenAI 用 `max_completion_tokens`。`reasoning_effort` 預設 low。
+- 第一輪實跑發現：Chat Completions 上 GPT-5.6 Luna 不允許「函式工具＋reasoning_effort」同時出現（HTTP 400），代理都用工具，所以預設改為 `none`（不思考、也不計思考 token）。要邊用工具邊推理得改接 Responses API，暫不做。研究員因昨晚 Gemini 402 連續失敗三次被自動暫停，已由人恢復。
+- 實跑結果：Bitget 遭竊、Circle 與 Tether 凍結錢包一則，中英雙語、6 段、8 條主張全部有證據，事實查核通過、送審；27 次呼叫、輸入約 13.5 萬（快取命中約 8.4 萬）、輸出 8 千，花費 $0.021。
 - `.env` 已加上 Luna 的價格與空白的 `OPENAI_API_KEY`；金鑰由使用者填，填好後才把 `MODEL_PROVIDER` 切過去（否則設定檢查不讓服務啟動）。
 
 ## 提交紀錄
