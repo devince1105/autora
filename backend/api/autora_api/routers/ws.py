@@ -18,7 +18,7 @@ from fastapi import APIRouter, Depends, Query, WebSocket, WebSocketDisconnect
 from autora.db.models import Company
 from autora.infra.settings import Settings
 from autora.realtime.gateway import CloseCode, EventHub
-from autora_api.deps import settings_dep
+from autora_api.deps import ADMIN_COOKIE, admin_for, settings_dep
 
 router = APIRouter(tags=["realtime"])
 
@@ -47,7 +47,14 @@ async def company_stream(
     hub: EventHub = websocket.app.state.hub
 
     expected = settings.api_bearer_token.get_secret_value()
-    if token is None or not secrets.compare_digest(token, expected):
+    allowed = token is not None and secrets.compare_digest(token, expected)
+    if not allowed:  # or an admin signed in with an emailed link: the cookie comes along (D-055)
+        async with hub.session_factory() as session:
+            allowed = (
+                await admin_for(session, websocket.cookies.get(ADMIN_COOKIE), settings)
+            ) is not None
+            await session.commit()
+    if not allowed:
         await socket.send_json(
             {"type": "ERROR", "code": "unauthorized", "message": "missing or invalid token"}
         )

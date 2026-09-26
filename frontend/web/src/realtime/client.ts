@@ -178,7 +178,8 @@ export class RealtimeClient {
   private async hydrate(): Promise<void> {
     const response = await this.fetchImpl(
       `${this.options.apiUrl}/api/companies/${this.options.companyId}/realtime/snapshot`,
-      { headers: { Authorization: `Bearer ${this.options.getToken() ?? ""}` } },
+      // the token, or the admin's cookie (D-055)
+      { headers: { Authorization: `Bearer ${this.options.getToken() ?? ""}` }, credentials: "include" },
     );
     if (response.status === 401 || response.status === 404) {
       this.halt(response.status === 401 ? "unauthorized" : "not_found");

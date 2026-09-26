@@ -42,3 +42,32 @@ def login_email(to: str, url: str, expires_at: datetime, *, minutes: int = 15) -
         "<p>如果這不是你本人要求的，不用做任何事，這封信可以直接刪除。</p>"
     )
     return Message(to=to, subject=SUBJECT, text=text, html=html)
+
+
+ADMIN_SUBJECT = "艾矽鯨後台｜你的登入連結"
+
+
+def admin_login_url(site_base_url: str, token: str, *, next_path: str | None = None) -> str:
+    """The back office's verify page (D-055)."""
+    url = f"{site_base_url.rstrip('/')}/admin/login/verify?token={quote(token)}"
+    return f"{url}&next={quote(next_path)}" if next_path else url
+
+
+def admin_login_email(to: str, url: str, expires_at: datetime, *, minutes: int = 15) -> Message:
+    """Like a reader's, but it says it opens the back office: somebody who did not ask to run
+    the company should know at once that this one matters."""
+    text = (
+        "你好，\n\n"
+        f"點下面的連結就能登入艾矽鯨後台，{minutes} 分鐘內有效，而且只能用一次：\n\n"
+        f"{url}\n\n"
+        "如果這不是你本人要求的，請不要點，並檢查你的信箱是否安全。\n"
+    )
+    html = (
+        "<p>你好，</p>"
+        "<p>點下面的連結就能登入<strong>艾矽鯨後台</strong>，"
+        f"{minutes} 分鐘內有效，而且只能用一次：</p>"
+        f'<p><a href="{url}">登入後台</a></p>'
+        f'<p style="color:#666;font-size:12px">{url}</p>'
+        "<p>如果這不是你本人要求的，請不要點，並檢查你的信箱是否安全。</p>"
+    )
+    return Message(to=to, subject=ADMIN_SUBJECT, text=text, html=html)

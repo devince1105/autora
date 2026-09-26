@@ -92,7 +92,11 @@ async def request_link(session: AsyncSession, email: str, *, now: datetime | Non
 
 
 async def redeem(
-    session: AsyncSession, token: str, *, now: datetime | None = None
+    session: AsyncSession,
+    token: str,
+    *,
+    now: datetime | None = None,
+    valid_for: timedelta = SESSION_VALID_FOR,
 ) -> tuple[Reader, str]:
     """Turn a link into a session. Returns the reader and the session token for the cookie.
 
@@ -115,7 +119,7 @@ async def redeem(
             reader_id=reader.id,
             token_hash=hash_token(session_token),
             created_at=now,  # one clock, as for the link
-            expires_at=now + SESSION_VALID_FOR,
+            expires_at=now + valid_for,
         )
     )
     await session.flush()

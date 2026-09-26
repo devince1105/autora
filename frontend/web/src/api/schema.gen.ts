@@ -4,6 +4,80 @@
  */
 
 export interface paths {
+    "/api/admin/auth/link": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Send Link
+         * @description Email a one-time link to an admin. 202 for any address, on the list or not.
+         */
+        post: operations["send_link_api_admin_auth_link_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/auth/logout": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Logout */
+        post: operations["logout_api_admin_auth_logout_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/auth/me": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Me
+         * @description Who is calling. ``require_operator`` has already refused anybody else.
+         */
+        get: operations["me_api_admin_auth_me_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/auth/verify": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Verify */
+        post: operations["verify_api_admin_auth_verify_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/analytics/beacon": {
         parameters: {
             query?: never;
@@ -1011,6 +1085,16 @@ export interface components {
              * @enum {string}
              */
             kind: "agent" | "system" | "human";
+        };
+        /** AdminMe */
+        AdminMe: {
+            /** Email */
+            email: string | null;
+            /**
+             * Via
+             * @enum {string}
+             */
+            via: "email" | "token";
         };
         /** AgentDecision */
         AgentDecision: {
@@ -2124,18 +2208,6 @@ export interface components {
             title: string;
             /** Url */
             url: string;
-        };
-        /** LinkRequest */
-        LinkRequest: {
-            /** Email */
-            email: string;
-            /**
-             * Lang
-             * @default zh-TW
-             */
-            lang: string;
-            /** Next Path */
-            next_path?: string | null;
         };
         /** Me */
         Me: {
@@ -3262,6 +3334,25 @@ export interface components {
             /** State */
             state: string;
         };
+        /** LinkRequest */
+        autora_api__routers__admin_auth__LinkRequest: {
+            /** Email */
+            email: string;
+            /** Next Path */
+            next_path?: string | null;
+        };
+        /** LinkRequest */
+        autora_api__routers__auth__LinkRequest: {
+            /** Email */
+            email: string;
+            /**
+             * Lang
+             * @default zh-TW
+             */
+            lang: string;
+            /** Next Path */
+            next_path?: string | null;
+        };
         /** ProjectLine */
         autora_api__routers__finance__ProjectLine: {
             /**
@@ -3283,6 +3374,132 @@ export interface components {
 }
 export type $defs = Record<string, never>;
 export interface operations {
+    send_link_api_admin_auth_link_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["autora_api__routers__admin_auth__LinkRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    logout_api_admin_auth_logout_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: {
+                autora_admin?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    me_api_admin_auth_me_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: {
+                autora_admin?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminMe"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    verify_api_admin_auth_verify_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["Verify"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminMe"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     beacon_api_analytics_beacon_post: {
         parameters: {
             query?: never;
@@ -3322,7 +3539,9 @@ export interface operations {
             };
             header?: never;
             path?: never;
-            cookie?: never;
+            cookie?: {
+                autora_admin?: string | null;
+            };
         };
         requestBody?: never;
         responses: {
@@ -3353,7 +3572,9 @@ export interface operations {
             path: {
                 approval_id: string;
             };
-            cookie?: never;
+            cookie?: {
+                autora_admin?: string | null;
+            };
         };
         requestBody: {
             content: {
@@ -3390,7 +3611,9 @@ export interface operations {
             path: {
                 article_id: string;
             };
-            cookie?: never;
+            cookie?: {
+                autora_admin?: string | null;
+            };
         };
         requestBody?: never;
         responses: {
@@ -3421,7 +3644,9 @@ export interface operations {
             path: {
                 article_id: string;
             };
-            cookie?: never;
+            cookie?: {
+                autora_admin?: string | null;
+            };
         };
         requestBody: {
             content: {
@@ -3458,7 +3683,9 @@ export interface operations {
             path: {
                 article_id: string;
             };
-            cookie?: never;
+            cookie?: {
+                autora_admin?: string | null;
+            };
         };
         requestBody?: never;
         responses: {
@@ -3491,7 +3718,9 @@ export interface operations {
             path: {
                 article_id: string;
             };
-            cookie?: never;
+            cookie?: {
+                autora_admin?: string | null;
+            };
         };
         requestBody: {
             content: {
@@ -3526,7 +3755,9 @@ export interface operations {
             path: {
                 article_id: string;
             };
-            cookie?: never;
+            cookie?: {
+                autora_admin?: string | null;
+            };
         };
         requestBody: {
             content: {
@@ -3565,7 +3796,7 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["LinkRequest"];
+                "application/json": components["schemas"]["autora_api__routers__auth__LinkRequest"];
             };
         };
         responses: {
@@ -3761,7 +3992,9 @@ export interface operations {
             };
             header?: never;
             path?: never;
-            cookie?: never;
+            cookie?: {
+                autora_admin?: string | null;
+            };
         };
         requestBody?: never;
         responses: {
@@ -3790,7 +4023,9 @@ export interface operations {
             query?: never;
             header?: never;
             path?: never;
-            cookie?: never;
+            cookie?: {
+                autora_admin?: string | null;
+            };
         };
         requestBody: {
             content: {
@@ -3825,7 +4060,9 @@ export interface operations {
             path: {
                 company_id: string;
             };
-            cookie?: never;
+            cookie?: {
+                autora_admin?: string | null;
+            };
         };
         requestBody?: never;
         responses: {
@@ -3856,7 +4093,9 @@ export interface operations {
             path: {
                 company_id: string;
             };
-            cookie?: never;
+            cookie?: {
+                autora_admin?: string | null;
+            };
         };
         requestBody?: never;
         responses: {
@@ -3887,7 +4126,9 @@ export interface operations {
             path: {
                 company_id: string;
             };
-            cookie?: never;
+            cookie?: {
+                autora_admin?: string | null;
+            };
         };
         requestBody: {
             content: {
@@ -3923,7 +4164,9 @@ export interface operations {
                 company_id: string;
                 agent_id: string;
             };
-            cookie?: never;
+            cookie?: {
+                autora_admin?: string | null;
+            };
         };
         requestBody: {
             content: {
@@ -3959,7 +4202,9 @@ export interface operations {
                 company_id: string;
                 agent_id: string;
             };
-            cookie?: never;
+            cookie?: {
+                autora_admin?: string | null;
+            };
         };
         requestBody: {
             content: {
@@ -3995,7 +4240,9 @@ export interface operations {
                 company_id: string;
                 agent_id: string;
             };
-            cookie?: never;
+            cookie?: {
+                autora_admin?: string | null;
+            };
         };
         requestBody: {
             content: {
@@ -4032,7 +4279,9 @@ export interface operations {
             path: {
                 company_id: string;
             };
-            cookie?: never;
+            cookie?: {
+                autora_admin?: string | null;
+            };
         };
         requestBody?: never;
         responses: {
@@ -4065,7 +4314,9 @@ export interface operations {
             path: {
                 company_id: string;
             };
-            cookie?: never;
+            cookie?: {
+                autora_admin?: string | null;
+            };
         };
         requestBody?: never;
         responses: {
@@ -4096,7 +4347,9 @@ export interface operations {
             path: {
                 company_id: string;
             };
-            cookie?: never;
+            cookie?: {
+                autora_admin?: string | null;
+            };
         };
         requestBody?: never;
         responses: {
@@ -4127,7 +4380,9 @@ export interface operations {
             path: {
                 company_id: string;
             };
-            cookie?: never;
+            cookie?: {
+                autora_admin?: string | null;
+            };
         };
         requestBody: {
             content: {
@@ -4162,7 +4417,9 @@ export interface operations {
             path: {
                 company_id: string;
             };
-            cookie?: never;
+            cookie?: {
+                autora_admin?: string | null;
+            };
         };
         requestBody: {
             content: {
@@ -4197,7 +4454,9 @@ export interface operations {
             path: {
                 company_id: string;
             };
-            cookie?: never;
+            cookie?: {
+                autora_admin?: string | null;
+            };
         };
         requestBody?: never;
         responses: {
@@ -4259,7 +4518,9 @@ export interface operations {
             path: {
                 company_id: string;
             };
-            cookie?: never;
+            cookie?: {
+                autora_admin?: string | null;
+            };
         };
         requestBody?: never;
         responses: {
@@ -4292,7 +4553,9 @@ export interface operations {
             path: {
                 company_id: string;
             };
-            cookie?: never;
+            cookie?: {
+                autora_admin?: string | null;
+            };
         };
         requestBody?: never;
         responses: {
@@ -4323,7 +4586,9 @@ export interface operations {
             path: {
                 company_id: string;
             };
-            cookie?: never;
+            cookie?: {
+                autora_admin?: string | null;
+            };
         };
         requestBody?: never;
         responses: {
@@ -4354,7 +4619,9 @@ export interface operations {
             path: {
                 company_id: string;
             };
-            cookie?: never;
+            cookie?: {
+                autora_admin?: string | null;
+            };
         };
         requestBody: {
             content: {
@@ -4392,7 +4659,9 @@ export interface operations {
             path: {
                 company_id: string;
             };
-            cookie?: never;
+            cookie?: {
+                autora_admin?: string | null;
+            };
         };
         requestBody?: never;
         responses: {
@@ -4423,7 +4692,9 @@ export interface operations {
             path: {
                 company_id: string;
             };
-            cookie?: never;
+            cookie?: {
+                autora_admin?: string | null;
+            };
         };
         requestBody: {
             content: {
@@ -4460,7 +4731,9 @@ export interface operations {
             path: {
                 company_id: string;
             };
-            cookie?: never;
+            cookie?: {
+                autora_admin?: string | null;
+            };
         };
         requestBody?: never;
         responses: {
@@ -4492,7 +4765,9 @@ export interface operations {
                 company_id: string;
                 workflow_run_id: string;
             };
-            cookie?: never;
+            cookie?: {
+                autora_admin?: string | null;
+            };
         };
         requestBody?: never;
         responses: {
@@ -4523,7 +4798,9 @@ export interface operations {
             path: {
                 cycle_id: string;
             };
-            cookie?: never;
+            cookie?: {
+                autora_admin?: string | null;
+            };
         };
         requestBody?: never;
         responses: {
@@ -4565,7 +4842,9 @@ export interface operations {
             };
             header?: never;
             path?: never;
-            cookie?: never;
+            cookie?: {
+                autora_admin?: string | null;
+            };
         };
         requestBody?: never;
         responses: {
@@ -4737,7 +5016,9 @@ export interface operations {
             query?: never;
             header?: never;
             path?: never;
-            cookie?: never;
+            cookie?: {
+                autora_admin?: string | null;
+            };
         };
         requestBody?: never;
         responses: {
@@ -4750,6 +5031,15 @@ export interface operations {
                     "application/json": components["schemas"]["Roles"];
                 };
             };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
         };
     };
     get_run_api_runs__run_id__get: {
@@ -4759,7 +5049,9 @@ export interface operations {
             path: {
                 run_id: string;
             };
-            cookie?: never;
+            cookie?: {
+                autora_admin?: string | null;
+            };
         };
         requestBody?: never;
         responses: {
@@ -4791,7 +5083,9 @@ export interface operations {
                 run_id: string;
                 seq: number;
             };
-            cookie?: never;
+            cookie?: {
+                autora_admin?: string | null;
+            };
         };
         requestBody?: never;
         responses: {
@@ -4822,7 +5116,9 @@ export interface operations {
             path: {
                 run_id: string;
             };
-            cookie?: never;
+            cookie?: {
+                autora_admin?: string | null;
+            };
         };
         requestBody?: never;
         responses: {
@@ -4853,7 +5149,9 @@ export interface operations {
             path: {
                 story_id: string;
             };
-            cookie?: never;
+            cookie?: {
+                autora_admin?: string | null;
+            };
         };
         requestBody?: never;
         responses: {
@@ -4884,7 +5182,9 @@ export interface operations {
             path: {
                 story_id: string;
             };
-            cookie?: never;
+            cookie?: {
+                autora_admin?: string | null;
+            };
         };
         requestBody: {
             content: {
@@ -4919,7 +5219,9 @@ export interface operations {
             path: {
                 task_id: string;
             };
-            cookie?: never;
+            cookie?: {
+                autora_admin?: string | null;
+            };
         };
         requestBody?: never;
         responses: {

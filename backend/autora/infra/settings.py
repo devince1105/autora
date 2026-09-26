@@ -171,6 +171,15 @@ class Settings(BaseSettings):
     api_bearer_token: SecretStr = SecretStr("change-me")
     cors_origins: list[str] = ["http://localhost:3000"]
     """CORS_ORIGINS as a JSON list: browser origins allowed to call the API (the web app)."""
+    admin_emails: list[str] = []
+    """ADMIN_EMAILS as a JSON list: who may sign in to /admin with an emailed link (D-055).
+    Checked on every request, so taking an address off the list ends its access at once. The
+    API_BEARER_TOKEN still works beside it, for scripts, CI and the day email does not."""
+
+    @field_validator("admin_emails")
+    @classmethod
+    def _admin_emails_lowercase(cls, value: list[str]) -> list[str]:
+        return sorted({address.strip().lower() for address in value if address.strip()})
 
     # --- Worker (T-213) ---
     worker_id: str = Field(default_factory=lambda: f"{socket.gethostname()}-{os.getpid()}")

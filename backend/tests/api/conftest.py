@@ -16,6 +16,8 @@ from autora_api.routers.runs import blob_store_dep  # noqa: E402
 from tests.newsroom.conftest import newsroom_room  # noqa: E402, F401 (fixture)
 
 TOKEN = "test-operator-token"
+ADMIN = "admin@aisiwhale.test"
+"""The one address on ADMIN_EMAILS in these tests (D-055)."""
 
 
 @pytest.fixture
@@ -42,7 +44,7 @@ async def api(db_session, db_settings, blobs, runtime, mailbox):
     app.dependency_overrides[runtime_dep] = lambda: runtime
     app.dependency_overrides[sender_dep] = lambda: mailbox
     app.dependency_overrides[settings_dep] = lambda: load_settings(
-        database_url=db_settings.database_url, api_bearer_token=TOKEN
+        database_url=db_settings.database_url, api_bearer_token=TOKEN, admin_emails=[ADMIN]
     )
     transport = httpx.ASGITransport(app=app)
     async with httpx.AsyncClient(

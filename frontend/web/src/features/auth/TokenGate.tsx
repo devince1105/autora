@@ -1,9 +1,12 @@
 "use client";
 
-import { useQueryClient } from "@tanstack/react-query";
-import { useState, useSyncExternalStore, type FormEvent, type ReactNode } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { usePathname, useRouter } from "next/navigation";
+import { useEffect, useSyncExternalStore, type ReactNode } from "react";
 
 import { getToken, setToken } from "@/api/auth";
+
+import { fetchAdminMe, loginHref, signOutAdmin } from "./adminAuth";
 
 // localStorage is not observable; this tiny subscription lets the gate re-render when the token
 // changes in this tab (sign in / out).
@@ -17,53 +20,59 @@ export function storeToken(token: string | null): void {
   listeners.forEach((listener) => listener());
 }
 
+export const ADMIN_ME_KEY = ["admin-me"] as const;
+
 /**
- * MVP access: one operator token (API_BEARER_TOKEN), entered once per browser and kept in
- * localStorage (3d-office/05 §6). Children render only with a token; a 401 anywhere should
- * call storeToken(null) to come back here.
+ * The back office's door (D-055). Children render for an admin signed in with an emailed link
+ * (the API's cookie) or for the operator token; anybody else is sent to /admin/login and back.
+ * A 401 anywhere calls storeToken(null), which asks again.
  */
 export function TokenGate({ children }: { children: ReactNode }) {
   const token = useSyncExternalStore(subscribe, getToken, () => null);
-  const queryClient = useQueryClient();
-  const [draft, setDraft] = useState("");
+  const router = useRouter();
+  const pathname = usePathname();
+  const me = useQuery({ queryKey: [...ADMIN_ME_KEY, token], queryFn: fetchAdminMe, retry: false, staleTime: 60_000 });
+  const signedOut = me.isSuccess && me.data === null;
 
-  if (token) return <>{children}</>;
+  useEffect(() => {
+    if (!signedOut) return;
+    // the query from the address bar, not useSearchParams: that would need a Suspense boundary
+    // around every page this gate wraps
+    router.replace(loginHref(`${pathname}${window.location.search}`));
+  }, [signedOut, pathname, router]);
 
-  const submit = (event: FormEvent) => {
-    event.preventDefault();
-    const value = draft.trim();
-    if (!value) return;
-    queryClient.clear(); // nothing fetched with another token survives
-    storeToken(value);
-  };
-
+  if (me.data) {
+    return (
+      <>
+        <AdminBar email={me.data.email} />
+        {children}
+      </>
+    );
+  }
   return (
-    <main className="grid min-h-screen place-items-center p-4">
-      <form onSubmit={submit} className="grid w-full max-w-md gap-4 rounded-2xl border border-line bg-surface p-8">
-        <h1 className="text-2xl font-semibold">Autora</h1>
-        <p className="text-sm leading-relaxed text-muted">
-          這是 Autora 自己的 API 密碼：填入後端 <code>.env</code> 的 <code>API_BEARER_TOKEN</code>
-          （開發環境預設為 <code>change-me</code>）。它不是 NVIDIA 或 Anthropic 的金鑰——那些只留在後端，
-          瀏覽器永遠看不到。權杖只存在這個瀏覽器。
-        </p>
-        <label className="grid gap-1.5 text-sm">
-          操作者權杖
-          <input
-            className="rounded-lg border border-line bg-canvas px-3 py-2 text-ink outline-none focus:border-accent"
-            type="password"
-            autoComplete="off"
-            value={draft}
-            onChange={(e) => setDraft(e.target.value)}
-          />
-        </label>
-        <button
-          type="submit"
-          disabled={!draft.trim()}
-          className="rounded-lg bg-accent px-4 py-2.5 font-semibold text-accent-ink disabled:cursor-default disabled:opacity-50"
-        >
-          進入
-        </button>
-      </form>
+    <main className="grid min-h-screen place-items-center p-4 text-sm text-muted">
+      {me.isError ? "連不到後端 API。" : "確認登入中…"}
     </main>
+  );
+}
+
+function AdminBar({ email }: { email: string | null }) {
+  const queryClient = useQueryClient();
+  const router = useRouter();
+  const signOut = async () => {
+    await signOutAdmin().catch(() => undefined);
+    storeToken(null);
+    queryClient.clear(); // nothing fetched as this admin survives
+    router.replace("/admin/login");
+  };
+  return (
+    <div className="border-b border-line bg-surface">
+      <div className="mx-auto flex max-w-6xl items-center justify-end gap-3 px-4 py-1.5 text-xs text-muted">
+        <span data-testid="admin-who">{email ?? "操作者權杖"}</span>
+        <button type="button" onClick={signOut} className="text-accent underline">
+          登出
+        </button>
+      </div>
+    </div>
   );
 }

@@ -41,6 +41,8 @@ export function createApiClient(options: ApiClientOptions = {}): ApiClient {
   const client = createClient<paths>({
     baseUrl: options.baseUrl ?? API_URL,
     fetch: options.fetch,
+    // the back office's sign-in is the API's cookie (D-055); the token header still works too
+    credentials: "include",
   });
   const token = options.getToken ?? getToken;
   client.use({

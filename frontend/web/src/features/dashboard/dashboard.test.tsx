@@ -1,12 +1,9 @@
 // @vitest-environment jsdom
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { act, cleanup, fireEvent, render, screen, within } from "@testing-library/react";
+import { cleanup, render, screen, within } from "@testing-library/react";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 
-import { getToken } from "@/api/auth";
-import { storeToken, TokenGate } from "@/features/auth/TokenGate";
 import { applyEvent, hydrate } from "@/realtime/reducer";
 import { RealtimeSnapshot } from "@/realtime/snapshot";
 import { parseEvent } from "@autora/event-schema";
@@ -146,25 +143,7 @@ describe("dashboard view", () => {
   });
 });
 
-describe("token gate", () => {
-  it("asks for the operator token, then shows the page", () => {
-    storeToken(null);
-    render(
-      <QueryClientProvider client={new QueryClient()}>
-        <TokenGate>
-          <p>inside</p>
-        </TokenGate>
-      </QueryClientProvider>,
-    );
-    expect(screen.queryByText("inside")).toBeNull();
-    fireEvent.change(screen.getByLabelText("操作者權杖"), { target: { value: " secret " } });
-    fireEvent.click(screen.getByRole("button", { name: "進入" }));
-    expect(screen.getByText("inside")).toBeTruthy();
-    expect(getToken()).toBe("secret");
-    act(() => storeToken(null));
-    expect(screen.queryByText("inside")).toBeNull();
-  });
-
+describe("dashboard links", () => {
   it("links to the approval inbox with the pending count", () => {
     render(
       <DashboardView
