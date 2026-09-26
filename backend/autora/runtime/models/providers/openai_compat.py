@@ -77,10 +77,13 @@ class OpenAICompatibleProvider:
         max_retries: int = 2,
         max_retry_wait_s: float = 30.0,
         extra_body: dict[str, Any] | None = None,
+        max_tokens_field: str = "max_tokens",
     ):
         self.name = name
         self.extra_body = dict(extra_body or {})
         """Sent with every request: a provider's own knobs (Gemini's ``reasoning_effort``)."""
+        self.max_tokens_field = max_tokens_field
+        """OpenAI's reasoning models refuse ``max_tokens`` and take ``max_completion_tokens``."""
         self.base_url = base_url.rstrip("/")
         self.max_retries = max_retries
         self.max_retry_wait_s = max_retry_wait_s
@@ -99,7 +102,7 @@ class OpenAICompatibleProvider:
         system = request.system or ""
         body: dict[str, Any] = {
             "model": binding.model_id,
-            "max_tokens": request.max_output_tokens,
+            self.max_tokens_field: request.max_output_tokens,
             "stream": False,
             **self.extra_body,
         }

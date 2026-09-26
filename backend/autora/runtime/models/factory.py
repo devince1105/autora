@@ -55,6 +55,26 @@ def providers_from_settings(
             )
         }
 
+    if settings.model_provider == "openai":
+        from autora.runtime.models.providers.openai_compat import OpenAICompatibleProvider
+
+        # the same adapter, at OpenAI itself (D-053)
+        assert settings.openai_api_key is not None  # Settings validates this
+        return {
+            "openai": OpenAICompatibleProvider(
+                name="openai",
+                base_url=settings.openai_base_url,
+                api_key=settings.openai_api_key.get_secret_value(),
+                timeout_s=settings.openai_timeout_seconds,
+                extra_body=(
+                    {"reasoning_effort": settings.openai_reasoning_effort}
+                    if settings.openai_reasoning_effort
+                    else None
+                ),
+                max_tokens_field="max_completion_tokens",
+            )
+        }
+
     from anthropic import AsyncAnthropic
 
     from autora.runtime.models.providers.anthropic import AnthropicProvider

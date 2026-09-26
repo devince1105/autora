@@ -131,7 +131,7 @@ def router_from_settings(settings: Settings) -> ModelRouter:
             },
             routes={"*.*": "frontier"},
         )
-    if settings.model_provider in ("anthropic", "nvidia", "gemini"):
+    if settings.model_provider in ("anthropic", "nvidia", "gemini", "openai"):
         provider = settings.model_provider
         prices = {model_id: Price(**entry) for model_id, entry in settings.model_prices.items()}
         frontier = settings.frontier_model_id

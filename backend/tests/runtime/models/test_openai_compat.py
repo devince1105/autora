@@ -370,6 +370,30 @@ def test_switching_provider_is_one_setting():
     assert isinstance(anthropic["anthropic"], AnthropicProvider)
 
 
+def test_openai_goes_through_the_same_adapter_at_openai():
+    """D-053: OpenAI itself, asked to reason little, with its own name for the output cap."""
+    settings = _settings(
+        model_provider="openai", openai_api_key="sk-x", frontier_model_id="vendor/big",
+        model_prices=PRICES,
+    )  # fmt: skip
+    [provider] = providers_from_settings(settings).values()
+    assert isinstance(provider, OpenAICompatibleProvider) and provider.name == "openai"
+    assert provider.base_url == "https://api.openai.com/v1"
+    assert provider.extra_body == {"reasoning_effort": "low"}
+    assert router_from_settings(settings).aliases["frontier"].provider == "openai"
+    with pytest.raises(SettingsError) as exc:
+        _settings(model_provider="openai")
+    assert "OPENAI_API_KEY" in str(exc.value)
+
+
+async def test_the_output_cap_goes_by_the_provider_s_name_for_it():
+    server = Server()
+    await _provider(server, max_tokens_field="max_completion_tokens").complete(_request(), BINDING)
+    assert "max_completion_tokens" in server.last and "max_tokens" not in server.last
+    await _provider(server).complete(_request(), BINDING)
+    assert "max_tokens" in server.last
+
+
 # --- what a call is billed (the Gemini bill, D-052) -------------------------------------------
 
 

@@ -59,10 +59,10 @@ class Settings(BaseSettings):
     db_echo: bool = False
 
     # --- Model provider (T-207/T-208, D-005). Ids come from env, never from code. ---
-    model_provider: Literal["fake", "anthropic", "nvidia", "gemini"] = "fake"
+    model_provider: Literal["fake", "anthropic", "nvidia", "gemini", "openai"] = "fake"
     """fake: simulated, free. anthropic: Claude API. nvidia: NVIDIA Build (OpenAI-compatible).
-    gemini: Google Gemini API through its OpenAI-compatible endpoint (D-039). Every key may be set
-    at once; this chooses which one is used."""
+    gemini: Google Gemini API through its OpenAI-compatible endpoint (D-039). openai: OpenAI's own
+    Chat Completions (D-053). Every key may be set at once; this chooses which one is used."""
     anthropic_api_key: SecretStr | None = None
     nvidia_api_key: SecretStr | None = None
     nvidia_base_url: str = "https://integrate.api.nvidia.com/v1"
@@ -76,6 +76,12 @@ class Settings(BaseSettings):
     """How much Gemini thinks before it answers. Its thinking is billed as output tokens and is
     on by default — one request thought 10,119 tokens to copy a table. "low" keeps it for the
     agents' judgement calls at a fraction of the cost; "" leaves it to Google."""
+    openai_api_key: SecretStr | None = None
+    openai_base_url: str = "https://api.openai.com/v1"
+    openai_timeout_seconds: float = Field(default=180.0, gt=0)
+    """Per request, as for NVIDIA."""
+    openai_reasoning_effort: Literal["none", "minimal", "low", "medium", "high", ""] = "low"
+    """As GEMINI_REASONING_EFFORT: its reasoning is billed as output. "" leaves it to OpenAI."""
     official_trades_enabled: bool = False
     """Transcribe officials' transaction reports ourselves (D-051). Off (D-052): a small company
     points readers to the trackers that already publish these, rather than paying a model to
@@ -180,6 +186,7 @@ class Settings(BaseSettings):
         "anthropic_api_key",
         "nvidia_api_key",
         "gemini_api_key",
+        "openai_api_key",
         "tavily_api_key",
         "fred_api_key",
         "finnhub_api_key",
@@ -208,6 +215,7 @@ class Settings(BaseSettings):
                 "anthropic": self.anthropic_api_key,
                 "nvidia": self.nvidia_api_key,
                 "gemini": self.gemini_api_key,
+                "openai": self.openai_api_key,
             }
             if key[self.model_provider] is None:
                 problems.append(

@@ -1551,6 +1551,12 @@ T-611 之後，商業迴圈已經有 CEO 評估機會、策略師把機會寫成
 
 ---
 
+## D-053：改用 GPT-5.6 Luna
+
+- 評估 OpenAI、Gemini、Anthropic、DeepSeek 的成本：依實測用量，GPT-5.6 Luna 每月約 $8，Gemini 3.8 Flash 約 $28（2027 年起加倍），Claude Sonnet 5 約 $75；DeepSeek 資料送往中國且有審查，不適合台灣新聞站。
+- 使用者比較文風後選 GPT-5.6 Luna。新增 `MODEL_PROVIDER=openai`，沿用 OpenAI 相容介面；OpenAI 推理模型不收 `max_tokens`，所以介面多一個 `max_tokens_field`，OpenAI 用 `max_completion_tokens`。`reasoning_effort` 預設 low。
+- `.env` 已加上 Luna 的價格與空白的 `OPENAI_API_KEY`；金鑰由使用者填，填好後才把 `MODEL_PROVIDER` 切過去（否則設定檢查不讓服務啟動）。
+
 ## 提交紀錄
 
 | 提交 | 日期 | 內容 | 持續整合 |
