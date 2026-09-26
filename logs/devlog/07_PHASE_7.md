@@ -1628,3 +1628,5 @@ T-611 之後，商業迴圈已經有 CEO 評估機會、策略師把機會寫成
 | `51321f3` | 2026-09-26 | D-051：佩洛西（眾議院定期交易報告，owner／note、migration 0045）；模型失敗時停止該輪 | ✅ 執行編號 `36204409023`（e2e 5 分 10 秒、python 3 分 59 秒、web 1 分 1 秒） |
 | `cbf6881` | 2026-09-26 | D-052：成本控管（真實價格、思考 token 計入、reasoning_effort=low、每日總上限、事業單位預算不當公司上限）；名人交易改連外部追蹤網站 | ✅ 執行編號 `36206870047`（e2e 6 分 4 秒、python 2 分 42 秒、web 54 秒） |
 | `c0318a7` | 2026-09-26 | D-053：新增 OpenAI 模型供應商（GPT-5.6 Luna，`max_completion_tokens`、reasoning_effort=low） | ✅ 執行編號 `36209785452`（e2e 6 分 10 秒、python 4 分 16 秒、web 41 秒） |
+| `45419bc` | 2026-09-26 | D-053：OpenAI 預設不思考（Luna 在 Chat Completions 上不接受工具＋reasoning_effort）；首輪 Luna 實跑紀錄 | ❌ 執行編號 `36211887862`：python 兩個測試失敗（docstring 寫到模型名、Gemini 測試被誤改）；web、e2e 過 |
+| `184b7e4` | 2026-09-26 | 修好 `45419bc` 的兩個測試 | ✅ 執行編號 `36211920073`（e2e 6 分 9 秒、python 4 分 21 秒、web 59 秒） |
